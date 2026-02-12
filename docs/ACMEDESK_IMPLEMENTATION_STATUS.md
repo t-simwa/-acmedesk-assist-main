@@ -595,12 +595,12 @@ This section covers tasks to elevate the UI from a good prototype to a **world-c
 
 #### F1 – Design System & Visual Foundation
 
-- **F1.1 – Typography System**
-  - [ ] Audit and refine typography scale (headings, body, captions, labels).
-  - [ ] Ensure consistent font weights and line heights across all components.
-  - [ ] Implement proper text hierarchy with semantic HTML and CSS classes.
-  - [ ] Add font loading optimization (preload, font-display: swap).
-  - [ ] Verify readability at all sizes (12px minimum for body text, WCAG AA compliance).
+- **F1.1 – Typography System** ✅ **COMPLETE**
+  - [x] Audit and refine typography scale (headings, body, captions, labels).
+  - [x] Ensure consistent font weights and line heights across all components.
+  - [x] Implement proper text hierarchy with semantic HTML and CSS classes.
+  - [x] Add font loading optimization (preload, font-display: swap).
+  - [x] Verify readability at all sizes (12px minimum for body text, WCAG AA compliance).
 
 - **F1.2 – Color System & Theming**
   - [ ] Expand color palette beyond basic Tailwind defaults:
@@ -893,7 +893,7 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
   - [x] A3 – Chat API (initial implementation with simple echo or canned responses from backend).
   - [x] D1 – API client layer.
   - [x] D2 – Wire `ChatWidget` to backend (using stubbed chat logic).
-  - [ ] F1.1 – Typography system refinement.
+  - [x] F1.1 – Typography system refinement.
   - [ ] F1.2 – Color system & dark mode foundation (basic implementation).
   - [ ] F1.3 – Spacing & layout system audit.
   - [ ] F2.3 – Enhanced loading & error states for chat widget.

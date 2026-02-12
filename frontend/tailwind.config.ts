@@ -13,6 +13,53 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ['IBM Plex Sans', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'system-ui', 'sans-serif'],
+        serif: ['IBM Plex Serif', 'Georgia', 'Times New Roman', 'serif'],
+      },
+      fontSize: {
+        // Heading scale - semantic sizes with proper line heights
+        'h1': ['2.75rem', { lineHeight: '1.1', letterSpacing: '-0.02em', fontWeight: '600' }], // 44px
+        'h2': ['2rem', { lineHeight: '1.2', letterSpacing: '-0.01em', fontWeight: '600' }], // 32px
+        'h3': ['1.5rem', { lineHeight: '1.3', letterSpacing: '-0.01em', fontWeight: '600' }], // 24px
+        'h4': ['1.25rem', { lineHeight: '1.4', letterSpacing: '0', fontWeight: '600' }], // 20px
+        'h5': ['1.125rem', { lineHeight: '1.4', letterSpacing: '0', fontWeight: '600' }], // 18px
+        'h6': ['1rem', { lineHeight: '1.5', letterSpacing: '0', fontWeight: '600' }], // 16px
+        
+        // Body text scale - WCAG AA compliant (minimum 12px)
+        'body-lg': ['1.0625rem', { lineHeight: '1.6', letterSpacing: '0', fontWeight: '400' }], // 17px
+        'body': ['0.875rem', { lineHeight: '1.5', letterSpacing: '0', fontWeight: '400' }], // 14px - primary body
+        'body-sm': ['0.8125rem', { lineHeight: '1.5', letterSpacing: '0', fontWeight: '400' }], // 13px
+        'body-xs': ['0.75rem', { lineHeight: '1.5', letterSpacing: '0', fontWeight: '400' }], // 12px - minimum WCAG AA
+        
+        // Label scale
+        'label': ['0.8125rem', { lineHeight: '1.4', letterSpacing: '0.01em', fontWeight: '500' }], // 13px
+        'label-sm': ['0.75rem', { lineHeight: '1.4', letterSpacing: '0.01em', fontWeight: '500' }], // 12px
+        
+        // Caption scale
+        'caption': ['0.6875rem', { lineHeight: '1.4', letterSpacing: '0.01em', fontWeight: '400' }], // 11px
+        'caption-xs': ['0.5625rem', { lineHeight: '1.3', letterSpacing: '0.02em', fontWeight: '400' }], // 9px
+      },
+      lineHeight: {
+        'tight': '1.2',
+        'snug': '1.3',
+        'normal': '1.5',
+        'relaxed': '1.6',
+        'loose': '1.8',
+      },
+      fontWeight: {
+        'normal': '400',
+        'medium': '500',
+        'semibold': '600',
+        'bold': '700',
+      },
+      letterSpacing: {
+        'tighter': '-0.02em',
+        'tight': '-0.01em',
+        'normal': '0',
+        'wide': '0.01em',
+        'wider': '0.02em',
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

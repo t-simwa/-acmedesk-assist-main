@@ -131,10 +131,66 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Base body text - WCAG AA compliant (14px minimum) */
+    font-size: 0.875rem; /* 14px */
+    line-height: 1.5;
+  }
+
+  /* Semantic heading styles with proper hierarchy - using IBM Plex Serif */
+  h1 {
+    @apply text-h1 text-foreground font-serif;
+    font-family: 'IBM Plex Serif', Georgia, 'Times New Roman', serif;
+  }
+
+  h2 {
+    @apply text-h2 text-foreground font-serif;
+    font-family: 'IBM Plex Serif', Georgia, 'Times New Roman', serif;
+  }
+
+  h3 {
+    @apply text-h3 text-foreground font-serif;
+    font-family: 'IBM Plex Serif', Georgia, 'Times New Roman', serif;
+  }
+
+  h4 {
+    @apply text-h4 text-foreground font-serif;
+    font-family: 'IBM Plex Serif', Georgia, 'Times New Roman', serif;
+  }
+
+  h5 {
+    @apply text-h5 text-foreground font-serif;
+    font-family: 'IBM Plex Serif', Georgia, 'Times New Roman', serif;
+  }
+
+  h6 {
+    @apply text-h6 text-foreground font-serif;
+    font-family: 'IBM Plex Serif', Georgia, 'Times New Roman', serif;
+  }
+
+  /* Ensure paragraphs use body text size */
+  p {
+    @apply text-body text-foreground;
+  }
+
+  /* Small text for captions and labels */
+  small {
+    @apply text-caption text-muted-foreground;
+  }
+
+  /* Ensure minimum font size for accessibility (WCAG AA) */
+  * {
+    font-size: inherit;
+  }
+
+  /* Prevent text from being too small */
+  input,
+  textarea,
+  select,
+  button {
+    font-size: 0.875rem; /* 14px minimum */
   }
 }
 
