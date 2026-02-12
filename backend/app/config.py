@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     environment: str = "development"
 
     # Frontend URL allowed for CORS
-    frontend_origin: AnyHttpUrl | str = "http://localhost:5173"
+    frontend_origin: AnyHttpUrl | str = "http://localhost:8080"
 
     # Placeholders for future RAG-related configuration
     openai_api_key: Optional[str] = None

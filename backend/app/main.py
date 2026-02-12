@@ -23,9 +23,19 @@ app = FastAPI(
 )
 
 # Configure CORS so the Vite frontend can call this API during development.
+# In development, allow common localhost ports for flexibility
+if settings.environment == "development":
+    allowed_origins = [
+        str(settings.frontend_origin),
+        "http://localhost:8080",  # Current Vite dev server port
+        "http://localhost:5173",   # Default Vite dev server port
+    ]
+else:
+    allowed_origins = [str(settings.frontend_origin)]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[str(settings.frontend_origin)],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -526,14 +526,14 @@ This section lists **granular, implementation-ready checklists** grouped by area
 
 ### D. Frontend Integration
 
-- **D1 – API Client Layer**
-  - [ ] Create `src/lib/api.ts` (or similar) with a generic `apiClient` using `fetch` or `react-query`.
-  - [ ] Configure base URL via env var (e.g. `VITE_API_URL`).
-  - [ ] Implement client functions:
-    - [ ] `chatApi.sendMessage({ sessionId, message })`.
-    - [ ] `documentsApi.list()`, `documentsApi.upload(file)`, `documentsApi.reindex(id)`.
-    - [ ] `analyticsApi.getSummary()`, `analyticsApi.getTopQueries()`.
-    - [ ] `settingsApi.getRagSettings()`, `settingsApi.updateRagSettings(payload)`.
+- **D1 – API Client Layer** ✅ **COMPLETE**
+  - [x] Create `src/lib/api.ts` (or similar) with a generic `apiClient` using `fetch` or `react-query`.
+  - [x] Configure base URL via env var (e.g. `VITE_API_URL`).
+  - [x] Implement client functions:
+    - [x] `chatApi.sendMessage({ sessionId, message })`.
+    - [x] `documentsApi.list()`, `documentsApi.upload(file)`, `documentsApi.reindex(id)`.
+    - [x] `analyticsApi.getSummary()`, `analyticsApi.getTopQueries()`.
+    - [x] `settingsApi.getRagSettings()`, `settingsApi.updateRagSettings(payload)`.
 
 - **D2 – Wire ChatWidget to Backend**
   - [ ] Replace `getMockResponse()` with `await chatApi.sendMessage(...)`.
@@ -891,7 +891,7 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
   - [x] A1 – Backend skeleton.
   - [x] A2 – Health & system endpoints.
   - [x] A3 – Chat API (initial implementation with simple echo or canned responses from backend).
-  - [ ] D1 – API client layer.
+  - [x] D1 – API client layer.
   - [ ] D2 – Wire `ChatWidget` to backend (using stubbed chat logic).
   - [ ] F1.1 – Typography system refinement.
   - [ ] F1.2 – Color system & dark mode foundation (basic implementation).
