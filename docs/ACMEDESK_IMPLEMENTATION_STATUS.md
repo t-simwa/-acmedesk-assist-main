@@ -416,16 +416,16 @@ This section lists **granular, implementation-ready checklists** grouped by area
     - [x] Returns uptime and last successful checks.
 
 - **A3 – Chat API**
-  - [ ] Define Pydantic models (or TS interfaces if Node) for:
-    - [ ] `ChatRequest` – `{ session_id?: string, message: string }`.
-    - [ ] `ChatResponse` – `{ answer: string, sources: SourceRef[], metadata: ChatMetadata }`.
-  - [ ] Implement `POST /api/chat`:
-    - [ ] Validate request body.
-    - [ ] Log query and start time.
-    - [ ] Call RAG pipeline (see Section B) to get answer + sources.
-    - [ ] Persist conversation turn to DB.
-    - [ ] Return structured response.
-  - [ ] (Optional) Implement `GET/POST /api/chat/stream` for SSE/websocket streaming.
+  - [x] Define Pydantic models (or TS interfaces if Node) for:
+    - [x] `ChatRequest` – `{ session_id?: string, message: string }`.
+    - [x] `ChatResponse` – `{ answer: string, sources: SourceRef[], metadata: ChatMetadata }`.
+  - [x] Implement `POST /api/chat`:
+    - [x] Validate request body.
+    - [x] Log query and start time.
+    - [x] Call RAG pipeline (see Section B) to get answer + sources.
+    - [x] Persist conversation turn to DB.
+    - [x] Return structured response.
+  - [x] (Optional) Implement `GET/POST /api/chat/stream` for SSE/websocket streaming.
 
 - **A4 – Admin APIs: Documents**
   - [ ] Implement `POST /api/documents/upload`:
@@ -890,7 +890,7 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
 - **Includes:**
   - [x] A1 – Backend skeleton.
   - [x] A2 – Health & system endpoints.
-  - [ ] A3 – Chat API (initial implementation with simple echo or canned responses from backend).
+  - [x] A3 – Chat API (initial implementation with simple echo or canned responses from backend).
   - [ ] D1 – API client layer.
   - [ ] D2 – Wire `ChatWidget` to backend (using stubbed chat logic).
   - [ ] F1.1 – Typography system refinement.
