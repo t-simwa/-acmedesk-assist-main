@@ -398,13 +398,13 @@ This section lists **granular, implementation-ready checklists** grouped by area
 ### A. Backend & API
 
 - **A1 – Backend Skeleton**
-  - [ ] Create `backend/` directory with Python FastAPI project (or Node/Express if you prefer).
-  - [ ] Add `backend/pyproject.toml` or `requirements.txt` with core deps (FastAPI, Uvicorn, pydantic, httpx, logging).
-  - [ ] Implement `backend/app/main.py` with:
-    - [ ] FastAPI app instance.
-    - [ ] CORS configuration to allow the Vite frontend origin.
-    - [ ] Root `/` route returning simple JSON.
-  - [ ] Add `backend/app/config.py` for env-based settings (API keys, DB URLs, vector DB config).
+  - [x] Create `backend/` directory with Python FastAPI project (or Node/Express if you prefer).
+  - [x] Add `backend/pyproject.toml` or `requirements.txt` with core deps (FastAPI, Uvicorn, pydantic, httpx, logging).
+  - [x] Implement `backend/app/main.py` with:
+    - [x] FastAPI app instance.
+    - [x] CORS configuration to allow the Vite frontend origin.
+    - [x] Root `/` route returning simple JSON.
+  - [x] Add `backend/app/config.py` for env-based settings (API keys, DB URLs, vector DB config).
 
 - **A2 – Health & System Endpoints**
   - [ ] Implement `GET /api/health` with:
@@ -888,7 +888,7 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
   - Wire the frontend chat widget to the backend so messages travel over HTTP.
   - Establish enterprise-grade UI foundation.
 - **Includes:**
-  - [ ] A1 – Backend skeleton.
+  - [x] A1 – Backend skeleton.
   - [ ] A2 – Health & system endpoints.
   - [ ] A3 – Chat API (initial implementation with simple echo or canned responses from backend).
   - [ ] D1 – API client layer.
