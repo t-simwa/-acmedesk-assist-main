@@ -1,0 +1,171 @@
+You are an expert AI application developer AND a senior product UI/UX designer. Build a production‑style portfolio project for me:
+
+PROJECT SUMMARY
+I need a “v1” RAG‑powered customer support chatbot for a fictional SaaS company called **AcmeDesk**. Treat it like a real client project.
+
+The system should:
+- Expose a **modern web chat widget** that embeds into a website.
+- Use **Retrieval‑Augmented Generation (RAG)** over a realistic documentation set.
+- Include a simple **admin panel** where a non‑technical support lead can:
+  - Upload / manage documents.
+  - See basic usage analytics (top questions, counts, etc.).
+- Be structured as a clean, real‑world codebase I can show to clients.
+
+CRITICAL UI / VISUAL DESIGN REQUIREMENTS
+I **DO NOT** want a generic “AI-looking” UI. No robot icons, no neon gradients, no sci‑fi visuals.
+
+Design the chat and admin UI as if they belong to a premium SaaS product in 2026, modelled after clean, modern tools like:
+- Intercom’s messenger (for chat layout and refinement),
+- Linear and Vercel dashboards (for typography, spacing, and minimalism),
+- Slack’s DM experience (for message readability and subtle chrome).
+
+Explicit requirements:
+- **Overall feel**:
+  - Minimal, calm, professional, premium.
+  - Plenty of white space, clear visual hierarchy, no clutter.
+- **Colors**:
+  - Neutral base (white / very light gray backgrounds).
+  - Muted grays for chrome.
+  - ONE primary accent color (e.g. a soft indigo/blue), used sparingly.
+  - No loud/neon gradients, no rainbow effects.
+- **Typography**:
+  - Modern sans‑serif system or web fonts similar to Inter / SF Pro / Geist.
+  - Clear hierarchy for headings, body text, meta text.
+  - Comfortable line height and padding for chat messages (easy to read).
+- **Chat widget**:
+  - Floating button in bottom-right with simple icon (e.g. chat bubble or minimal dot grid), **not** a robot/AI face.
+  - When open: panel with:
+    - Title bar (e.g. “Ask AcmeDesk” with small subtitle).
+    - Message list with distinct user vs assistant styles.
+    - Subtle separators for dates / new sessions.
+  - Smooth open/close animation and gentle scroll behavior (no jarring motions).
+- **Message bubbles**:
+  - Rounded rectangles (8–12px radius).
+  - Light background for user, slightly tinted background for assistant.
+  - No avatar icons required; if you add avatar initials, use simple circles with initials only (no illustrations).
+  - Timestamps in subtle, small gray text.
+- **Input area**:
+  - Single-line (expands to multi-line as needed).
+  - Clean border, soft focus ring using the accent color.
+  - Simple “Send” icon (e.g. arrow) with hover/active states, but no cartoonish styling.
+- **States & micro‑interactions**:
+  - Typing indicator: 3 subtle pulsing dots, aligned to assistant side.
+  - Loading skeletons/shimmers for messages instead of empty flashes.
+  - Error state: concise, friendly inline message with a retry option.
+- **Admin panel**:
+  - Layout more like Linear / modern dashboard:
+    - Left sidebar (navigation).
+    - Main content area with:
+      - Documents table.
+      - Basic charts (top queries, conversation counts, etc.).
+  - Use cards with light shadow and rounded corners for sections.
+  - Consistent spacing (8/12/16/24 grid) and alignments.
+
+TARGET USE CASE & BEHAVIOR
+AcmeDesk is a B2B support platform:
+- ~200 tickets/day; ~60% are repetitive FAQs already answered in docs.
+- Public help center (~100+ articles) plus some “internal docs”.
+- v1 goal: chatbot that safely answers FAQs from these docs, reduces repetitive tickets, and escalates to humans when unsure (no hallucinated pricing or policies).
+
+HIGH-LEVEL ARCHITECTURE
+Use this architecture:
+
+1) Frontend – Next.js App
+- **Next.js 14+ with App Router**.
+- **Tailwind CSS** for styling, configured to produce the premium UI described above.
+- Chat widget:
+  - Floating button + slide‑up panel as described.
+  - Message list with user/bot bubbles, timestamps, auto‑scroll, typing indicator, loading states.
+  - Mobile and desktop responsive, consistent look and spacing.
+- Admin panel:
+  - Protected route (simple auth).
+  - Pages:
+    - Documents: upload (drag‑and‑drop), list (name, type, status, last updated).
+    - Analytics: total conversations, top questions, basic charts.
+    - Settings: model name, temperature, top‑k retrieval, etc.
+
+2) Backend – API + RAG
+Prefer **Python FastAPI** (or Node.js/Express if you must), but keep code clean and modular.
+
+RAG pipeline:
+- Ingest documents from a local folder (simulate help center + internal docs with markdown/txt/HTML).
+- Use **LangChain** (or similar) to:
+  - Load and normalize docs.
+  - Chunk with a sensible strategy (overlap, max tokens).
+  - Compute embeddings with **OpenAI embeddings**.
+  - Store vectors in a vector DB (Chroma is fine locally).
+- Retrieval:
+  - Given a query, retrieve top‑k chunks.
+  - Construct a prompt that:
+    - Includes retrieved context.
+    - Enforces: *answer ONLY from context; if not present, say you’re not sure and escalate*.
+- Chat API:
+  - `POST /api/chat`: `{ sessionId, message }` → `{ answer, sources, metadata }`.
+  - Maintain simple per‑session history in a relational DB (Postgres/SQLite is fine).
+- Health endpoint:
+  - `GET /api/health` returns basic status.
+
+3) Data & Storage
+- **Vector DB**: Chroma (local) with clear abstraction so it can be swapped to Pinecone later.
+- **Relational DB**: SQLite or Postgres for:
+  - Conversation logs.
+  - Document metadata.
+- Provide a seed script that:
+  - Loads a small set of example docs (e.g. markdown files under `data/docs/`).
+  - Builds the index.
+
+PROJECT STRUCTURE
+Use a clear monorepo‑style layout:
+
+- `frontend/`
+  - `app/` (Next.js routes for chat UI and admin panel)
+  - `components/` (Chat widget, admin UI)
+  - `lib/` (API client, shared types)
+- `backend/`
+  - `app/` (FastAPI/Express endpoints)
+  - `core/` (RAG logic: loaders, chunking, embeddings, retrieval, prompts)
+  - `models/` (schemas, DTOs)
+  - `tests/` (a few high‑value tests)
+- `docs/`
+  - `architecture.md`
+  - `admin-guide.md`
+  - `rag-eval.md`
+- `.env.example` (no secrets, just keys and descriptions).
+- Root `README.md` as main entry point.
+
+TESTING & QUALITY
+Add at least:
+- A **manual testing checklist** in `docs/` or README covering:
+  - Smoke tests (widget loads, chat works).
+  - Admin flows (upload doc, see it listed, re‑index).
+  - RAG tests (ask 15–20 FAQ questions; log accuracy/hallucinations).
+- A couple of automated tests:
+  - Example: chunker behavior; `/api/health` endpoint.
+
+README REQUIREMENTS
+`README.md` should include:
+- Problem statement and summary.
+- Features list.
+- Tech stack (frontend, backend, RAG, DB).
+- Architecture overview.
+- Quickstart:
+  - How to set environment variables.
+  - How to run backend, frontend, and ingestion locally.
+- RAG evaluation summary (even if initial numbers are placeholder).
+- Links/commands to run tests.
+
+NON-FUNCTIONAL GOALS
+- Code should be **readable and idiomatic**, not just minimal.
+- Structure should feel like a real client project:
+  - Clear separation of concerns.
+  - Reasonable error handling and logging.
+  - Easy to extend later.
+
+DELIVERABLE
+Generate the full codebase (frontend + backend) and scaffolding so I can:
+- Run dev mode locally (frontend + backend).
+- Run a script/command to ingest sample docs.
+- Open a URL to see the **premium, non‑generic** chat widget in action.
+- Access an admin page to manage docs and view basic analytics.
+
+If something is ambiguous, make pragmatic, production‑minded choices and **prioritize a sleek, modern SaaS UI** over generic AI visuals.

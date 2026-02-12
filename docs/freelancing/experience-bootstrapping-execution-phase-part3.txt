@@ -1,0 +1,375 @@
+================================================================================
+EXPERIENCE BOOTSTRAPPING STRATEGY - PHASE 3: EXECUTION
+End-to-End Client Simulation for Project 1
+Part 3: Project Management, Tasks, and Weekly Execution Plan
+================================================================================
+
+OVERVIEW
+--------
+Parts 1 and 2 covered:
+• The engagement model and client communication (inbound → discovery → proposal).
+• The detailed discovery call, proposal, and commercial terms for Project 1.
+
+Part 3 focuses on how you actually **run and manage the work** once the contract
+is active:
+1. Setting up your project management tools for a real engagement.
+2. Breaking the 3-week plan into concrete tasks and subtasks.
+3. Defining weekly and daily routines so you always know what to do next.
+4. Tracking progress with simple, meaningful KPIs for both technical and
+   business outcomes.
+
+You’ll treat this as if you were working full-time or part-time on a real client
+project and want to deliver predictably, without chaos.
+
+TABLE OF CONTENTS - PART 3
+--------------------------
+
+SECTION 1: PROJECT MANAGEMENT SETUP
+  1.1  Project Board Structure (Columns, Labels, and Epics)
+  1.2  Example Task Breakdown for Project 1
+  1.3  How to Use the Board During the Project (Daily/Weekly Rhythm)
+
+SECTION 2: WEEK-BY-WEEK EXECUTION PLAN (3-WEEK V1)
+  2.1  Week 1 – Foundation & Base Chat
+  2.2  Week 2 – RAG Integration & Retrieval Quality
+  2.3  Week 3 – Admin Panel, Analytics, and Launch
+
+SECTION 3: METRICS, CHECKPOINTS, AND SELF-REVIEW
+  3.1  Technical KPIs and Quality Gates
+  3.2  Communication and Process KPIs
+  3.3  End-of-Project Retrospective Template
+
+================================================================================
+SECTION 1: PROJECT MANAGEMENT SETUP
+================================================================================
+
+1.1: PROJECT BOARD STRUCTURE (COLUMNS, LABELS, EPICS)
+-----------------------------------------------------
+
+You’ll use a simple Kanban-style board in a tool like:
+• Trello, Linear, Jira, GitHub Projects, or Notion.
+
+MINIMAL COLUMN SETUP
+• Backlog: All tasks that are defined but not yet scheduled.
+• This Week: Tasks you commit to for the current week.
+• In Progress: Actively working on now.
+• In Review / On Staging: Implemented and ready for client (or your own) review.
+• Done: Fully completed and validated.
+
+OPTIONAL COLUMNS (IF YOU WANT MORE GRANULARITY)
+• Blocked: Waiting for client input or external dependency.
+• Ready for Dev: Fully specified, can be picked up anytime.
+
+EPICS (HIGH-LEVEL GROUPINGS) FOR PROJECT 1
+• Epic A: Front-end Chat Widget
+• Epic B: Backend & RAG Pipeline
+• Epic C: Admin Panel & Analytics
+• Epic D: DevOps & Environments
+• Epic E: Documentation & Handover
+
+You can represent epics as:
+• Labels (e.g. A-Chat, B-RAG, etc.).
+• Or “parent” cards with checklists of child tasks.
+
+[END SECTION 1.1]
+================================================================================
+
+1.2: EXAMPLE TASK BREAKDOWN FOR PROJECT 1
+-----------------------------------------
+
+Below is a sample breakdown of tasks you would add to your board. Treat them as
+templates you can copy into Trello/Linear.
+
+EPIC A – FRONT-END CHAT WIDGET
+• A1 – Set up Next.js project with Tailwind.
+• A2 – Implement base layout and theme (following AcmeDesk branding).
+• A3 – Build chat UI component (message list, input box, send button).
+• A4 – Add typing indicator and loading states.
+• A5 – Make chat responsive (mobile + desktop).
+• A6 – Implement message timestamps and auto-scroll.
+• A7 – Create embeddable script/widget wrapper (for website integration).
+
+EPIC B – BACKEND & RAG PIPELINE
+• B1 – Set up FastAPI (or Express) project structure.
+• B2 – Implement `/api/health` endpoint.
+• B3 – Integrate OpenAI chat completion (base model, no RAG).
+• B4 – Implement document ingestion service (help center HTML → text).
+• B5 – Implement internal docs ingestion (e.g. Google Docs export → text).
+• B6 – Implement chunking strategy and store embeddings in vector DB.
+• B7 – Implement retrieval endpoint (query → top-k chunks).
+• B8 – Wire RAG retrieval into chat flow with guarded prompt.
+• B9 – Implement logging of questions, answers, and context used.
+
+EPIC C – ADMIN PANEL & ANALYTICS
+• C1 – Admin login/protected access (simple auth for simulation).
+• C2 – Document upload UI (drag-and-drop or file picker).
+• C3 – Document list view (name, type, status, last updated).
+• C4 – Trigger re-index/ingestion from admin UI.
+• C5 – Basic analytics dashboard (total conversations, top questions).
+• C6 – Settings page (model selection, temperature, top-k, etc.).
+
+EPIC D – DEVOPS & ENVIRONMENTS
+• D1 – Create GitHub repo and set up branching strategy (e.g. `main` + `dev`).
+• D2 – Configure `.env` and secret management strategy.
+• D3 – Set up staging environment (Vercel + Railway/Render).
+• D4 – Set up production environment (can be same providers initially).
+• D5 – Basic monitoring/logging setup (e.g. simple logs, optional Sentry).
+
+EPIC E – DOCUMENTATION & HANDOVER
+• E1 – Write `README` with setup instructions.
+• E2 – Document architecture (diagram + text).
+• E3 – Write admin usage guide (how to upload docs, read analytics).
+• E4 – Draft handover checklist/session outline.
+• E5 – Plan and record a short walkthrough video (optional but recommended).
+
+Each task card should have:
+• A clear title (“Verb + object”: e.g. “Implement RAG retrieval endpoint”).
+• Description with acceptance criteria (what “done” means).
+• A rough estimate (even if just S/M/L for your own planning).
+
+[END SECTION 1.2]
+================================================================================
+
+1.3: HOW TO USE THE BOARD DURING THE PROJECT
+--------------------------------------------
+
+DAILY RHYTHM (ESPECIALLY IF PART-TIME)
+• At start of the day (or session):
+  - Move 1–3 tasks from “This Week” into “In Progress”.
+  - Avoid starting more than 2 tasks at once (limit WIP).
+• While working:
+  - Update card checklists as you complete subtasks.
+  - Move cards to “In Review / On Staging” once the feature is deployed to
+    your staging environment.
+• At end of the day:
+  - Move completed cards to “Done”.
+  - Add quick notes to any cards still “In Progress” (what’s left, any blockers).
+
+WEEKLY RHYTHM (ALIGNED WITH CLIENT UPDATES)
+• Monday:
+  - Review all backlog and “Done” items.
+  - Choose a realistic set of tasks for “This Week” that match the agreed
+    milestone goals.
+• Mid-week:
+  - Check progress against this week’s target (are you halfway there?).
+  - Adjust tasks if needed and note any scope risk.
+• Friday (or end-of-week):
+  - Ensure all tasks that are actually done are moved to “Done”.
+  - Summarize the week’s completed cards in your update message to the client.
+
+This practice trains you to:
+• Always know what you’re working on.
+• Make progress visible (to yourself and to clients).
+• Catch slippage early rather than at the end of the milestone.
+
+[END SECTION 1.3]
+================================================================================
+
+SECTION 2: WEEK-BY-WEEK EXECUTION PLAN (3-WEEK V1)
+================================================================================
+
+2.1: WEEK 1 – FOUNDATION & BASE CHAT
+------------------------------------
+
+OBJECTIVE:
+• Have a working chat widget talking to a basic LLM backend on a staging URL
+  (no RAG yet), plus all core project scaffolding in place.
+
+KEY TASKS (MAPPED TO EPICS)
+• A1–A4: Core chat UI and basic UX (widget, messages, input, loading states).
+• B1–B3: Backend skeleton + basic OpenAI integration.
+• D1–D3: Repo, environments, staging deployment.
+
+SUGGESTED DAY-BY-DAY (ADAPT AS NEEDED)
+• Day 1:
+  - D1: Create repo, initial Next.js + FastAPI/Express setup.
+  - D2: Configure `.env` for local dev (OpenAI key, etc.).
+• Day 2:
+  - A1–A2: Base layout, theme, simple chat container.
+• Day 3:
+  - A3–A4: Message list, input, send button, loading state.
+  - B1: Health check endpoint.
+• Day 4:
+  - B2–B3: Basic `/api/chat` endpoint, connect to OpenAI, return dummy answers.
+• Day 5:
+  - D3: Deploy to staging (widget + base chat).
+  - Smoke test and fix obvious UI/API bugs.
+
+END-OF-WEEK 1 CHECKLIST
+• Can you:
+  - Open staging URL?
+  - Type a message and see a response from the LLM?
+  - See errors in logs if something fails?
+• Do you:
+  - Have repo + basic README?
+  - Have a small but clear list of Week 2 tasks ready?
+
+This is where you’d send your first “end-of-week” update in the simulation.
+
+[END SECTION 2.1]
+================================================================================
+
+2.2: WEEK 2 – RAG INTEGRATION & RETRIEVAL QUALITY
+-------------------------------------------------
+
+OBJECTIVE:
+• Move from “chatting with a generic model” to “chatting with a model grounded
+  in AcmeDesk’s docs”, and reach an acceptable level of answer quality on a test
+  set of FAQs.
+
+KEY TASKS
+• B4–B9: Document ingestion, chunking, embeddings, retrieval, RAG chat.
+• D4: Ensure staging can handle RAG setup (storage, env vars).
+
+SUGGESTED DAY-BY-DAY
+• Day 6:
+  - B4: Build ingestion script for help center HTML (scrape or import).
+  - Normalize content into a common text format with metadata (title, URL).
+• Day 7:
+  - B5: Implement ingestion for internal docs (simulate Google Docs export with
+    local `.md/.docx/.pdf` during practice).
+  - Define simple schema for storing doc metadata.
+• Day 8:
+  - B6: Implement chunking + embeddings (LangChain/TextSplitters + OpenAI
+    embeddings).
+  - Store vectors in Chroma/Pinecone/pgvector.
+• Day 9:
+  - B7: Implement retrieval endpoint (`/api/search` style).
+  - Test retrieval manually with some sample questions.
+• Day 10:
+  - B8–B9: Wire retrieval into `/api/chat` to create a full RAG flow:
+    • Query → retrieve top-k chunks → build prompt → answer → log.
+  - Tune chunk size, top-k, and prompt.
+
+RAG QUALITY SELF-TEST
+• Build a small test set:
+  - 15–20 realistic FAQ-style questions from your chosen documentation.
+• For each:
+  - Ask the question.
+  - Compare the bot’s answer to the canonical docs.
+  - Mark as Correct / Partially correct / Wrong / Escalate.
+• Goal:
+  - Aim for ~80% correct or acceptable (correct or appropriate escalation).
+
+END-OF-WEEK 2 CHECKLIST
+• You can:
+  - Demonstrate answers grounded in real docs (not generic).
+  - Show where in the docs the answer came from (even if just in logs or a
+    simple “sources” field).
+• You have:
+  - A short list of known limitations (e.g. “doesn’t handle multi-turn
+    clarifications yet”, “pricing questions always escalate”).
+
+This is where you’d simulate a short check-in call and written update focused on
+RAG quality.
+
+[END SECTION 2.2]
+================================================================================
+
+2.3: WEEK 3 – ADMIN PANEL, ANALYTICS, AND LAUNCH
+------------------------------------------------
+
+OBJECTIVE:
+• Make the system usable and maintainable by a non-technical support lead, and
+  ship a polished v1 to “production”.
+
+KEY TASKS
+• C1–C6: Admin UI, analytics, settings.
+• D4–D5: Production deployment + basic monitoring.
+• E1–E5: Documentation + handover prep.
+
+SUGGESTED DAY-BY-DAY
+• Day 11:
+  - C1–C2: Basic admin shell + document upload UI.
+• Day 12:
+  - C3–C4: Document list + re-index button/status.
+• Day 13:
+  - C5–C6: Simple analytics view + settings form (stored server-side).
+• Day 14:
+  - D4–D5: Production deployment.
+  - Sanity tests in production environment.
+• Day 15:
+  - E1–E5: Documentation (README, admin guide, architecture notes).
+  - Prepare/record short walkthrough.
+
+END-OF-WEEK 3 CHECKLIST
+• Production URL is live.
+• Admin panel works for:
+  - Uploading a new doc and seeing it appear in search/chat results.
+  - Viewing at least basic stats.
+• Documentation is:
+  - Clear enough that “Sarah” could onboard a new support agent with it.
+
+This is where you simulate your launch email and handover session.
+
+[END SECTION 2.3]
+================================================================================
+
+SECTION 3: METRICS, CHECKPOINTS, AND SELF-REVIEW
+================================================================================
+
+3.1: TECHNICAL KPIs AND QUALITY GATES
+-------------------------------------
+
+FOR THIS PROJECT, TRACK AT LEAST:
+• Response time:
+  - Target: < 3 seconds end-to-end for typical queries on staging/production.
+• RAG accuracy on test set:
+  - Target: ≥ 80% “correct or acceptable” on ~20 test questions.
+• Error rate:
+  - Target: < 1% of requests result in unhandled errors (500s).
+
+QUALITY GATES BEFORE YOU CONSIDER V1 “DONE”:
+• All tests in your manual test checklist pass.
+• No “TODO” comments in critical paths (API, RAG logic).
+• Logs are good enough to debug issues in production.
+
+[END SECTION 3.1]
+================================================================================
+
+3.2: COMMUNICATION AND PROCESS KPIs
+-----------------------------------
+
+TO BUILD GOOD HABITS, TRACK:
+• Weekly updates sent:
+  - Target: At least 2 written updates per week during active work.
+• Lead time from “task created” to “Done” for small tasks:
+  - Target: Most small tasks (<4h) finished within 2–3 days.
+• “Silent days” with no visible progress:
+  - Target: Zero during milestones (even 10–15 minutes of work should move
+    at least one card or note).
+
+These are mainly for you during this simulation, but the habits transfer directly
+to real client work.
+
+[END SECTION 3.2]
+================================================================================
+
+3.3: END-OF-PROJECT RETROSPECTIVE TEMPLATE
+------------------------------------------
+
+After you “finish” the simulated project, run a short retro with yourself. This
+trains you to continuously improve your process and not just your code.
+
+RETRO QUESTIONS (WRITE SHORT BULLETS)
+• What went well?
+  - Examples: “Daily 1-hour blocks were enough to make steady progress.”
+             “The RAG test set caught a bug before launch.”
+• What was painful?
+  - Examples: “I underestimated time for admin panel polish.”
+             “Docs ingestion pipeline took longer due to messy HTML.”
+• What would I change next time?
+  - Examples: “Define test set earlier.”
+             “Prototype ingestion scripts before Week 2.”
+• What reusable assets did I create?
+  - Examples: “Proposal template, recap email, RAG pipeline skeleton.”
+
+You can keep this as a markdown file in the repo (e.g. `retro-project-1.md`) and
+start building a library of lessons for future projects.
+
+[END SECTION 3.3]
+================================================================================
+
+END OF PART 3 (PHASE 3: EXECUTION)
+================================================================================
+

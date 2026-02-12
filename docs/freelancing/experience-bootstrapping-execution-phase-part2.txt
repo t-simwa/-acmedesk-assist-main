@@ -1,0 +1,776 @@
+================================================================================
+EXPERIENCE BOOTSTRAPPING STRATEGY - PHASE 3: EXECUTION
+End-to-End Client Simulation for Project 1
+Part 2: Discovery Call, Proposal, and Commercial Terms
+================================================================================
+
+OVERVIEW
+--------
+Part 2 assumes:
+• The client (AcmeDesk) has posted the job and sent you an initial message.
+• You replied and booked a 20–30 minute discovery call.
+
+This document walks through that middle section of a real engagement:
+1. How to run the discovery call like a professional consultant.
+2. How to turn the call into a tight written recap.
+3. How to write a client-friendly proposal and architecture summary.
+4. How to define commercial terms, milestones, and payments on Upwork.
+5. How to handle typical questions and objections (budget, scope, risk).
+
+You will **simulate** all of this for Project 1 (RAG-Powered Customer Support
+Chatbot) and save the artifacts (scripts, recap, proposal, milestone plan) so
+you can reuse and adapt them for real clients later.
+
+TABLE OF CONTENTS - PART 2
+--------------------------
+
+SECTION 1: DISCOVERY CALL SIMULATION
+  1.1  Call Objectives and Structure
+  1.2  Detailed Call Script (With Example Dialog)
+  1.3  Handling Common Questions and Objections
+  1.4  Turning the Call into a Written Recap
+
+SECTION 2: WRITTEN PROPOSAL & ARCHITECTURE SUMMARY
+  2.1  Proposal Structure and Length
+  2.2  Plain-Language Architecture for the AcmeDesk Chatbot
+  2.3  Technical Appendix (Optional for Technical Stakeholders)
+  2.4  Example Full Proposal Email (Ready to Adapt)
+
+SECTION 3: COMMERCIAL TERMS & BILLING SIMULATION
+  3.1  Choosing a Pricing Model for Project 1
+  3.2  Milestones, Deliverables, and Acceptance Criteria
+  3.3  Setting Up the Contract and Milestones on Upwork
+  3.4  Handling Scope Changes and Change Requests
+  3.5  Payment, Invoices, and Professional Boundaries
+
+================================================================================
+SECTION 1: DISCOVERY CALL SIMULATION
+================================================================================
+
+1.1: CALL OBJECTIVES AND STRUCTURE
+----------------------------------
+
+The discovery call has **one main goal**:
+• Decide on a **clear, realistic v1** that solves a meaningful slice of the
+  client’s problem in a short, low-risk timeframe (here, 3 weeks).
+
+SECONDARY GOALS:
+• Build trust and show you understand both the technical and business sides.
+• Gather enough information to write a specific proposal (no guessing).
+• Qualify that the client is serious, responsive, and aligned with your process.
+
+RECOMMENDED STRUCTURE (20–30 MINUTES)
+• 0–3 min: Warm-up, introductions, expectations.
+• 3–10 min: Understand current support workflow and pain.
+• 10–17 min: Goals, constraints, definition of success.
+• 17–23 min: Data, systems, and realistic v1 scope.
+• 23–28 min: Next steps, timeline, and how you work.
+
+You don’t explain everything about RAG and agents; you explain **just enough**
+to give confidence and keep the focus on outcomes.
+
+[END SECTION 1.1]
+================================================================================
+
+1.2: DETAILED CALL SCRIPT (WITH EXAMPLE DIALOG)
+-----------------------------------------------
+
+Below is a realistic call script between **you (Ted)** and **Sarah (Head of
+Customer Support at AcmeDesk)**. You will adapt this for your own style, but the
+structure and questions are reusable.
+
+PART A – OPENING (0–3 MINUTES)
+------------------------------
+Ted:
+• "Hi Sarah, nice to meet you. Thanks for taking the time today."
+
+Sarah:
+• "Hi Ted, great to meet you too. Thanks for hopping on."
+
+Ted:
+• "Before we dive in, does 30 minutes still work?
+   My goal is to understand your current support flow, what success would look
+   like for this chatbot, and then I’ll come back with a concise plan and
+   milestones. Does that match what you’re hoping to get out of this call?"
+
+Sarah:
+• "Yes, that sounds perfect."
+
+PART B – CURRENT SITUATION & PAIN (3–10 MINUTES)
+-----------------------------------------------
+Ted:
+• "Could you walk me through how customer support works today, starting from
+   where customers usually start—website, in-app, email—and what tools you use?"
+
+Sarah:
+• "Sure. Most tickets come through our Intercom widget and some by email.
+   We handle about 200 tickets a day. A lot of them are basic 'How do I do X?'
+   questions that are already in our docs."
+
+Ted (drilling down with specific but simple questions):
+• "Roughly what percentage would you say are those repetitive questions versus
+   more complex issues?"
+
+Sarah:
+• "Probably 60%, maybe more."
+
+Ted:
+• "Got it. And where does your documentation live today?"
+
+Sarah:
+• "We have a public help center with about 120 articles and some internal docs
+   in Google Drive that our agents use."
+
+Ted (summarizing to show understanding):
+• "So you have a decent knowledge base already, but customers still open tickets
+   instead of self-serving, and your team spends a lot of time repeating answers.
+   That matches a lot of what I see with other SaaS support teams."
+
+PART C – GOALS AND CONSTRAINTS (10–17 MINUTES)
+----------------------------------------------
+Ted:
+• "If we fast-forward 3–6 months and this project is clearly successful, what
+   would be different compared to today? We can talk numbers or just how life
+   feels for your team."
+
+Sarah:
+• "I’d love to see at least a 50% reduction in those simple tickets so agents
+   can focus on the complicated stuff. And we’d like customers to get instant
+   answers 24/7."
+
+Ted:
+• "That makes sense. Are there any hard constraints we should respect—things
+   like brand voice, legal/compliance, where data can be hosted?"
+
+Sarah:
+• "We’re careful about pricing and policy answers—AI should never invent them.
+   Also, our leadership prefers EU-hosted services if possible, but for a v1
+   we can be somewhat flexible if the trade-offs are clear."
+
+Ted:
+• "Good to know. On the hallucination side, the approach I take is called RAG—
+   Retrieval-Augmented Generation—which means the model only answers by looking
+   up your docs first. We can also configure it to say 'I’m not sure' and route
+   to a human when the confidence is low, rather than making something up."
+
+PART D – DATA & SYSTEMS (17–23 MINUTES)
+---------------------------------------
+Ted:
+• "For a first version in about 3 weeks, we probably don’t want to touch every
+   system you have. If we think in terms of 'minimum viable integration', which
+   of these would you like to include in v1, and which can wait?
+   - Website chat widget
+   - Your public help center
+   - Internal Google Docs
+   - Your existing ticketing system"
+
+Sarah:
+• "Website widget and public help center are must-haves. Internal docs would be
+   great if possible. Ticketing system integration can wait."
+
+Ted:
+• "Perfect. That lines up well with how I typically structure a v1:
+   - A standalone RAG backend that indexes your help center and key internal
+     docs.
+   - A chat widget on your site that talks only to that backend.
+   - No deep CRM/ticketing integration yet; just a safe, self-contained system."
+
+Ted (checking feasibility of 3-week v1):
+• "Given your priorities, a 3-week v1 focused on:
+   - Chatbot + RAG over help center + selected internal docs
+   - Basic admin panel for uploads and analytics
+   is realistic. We’d avoid anything that risks derailing that timeline—like
+   complex custom routing rules or deep CRM integration—for phase 1.
+
+   Does that level of v1 feel like it would already be valuable for you?"
+
+Sarah:
+• "Yes, that’s exactly what we need to start with."
+
+PART E – NEXT STEPS & HOW YOU WORK (23–28 MINUTES)
+--------------------------------------------------
+Ted:
+• "Great. Let me summarize what I heard, and then I’ll outline next steps."
+
+Ted (succinct recap on the call):
+• "You’re handling ~200 tickets/day with ~60% repetitive. You have a good help
+   center but customers bypass it. Success for v1 is a chatbot on your site that
+   can safely answer the top FAQs using your docs, reduce repetitive tickets by
+   around half, and run 24/7.
+
+   For v1 in 3 weeks, we’ll keep scope to:
+   • Website widget
+   • RAG over help center + selected internal docs
+   • Simple admin panel with basic analytics
+
+   I’ll put this into a short written plan with architecture, milestones, and
+   budget by tomorrow. Does that sound like the right next step?"
+
+Sarah:
+• "Yes, send that over and then we can move forward."
+
+Ted:
+• "Perfect. I’ll also include what I’d need from your side—mainly access to the
+   docs and one person who can approve what goes live. Thanks again for the
+   time, this will be a fun one."
+
+[END SECTION 1.2]
+================================================================================
+
+1.3: HANDLING COMMON QUESTIONS AND OBJECTIONS
+--------------------------------------------
+
+During or after the call, clients often ask similar questions. You want **short,
+confident answers** that are honest about trade-offs.
+
+OBJECTION 1: "How do we make sure the bot doesn’t hallucinate?"
+---------------------------------------------------------------
+Client:
+• "We’re worried about the chatbot just inventing answers, especially around
+   pricing and policies. How do you prevent that?"
+
+You:
+• "That’s a valid concern. There are three layers of protection we’ll put in:
+  1) Architecture: We use RAG, which means the model always searches your docs
+     first and answers based on that retrieved content instead of guessing.
+  2) Prompting: We explicitly instruct the model to:
+     - Only answer from the provided context.
+     - Say 'I’m not sure, let me connect you to a human' when the context
+       doesn’t contain an answer.
+  3) Guardrails: For sensitive topics like pricing or legal terms, we can:
+     - Either disable those categories in v1, or
+     - Force escalation to a human every time.
+
+  We’ll also review a sample of conversations in staging before launch so you
+  can see exactly how it behaves."
+
+OBJECTION 2: "Can we do this for $X (lower budget)?"
+----------------------------------------------------
+Client:
+• "We were thinking more like $3,000 for this first version. Is that possible?"
+
+You (principled but flexible):
+• "I understand wanting to keep initial spend low. The scope we discussed—RAG
+   over your help center + internal docs, plus admin panel and analytics—in a
+   3-week window lands around $8,000 based on similar projects I’ve done.
+
+   If $3,000 is a hard cap for this phase, we have two options:
+   1) Reduce scope: for example, we:
+      - Only index the public help center (not internal docs).
+      - Skip the admin panel and keep maintenance manual for now.
+      - Focus on a simpler analytics view.
+   2) Keep scope, extend timeline or split into phases:
+      - Phase 1 (~$3,000): basic chatbot + RAG over the help center only.
+      - Phase 2: internal docs + admin panel + analytics.
+
+   My recommendation is to keep quality high but adjust scope rather than trying
+   to do everything at a lower price and compromising reliability."
+
+OBJECTION 3: "We’re not very technical—how will we manage this after you leave?"
+-------------------------------------------------------------------------------
+Client:
+• "None of us are very technical. Once this is live, how do we maintain it?"
+
+You:
+• "That’s exactly why I include an admin panel and a handover session:
+  • Admin panel:
+    - Upload new docs.
+    - See top questions and simple metrics.
+    - Toggle certain content on/off.
+  • Handover:
+    - 60–90 minute walkthrough recorded on video.
+    - Covers: how the system is structured, what you can safely change yourselves
+      and what requires a developer.
+  • Documentation:
+    - Simple runbook in non-technical language for your support lead.
+
+  After that you have two options:
+  • Keep me on a light maintenance retainer (a few hours/month).
+  • Or just reach out ad-hoc if you need bigger changes later."
+
+[END SECTION 1.3]
+================================================================================
+
+1.4: TURNING THE CALL INTO A WRITTEN RECAP
+-----------------------------------------
+
+The recap email is **critical**:
+• It shows you listened.
+• It becomes the reference document for scope.
+• It makes writing the proposal 10x easier.
+
+RECAP EMAIL STRUCTURE (1 PAGE MAXIMUM)
+--------------------------------------
+Subject:
+• "Recap – AcmeDesk AI Support Chatbot Discovery Call"
+
+Sections:
+1) Thank you + purpose.
+2) Current situation (bullets).
+3) Goals and constraints.
+4) Draft v1 scope.
+5) Next steps.
+
+EXAMPLE RECAP EMAIL (FULL)
+--------------------------
+"Hi Sarah,
+
+Thanks again for the call today—this email is a quick recap so we have a shared
+reference as I put together the detailed plan.
+
+Current situation
+• ~200 support tickets/day across Intercom + email.
+• ~60% are repetitive 'how do I…?' questions that are already covered in docs.
+• Public help center with ~120 articles + internal Google Docs used by agents.
+
+Goals for this 3-week v1
+• Put an AI chatbot on your website that can safely answer the top FAQs using
+  your existing docs.
+• Reduce repetitive tickets by around 50% while keeping CSAT at or above today.
+• Provide instant answers 24/7 without hiring a second shift.
+
+Constraints and preferences
+• AI must not invent pricing or policy details—better to escalate than guess.
+• v1 should focus on website widget + RAG backend, no deep CRM integration yet.
+• Preference for EU-hosted services where possible, with trade-offs explained.
+
+Draft v1 scope (subject to your feedback)
+• Chat widget:
+  - Embedded on your marketing site, matching AcmeDesk branding.
+• RAG backend:
+  - Indexes your public help center and a curated set of internal docs.
+  - Uses Retrieval-Augmented Generation to answer from your content only.
+  - Falls back to 'I’m not sure, let me connect you to the team' when needed.
+• Admin panel:
+  - Upload new documents.
+  - View top questions and basic usage metrics.
+
+Next steps
+• I’ll send a concise proposal by tomorrow with:
+  - Plain-language architecture.
+  - 3 milestones mapped to a 3-week timeline.
+  - Fixed price quote and what I’ll need from your side.
+
+If I’ve misunderstood anything above, please reply with corrections—this recap
+is what I’ll use as the basis for the proposal.
+
+Best,
+Ted"
+
+In your simulation, you will:
+• Paste this template into a note.
+• Replace numbers and details with your own.
+• Use it as the basis for the proposal in Section 2.
+
+[END SECTION 1.4]
+================================================================================
+
+SECTION 2: WRITTEN PROPOSAL & ARCHITECTURE SUMMARY
+================================================================================
+
+2.1: PROPOSAL STRUCTURE AND LENGTH
+----------------------------------
+
+TARGET LENGTH
+• 1–2 pages in email form (or a 2–3 page PDF if you prefer).
+• Short enough that a busy manager can read in 5–7 minutes.
+
+CORE SECTIONS
+1) Executive summary (problem + goal).
+2) Proposed solution (plain-language architecture).
+3) Milestones, timeline, and deliverables.
+4) Commercials (price, payment schedule).
+5) Assumptions & client responsibilities.
+6) Next step (clear ask).
+
+REMEMBER:
+• This is not a technical spec document—it’s a **decision document**.
+
+[END SECTION 2.1]
+================================================================================
+
+2.2: PLAIN-LANGUAGE ARCHITECTURE FOR THE ACMEDESK CHATBOT
+---------------------------------------------------------
+
+You will describe the architecture in terms a non-technical Head of Support
+understands, using **business analogies** where helpful.
+
+EXAMPLE DESCRIPTION
+-------------------
+"At a high level, the solution has three main pieces:
+
+1) Website chat widget (what your customers see)
+   • A modern chat bubble on your website that customers can click to ask
+     questions in natural language.
+   • It matches your branding and works on desktop and mobile.
+
+2) AI brain connected to your documentation (RAG backend)
+   • Behind the scenes, there is a service that:
+     - Regularly reads and indexes your help center and selected internal docs.
+     - Stores them in a special search index designed for AI (a vector database).
+     - When a customer asks a question, it:
+       1) Finds the most relevant passages from your docs.
+       2) Feeds those passages into the AI model.
+       3) Asks the model to answer **only** based on that information.
+
+   • This is called Retrieval-Augmented Generation (RAG): instead of guessing,
+     the AI looks things up in your content first, then answers.
+
+3) Admin panel for your team (control and visibility)
+   • A simple web dashboard where your support lead can:
+     - Upload new documents or mark old ones as outdated.
+     - See which questions customers ask most often.
+     - Monitor basic usage and performance.
+
+This setup keeps the first version:
+• Safe: answers grounded in your docs.
+• Maintainable: your team can update content without code changes.
+• Extensible: later we can plug the same 'brain' into Intercom, email, or
+  internal tools without rebuilding from scratch."
+
+You can later attach a simple diagram, but the **words** above should make sense
+on their own.
+
+[END SECTION 2.2]
+================================================================================
+
+2.3: TECHNICAL APPENDIX (OPTIONAL)
+----------------------------------
+
+For more technical stakeholders (CTO, senior engineers), you can add a short
+appendix either in the same email or as a separate document.
+
+EXAMPLE TECHNICAL APPENDIX OUTLINE
+----------------------------------
+• Stack:
+  - Front-end: Next.js + Tailwind, embedded as a JS widget.
+  - Backend: FastAPI (Python) or Node/Express.
+  - RAG: LangChain + Chroma/Pinecone.
+  - DB: Postgres for conversations + metadata.
+  - Hosting: Vercel + Railway (or EU-hosted alternatives).
+
+• Data flow:
+  1) Nightly/periodic ingestion of help center + selected Google Docs.
+  2) Chunking + embeddings stored in vector DB.
+  3) Runtime:
+     - User question → backend.
+     - Top-k semantic matches retrieved.
+     - Prompt constructed with retrieved context.
+     - OpenAI GPT-4 generates answer.
+     - Answer + context stored for analytics.
+
+• Guardrails:
+  - System prompt enforcing grounded answers.
+  - Confidence threshold with escalation path.
+  - Optional category-level guards (e.g., pricing).
+
+This appendix is not required for every client, but having a template ready
+means you can quickly add it when you notice a technical stakeholder.
+
+[END SECTION 2.3]
+================================================================================
+
+2.4: EXAMPLE FULL PROPOSAL EMAIL (READY TO ADAPT)
+-------------------------------------------------
+
+Below is a complete proposal email for Project 1 that you can adapt line by
+line for real clients. It assumes the recap in Section 1.4 was already sent.
+
+SUBJECT:
+• "Proposal – 3-Week RAG-Powered Support Chatbot for AcmeDesk"
+
+BODY:
+-----
+"Hi Sarah,
+
+Based on our call and the recap I sent yesterday, here is a concise proposal
+for a 3-week v1 of the AcmeDesk AI support chatbot.
+
+1) Summary
+----------
+Your support team handles ~200 tickets/day, with ~60% being repetitive
+questions already answered in your docs. The goal for this phase is to:
+• Ship a chatbot on your website that can safely answer the top FAQs using
+  your existing help center + selected internal docs.
+• Reduce repetitive tickets by around 50% while maintaining or improving CSAT.
+
+2) Proposed solution (high level)
+--------------------------------
+We’ll build:
+• A branded chat widget on your marketing site.
+• A RAG backend that:
+  - Indexes your help center + curated internal docs into a vector database.
+  - Uses Retrieval-Augmented Generation so the AI answers based only on your
+    content (and escalates when unsure).
+• An admin panel where your support lead can:
+  - Upload/update documents.
+  - See top questions and basic usage metrics.
+
+3) Milestones, timeline, and deliverables
+-----------------------------------------
+Total duration: ~3 weeks from kickoff.
+
+Milestone 1 – Foundation & Base Chat (Week 1) – $2,500
+• Set up private repo, environments and CI basics.
+• Implement chat widget UI and connect it to a basic LLM backend (no RAG yet).
+• Deploy to staging so you can click through the experience.
+Acceptance:
+• You can open the staging URL, ask sample questions, and see responses flowing
+  end-to-end (even if answers are not yet grounded in your docs).
+
+Milestone 2 – RAG Knowledge Base Integration (Week 2) – $3,000
+• Ingest your help center + selected internal docs.
+• Build RAG pipeline (chunking, embeddings, vector search).
+• Connect the chatbot to this RAG pipeline so answers are grounded in your docs.
+• Add basic safeguards to avoid hallucinating policies/pricing.
+Acceptance:
+• For an agreed test set of FAQs, the bot answers correctly based on your docs,
+  or explicitly escalates when unsure.
+
+Milestone 3 – Admin Panel, Analytics & Launch (Week 3) – $2,500
+• Build admin panel (doc upload, basic metrics, configuration).
+• Add simple analytics (top questions, usage over time).
+• Deploy to production (or your preferred environment).
+• Run a handover session with your team and deliver documentation.
+Acceptance:
+• Production deployment accessible at agreed URL.
+• Your support lead can upload a new doc and see it reflected in bot behaviour.
+
+4) Commercials
+--------------
+• Pricing: Fixed fee of $8,000 for the 3-week v1, split as:
+  - M1: $2,500
+  - M2: $3,000
+  - M3: $2,500
+• On Upwork:
+  - Each milestone is funded before work on that slice begins and released
+    after you’ve reviewed and accepted the deliverables on staging/production.
+
+5) Assumptions & your responsibilities
+--------------------------------------
+• You will provide:
+  - Access to your help center content export or public URLs.
+  - Access to selected internal docs (e.g. Google Drive folders).
+  - A single point of contact for content questions and approvals.
+• For v1 we will:
+  - Focus on website widget + standalone RAG backend (no deep CRM integration).
+  - Treat pricing and policy content with extra caution (escalate when unsure).
+
+6) Next steps
+-------------
+If this plan looks aligned, the next step would be:
+• I set up the Upwork contract with the three milestones above.
+• Once Milestone 1 is funded, I’ll share the project board and we start
+  immediately.
+
+If you’d like to adjust scope (for example, reduce v1 cost by limiting which
+docs we include), I’m happy to propose a smaller first slice that still moves
+the needle.
+
+Best,
+Ted"
+
+In your simulation, copy this into your notes and change:
+• Numbers (timeline, price) to match your actual target rates.
+• Stack choices (FastAPI vs Node) to match your preferences.
+
+[END SECTION 2.4]
+================================================================================
+
+SECTION 3: COMMERCIAL TERMS & BILLING SIMULATION
+================================================================================
+
+3.1: CHOOSING A PRICING MODEL FOR PROJECT 1
+-------------------------------------------
+
+Common models:
+• Fixed price per project/milestone.
+• Hourly with an estimate range.
+• Hybrid: fixed for core + hourly for change requests.
+
+FOR PROJECT 1 (SIMULATION):
+• You will use **fixed price + milestones** because:
+  - Scope is well-bounded (single chatbot, specific v1).
+  - You want predictable income and the client wants predictable cost.
+  - It fits well with Upwork’s milestone system.
+
+RULE OF THUMB FOR RATES (BASED ON EARLIER ANALYSIS):
+• Entry/intermediate chatbot v1: $3,000–$8,000.
+• You’re targeting: ~$8,000 for a polished, portfolio-worthy build.
+
+[END SECTION 3.1]
+================================================================================
+
+3.2: MILESTONES, DELIVERABLES, AND ACCEPTANCE CRITERIA
+------------------------------------------------------
+
+You already defined three milestones in the proposal. Here you go deeper into
+how *you* know when a milestone is truly done.
+
+MILESTONE 1 – FOUNDATION & BASE CHAT
+• Deliverables:
+  - Private GitHub repository created.
+  - Project board created with tasks for all three weeks.
+  - Staging environment with:
+    • Chat widget UI.
+    • Backend accepting messages and returning LLM responses.
+• Acceptance criteria:
+  - Client can open staging URL and:
+    • See chat bubble/widget.
+    • Send a question ("Hello", "What is AcmeDesk?") and receive a response.
+  - No major visual glitches on desktop + mobile.
+
+MILESTONE 2 – RAG KNOWLEDGE BASE INTEGRATION
+• Deliverables:
+  - RAG pipeline implemented and documented.
+  - At least N (e.g. 50–100) help center articles indexed.
+  - At least one internal doc collection indexed.
+  - Configuration for chunk size, top-k retrieval, and embeddings.
+• Acceptance criteria:
+  - For an agreed test set of questions (e.g. 20 top FAQs):
+    • ≥80% are answered correctly using your docs.
+    • The remaining are either marked as "uncertain" or escalated.
+  - No answers contradict the documented policies in the test set.
+
+MILESTONE 3 – ADMIN PANEL, ANALYTICS & LAUNCH
+• Deliverables:
+  - Admin panel with:
+    • Login (if applicable) or protected access.
+    • Document upload UI.
+    • List of indexed documents and status.
+    • Simple analytics (total conversations, top queries).
+  - Production deployment.
+  - Handover documentation (PDF/Markdown).
+  - Optional recorded walkthrough.
+• Acceptance criteria:
+  - Client can:
+    • Upload a new doc and have the bot use it in answers.
+    • See basic usage stats over a test period.
+  - Production URL responds within target performance limits (e.g. <3 seconds).
+
+[END SECTION 3.2]
+================================================================================
+
+3.3: SETTING UP THE CONTRACT AND MILESTONES ON UPWORK
+-----------------------------------------------------
+
+On Upwork, you would:
+• Create a **fixed-price contract**.
+• Add three milestones named exactly as in your proposal.
+• For each milestone, write:
+  - Clear description (copy-paste from deliverables).
+  - Exact amount.
+  - Target date.
+
+EXAMPLE MILESTONE TEXT (YOU PASTE INTO UPWORK)
+----------------------------------------------
+Milestone 1:
+• "Foundation & Base Chat – Week 1"
+• Description:
+  - 'Set up project repo, environments, and base chat UI connected to a simple
+     LLM backend (no RAG yet). Deliver a staging URL where AcmeDesk can send
+     test messages and see responses end-to-end.'
+
+Milestone 2:
+• "RAG Knowledge Base Integration – Week 2"
+• Description:
+  - 'Implement RAG pipeline indexing AcmeDesk help center + selected internal
+     docs. Connect chatbot to this pipeline so answers are grounded in your
+     content. Validate against an agreed list of FAQs.'
+
+Milestone 3:
+• "Admin Panel, Analytics & Launch – Week 3"
+• Description:
+  - 'Build admin interface for document upload and basic analytics. Deploy
+     chatbot to production. Provide documentation and handover session.'
+
+[END SECTION 3.3]
+================================================================================
+
+3.4: HANDLING SCOPE CHANGES AND CHANGE REQUESTS
+-----------------------------------------------
+
+Inevitably, clients will ask:
+• "Can we also have X?" mid-project.
+
+You need a polite but firm way to:
+• Protect your time.
+• Keep the current milestones realistic.
+• Still be flexible and helpful.
+
+EXAMPLE RESPONSE (SCOPE CHANGE MID-WEEK)
+----------------------------------------
+Client:
+• "Can we also have the bot integrated with Zendesk in this first version?"
+
+You:
+• "That’s a good idea and definitely possible technically.
+
+   For the 3-week v1 we agreed to focus on the website widget + RAG backend +
+   admin panel so that we can ship something reliable quickly.
+
+   Integrating with Zendesk adds:
+   • Additional development and testing work (APIs, auth, edge cases).
+   • Extra complexity for the first launch.
+
+   I’d suggest we keep the current v1 scope as-is and treat Zendesk integration
+   as the first item for Phase 2. If you’d like, I can include a rough estimate
+   for that in the handover so you know what to expect."
+
+For larger scopes or bigger changes, you can propose:
+• "We can add a small change-budget on an hourly basis."
+or
+• "We can create a new milestone for this and adjust the timeline."
+
+[END SECTION 3.4]
+================================================================================
+
+3.5: PAYMENT, INVOICES, AND PROFESSIONAL BOUNDARIES
+---------------------------------------------------
+
+KEY PRINCIPLES
+• Never start substantial work on an unfunded milestone.
+• Keep all agreements in writing on the platform.
+• Be friendly but clear when it comes to payment.
+
+EXAMPLE: GENTLE REMINDER ABOUT FUNDING
+--------------------------------------
+Client:
+• "We’re ready for you to start next week."
+
+You:
+• "Great, I’m looking forward to it.
+
+   To keep everything clear on both sides, I’ll wait to start Milestone 1 until
+   it’s funded on Upwork. Once that’s done, I’ll:
+   • Share the repo + project board.
+   • Confirm the exact start date and Week 1 plan.
+
+   Let me know if you have any trouble with the Upwork milestone interface."
+
+EXAMPLE: CLOSING THE LOOP AFTER FINAL PAYMENT
+---------------------------------------------
+"Hi Sarah,
+
+I see the final milestone has been released—thank you.
+
+I’ve enjoyed working on this v1 with you and your team. As a reminder:
+• I’ll be available for the next 14 days to fix any bugs we discover in normal
+  usage (that’s included).
+• If you’d like to discuss a Phase 2 (e.g. Zendesk integration, more advanced
+  analytics, or internal-only chatbot), I’d be happy to schedule a call and
+  outline options.
+
+Also, if you feel the project went well, a short review on Upwork mentioning
+the AI + full-stack aspects would be greatly appreciated—it helps me a lot as
+I grow this niche.
+
+Best,
+Ted"
+
+[END SECTION 3.5]
+================================================================================
+
+END OF PART 2 (PHASE 3: EXECUTION)
+================================================================================
+
