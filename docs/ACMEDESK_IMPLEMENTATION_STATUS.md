@@ -407,13 +407,13 @@ This section lists **granular, implementation-ready checklists** grouped by area
   - [x] Add `backend/app/config.py` for env-based settings (API keys, DB URLs, vector DB config).
 
 - **A2 – Health & System Endpoints**
-  - [ ] Implement `GET /api/health` with:
-    - [ ] Basic status (`ok`, `version`).
-  - [ ] Implement `GET /api/health/ready` (optional but recommended):
-    - [ ] Checks DB connectivity.
-    - [ ] Checks vector DB connectivity.
-  - [ ] Implement `GET /api/health/live`:
-    - [ ] Returns uptime and last successful checks.
+  - [x] Implement `GET /api/health` with:
+    - [x] Basic status (`ok`, `version`).
+  - [x] Implement `GET /api/health/ready` (optional but recommended):
+    - [x] Checks DB connectivity.
+    - [x] Checks vector DB connectivity.
+  - [x] Implement `GET /api/health/live`:
+    - [x] Returns uptime and last successful checks.
 
 - **A3 – Chat API**
   - [ ] Define Pydantic models (or TS interfaces if Node) for:
@@ -889,7 +889,7 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
   - Establish enterprise-grade UI foundation.
 - **Includes:**
   - [x] A1 – Backend skeleton.
-  - [ ] A2 – Health & system endpoints.
+  - [x] A2 – Health & system endpoints.
   - [ ] A3 – Chat API (initial implementation with simple echo or canned responses from backend).
   - [ ] D1 – API client layer.
   - [ ] D2 – Wire `ChatWidget` to backend (using stubbed chat logic).
