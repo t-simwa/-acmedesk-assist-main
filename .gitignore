@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Documentation (internal/planning docs - setup guides can be tracked separately if needed)
+docs/
