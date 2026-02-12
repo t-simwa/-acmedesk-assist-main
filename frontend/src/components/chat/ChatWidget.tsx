@@ -3,23 +3,7 @@ import { X, ChevronDown } from "lucide-react";
 import { ChatMessage, MessageBubble } from "./MessageBubble";
 import { ChatInput } from "./ChatInput";
 import { TypingIndicator } from "./TypingIndicator";
-
-const MOCK_RESPONSES: Record<string, string> = {
-  pricing: "AcmeDesk offers three plans:\n\n• **Starter** — $29/mo (up to 3 agents)\n• **Pro** — $79/mo (up to 10 agents, analytics)\n• **Enterprise** — Custom pricing\n\nAll plans include a 14-day free trial. You can find more details in our pricing page.",
-  integrations: "AcmeDesk integrates with Slack, Microsoft Teams, Jira, Salesforce, HubSpot, and Zendesk. We also offer a REST API and webhooks for custom integrations.",
-  setup: "Getting started is simple:\n\n1. Sign up at acmedesk.com\n2. Add your first inbox (email, chat, or social)\n3. Invite your team members\n4. Install our widget on your website\n\nThe whole process takes about 10 minutes.",
-  sla: "Our SLA response times depend on your plan:\n\n• **Starter** — 24 hours\n• **Pro** — 4 hours\n• **Enterprise** — 1 hour with dedicated support\n\nWe maintain 99.9% uptime across all plans.",
-  default: "I found some relevant information in our documentation, but I'm not fully confident in my answer for this specific question. Let me connect you with a support agent who can help.\n\nWould you like me to escalate this to our team?",
-};
-
-function getMockResponse(message: string): string {
-  const lower = message.toLowerCase();
-  if (lower.includes("pric") || lower.includes("cost") || lower.includes("plan")) return MOCK_RESPONSES.pricing;
-  if (lower.includes("integrat") || lower.includes("connect") || lower.includes("slack")) return MOCK_RESPONSES.integrations;
-  if (lower.includes("setup") || lower.includes("start") || lower.includes("install") || lower.includes("begin")) return MOCK_RESPONSES.setup;
-  if (lower.includes("sla") || lower.includes("uptime") || lower.includes("support")) return MOCK_RESPONSES.sla;
-  return MOCK_RESPONSES.default;
-}
+import { chatApi, type ChatResponse } from "@/lib/api";
 
 export function ChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
@@ -32,6 +16,7 @@ export function ChatWidget() {
     },
   ]);
   const [isTyping, setIsTyping] = useState(false);
+  const [sessionId] = useState<string>(() => `session-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -43,29 +28,63 @@ export function ChatWidget() {
     scrollToBottom();
   }, [messages, isTyping, scrollToBottom]);
 
-  const handleSend = async (text: string) => {
-    const userMsg: ChatMessage = {
-      id: Date.now().toString(),
-      role: "user",
-      content: text,
-      timestamp: new Date(),
-    };
-    setMessages((prev) => [...prev, userMsg]);
+  const handleSend = async (text: string, retryMessageId?: string) => {
+    // If retrying, remove the error message first
+    if (retryMessageId) {
+      setMessages((prev) => prev.filter((msg) => msg.id !== retryMessageId));
+    }
+
+    // Add user message (only if not retrying)
+    if (!retryMessageId) {
+      const userMsg: ChatMessage = {
+        id: Date.now().toString(),
+        role: "user",
+        content: text,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, userMsg]);
+    }
+
     setIsTyping(true);
 
-    await new Promise((r) => setTimeout(r, 1200 + Math.random() * 800));
+    try {
+      const response: ChatResponse = await chatApi.sendMessage({
+        session_id: sessionId,
+        message: text,
+      });
 
-    const response = getMockResponse(text);
-    const assistantMsg: ChatMessage = {
-      id: (Date.now() + 1).toString(),
-      role: "assistant",
-      content: response,
-      timestamp: new Date(),
-      sources: ["Getting Started Guide", "FAQ"],
-    };
+      // Convert SourceRef[] to string[] for display
+      const sourceStrings = response.sources.map((source) => {
+        if (source.title) return source.title;
+        if (source.snippet) return source.snippet.substring(0, 50) + "...";
+        return source.doc_id;
+      });
 
-    setIsTyping(false);
-    setMessages((prev) => [...prev, assistantMsg]);
+      const assistantMsg: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: response.answer,
+        timestamp: new Date(),
+        sources: sourceStrings.length > 0 ? sourceStrings : undefined,
+      };
+
+      setIsTyping(false);
+      setMessages((prev) => [...prev, assistantMsg]);
+    } catch (error: any) {
+      setIsTyping(false);
+      
+      // Create error message with retry option
+      const errorMsg: ChatMessage = {
+        id: `error-${Date.now()}`,
+        role: "assistant",
+        content: error?.message || "Sorry, I encountered an error while processing your message. Please try again.",
+        timestamp: new Date(),
+        isError: true,
+        retryMessage: text,
+      };
+
+      setMessages((prev) => [...prev, errorMsg]);
+    }
   };
 
   return (
@@ -109,7 +128,11 @@ export function ChatWidget() {
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 chat-messages min-h-[280px] max-h-[380px] bg-background">
           {messages.map((msg) => (
-            <MessageBubble key={msg.id} message={msg} />
+            <MessageBubble 
+              key={msg.id} 
+              message={msg} 
+              onRetry={(messageId, retryMessage) => handleSend(retryMessage, messageId)}
+            />
           ))}
           {isTyping && <TypingIndicator />}
           <div ref={messagesEndRef} />

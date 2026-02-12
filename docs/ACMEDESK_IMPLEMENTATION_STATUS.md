@@ -536,10 +536,10 @@ This section lists **granular, implementation-ready checklists** grouped by area
     - [x] `settingsApi.getRagSettings()`, `settingsApi.updateRagSettings(payload)`.
 
 - **D2 – Wire ChatWidget to Backend**
-  - [ ] Replace `getMockResponse()` with `await chatApi.sendMessage(...)`.
-  - [ ] Show loading state (typing indicator) while awaiting response.
-  - [ ] Render citations from `response.sources` in `MessageBubble`.
-  - [ ] Handle network errors with user-friendly inline messages and retry action.
+  - [x] Replace `getMockResponse()` with `await chatApi.sendMessage(...)`.
+  - [x] Show loading state (typing indicator) while awaiting response.
+  - [x] Render citations from `response.sources` in `MessageBubble`.
+  - [x] Handle network errors with user-friendly inline messages and retry action.
 
 - **D3 – Wire Documents Page to Backend**
   - [ ] Replace `mockDocs` with data from `documentsApi.list()`.
@@ -892,7 +892,7 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
   - [x] A2 – Health & system endpoints.
   - [x] A3 – Chat API (initial implementation with simple echo or canned responses from backend).
   - [x] D1 – API client layer.
-  - [ ] D2 – Wire `ChatWidget` to backend (using stubbed chat logic).
+  - [x] D2 – Wire `ChatWidget` to backend (using stubbed chat logic).
   - [ ] F1.1 – Typography system refinement.
   - [ ] F1.2 – Color system & dark mode foundation (basic implementation).
   - [ ] F1.3 – Spacing & layout system audit.
