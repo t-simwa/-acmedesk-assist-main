@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { ChatWidget } from "@/components/chat/ChatWidget";
 import { ArrowRight } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default function Index() {
   return (
@@ -27,6 +28,7 @@ export default function Index() {
             >
               Features
             </a>
+            <ThemeToggle variant="pill" />
           </nav>
         </div>
       </header>

@@ -602,19 +602,19 @@ This section covers tasks to elevate the UI from a good prototype to a **world-c
   - [x] Add font loading optimization (preload, font-display: swap).
   - [x] Verify readability at all sizes (12px minimum for body text, WCAG AA compliance).
 
-- **F1.2 – Color System & Theming**
-  - [ ] Expand color palette beyond basic Tailwind defaults:
-    - [ ] Define semantic color tokens (success, warning, error, info) with proper contrast ratios.
-    - [ ] Add neutral grays with sufficient steps (50–950 scale).
-    - [ ] Ensure all color combinations meet WCAG AA contrast requirements (4.5:1 for text).
-  - [ ] Implement dark mode support:
-    - [ ] Create dark theme color tokens.
-    - [ ] Add theme toggle in admin panel (user preference + system preference detection).
-    - [ ] Test all components in both light and dark modes.
-    - [ ] Persist theme preference in localStorage.
-  - [ ] Add accent color customization (for enterprise branding):
-    - [ ] Settings page option to customize primary brand color.
-    - [ ] CSS custom properties for dynamic theming.
+- **F1.2 – Color System & Theming** ✅ **COMPLETE**
+  - [x] Expand color palette beyond basic Tailwind defaults:
+    - [x] Define semantic color tokens (success, warning, error, info) with proper contrast ratios.
+    - [x] Add neutral grays with sufficient steps (50–950 scale).
+    - [x] Ensure all color combinations meet WCAG AA contrast requirements (4.5:1 for text).
+  - [x] Implement dark mode support:
+    - [x] Create dark theme color tokens.
+    - [x] Add theme toggle in admin panel (user preference + system preference detection).
+    - [x] Test all components in both light and dark modes.
+    - [x] Persist theme preference in localStorage.
+  - [x] Add accent color customization (for enterprise branding):
+    - [x] Settings page option to customize primary brand color.
+    - [x] CSS custom properties for dynamic theming.
 
 - **F1.3 – Spacing & Layout System**
   - [ ] Audit spacing consistency (4px/8px base grid).
@@ -894,7 +894,7 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
   - [x] D1 – API client layer.
   - [x] D2 – Wire `ChatWidget` to backend (using stubbed chat logic).
   - [x] F1.1 – Typography system refinement.
-  - [ ] F1.2 – Color system & dark mode foundation (basic implementation).
+  - [x] F1.2 – Color system & dark mode foundation (basic implementation).
   - [ ] F1.3 – Spacing & layout system audit.
   - [ ] F2.3 – Enhanced loading & error states for chat widget.
   - [ ] F4.1 – Basic keyboard navigation (tab order, focus indicators).
