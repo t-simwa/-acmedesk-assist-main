@@ -649,15 +649,15 @@ This section covers tasks to elevate the UI from a good prototype to a **world-c
   - [ ] Implement message editing (for user messages, before sending).
   - [ ] Add conversation export (download chat history as PDF/TXT).
 
-- **F2.3 – Loading & Error States**
-  - [ ] Replace simple typing indicator with sophisticated skeleton:
-    - [ ] Animated placeholder blocks that mimic message structure.
-    - [ ] Smooth fade-in when response arrives.
-  - [ ] Enhanced error handling:
-    - [ ] Inline error messages with retry button.
-    - [ ] Network error detection with "Check connection" message.
-    - [ ] Rate limit error handling with clear messaging.
-    - [ ] Timeout handling with "Request took too long" message.
+- **F2.3 – Loading & Error States** ✅ **COMPLETE**
+  - [x] Replace simple typing indicator with sophisticated skeleton:
+    - [x] Animated placeholder blocks that mimic message structure.
+    - [x] Smooth fade-in when response arrives.
+  - [x] Enhanced error handling:
+    - [x] Inline error messages with retry button.
+    - [x] Network error detection with "Check connection" message.
+    - [x] Rate limit error handling with clear messaging.
+    - [x] Timeout handling with "Request took too long" message.
 
 - **F2.4 – Mobile Experience**
   - [ ] Optimize chat widget for mobile:
@@ -896,7 +896,7 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
   - [x] F1.1 – Typography system refinement.
   - [x] F1.2 – Color system & dark mode foundation (basic implementation).
   - [x] F1.3 – Spacing & layout system audit.
-  - [ ] F2.3 – Enhanced loading & error states for chat widget.
+  - [x] F2.3 – Enhanced loading & error states for chat widget.
   - [ ] F4.1 – Basic keyboard navigation (tab order, focus indicators).
   - [ ] E1 – Basic manual smoke tests for health + chat.
 

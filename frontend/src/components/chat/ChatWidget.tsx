@@ -2,8 +2,8 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { X, ChevronDown } from "lucide-react";
 import { ChatMessage, MessageBubble } from "./MessageBubble";
 import { ChatInput } from "./ChatInput";
-import { TypingIndicator } from "./TypingIndicator";
-import { chatApi, type ChatResponse } from "@/lib/api";
+import { MessageSkeleton } from "./MessageSkeleton";
+import { chatApi, type ChatResponse, type ApiError } from "@/lib/api";
 
 export function ChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
@@ -73,13 +73,42 @@ export function ChatWidget() {
     } catch (error: any) {
       setIsTyping(false);
       
+      // Determine error message based on error type
+      let errorMessage = "Sorry, I encountered an error while processing your message. Please try again.";
+      let errorType: "network" | "rate_limit" | "timeout" | "server_error" | "unknown" = "unknown";
+
+      if (error && typeof error === "object" && "errorType" in error) {
+        const apiError = error as ApiError;
+        errorType = apiError.errorType || "unknown";
+        
+        switch (apiError.errorType) {
+          case "network":
+            errorMessage = "Unable to connect to the server. Please check your internet connection and try again.";
+            break;
+          case "rate_limit":
+            errorMessage = apiError.message || "Rate limit exceeded. Please wait a moment and try again.";
+            break;
+          case "timeout":
+            errorMessage = "Request took too long. Please check your connection and try again.";
+            break;
+          case "server_error":
+            errorMessage = "Server error occurred. Please try again later.";
+            break;
+          default:
+            errorMessage = apiError.message || errorMessage;
+        }
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
       // Create error message with retry option
       const errorMsg: ChatMessage = {
         id: `error-${Date.now()}`,
         role: "assistant",
-        content: error?.message || "Sorry, I encountered an error while processing your message. Please try again.",
+        content: errorMessage,
         timestamp: new Date(),
         isError: true,
+        errorType,
         retryMessage: text,
       };
 
@@ -134,7 +163,7 @@ export function ChatWidget() {
               onRetry={(messageId, retryMessage) => handleSend(retryMessage, messageId)}
             />
           ))}
-          {isTyping && <TypingIndicator />}
+          {isTyping && <MessageSkeleton />}
           <div ref={messagesEndRef} />
         </div>
 

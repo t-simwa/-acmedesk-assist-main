@@ -76,25 +76,28 @@ export interface RAGSettings {
 // ============================================================================
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const DEFAULT_TIMEOUT_MS = 30000; // 30 seconds default timeout
 
 interface ApiClientOptions extends RequestInit {
   params?: Record<string, string | number | boolean>;
+  timeout?: number; // Timeout in milliseconds
 }
 
-interface ApiError {
+export interface ApiError {
   message: string;
   status?: number;
   statusText?: string;
+  errorType?: "network" | "rate_limit" | "timeout" | "server_error" | "unknown";
 }
 
 /**
- * Generic API client using fetch
+ * Generic API client using fetch with enhanced error handling
  */
 async function apiClient<T>(
   endpoint: string,
   options: ApiClientOptions = {}
 ): Promise<T> {
-  const { params, ...fetchOptions } = options;
+  const { params, timeout = DEFAULT_TIMEOUT_MS, ...fetchOptions } = options;
 
   // Build URL with query parameters
   let url = `${API_BASE_URL}${endpoint}`;
@@ -115,17 +118,30 @@ async function apiClient<T>(
     ...fetchOptions.headers,
   };
 
+  // Create abort controller for timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+
   try {
     const response = await fetch(url, {
       ...fetchOptions,
       headers,
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     // Handle non-JSON responses (e.g., file uploads)
     const contentType = response.headers.get("content-type");
     if (!contentType?.includes("application/json")) {
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const error: ApiError = {
+          message: `HTTP error! status: ${response.status}`,
+          status: response.status,
+          statusText: response.statusText,
+          errorType: response.status >= 500 ? "server_error" : "unknown",
+        };
+        throw error;
       }
       return response as unknown as T;
     }
@@ -133,23 +149,74 @@ async function apiClient<T>(
     const data = await response.json();
 
     if (!response.ok) {
+      // Detect rate limit errors (429)
+      if (response.status === 429) {
+        const error: ApiError = {
+          message: data.detail || data.message || "Rate limit exceeded. Please wait a moment and try again.",
+          status: response.status,
+          statusText: response.statusText,
+          errorType: "rate_limit",
+        };
+        throw error;
+      }
+
+      // Server errors (5xx)
+      if (response.status >= 500) {
+        const error: ApiError = {
+          message: data.detail || data.message || "Server error. Please try again later.",
+          status: response.status,
+          statusText: response.statusText,
+          errorType: "server_error",
+        };
+        throw error;
+      }
+
+      // Other HTTP errors
       const error: ApiError = {
         message: data.detail || data.message || `HTTP error! status: ${response.status}`,
         status: response.status,
         statusText: response.statusText,
+        errorType: "unknown",
       };
       throw error;
     }
 
     return data as T;
   } catch (error) {
-    if (error instanceof TypeError && error.message.includes("fetch")) {
-      throw {
-        message: "Network error: Unable to reach the API server. Please check if the backend is running.",
+    clearTimeout(timeoutId);
+
+    // Handle timeout errors
+    if (error instanceof Error && error.name === "AbortError") {
+      const timeoutError: ApiError = {
+        message: "Request took too long. Please check your connection and try again.",
         status: 0,
-      } as ApiError;
+        errorType: "timeout",
+      };
+      throw timeoutError;
     }
-    throw error;
+
+    // Handle network errors (fetch failures, CORS, etc.)
+    if (error instanceof TypeError && error.message.includes("fetch")) {
+      const networkError: ApiError = {
+        message: "Network error: Unable to reach the API server. Please check your connection.",
+        status: 0,
+        errorType: "network",
+      };
+      throw networkError;
+    }
+
+    // Re-throw ApiError instances as-is
+    if (error && typeof error === "object" && "message" in error) {
+      throw error;
+    }
+
+    // Fallback for unknown errors
+    const unknownError: ApiError = {
+      message: error instanceof Error ? error.message : "An unexpected error occurred. Please try again.",
+      status: 0,
+      errorType: "unknown",
+    };
+    throw unknownError;
   }
 }
 

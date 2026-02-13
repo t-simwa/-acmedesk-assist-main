@@ -1,5 +1,5 @@
 import { format } from "date-fns";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, WifiOff, Clock, AlertCircle } from "lucide-react";
 
 export interface ChatMessage {
   id: string;
@@ -8,6 +8,7 @@ export interface ChatMessage {
   timestamp: Date;
   sources?: string[];
   isError?: boolean;
+  errorType?: "network" | "rate_limit" | "timeout" | "server_error" | "unknown";
   retryMessage?: string;
 }
 
@@ -37,6 +38,22 @@ interface MessageBubbleProps {
 export function MessageBubble({ message, onRetry }: MessageBubbleProps) {
   const isUser = message.role === "user";
   const isError = message.isError === true;
+  const errorType = message.errorType || "unknown";
+
+  // Get error icon based on error type
+  const getErrorIcon = () => {
+    switch (errorType) {
+      case "network":
+        return <WifiOff size={14} className="text-destructive" />;
+      case "timeout":
+        return <Clock size={14} className="text-destructive" />;
+      case "rate_limit":
+      case "server_error":
+        return <AlertCircle size={14} className="text-destructive" />;
+      default:
+        return null;
+    }
+  };
 
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"} animate-fade-in`}>
@@ -58,6 +75,11 @@ export function MessageBubble({ message, onRetry }: MessageBubbleProps) {
               : "bg-muted text-foreground rounded-[18px] rounded-bl-[4px]"
           }`}
         >
+          {isError && errorType !== "unknown" && (
+            <div className="flex items-center gap-1.5 mb-2">
+              {getErrorIcon()}
+            </div>
+          )}
           {formatContent(message.content)}
         </div>
         <div className={`flex items-center gap-2 px-1 ${isUser ? "justify-end" : "justify-start"}`}>
@@ -73,6 +95,7 @@ export function MessageBubble({ message, onRetry }: MessageBubbleProps) {
             <button
               onClick={() => onRetry(message.id, message.retryMessage!)}
               className="flex items-center gap-1.5 px-2 py-1 text-[11px] text-destructive hover:text-destructive/80 hover:bg-destructive/5 rounded-md transition-colors"
+              aria-label="Retry message"
             >
               <RefreshCw size={12} />
               <span>Retry</span>
