@@ -15,6 +15,8 @@ from typing import Optional
 from pydantic import AnyHttpUrl
 from pydantic_settings import BaseSettings
 
+from app.rag.chunking import ChunkingConfig
+
 
 class Settings(BaseSettings):
     """Runtime configuration loaded from environment variables."""
@@ -30,6 +32,10 @@ class Settings(BaseSettings):
     openai_api_key: Optional[str] = None
     database_url: Optional[str] = None
     vector_db_url: Optional[str] = None
+
+    # Chunking configuration
+    chunk_size: int = 600
+    chunk_overlap: int = 100
 
     class Config:
         env_file = ".env"
@@ -49,4 +55,17 @@ def get_settings() -> Settings:
 
 
 settings = get_settings()
+
+
+def get_chunking_config() -> ChunkingConfig:
+    """
+    Get chunking configuration from settings.
+
+    Returns:
+        ChunkingConfig instance with values from settings
+    """
+    return ChunkingConfig(
+        chunk_size=settings.chunk_size,
+        chunk_overlap=settings.chunk_overlap,
+    )
 

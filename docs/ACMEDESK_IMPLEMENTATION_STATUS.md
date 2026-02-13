@@ -503,11 +503,11 @@ This section lists **granular, implementation-ready checklists** grouped by area
     - [x] Normalizes content into a common structure (`text`, `title`, `url`, `doc_id`).
 
 - **B2 – Chunking**
-  - [ ] Implement `chunk_text(text, config)` using a sensible splitter:
-    - [ ] Target chunk size (e.g. 500–800 chars) with some overlap.
-    - [ ] Prefer splitting on headings and paragraphs.
-    - [ ] Attach metadata: `doc_id`, `chunk_index`, `page_or_section`, `source_path`.
-  - [ ] Provide config object for chunk size and overlap, and hook it into settings.
+  - [x] Implement `chunk_text(text, config)` using a sensible splitter:
+    - [x] Target chunk size (e.g. 500–800 chars) with some overlap.
+    - [x] Prefer splitting on headings and paragraphs.
+    - [x] Attach metadata: `doc_id`, `chunk_index`, `page_or_section`, `source_path`.
+  - [x] Provide config object for chunk size and overlap, and hook it into settings.
 
 - **B3 – Embeddings & Vector Store**
   - [ ] Implement `backend/app/rag/embeddings.py`:
@@ -981,7 +981,7 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
   - Polish chat widget and documents UI to enterprise standards.
 - **Includes:**
   - [x] B1 – Document ingestion (local docs).
-  - [ ] B2 – Chunking implementation.
+  - [x] B2 – Chunking implementation.
   - [ ] B3 – Embeddings & vector store integration.
   - [ ] B4/B5 – Retrieval + prompt building + answer generation hooked into `/api/chat`.
   - [ ] A4 – Document APIs (upload, list, reindex, delete).
