@@ -4,6 +4,7 @@ import { ChatMessage, MessageBubble } from "./MessageBubble";
 import { ChatInput } from "./ChatInput";
 import { MessageSkeleton } from "./MessageSkeleton";
 import { chatApi, type ChatResponse, type ApiError } from "@/lib/api";
+import { formatResponse } from "@/utils/formatResponse";
 
 export function ChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
@@ -90,19 +91,108 @@ export function ChatWidget() {
         message: text,
       });
 
-      // Convert SourceRef[] to string[] for display
-      const sourceStrings = response.sources.map((source) => {
-        if (source.title) return source.title;
-        if (source.snippet) return source.snippet.substring(0, 50) + "...";
-        return source.doc_id;
+      // Format the answer first (normalizes citations and structure)
+      const formattedAnswer = formatResponse(response.answer);
+      
+      // Extract citations from formatted answer
+      const citationPattern = /\[(\d+)\]/g;
+      const citations = new Set<number>();
+      let match;
+      while ((match = citationPattern.exec(formattedAnswer)) !== null) {
+        citations.add(parseInt(match[1]));
+      }
+
+      // Map sources by their position (citation numbers are 1-indexed, matching chunk order)
+      // The backend returns sources in the order they were used (chunk 1, chunk 2, etc.)
+      const numberedSources: Array<{ index: number; title: string; doc_id: string }> = [];
+      const seenDocIds = new Set<string>();
+      
+      // Process sources in order and assign citation numbers
+      response.sources.forEach((source, idx) => {
+        const citationNum = idx + 1; // 1-indexed citation number
+        
+        // Only include if this citation number appears in the answer
+        if (citations.has(citationNum)) {
+          // Deduplicate by doc_id (if same doc appears multiple times, only show once)
+          const key = source.doc_id || 'unknown';
+          if (!seenDocIds.has(key)) {
+            // Use title if available, otherwise format doc_id
+            let displayName = source.title;
+            if (!displayName && source.doc_id) {
+              displayName = source.doc_id
+                .replace(/-/g, ' ')
+                .replace(/_/g, ' ')
+                .split(' ')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(' ');
+            }
+            
+            numberedSources.push({
+              index: citationNum,
+              title: displayName || 'Unknown',
+              doc_id: source.doc_id,
+            });
+            seenDocIds.add(key);
+          }
+        }
       });
+
+      // If no citations found but sources exist, number them sequentially
+      if (numberedSources.length === 0 && response.sources.length > 0) {
+        const uniqueSources = new Map<string, { doc_id: string; title: string }>();
+        response.sources.forEach((source) => {
+          const key = source.doc_id || 'unknown';
+          if (!uniqueSources.has(key)) {
+            let displayName = source.title;
+            if (!displayName && source.doc_id) {
+              displayName = source.doc_id
+                .replace(/-/g, ' ')
+                .replace(/_/g, ' ')
+                .split(' ')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(' ');
+            }
+            uniqueSources.set(key, {
+              doc_id: source.doc_id,
+              title: displayName || 'Unknown',
+            });
+          }
+        });
+        
+        Array.from(uniqueSources.values()).forEach((source, idx) => {
+          numberedSources.push({
+            index: idx + 1,
+            title: source.title,
+            doc_id: source.doc_id,
+          });
+        });
+      }
+
+
+      // Only include sources if:
+      // 1. There are numbered sources
+      // 2. The answer contains citations
+      // 3. The answer is not a "no information" message
+      const noInfoMessages = [
+        "i don't have enough information",
+        "i don't have sufficient information",
+        "i cannot find",
+        "no information available",
+        "not enough information"
+      ];
+      const answerLower = formattedAnswer.toLowerCase().trim();
+      const isNoInfoResponse = noInfoMessages.some(msg => answerLower.includes(msg));
+      const hasCitations = citations.size > 0;
+      
+      // Only show sources if we have citations and it's not a "no info" response
+      const shouldShowSources = numberedSources.length > 0 && hasCitations && !isNoInfoResponse;
 
       const assistantMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: response.answer,
+        content: formattedAnswer,
         timestamp: new Date(),
-        sources: sourceStrings.length > 0 ? sourceStrings : undefined,
+        sources: shouldShowSources ? numberedSources : undefined,
       };
 
       setIsTyping(false);

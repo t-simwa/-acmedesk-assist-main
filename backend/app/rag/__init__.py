@@ -7,4 +7,6 @@ This package contains:
 - chunking: Text chunking with metadata
 - embeddings: Embedding generation (Sentence Transformers + OpenAI)
 - vector_store: Vector database integration (ChromaDB)
+- retrieval: Retrieval with hybrid search, re-ranking, and prompt building
+- generator: LLM wrapper and answer generation with citation parsing
 """

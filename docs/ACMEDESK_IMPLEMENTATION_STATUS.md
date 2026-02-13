@@ -521,31 +521,31 @@ This section lists **granular, implementation-ready checklists** grouped by area
   - [x] Configuration integrated into `backend/app/config.py`.
   - [x] Dependencies added to `backend/requirements.txt`.
 
-- **B4 – Retrieval & Prompting**
-  - [ ] Implement `retrieve(query, top_k, filters?)` to:
-    - [ ] Embed query.
-    - [ ] Query vector DB for top-k chunks.
-    - [ ] Return chunks + scores + metadata.
-  - [ ] Implement hybrid search (keyword + semantic) (spec requirement):
-    - [ ] Combine keyword search (BM25/TF-IDF) with semantic search.
-    - [ ] Weighted combination of both search results.
-    - [ ] Return unified ranked results.
-  - [ ] Implement re-ranking for better accuracy (spec requirement, optional but recommended):
-    - [ ] Re-rank top-N retrieved chunks using cross-encoder or similar.
-    - [ ] Improve relevance of final context chunks.
-    - [ ] Select top 3-5 chunks after re-ranking for context assembly.
-  - [ ] Implement `build_prompt(context_chunks, user_query, system_prompt)`:
-    - [ ] Inject top chunks into a prompt template.
-    - [ ] Explicitly instruct the model to **only** answer from context.
-    - [ ] Ask for citations with identifiers linking back to chunks.
+- **B4 – Retrieval & Prompting** ✅ **COMPLETE**
+  - [x] Implement `retrieve(query, top_k, filters?)` to:
+    - [x] Embed query.
+    - [x] Query vector DB for top-k chunks.
+    - [x] Return chunks + scores + metadata.
+  - [x] Implement hybrid search (keyword + semantic) (spec requirement):
+    - [x] Combine keyword search (BM25/TF-IDF) with semantic search.
+    - [x] Weighted combination of both search results.
+    - [x] Return unified ranked results.
+  - [x] Implement re-ranking for better accuracy (spec requirement, optional but recommended):
+    - [x] Re-rank top-N retrieved chunks using cross-encoder or similar.
+    - [x] Improve relevance of final context chunks.
+    - [x] Select top 3-5 chunks after re-ranking for context assembly.
+  - [x] Implement `build_prompt(context_chunks, user_query, system_prompt)`:
+    - [x] Inject top chunks into a prompt template.
+    - [x] Explicitly instruct the model to **only** answer from context.
+    - [x] Ask for citations with identifiers linking back to chunks.
 
-- **B5 – Answer Generation**
-  - [ ] Implement `backend/app/rag/generator.py`:
-    - [ ] Wraps LLM call (OpenAI / other) with configured model + temperature + max tokens.
-    - [ ] Sends prompt built in B4.
-    - [ ] Parses citations from model output into structured `SourceRef[]`.
-  - [ ] Integrate generator into `/api/chat` route:
-    - [ ] Map retrieved chunks → prompt → LLM call → structured response.
+- **B5 – Answer Generation** ✅ **COMPLETE**
+  - [x] Implement `backend/app/rag/generator.py`:
+    - [x] Wraps LLM call (OpenAI / other) with configured model + temperature + max tokens.
+    - [x] Sends prompt built in B4.
+    - [x] Parses citations from model output into structured `SourceRef[]`.
+  - [x] Integrate generator into `/api/chat` route:
+    - [x] Map retrieved chunks → prompt → LLM call → structured response.
 
 - **B6 – Seed & Maintenance Scripts**
   - [ ] Add `backend/scripts/ingest_examples.py`:
@@ -986,7 +986,7 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
   - [x] B1 – Document ingestion (local docs).
   - [x] B2 – Chunking implementation.
   - [x] B3 – Embeddings & vector store integration.
-  - [ ] B4/B5 – Retrieval + prompt building + answer generation hooked into `/api/chat`.
+  - [x] B4/B5 – Retrieval + prompt building + answer generation hooked into `/api/chat`.
   - [ ] A4 – Document APIs (upload, list, reindex, delete).
   - [ ] C1/C2 – Minimal DB + storage wiring for documents & conversations.
   - [ ] D3 – Wire Documents page to backend.

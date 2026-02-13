@@ -82,7 +82,7 @@ def _split_on_heading_or_paragraph(text: str) -> List[str]:
     Split text into segments based on headings and paragraphs.
 
     Prioritizes splitting on:
-    1. Markdown headings (# ## ### etc.)
+    1. Markdown headings (# ## ### etc.) - heading + its content until next heading
     2. Double newlines (paragraph breaks)
     3. Single newlines
 
@@ -90,7 +90,7 @@ def _split_on_heading_or_paragraph(text: str) -> List[str]:
         text: Text to split
 
     Returns:
-        List of text segments
+        List of text segments (each heading includes its content)
     """
     # Pattern to match markdown headings (e.g., # Heading, ## Subheading)
     heading_pattern = r"^#{1,6}\s+.+$"
@@ -105,22 +105,36 @@ def _split_on_heading_or_paragraph(text: str) -> List[str]:
             if current_segment:
                 segments.append("\n".join(current_segment))
                 current_segment = []
-            # Add the heading as its own segment (or with following content)
+            # Start new segment with the heading (content will follow)
             current_segment.append(line)
-        # Check for paragraph break (double newline)
+        # Check for paragraph break (double newline) - but only if not right after a heading
         elif line.strip() == "" and current_segment and current_segment[-1].strip() != "":
-            # End of paragraph - save current segment
-            segments.append("\n".join(current_segment))
-            current_segment = []
+            # End of paragraph - but continue accumulating unless we hit another heading
+            current_segment.append(line)
         else:
+            # Regular content line - add to current segment
             current_segment.append(line)
 
     # Add remaining content
     if current_segment:
         segments.append("\n".join(current_segment))
 
-    # Filter out empty segments
-    return [s for s in segments if s.strip()]
+    # Filter out empty segments and very short segments (just headings with no content)
+    filtered_segments = []
+    for s in segments:
+        s_stripped = s.strip()
+        if s_stripped and len(s_stripped) > 10:  # Minimum 10 chars to avoid header-only chunks
+            filtered_segments.append(s)
+        elif s_stripped:
+            # Very short segment - try to merge with next segment if available
+            if filtered_segments:
+                # Merge with previous segment
+                filtered_segments[-1] = filtered_segments[-1] + "\n" + s
+            else:
+                # Keep it if it's the first segment
+                filtered_segments.append(s)
+    
+    return filtered_segments
 
 
 def _split_text_recursive(
