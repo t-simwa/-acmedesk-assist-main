@@ -9,6 +9,8 @@ export default {
       center: true,
       padding: "2rem",
       screens: {
+        lg: "960px",
+        xl: "1200px",
         "2xl": "1400px",
       },
     },
@@ -155,15 +157,20 @@ export default {
         },
       },
       borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        xl: "var(--radius-xl)",
+        lg: "var(--radius-lg)",
+        md: "var(--radius-md)",
+        sm: "var(--radius-sm)",
       },
       boxShadow: {
+        // Spacing & layout elevation system
         "soft-sm": "var(--shadow-sm)",
         "soft-md": "var(--shadow-md)",
         "soft-lg": "var(--shadow-lg)",
-        "chat": "var(--shadow-chat)",
+        soft: "var(--shadow-sm)",
+        medium: "var(--shadow-md)",
+        strong: "var(--shadow-lg)",
+        chat: "var(--shadow-chat)",
       },
       keyframes: {
         "accordion-down": {

@@ -140,8 +140,8 @@ export default function Settings() {
   };
 
   return (
-    <div className="p-8 max-w-2xl">
-      <div className="mb-8">
+    <div className="max-w-2xl space-y-8">
+      <div>
         <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
         <p className="text-[14px] text-muted-foreground mt-1">
           Configure the RAG pipeline and model parameters

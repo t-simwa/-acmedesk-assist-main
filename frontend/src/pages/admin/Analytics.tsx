@@ -30,8 +30,8 @@ const topCategories = [
 
 export default function Analytics() {
   return (
-    <div className="p-8 max-w-5xl">
-      <div className="mb-8">
+    <div className="space-y-8">
+      <div>
         <h1 className="text-2xl font-semibold text-foreground">Analytics</h1>
         <p className="text-[14px] text-muted-foreground mt-1">
           Chatbot usage and performance metrics

@@ -616,12 +616,12 @@ This section covers tasks to elevate the UI from a good prototype to a **world-c
     - [x] Settings page option to customize primary brand color.
     - [x] CSS custom properties for dynamic theming.
 
-- **F1.3 – Spacing & Layout System**
-  - [ ] Audit spacing consistency (4px/8px base grid).
-  - [ ] Ensure consistent padding/margins across all components.
-  - [ ] Implement proper container max-widths and responsive breakpoints.
-  - [ ] Add consistent border radius tokens (small, medium, large, xl).
-  - [ ] Define shadow system (soft, medium, strong) for depth hierarchy.
+- **F1.3 – Spacing & Layout System** ✅ **COMPLETE**
+  - [x] Audit spacing consistency (4px/8px base grid).
+  - [x] Ensure consistent padding/margins across all components.
+  - [x] Implement proper container max-widths and responsive breakpoints.
+  - [x] Add consistent border radius tokens (small, medium, large, xl).
+  - [x] Define shadow system (soft, medium, strong) for depth hierarchy.
 
 - **F1.4 – Component Library Consistency**
   - [ ] Audit all shadcn/ui components for visual consistency.
@@ -895,7 +895,7 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
   - [x] D2 – Wire `ChatWidget` to backend (using stubbed chat logic).
   - [x] F1.1 – Typography system refinement.
   - [x] F1.2 – Color system & dark mode foundation (basic implementation).
-  - [ ] F1.3 – Spacing & layout system audit.
+  - [x] F1.3 – Spacing & layout system audit.
   - [ ] F2.3 – Enhanced loading & error states for chat widget.
   - [ ] F4.1 – Basic keyboard navigation (tab order, focus indicators).
   - [ ] E1 – Basic manual smoke tests for health + chat.

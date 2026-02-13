@@ -1,10 +1,8 @@
-import { MessageCircle, FileText, TrendingUp, Users } from "lucide-react";
-
 const stats = [
-  { label: "Conversations Today", value: "142", change: "+12%", icon: MessageCircle },
-  { label: "Documents Indexed", value: "87", change: "+3", icon: FileText },
-  { label: "Resolution Rate", value: "78%", change: "+5%", icon: TrendingUp },
-  { label: "Active Users", value: "1,204", change: "+8%", icon: Users },
+  { label: "Conversations Today", value: "142" },
+  { label: "Documents Indexed", value: "87" },
+  { label: "Resolution Rate", value: "78%" },
+  { label: "Active Users", value: "1,204" },
 ];
 
 const recentQueries = [
@@ -17,8 +15,8 @@ const recentQueries = [
 
 export default function Dashboard() {
   return (
-    <div className="p-8 max-w-5xl">
-      <div className="mb-8">
+    <div className="space-y-8">
+      <div>
         <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
         <p className="text-[14px] text-muted-foreground mt-1">
           Overview of your support chatbot performance
@@ -26,18 +24,18 @@ export default function Dashboard() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-4 gap-6">
         {stats.map((stat) => (
           <div
             key={stat.label}
-            className="bg-background rounded-xl border border-border p-5 shadow-soft-sm"
+            className="bg-background rounded-xl border border-border/40 p-8 hover:border-border/60 transition-all duration-200"
           >
-            <div className="flex items-center justify-between mb-3">
-              <stat.icon size={18} className="text-muted-foreground" />
-              <span className="text-[12px] font-medium text-primary">{stat.change}</span>
+            <div className="text-3xl font-semibold text-foreground tracking-tight mb-3 leading-none">
+              {stat.value}
             </div>
-            <div className="text-2xl font-semibold text-foreground">{stat.value}</div>
-            <div className="text-[13px] text-muted-foreground mt-1">{stat.label}</div>
+            <div className="text-xs text-muted-foreground font-medium uppercase tracking-[0.05em]">
+              {stat.label}
+            </div>
           </div>
         ))}
       </div>
