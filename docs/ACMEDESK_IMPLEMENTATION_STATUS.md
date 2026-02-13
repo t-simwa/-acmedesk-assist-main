@@ -3,6 +3,8 @@
 **Generated:** February 2026  
 **Project:** `acmedesk-assist-main` (AcmeDesk RAG Support Chatbot v1 – Portfolio Project)  
 **Project Type:** Frontend prototype (no backend / RAG pipeline yet)  
+**Specification Reference:** Project 1 from `experience-bootstrapping-selection-phase-part3.txt` (lines 111-466)  
+**Gap Analysis:** See `docs/GAP_ANALYSIS_PROJECT1_SPEC.md` for detailed comparison  
 
 ---
 
@@ -70,6 +72,10 @@ This section maps the **intended architecture and execution-phase requirements**
   - No citations sourced from real documents (hardcoded `"Getting Started Guide", "FAQ"` names only).
   - No error handling for network issues (since no network requests exist).
   - No mobile-specific behavior tweaks beyond plain CSS responsiveness.
+  - ❌ Copy message functionality (spec requirement).
+  - ❌ Clear conversation button (spec requirement).
+  - ❌ Suggested questions/quick replies (spec requirement).
+  - ❌ Empty state when no messages (spec requirement).
 
 **Status:**  
 UI/UX: **~80% of target** (for a polished prototype widget).  
@@ -194,11 +200,12 @@ RAG pipeline: **0% implemented**.
 
 ### V. Repository & Project Structure
 
-**Target (from prompt + Part 4):**
+**Target (from prompt + Part 4 + Project 1 spec):**
 - Monorepo-style structure:
-  - `frontend/` (Next.js app router, components, lib)
+  - `frontend/` (Next.js app router or React 18+ with Vite, components, lib)
   - `backend/` (FastAPI/Express endpoints, core RAG logic, models, tests)
   - `docs/` (architecture, admin guide, RAG eval)
+  - `data/docs/` (knowledge base: 50-200 documents minimum per spec)
   - `.env.example`
   - `README.md` with detailed architecture and setup.
 
@@ -208,14 +215,19 @@ RAG pipeline: **0% implemented**.
   - Everything is in a **single Vite React app**:
     - Root `package.json` describes a Vite/React/TypeScript SPA.
     - `src/` contains React pages and components only.
+    - ⚠️ **Note:** Using Vite + React 18+ instead of Next.js (acceptable per spec: "Next.js 14+ (App Router) or React 18+").
+  - `backend/` directory exists with FastAPI skeleton (A1-A3 implemented).
   - `docs/` currently contains:
     - Freely-structured learning/strategy docs (Phase 1–3, IMPLEMENTATION_STATUS for a *different* project, Acme initial prompt).
     - ❌ No `architecture.md`, `admin-guide.md`, `rag-eval.md` for THIS codebase.
+  - ❌ No `data/docs/` folder with knowledge base documents (spec requirement: 50-200 documents).
   - ❌ No `.env.example` describing required environment variables.
 
 **Status:**  
-Frontend SPA structure: **OK for early UI prototyping**.  
-Monorepo-style architecture & documentation expected from execution phase: **not in place**.
+Frontend SPA structure: **OK for early UI prototyping** (Vite + React meets spec requirement).  
+Backend skeleton: **Present** (FastAPI, A1-A3 implemented).  
+Monorepo-style architecture & documentation expected from execution phase: **partially in place**.  
+Knowledge base data: **Not present** (spec requirement missing).
 
 ---
 
@@ -306,15 +318,20 @@ This table focuses on **technical capabilities the execution-phase docs expect**
 | Area | Expectation from Execution Phase | Status in `acmedesk-assist-main` |
 | --- | --- | --- |
 | Chat widget UI | Floating button, slide-up panel, messages, typing indicator | ✅ Implemented (frontend-only, mock responses) |
-| Chat → Backend wiring | `POST /api/chat` with session handling | ❌ Not implemented |
+| Chat widget features | Copy message, clear conversation, suggested questions, empty state | ❌ Not implemented (spec requirements) |
+| Chat → Backend wiring | `POST /api/chat` with session handling | ✅ Implemented (A3) |
+| Conversation APIs | `GET /api/conversations`, `DELETE /api/conversations/:id` | ❌ Not implemented (spec requirements) |
 | RAG pipeline | Ingestion, chunking, embeddings, vector DB, retrieval | ❌ Not implemented |
+| Hybrid search | Keyword + semantic search combination | ❌ Not implemented (spec requirement) |
+| Re-ranking | Re-rank retrieved chunks for better accuracy | ❌ Not implemented (spec requirement, optional) |
 | Grounded answers + citations | Answers from docs with source links | ❌ Only hardcoded `"Getting Started Guide", "FAQ"` strings |
-| Safe hallucination handling | “I’m not sure, escalate” behavior based on context | ❌ Mock-only; no real confidence or context checks |
+| Safe hallucination handling | "I'm not sure, escalate" behavior based on context | ❌ Mock-only; no real confidence or context checks |
 | Documents admin | Upload, list, status, chunk counts from backend | ⚠️ UI mock only (no API) |
-| RAG settings | Model, temperature, top-k stored and used by backend | ⚠️ UI mock only (local state) |
+| RAG settings | Model, temperature, top-k, chunk size stored and used by backend | ⚠️ UI mock only (local state; chunk size missing) |
 | Analytics | Charts powered by real query, resolution, category data | ⚠️ UI mock only (hardcoded arrays) |
-| Conversation logging | Persisted in DB with history, performance metrics | ❌ Not implemented |
-| Health endpoints | `/api/health` etc. | ❌ Not implemented |
+| Analytics metrics | Total messages, response accuracy, user satisfaction, API costs | ❌ Not implemented (spec requirements) |
+| Conversation logging | Persisted in DB with history, performance metrics | ⚠️ Partially implemented (A3 has persistence, but no GET endpoint) |
+| Health endpoints | `/api/health` etc. | ✅ Implemented (A2) |
 | Ingestion/seed script | Command to index example docs | ❌ Not implemented |
 | Env configuration | `.env.example` + README instructions | ❌ Not implemented |
 | Test plan | Manual checklist for widget/admin/RAG | ❌ Not implemented |
@@ -426,6 +443,14 @@ This section lists **granular, implementation-ready checklists** grouped by area
     - [x] Persist conversation turn to DB.
     - [x] Return structured response.
   - [x] (Optional) Implement `GET/POST /api/chat/stream` for SSE/websocket streaming.
+  - [ ] Implement `GET /api/conversations`:
+    - [ ] Retrieve conversation history for a session ID.
+    - [ ] Return list of messages with timestamps and metadata.
+    - [ ] Support pagination (limit, offset).
+  - [ ] Implement `DELETE /api/conversations/{id}`:
+    - [ ] Clear/delete a conversation by session ID.
+    - [ ] Remove all messages associated with the session.
+    - [ ] Return success confirmation.
 
 - **A4 – Admin APIs: Documents**
   - [ ] Implement `POST /api/documents/upload`:
@@ -440,14 +465,28 @@ This section lists **granular, implementation-ready checklists** grouped by area
   - [ ] Implement `DELETE /api/documents/{id}` to remove metadata, source file, and vectors.
 
 - **A5 – Admin APIs: Settings & Analytics**
-  - [ ] Implement `GET /api/settings/rag` returning model, temperature, top-k, max tokens, system prompt.
-  - [ ] Implement `PUT /api/settings/rag` to update RAG configuration for the tenant/project.
+  - [ ] Implement `GET /api/settings/rag` returning model, temperature, top-k, max tokens, system prompt, chunk size.
+  - [ ] Implement `PUT /api/settings/rag` to update RAG configuration for the tenant/project:
+    - [ ] Model selection (GPT-4, GPT-3.5, etc.).
+    - [ ] Temperature settings.
+    - [ ] Max tokens configuration.
+    - [ ] Top-K results.
+    - [ ] System prompt customization.
+    - [ ] Chunk size settings (spec requirement).
   - [ ] Implement `GET /api/analytics/summary` returning:
+    - [ ] Total conversations count.
+    - [ ] Total messages count (spec requirement).
     - [ ] Conversation counts by day (last 7 / 30 days).
     - [ ] Resolution rate (resolved via bot vs escalated).
+    - [ ] Response accuracy metrics (spec requirement).
     - [ ] Top question categories.
+    - [ ] API usage/costs tracking (spec requirement).
   - [ ] Implement `GET /api/analytics/top-queries` with:
     - [ ] Top N questions, counts, and % resolved by bot.
+  - [ ] Implement user satisfaction tracking (if feedback collected) (spec requirement):
+    - [ ] Collect thumbs up/down feedback.
+    - [ ] Store satisfaction scores.
+    - [ ] Include in analytics summary.
 
 ---
 
@@ -484,6 +523,14 @@ This section lists **granular, implementation-ready checklists** grouped by area
     - [ ] Embed query.
     - [ ] Query vector DB for top-k chunks.
     - [ ] Return chunks + scores + metadata.
+  - [ ] Implement hybrid search (keyword + semantic) (spec requirement):
+    - [ ] Combine keyword search (BM25/TF-IDF) with semantic search.
+    - [ ] Weighted combination of both search results.
+    - [ ] Return unified ranked results.
+  - [ ] Implement re-ranking for better accuracy (spec requirement, optional but recommended):
+    - [ ] Re-rank top-N retrieved chunks using cross-encoder or similar.
+    - [ ] Improve relevance of final context chunks.
+    - [ ] Select top 3-5 chunks after re-ranking for context assembly.
   - [ ] Implement `build_prompt(context_chunks, user_query, system_prompt)`:
     - [ ] Inject top chunks into a prompt template.
     - [ ] Explicitly instruct the model to **only** answer from context.
@@ -502,6 +549,10 @@ This section lists **granular, implementation-ready checklists** grouped by area
     - [ ] Loads `data/docs/`.
     - [ ] Runs ingestion, chunking, embedding, and indexing.
   - [ ] Document how to run it in the root README.
+  - [ ] Ensure knowledge base meets spec requirements:
+    - [ ] Minimum: 50 documents (spec requirement).
+    - [ ] Recommended: 100-200 documents (spec requirement).
+    - [ ] Support document formats: PDF, Markdown, TXT, HTML, DOCX (optional) (spec requirement).
 
 ---
 
@@ -644,10 +695,18 @@ This section covers tasks to elevate the UI from a good prototype to a **world-c
 
 - **F2.2 – Advanced Interactions**
   - [ ] Implement message reactions (thumbs up/down) with backend persistence.
-  - [ ] Add "Copy message" action on hover for assistant messages.
+  - [ ] Add "Copy message" action on hover for assistant messages (spec requirement).
   - [ ] Add "Regenerate response" option for assistant messages.
   - [ ] Implement message editing (for user messages, before sending).
   - [ ] Add conversation export (download chat history as PDF/TXT).
+  - [ ] Add clear conversation button (spec requirement):
+    - [ ] Button in chat widget header or footer.
+    - [ ] Calls `DELETE /api/conversations/{id}` endpoint.
+    - [ ] Resets chat state and shows welcome message.
+  - [ ] Add suggested questions/quick replies (spec requirement):
+    - [ ] Show suggested questions on first load or when conversation is empty.
+    - [ ] Clickable quick reply buttons.
+    - [ ] Pre-populate chat input with selected question.
 
 - **F2.3 – Loading & Error States** ✅ **COMPLETE**
   - [x] Replace simple typing indicator with sophisticated skeleton:
@@ -658,6 +717,10 @@ This section covers tasks to elevate the UI from a good prototype to a **world-c
     - [x] Network error detection with "Check connection" message.
     - [x] Rate limit error handling with clear messaging.
     - [x] Timeout handling with "Request took too long" message.
+  - [ ] Add empty state when no messages (spec requirement):
+    - [ ] Show helpful message when conversation is empty.
+    - [ ] Display suggested questions or welcome content.
+    - [ ] Guide users on how to start a conversation.
 
 - **F2.4 – Mobile Experience**
   - [ ] Optimize chat widget for mobile:
@@ -715,18 +778,19 @@ This section covers tasks to elevate the UI from a good prototype to a **world-c
     - [ ] Reset to defaults option.
   - [ ] Advanced configuration:
     - [ ] Chunking strategy configuration (size, overlap, split method).
+    - [ ] Chunk size settings (spec requirement - currently missing from UI).
     - [ ] Embedding model selection (if multiple providers).
     - [ ] Vector DB configuration (if multiple options).
     - [ ] Prompt templates library (save/load custom prompts).
 
 #### F4 – Accessibility (WCAG 2.1 AA Compliance)
 
-- **F4.1 – Keyboard Navigation**
-  - [ ] Ensure all interactive elements are keyboard accessible.
-  - [ ] Implement proper tab order throughout the application.
-  - [ ] Add keyboard shortcuts (e.g., `/` to focus chat input, `Esc` to close modals).
-  - [ ] Visible focus indicators on all focusable elements.
-  - [ ] Skip links for main content areas.
+- **F4.1 – Keyboard Navigation** ✅ **COMPLETE**
+  - [x] Ensure all interactive elements are keyboard accessible.
+  - [x] Implement proper tab order throughout the application.
+  - [x] Add keyboard shortcuts (e.g., `/` to focus chat input, `Esc` to close modals).
+  - [x] Visible focus indicators on all focusable elements.
+  - [x] Skip links for main content areas.
 
 - **F4.2 – Screen Reader Support**
   - [ ] Add proper ARIA labels to all interactive elements.
@@ -897,7 +961,7 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
   - [x] F1.2 – Color system & dark mode foundation (basic implementation).
   - [x] F1.3 – Spacing & layout system audit.
   - [x] F2.3 – Enhanced loading & error states for chat widget.
-  - [ ] F4.1 – Basic keyboard navigation (tab order, focus indicators).
+  - [x] F4.1 – Basic keyboard navigation (tab order, focus indicators).
   - [ ] E1 – Basic manual smoke tests for health + chat.
 
 ### Milestone 2 – RAG Pipeline & Documents Admin (Week 2)
@@ -932,12 +996,17 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
   - Elevate UI to world-class enterprise standards.
   - Add minimal automated tests, tighten error handling, and improve docs.
 - **Includes:**
-  - [ ] A5 – Settings & analytics endpoints.
+  - [ ] A5 – Settings & analytics endpoints:
+    - [ ] Chunk size settings in settings API.
+    - [ ] Total messages metric in analytics.
+    - [ ] Response accuracy metrics.
+    - [ ] User satisfaction tracking (if feedback collected).
+    - [ ] API usage/costs tracking.
   - [ ] D4 – Wire Analytics page.
-  - [ ] D5 – Wire Settings page.
+  - [ ] D5 – Wire Settings page (including chunk size settings).
   - [ ] F3.1 – Dashboard enhancements (date picker, real-time updates, exports).
   - [ ] F3.3 – Analytics page enhancements (interactive charts, additional visualizations).
-  - [ ] F3.4 – Settings page refinement (validation, presets, advanced config).
+  - [ ] F3.4 – Settings page refinement (validation, presets, advanced config, chunk size UI).
   - [ ] F4.3 – Visual accessibility (color contrast, high contrast mode).
   - [ ] F4.4 – Motion & animation accessibility (prefers-reduced-motion).
   - [ ] F5.2 – Runtime performance optimization (virtual scrolling, debouncing, caching).

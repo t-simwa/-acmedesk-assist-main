@@ -13,10 +13,14 @@ export function AdminLayout() {
 
   return (
     <div className="flex h-screen bg-surface">
+      {/* F4.1 - Skip link for main content */}
+      <a href="#admin-main-content" className="skip-link">
+        Skip to main content
+      </a>
       {/* Sidebar */}
       <aside className="w-60 border-r border-border bg-background flex flex-col">
         <div className="px-5 py-5 border-b border-border">
-          <Link to="/" className="flex items-center gap-2.5">
+          <Link to="/" className="flex items-center gap-2.5 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 rounded-sm">
             <div className="w-7 h-7 rounded-md bg-foreground flex items-center justify-center">
               <span className="text-[12px] font-bold text-background tracking-tight">A</span>
             </div>
@@ -37,7 +41,7 @@ export function AdminLayout() {
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-[14px] transition-colors ${
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-[14px] transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 ${
                   isActive
                     ? "bg-accent text-accent-foreground font-medium"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted"
@@ -64,7 +68,7 @@ export function AdminLayout() {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto">
+      <main id="admin-main-content" className="flex-1 overflow-auto">
         <div className="max-w-6xl mx-auto px-8 py-8">
           <Outlet />
         </div>

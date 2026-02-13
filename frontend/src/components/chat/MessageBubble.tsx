@@ -94,7 +94,7 @@ export function MessageBubble({ message, onRetry }: MessageBubbleProps) {
           {isError && message.retryMessage && onRetry && (
             <button
               onClick={() => onRetry(message.id, message.retryMessage!)}
-              className="flex items-center gap-1.5 px-2 py-1 text-[11px] text-destructive hover:text-destructive/80 hover:bg-destructive/5 rounded-md transition-colors"
+              className="flex items-center gap-1.5 px-2 py-1 text-[11px] text-destructive hover:text-destructive/80 hover:bg-destructive/5 rounded-md transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
               aria-label="Retry message"
             >
               <RefreshCw size={12} />

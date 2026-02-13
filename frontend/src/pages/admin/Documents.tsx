@@ -44,7 +44,7 @@ export default function Documents() {
             Manage knowledge base documents for the chatbot
           </p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-[14px] font-medium hover:opacity-90 transition-opacity">
+        <button className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-[14px] font-medium hover:opacity-90 transition-opacity focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2">
           <Upload size={16} />
           Upload
         </button>
@@ -78,7 +78,8 @@ export default function Documents() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search documents…"
-          className="w-full pl-9 pr-4 py-2 bg-background border border-border rounded-lg text-[14px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary transition-colors"
+          className="w-full pl-9 pr-4 py-2 bg-background border border-border rounded-lg text-[14px] text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 focus:ring-2 focus:ring-ring/20 focus:border-primary transition-colors"
+          aria-label="Search documents"
         />
       </div>
 
@@ -130,7 +131,10 @@ export default function Documents() {
                     <span className="text-[13px] text-muted-foreground">{doc.updatedAt}</span>
                   </td>
                   <td className="px-3 py-3.5">
-                    <button className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                    <button 
+                      className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+                      aria-label={`More options for ${doc.name}`}
+                    >
                       <MoreHorizontal size={16} />
                     </button>
                   </td>

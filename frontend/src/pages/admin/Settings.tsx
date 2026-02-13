@@ -158,7 +158,8 @@ export default function Settings() {
             <select
               value={model}
               onChange={(e) => setModel(e.target.value)}
-              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-[14px] text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary"
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-[14px] text-foreground focus:outline-none focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 focus:ring-2 focus:ring-ring/20 focus:border-primary"
+              aria-label="Model selection"
             >
               <option value="gpt-4o">GPT-4o</option>
               <option value="gpt-4o-mini">GPT-4o Mini</option>
@@ -178,7 +179,8 @@ export default function Settings() {
               step="0.1"
               value={temperature}
               onChange={(e) => setTemperature(parseFloat(e.target.value))}
-              className="w-full accent-primary"
+              className="w-full accent-primary focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+              aria-label="Temperature"
             />
             <div className="flex justify-between text-[11px] text-muted-foreground mt-1">
               <span>Precise</span>
@@ -198,7 +200,8 @@ export default function Settings() {
               step="256"
               value={maxTokens}
               onChange={(e) => setMaxTokens(parseInt(e.target.value))}
-              className="w-full accent-primary"
+              className="w-full accent-primary focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+              aria-label="Max tokens"
             />
           </div>
         </div>
@@ -219,7 +222,8 @@ export default function Settings() {
               step="1"
               value={topK}
               onChange={(e) => setTopK(parseInt(e.target.value))}
-              className="w-full accent-primary"
+              className="w-full accent-primary focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+              aria-label="Top-K results"
             />
             <p className="text-[12px] text-muted-foreground mt-1.5">
               Number of document chunks to retrieve per query
@@ -234,7 +238,8 @@ export default function Settings() {
             value={systemPrompt}
             onChange={(e) => setSystemPrompt(e.target.value)}
             rows={5}
-            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-[14px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary resize-none"
+            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-[14px] text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 focus:ring-2 focus:ring-ring/20 focus:border-primary resize-none"
+            aria-label="System prompt"
           />
           <p className="text-[12px] text-muted-foreground">
             This prompt is prepended to every conversation to guide the model's behavior
@@ -254,7 +259,7 @@ export default function Settings() {
                 type="color"
                 value={brandColor}
                 onChange={handleBrandColorChange}
-                className="w-16 h-10 rounded-lg border border-border cursor-pointer"
+                className="w-16 h-10 rounded-lg border border-border cursor-pointer focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
                 aria-label="Primary brand color"
               />
               <input
@@ -269,12 +274,14 @@ export default function Settings() {
                     setBrandColor(e.target.value);
                   }
                 }}
-                className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-[14px] text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary font-mono"
+                className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-[14px] text-foreground focus:outline-none focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 focus:ring-2 focus:ring-ring/20 focus:border-primary font-mono"
                 placeholder="#3b5fcf"
+                aria-label="Brand color hex value"
               />
               <button
                 onClick={resetBrandColor}
-                className="px-3 py-2 text-[13px] text-muted-foreground hover:text-foreground border border-border rounded-lg hover:bg-muted transition-colors"
+                className="px-3 py-2 text-[13px] text-muted-foreground hover:text-foreground border border-border rounded-lg hover:bg-muted transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+                aria-label="Reset brand color to default"
               >
                 Reset
               </button>
@@ -285,7 +292,7 @@ export default function Settings() {
           </div>
         </div>
 
-        <button className="px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-[14px] font-medium hover:opacity-90 transition-opacity">
+        <button className="px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-[14px] font-medium hover:opacity-90 transition-opacity focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2">
           Save Changes
         </button>
       </div>

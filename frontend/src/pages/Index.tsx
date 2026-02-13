@@ -6,6 +6,10 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 export default function Index() {
   return (
     <div className="min-h-screen bg-background">
+      {/* F4.1 - Skip link for main content */}
+      <a href="#main-content" className="skip-link">
+        Skip to main content
+      </a>
       {/* Nav */}
       <header className="border-b border-border">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
@@ -18,13 +22,13 @@ export default function Index() {
           <nav className="flex items-center gap-6">
             <Link
               to="/admin"
-              className="text-[13px] text-muted-foreground hover:text-foreground transition-colors"
+              className="text-[13px] text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 rounded-sm"
             >
               Admin
             </Link>
             <a
               href="#features"
-              className="text-[13px] text-muted-foreground hover:text-foreground transition-colors"
+              className="text-[13px] text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 rounded-sm"
             >
               Features
             </a>
@@ -34,7 +38,7 @@ export default function Index() {
       </header>
 
       {/* Hero */}
-      <section className="max-w-6xl mx-auto px-6 pt-28 pb-24">
+      <section id="main-content" className="max-w-6xl mx-auto px-6 pt-28 pb-24">
         <div className="max-w-xl">
           <p className="text-[13px] font-medium text-primary tracking-wide uppercase mb-4">
             Support AI
@@ -48,7 +52,7 @@ export default function Index() {
           <div className="flex items-center gap-4 mt-10">
             <Link
               to="/admin"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-foreground text-background rounded-lg text-[13px] font-medium hover:opacity-90 transition-opacity"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-foreground text-background rounded-lg text-[13px] font-medium hover:opacity-90 transition-opacity focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
             >
               Open Admin
               <ArrowRight size={14} />

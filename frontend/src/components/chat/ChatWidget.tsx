@@ -19,6 +19,7 @@ export function ChatWidget() {
   const [sessionId] = useState<string>(() => `session-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const chatInputRef = useRef<HTMLTextAreaElement>(null);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -27,6 +28,42 @@ export function ChatWidget() {
   useEffect(() => {
     scrollToBottom();
   }, [messages, isTyping, scrollToBottom]);
+
+  // F4.1 - Keyboard Navigation: Global keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger shortcuts when typing in inputs, textareas, or when a modal is open
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable ||
+        document.querySelector('[role="dialog"]')
+      ) {
+        return;
+      }
+
+      // `/` key to focus chat input (only when chat is open)
+      if (e.key === "/" && isOpen) {
+        e.preventDefault();
+        chatInputRef.current?.focus();
+      }
+
+      // `Esc` key to close chat widget
+      if (e.key === "Escape" && isOpen) {
+        e.preventDefault();
+        setIsOpen(false);
+        // Return focus to the floating button
+        setTimeout(() => {
+          const floatingButton = document.querySelector('[aria-label*="chat"]') as HTMLButtonElement;
+          floatingButton?.focus();
+        }, 100);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen]);
 
   const handleSend = async (text: string, retryMessageId?: string) => {
     // If retrying, remove the error message first
@@ -148,7 +185,8 @@ export function ChatWidget() {
           </div>
           <button
             onClick={() => setIsOpen(false)}
-            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+            aria-label="Close chat"
           >
             <ChevronDown size={18} />
           </button>
@@ -168,13 +206,13 @@ export function ChatWidget() {
         </div>
 
         {/* Input */}
-        <ChatInput onSend={handleSend} disabled={isTyping} />
+        <ChatInput ref={chatInputRef} onSend={handleSend} disabled={isTyping} />
       </div>
 
       {/* Floating Button — clean, no generic icons */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`fixed bottom-6 right-6 z-50 flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 ${
+        className={`fixed bottom-6 right-6 z-50 flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 ${
           isOpen
             ? "w-12 h-12 rounded-full bg-muted text-muted-foreground shadow-soft-md"
             : "h-12 px-5 rounded-full bg-foreground text-background shadow-soft-lg gap-2"
