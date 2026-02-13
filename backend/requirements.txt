@@ -4,3 +4,7 @@ pydantic
 pydantic-settings
 httpx
 
+# RAG Pipeline - Embeddings & Vector Store
+sentence-transformers>=2.2.0
+chromadb>=0.4.0
+openai>=1.0.0

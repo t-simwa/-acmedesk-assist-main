@@ -28,10 +28,16 @@ class Settings(BaseSettings):
     # Frontend URL allowed for CORS
     frontend_origin: AnyHttpUrl | str = "http://localhost:8080"
 
-    # Placeholders for future RAG-related configuration
+    # RAG-related configuration
     openai_api_key: Optional[str] = None
     database_url: Optional[str] = None
     vector_db_url: Optional[str] = None
+    
+    # Embedding configuration
+    embedding_model: str = "all-MiniLM-L6-v2"  # Sentence Transformer model name
+    use_openai_embeddings: bool = False  # If True, use OpenAI instead of Sentence Transformers
+    vector_store_persist_dir: Optional[str] = None  # Directory for ChromaDB persistence (None = in-memory)
+    vector_collection_name: str = "acmedesk_documents"
 
     # Chunking configuration
     chunk_size: int = 600

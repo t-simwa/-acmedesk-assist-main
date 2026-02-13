@@ -509,14 +509,17 @@ This section lists **granular, implementation-ready checklists** grouped by area
     - [x] Attach metadata: `doc_id`, `chunk_index`, `page_or_section`, `source_path`.
   - [x] Provide config object for chunk size and overlap, and hook it into settings.
 
-- **B3 – Embeddings & Vector Store**
-  - [ ] Implement `backend/app/rag/embeddings.py`:
-    - [ ] Wrapper around OpenAI embeddings (or a free provider like `text-embedding-3-small` / local model).
-    - [ ] Batch embedding function with retries.
-  - [ ] Implement `backend/app/rag/vector_store.py`:
-    - [ ] Interface with `add_documents(chunks)`, `search(query, top_k)`.
-    - [ ] Implementation for Chroma or another simple local vector DB.
-  - [ ] Store vector IDs with mapping back to document and chunk metadata.
+- **B3 – Embeddings & Vector Store** ✅ **COMPLETE**
+  - [x] Implement `backend/app/rag/embeddings.py`:
+    - [x] Wrapper around Sentence Transformers (open-source, local) with `all-MiniLM-L6-v2` as default.
+    - [x] Optional OpenAI embeddings fallback (`text-embedding-3-small`).
+    - [x] Batch embedding function with retries and exponential backoff.
+  - [x] Implement `backend/app/rag/vector_store.py`:
+    - [x] Interface with `add_documents(chunks)`, `search(query, top_k)`.
+    - [x] Implementation for ChromaDB (local persistence support).
+    - [x] Store vector IDs with mapping back to document and chunk metadata.
+  - [x] Configuration integrated into `backend/app/config.py`.
+  - [x] Dependencies added to `backend/requirements.txt`.
 
 - **B4 – Retrieval & Prompting**
   - [ ] Implement `retrieve(query, top_k, filters?)` to:
@@ -982,7 +985,7 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
 - **Includes:**
   - [x] B1 – Document ingestion (local docs).
   - [x] B2 – Chunking implementation.
-  - [ ] B3 – Embeddings & vector store integration.
+  - [x] B3 – Embeddings & vector store integration.
   - [ ] B4/B5 – Retrieval + prompt building + answer generation hooked into `/api/chat`.
   - [ ] A4 – Document APIs (upload, list, reindex, delete).
   - [ ] C1/C2 – Minimal DB + storage wiring for documents & conversations.
