@@ -492,15 +492,15 @@ This section lists **granular, implementation-ready checklists** grouped by area
 
 ### B. RAG Pipeline
 
-- **B1 – Document Ingestion**
-  - [ ] Create `backend/app/rag/loaders.py`:
-    - [ ] Implement loader for markdown files.
-    - [ ] Implement loader for basic HTML (strip tags, keep headings and links).
-    - [ ] Implement loader for TXT.
-  - [ ] Add a simple `data/docs/` folder with 10–30 AcmeDesk-style articles.
-  - [ ] Implement ingestion function:
-    - [ ] Reads documents from storage (filesystem for now).
-    - [ ] Normalizes content into a common structure (`text`, `title`, `url`, `doc_id`).
+- **B1 – Document Ingestion** ✅ **COMPLETE**
+  - [x] Create `backend/app/rag/loaders.py`:
+    - [x] Implement loader for markdown files.
+    - [x] Implement loader for basic HTML (strip tags, keep headings and links).
+    - [x] Implement loader for TXT.
+  - [x] Add a simple `data/docs/` folder with 10–30 AcmeDesk-style articles.
+  - [x] Implement ingestion function:
+    - [x] Reads documents from storage (filesystem for now).
+    - [x] Normalizes content into a common structure (`text`, `title`, `url`, `doc_id`).
 
 - **B2 – Chunking**
   - [ ] Implement `chunk_text(text, config)` using a sensible splitter:
@@ -980,7 +980,7 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
   - Make the Documents admin page reflect real backend document state.
   - Polish chat widget and documents UI to enterprise standards.
 - **Includes:**
-  - [ ] B1 – Document ingestion (local docs).
+  - [x] B1 – Document ingestion (local docs).
   - [ ] B2 – Chunking implementation.
   - [ ] B3 – Embeddings & vector store integration.
   - [ ] B4/B5 – Retrieval + prompt building + answer generation hooked into `/api/chat`.
