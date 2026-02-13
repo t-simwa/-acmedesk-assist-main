@@ -72,3 +72,56 @@ class ChatResponse(BaseModel):
     answer: str = Field(..., description="The generated answer to the user's query")
     sources: List[SourceRef] = Field(default_factory=list, description="List of source references")
     metadata: ChatMetadata = Field(..., description="Metadata about the response generation")
+
+
+class ConversationMessage(BaseModel):
+    """
+    A single message in a conversation.
+
+    Attributes:
+        id: Unique message identifier
+        role: Role of the message sender (user or assistant)
+        content: The message content
+        timestamp: ISO 8601 timestamp when the message was created
+        metadata: Optional metadata about the message (sources_count, query_time_ms, etc.)
+    """
+
+    id: str = Field(..., description="Unique message identifier")
+    role: str = Field(..., description="Role of the message sender (user or assistant)")
+    content: str = Field(..., description="The message content")
+    timestamp: str = Field(..., description="ISO 8601 timestamp when the message was created")
+    metadata: Optional[dict] = Field(None, description="Optional metadata about the message")
+
+
+class ConversationHistoryResponse(BaseModel):
+    """
+    Response model for conversation history endpoint.
+
+    Attributes:
+        session_id: Session identifier
+        messages: List of conversation messages
+        total: Total number of messages in the conversation
+        limit: Maximum number of messages returned
+        offset: Number of messages skipped
+    """
+
+    session_id: str = Field(..., description="Session identifier")
+    messages: List[ConversationMessage] = Field(default_factory=list, description="List of conversation messages")
+    total: int = Field(..., ge=0, description="Total number of messages in the conversation")
+    limit: int = Field(..., ge=1, description="Maximum number of messages returned")
+    offset: int = Field(..., ge=0, description="Number of messages skipped")
+
+
+class DeleteConversationResponse(BaseModel):
+    """
+    Response model for delete conversation endpoint.
+
+    Attributes:
+        session_id: Session identifier that was deleted
+        deleted: Whether the deletion was successful
+        message: Human-readable message about the deletion
+    """
+
+    session_id: str = Field(..., description="Session identifier that was deleted")
+    deleted: bool = Field(..., description="Whether the deletion was successful")
+    message: str = Field(..., description="Human-readable message about the deletion")

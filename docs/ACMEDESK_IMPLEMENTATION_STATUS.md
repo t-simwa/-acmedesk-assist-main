@@ -443,14 +443,14 @@ This section lists **granular, implementation-ready checklists** grouped by area
     - [x] Persist conversation turn to DB.
     - [x] Return structured response.
   - [x] (Optional) Implement `GET/POST /api/chat/stream` for SSE/websocket streaming.
-  - [ ] Implement `GET /api/conversations`:
-    - [ ] Retrieve conversation history for a session ID.
-    - [ ] Return list of messages with timestamps and metadata.
-    - [ ] Support pagination (limit, offset).
-  - [ ] Implement `DELETE /api/conversations/{id}`:
-    - [ ] Clear/delete a conversation by session ID.
-    - [ ] Remove all messages associated with the session.
-    - [ ] Return success confirmation.
+  - [x] Implement `GET /api/conversations`:
+    - [x] Retrieve conversation history for a session ID.
+    - [x] Return list of messages with timestamps and metadata.
+    - [x] Support pagination (limit, offset).
+  - [x] Implement `DELETE /api/conversations/{id}`:
+    - [x] Clear/delete a conversation by session ID.
+    - [x] Remove all messages associated with the session.
+    - [x] Return success confirmation.
 
 - **A4 – Admin APIs: Documents**
   - [ ] Implement `POST /api/documents/upload`:
@@ -612,20 +612,29 @@ This section lists **granular, implementation-ready checklists** grouped by area
 
 ### E. Testing & Quality
 
-- **E1 – Manual Test Checklist (to move into its own doc later)**
-  - [ ] Chat widget:
-    - [ ] Loads on homepage without JS errors.
-    - [ ] Can open and close smoothly.
-    - [ ] Can send questions and receive answers from backend.
-    - [ ] Shows citations and handles network errors gracefully.
-  - [ ] Admin – Documents:
+- **E1 – Manual Test Checklist** ✅ **COMPLETE**
+  - [x] Manual test checklist document created (`docs/E-testing-and-quality/E1-manual-test-checklist.md`)
+  - [x] Health endpoints smoke tests documented:
+    - [x] Basic health check (`GET /api/health`)
+    - [x] Readiness check (`GET /api/health/ready`)
+    - [x] Liveness check (`GET /api/health/live`)
+    - [x] API documentation verification
+  - [x] Chat widget smoke tests documented:
+    - [x] Loads on homepage without JS errors.
+    - [x] Can open and close smoothly.
+    - [x] Can send questions and receive answers from backend.
+    - [x] Shows citations (when available).
+    - [x] Handles network errors gracefully.
+    - [x] Multiple messages in conversation.
+    - [x] UI behavior and responsiveness.
+  - [ ] Admin – Documents (⏳ For Milestone 2):
     - [ ] Can upload MD/TXT/HTML docs.
     - [ ] Status transitions from `processing` → `indexed` or `error`.
     - [ ] Reindex triggers ingestion again.
-  - [ ] Admin – Analytics:
+  - [ ] Admin – Analytics (⏳ For Milestone 2):
     - [ ] Charts render from real data.
     - [ ] Time ranges behave as expected (e.g. last 7/30 days).
-  - [ ] RAG Quality:
+  - [ ] RAG Quality (⏳ For Milestone 2):
     - [ ] Build test set of 15–30 questions.
     - [ ] Evaluate accuracy and hallucinations; record metrics.
 
@@ -962,7 +971,7 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
   - [x] F1.3 – Spacing & layout system audit.
   - [x] F2.3 – Enhanced loading & error states for chat widget.
   - [x] F4.1 – Basic keyboard navigation (tab order, focus indicators).
-  - [ ] E1 – Basic manual smoke tests for health + chat.
+  - [x] E1 – Basic manual smoke tests for health + chat.
 
 ### Milestone 2 – RAG Pipeline & Documents Admin (Week 2)
 
