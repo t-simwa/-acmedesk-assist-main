@@ -43,10 +43,34 @@ export interface Document {
   id: string;
   name: string;
   type: string;
-  status: "pending" | "processing" | "indexed" | "error";
-  chunk_count?: number;
+  status: "processing" | "indexed" | "error";
+  file_path: string;
+  file_size: number;
+  chunk_count: number;
   created_at: string;
   updated_at: string;
+  last_indexed_at?: string | null;
+  error_message?: string | null;
+}
+
+export interface DocumentListResponse {
+  documents: Document[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface DocumentUploadResponse {
+  id: string;
+  name: string;
+  status: "processing" | "indexed" | "error";
+  message: string;
+}
+
+export interface ReindexResponse {
+  id: string;
+  status: "processing" | "indexed" | "error";
+  message: string;
 }
 
 export interface AnalyticsSummary {
@@ -104,7 +128,10 @@ async function apiClient<T>(
   if (params) {
     const searchParams = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
-      searchParams.append(key, String(value));
+      // Only append non-undefined values
+      if (value !== undefined && value !== null) {
+        searchParams.append(key, String(value));
+      }
     });
     const queryString = searchParams.toString();
     if (queryString) {
@@ -113,8 +140,10 @@ async function apiClient<T>(
   }
 
   // Set default headers
+  // Don't set Content-Type for FormData - let browser set it with boundary
+  const isFormData = fetchOptions.body instanceof FormData;
   const headers: HeadersInit = {
-    "Content-Type": "application/json",
+    ...(isFormData ? {} : { "Content-Type": "application/json" }),
     ...fetchOptions.headers,
   };
 
@@ -149,10 +178,36 @@ async function apiClient<T>(
     const data = await response.json();
 
     if (!response.ok) {
+      // Extract error message from FastAPI response format
+      let errorMessage = "An error occurred";
+      
+      if (data.detail) {
+        // FastAPI validation errors can be an array or a string
+        if (Array.isArray(data.detail)) {
+          // Extract messages from validation error array
+          errorMessage = data.detail
+            .map((err: any) => {
+              if (typeof err === "string") return err;
+              if (err.msg) return err.msg;
+              if (err.message) return err.message;
+              return JSON.stringify(err);
+            })
+            .join(", ");
+        } else if (typeof data.detail === "string") {
+          errorMessage = data.detail;
+        } else {
+          errorMessage = JSON.stringify(data.detail);
+        }
+      } else if (data.message) {
+        errorMessage = typeof data.message === "string" ? data.message : JSON.stringify(data.message);
+      } else {
+        errorMessage = `HTTP error! status: ${response.status}`;
+      }
+
       // Detect rate limit errors (429)
       if (response.status === 429) {
         const error: ApiError = {
-          message: data.detail || data.message || "Rate limit exceeded. Please wait a moment and try again.",
+          message: errorMessage,
           status: response.status,
           statusText: response.statusText,
           errorType: "rate_limit",
@@ -163,7 +218,7 @@ async function apiClient<T>(
       // Server errors (5xx)
       if (response.status >= 500) {
         const error: ApiError = {
-          message: data.detail || data.message || "Server error. Please try again later.",
+          message: errorMessage,
           status: response.status,
           statusText: response.statusText,
           errorType: "server_error",
@@ -171,12 +226,12 @@ async function apiClient<T>(
         throw error;
       }
 
-      // Other HTTP errors
+      // Other HTTP errors (including 422 validation errors)
       const error: ApiError = {
-        message: data.detail || data.message || `HTTP error! status: ${response.status}`,
+        message: errorMessage,
         status: response.status,
         statusText: response.statusText,
-        errorType: "unknown",
+        errorType: response.status === 422 ? "unknown" : "unknown",
       };
       throw error;
     }
@@ -244,18 +299,26 @@ export const documentsApi = {
   /**
    * List all documents
    */
-  async list(): Promise<Document[]> {
-    return apiClient<Document[]>("/api/documents");
+  async list(params?: {
+    limit?: number;
+    offset?: number;
+    search?: string;
+    status?: string;
+    type?: string;
+  }): Promise<DocumentListResponse> {
+    return apiClient<DocumentListResponse>("/api/documents", {
+      params: params as Record<string, string | number> | undefined,
+    });
   },
 
   /**
    * Upload a document
    */
-  async upload(file: File): Promise<Document> {
+  async upload(file: File): Promise<DocumentUploadResponse> {
     const formData = new FormData();
     formData.append("file", file);
 
-    return apiClient<Document>("/api/documents/upload", {
+    return apiClient<DocumentUploadResponse>("/api/documents/upload", {
       method: "POST",
       headers: {}, // Let browser set Content-Type with boundary for FormData
       body: formData,
@@ -265,13 +328,10 @@ export const documentsApi = {
   /**
    * Reindex a document by ID
    */
-  async reindex(id: string): Promise<{ message: string; document_id: string }> {
-    return apiClient<{ message: string; document_id: string }>(
-      `/api/documents/${id}/reindex`,
-      {
-        method: "POST",
-      }
-    );
+  async reindex(id: string): Promise<ReindexResponse> {
+    return apiClient<ReindexResponse>(`/api/documents/${id}/reindex`, {
+      method: "POST",
+    });
   },
 };
 

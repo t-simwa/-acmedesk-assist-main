@@ -1,0 +1,46 @@
+Welcome to this video on Extending AG2 with Tools and Structured Outputs. In this video, you'll learn how to extend AG2
+agents with tools such as code execution and API calls. You'll see how to use structured outputs
+with pydantic models to ensure responses are always consistent and predictable. Finally,
+you'll explore best practices for building secure, reliable AG2 production systems. The previous video introduced you to AG2 core concepts
+such as conversible agent, human-in-the-loop, and multi-agent orchestration. This video explains
+how AG2 agents can reliably perform complex tasks by integrating tools for extended
+capabilities and enforcing structured outputs for consistent, predictable responses. In AG2, tools extend agent capabilities beyond
+language generation to enable actions like code execution, calculations, and output generation.
+Agents can connect to APIs or databases for real-time data, interact with file systems,
+and integrate with web services. These tools support automation, analysis,
+and visualizations, making agents more effective in real-world workflows. Let's see how tools enable agents to go beyond
+conversation and perform real tasks. In this example, an is _ prime function
+checks if a number is prime. Using register _ function, you can link this tool
+between two agents, math _ asker who checks the request and math _
+checker who runs the function. This separation keeps reasoning and execution clean and secure.
+From simple calculations to complex API calls, tools give agents the ability to act in the real world. In real-world AI applications, consistent output
+is critical. Without structure, agent responses can vary, sometimes returning text,
+other times lists, making them unreliable for processing or API integration. Structured outputs
+in AG2 solve this by enforcing a clear, consistent format. Using Pydantic models, all data is
+validated to maintain format consistency, support reliable API integration, and prevent malformed
+responses. Clear data contracts enforce type safety, making the system robust,
+predictable, and production-ready. Here's an example of a structured output in AG2.
+You create a ticket summary model using Pydantic with fields like customer name,
+issue type, urgency, and recommended action. The key step is setting the model as the response
+_ format in llm _ config, enabling AG2 to validate and parse outputs into a
+well-defined structure. Without it, responses may be inconsistent or unpredictable.
+This approach ensures every output follows your schema precisely, making it structured,
+reliable, and ready for integration into APIs, databases, or automated pipelines. After learning
+how to extend AG2's agents with tools and ensure consistent outputs with
+structured schemas, let's look at best practices for using AG2 in production. First, secure your system. Never hard-code API keys. Use environment variables and secure credential stores. Enhance reliability with config lists and fallback
+models to maintain uptime if the primary model fails. Adjust temperature settings to suit the task 0.0 for consistent, structured outputs and 0.7 to 1.0 for creative work. Finally, implement rate limiting and robust error
+handling to keep the system stable at scale. In AG2, effective agent design starts with clarity, control, and purpose. Craft strong system messages that define each agent's role and constraints. Set max _ consecutive _ auto _ reply to prevent infinite loops,
+and choose the right human _ input _ mode for your use case. Full automation or manual oversight. Keep agents specialized with focused, well-defined
+tasks rather than overloading them. Clear boundaries lead to more reliable, efficient,
+and maintainable behavior. Implementing human-in-the-loop in AG2 requires a thoughtful strategy. Use it where human judgment adds the most value,
+such as high-risk or high-impact decisions. Implement clear escalation criteria such as risk levels or financial thresholds to trigger intervention. Give reviewers enough context for informed decisions and log all interventions for compliance and accountability. In AG2 multi-agent orchestration, structure is key. Design workflows with clear roles and defined handoffs. Use group chat for diverse perspectives and collaborative problem solving. Set termination conditions to avoid infinite loops,
+and monitor conversation quality to enable timely human intervention. Structured orchestration ensures reliable, manageable agent ecosystems. When designing tools for agents, give each a single, focused purpose. Implement robust error handling to manage potential failures from external dependencies,
+and validate all inputs and outputs to catch issues early and maintain data integrity.
+Document tool capabilities clearly so agents know when and how to use them effectively.
+Finally, structured outputs help maintain consistency and reliability in agent responses.
+Leverage pydantic models to enforce schemas and validate data comprehensively. Define clear, consistent schemas aligned with your downstream requirements and include meaningful
+error messages for easier debugging. To ensure long-term maintainability, version your
+schemas so the system remains compatible even when requirements evolve. This level of precision is what turns a prototype into a production-ready system. In this video, you learned that AG2 agents can be extended with tools to perform
+real-world actions such as code execution, API integrations, and data processing, allowing
+them to automate tasks, access live data, and execute complex workflows. Structured outputs with pydantic models enforce consistent response formats, validate data automatically, and prevent errors during API or automated workflow integration. Best practices for AG2 production setups include securing credentials, using fallback models for reliability, tuning temperature settings for the task, and adding robust error handling for stability. Clear agent roles and orchestration patterns combined
+with targeted human-in-the-loop strategies enhance the accuracy, efficiency, and maintainability of multi-agent systems.

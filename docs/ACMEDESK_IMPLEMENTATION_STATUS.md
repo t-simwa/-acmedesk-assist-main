@@ -455,6 +455,7 @@ This section lists **granular, implementation-ready checklists** grouped by area
 - **A4 – Admin APIs: Documents** ✅ **COMPLETE**
   - [x] Implement `POST /api/documents/upload`:
     - [x] Accept file upload (MD/HTML/TXT, basic size limit).
+    - [ ] Extend file upload to support PDF and DOCX formats (requires B1 PDF/DOCX loaders).
     - [x] Store raw file in storage (local folder at first).
     - [x] Create document metadata record in DB with status `processing`.
     - [x] Enqueue ingestion/indexing task (sync or background).
@@ -501,6 +502,16 @@ This section lists **granular, implementation-ready checklists** grouped by area
   - [x] Implement ingestion function:
     - [x] Reads documents from storage (filesystem for now).
     - [x] Normalizes content into a common structure (`text`, `title`, `url`, `doc_id`).
+  - [ ] Add support for PDF files:
+    - [ ] Implement PDF loader using PyPDF2, pdfplumber, or similar library.
+    - [ ] Extract text content while preserving structure (headings, paragraphs).
+    - [ ] Handle multi-page documents with page metadata.
+    - [ ] Update file upload validation to accept `.pdf` files.
+  - [ ] Add support for DOCX files:
+    - [ ] Implement DOCX loader using python-docx library.
+    - [ ] Extract text content while preserving document structure.
+    - [ ] Handle formatting metadata (headings, lists, tables).
+    - [ ] Update file upload validation to accept `.docx` files.
 
 - **B2 – Chunking**
   - [x] Implement `chunk_text(text, config)` using a sensible splitter:
@@ -555,7 +566,7 @@ This section lists **granular, implementation-ready checklists** grouped by area
   - [ ] Ensure knowledge base meets spec requirements:
     - [ ] Minimum: 50 documents (spec requirement).
     - [ ] Recommended: 100-200 documents (spec requirement).
-    - [ ] Support document formats: PDF, Markdown, TXT, HTML, DOCX (optional) (spec requirement).
+    - [ ] Support document formats: PDF, Markdown, TXT, HTML, DOCX (spec requirement - PDF and DOCX support to be added in B1).
 
 ---
 
@@ -596,10 +607,10 @@ This section lists **granular, implementation-ready checklists** grouped by area
   - [x] Handle network errors with user-friendly inline messages and retry action.
 
 - **D3 – Wire Documents Page to Backend**
-  - [ ] Replace `mockDocs` with data from `documentsApi.list()`.
-  - [ ] Implement actual file selection on “Upload” button and call `documentsApi.upload`.
-  - [ ] Reflect document statuses based on backend responses.
-  - [ ] Add “Reindex” option in row actions menu that calls `documentsApi.reindex`.
+  - [x] Replace `mockDocs` with data from `documentsApi.list()`.
+  - [x] Implement actual file selection on "Upload" button and call `documentsApi.upload`.
+  - [x] Reflect document statuses based on backend responses.
+  - [x] Add "Reindex" option in row actions menu that calls `documentsApi.reindex`.
 
 - **D4 – Wire Analytics Page**
   - [ ] Replace static `conversationData` and `resolutionData` with `analyticsApi.getSummary()`.
@@ -984,12 +995,13 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
   - Polish chat widget and documents UI to enterprise standards.
 - **Includes:**
   - [x] B1 – Document ingestion (local docs).
+  - [ ] B1 – Add PDF and DOCX file format support (loaders and upload validation).
   - [x] B2 – Chunking implementation.
   - [x] B3 – Embeddings & vector store integration.
   - [x] B4/B5 – Retrieval + prompt building + answer generation hooked into `/api/chat`.
   - [x] A4 – Document APIs (upload, list, reindex, delete).
   - [x] C1/C2 – Minimal DB + storage wiring for documents & conversations.
-  - [ ] D3 – Wire Documents page to backend.
+  - [x] D3 – Wire Documents page to backend.
   - [ ] F1.2 – Complete dark mode implementation.
   - [ ] F1.4 – Component library consistency audit.
   - [ ] F2.1 – Chat widget visual refinement (message bubbles, citations).
