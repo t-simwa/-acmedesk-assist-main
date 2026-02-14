@@ -7,27 +7,26 @@ This module provides functions for:
 - Deleting conversations
 - Document metadata management
 
-Currently implemented with in-memory storage that will be replaced
-with actual database implementation in Section C.
+Implemented with SQLAlchemy and SQLite (async).
 """
 
 import logging
 import uuid
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import List, Optional
+
+from sqlalchemy import select, func, delete, and_
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ..models.base import get_session_factory
+from ..models.conversation import Conversation
+from ..models.document import Document
+from ..models.message import Message
 
 logger = logging.getLogger(__name__)
 
-# In-memory storage for conversations
-# Structure: {session_id: [message1, message2, ...]}
-# Each message is a dict with: id, role, content, timestamp, metadata
-_conversations: Dict[str, List[dict]] = {}
 
-# In-memory storage for documents
-# Structure: {doc_id: document_metadata_dict}
-# Each document is a dict with: id, name, type, status, file_path, file_size, chunk_count, created_at, updated_at, last_indexed_at, error_message
-_documents: Dict[str, dict] = {}
-
+# Conversation management functions
 
 async def save_conversation_turn(
     session_id: Optional[str],
@@ -38,12 +37,6 @@ async def save_conversation_turn(
 ) -> Optional[str]:
     """
     Save a conversation turn to the database.
-
-    This implementation uses in-memory storage and will be replaced with:
-    - Database connection and session management
-    - Insert conversation record
-    - Insert message records
-    - Return conversation/message IDs
 
     Args:
         session_id: Optional session identifier
@@ -63,44 +56,70 @@ async def save_conversation_turn(
         )
         return None
 
-    # Initialize conversation list for this session if it doesn't exist
-    if session_id not in _conversations:
-        _conversations[session_id] = []
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        try:
+            # Check if conversation exists for this session_id
+            result = await session.execute(
+                select(Conversation).where(Conversation.session_id == session_id)
+            )
+            conversation = result.scalar_one_or_none()
 
-    timestamp = datetime.utcnow().isoformat() + "Z"
+            # Create conversation if it doesn't exist
+            if conversation is None:
+                conversation_id = str(uuid.uuid4())
+                conversation = Conversation(
+                    id=conversation_id,
+                    session_id=session_id,
+                    started_at=datetime.utcnow(),
+                    last_activity_at=datetime.utcnow(),
+                )
+                session.add(conversation)
+            else:
+                conversation_id = conversation.id
+                conversation.last_activity_at = datetime.utcnow()
 
-    # Create user message
-    user_message_id = str(uuid.uuid4())
-    user_message = {
-        "id": user_message_id,
-        "role": "user",
-        "content": message,
-        "timestamp": timestamp,
-        "metadata": None,
-    }
-    _conversations[session_id].append(user_message)
+            # Create user message
+            user_message_id = str(uuid.uuid4())
+            user_message = Message(
+                id=user_message_id,
+                conversation_id=conversation_id,
+                role="user",
+                content=message,
+                created_at=datetime.utcnow(),
+                message_metadata=None,
+            )
+            session.add(user_message)
 
-    # Create assistant message
-    assistant_message_id = str(uuid.uuid4())
-    assistant_message = {
-        "id": assistant_message_id,
-        "role": "assistant",
-        "content": answer,
-        "timestamp": timestamp,
-        "metadata": {
-            "sources_count": sources_count,
-            "query_time_ms": query_time_ms,
-        },
-    }
-    _conversations[session_id].append(assistant_message)
+            # Create assistant message
+            assistant_message_id = str(uuid.uuid4())
+            assistant_message = Message(
+                id=assistant_message_id,
+                conversation_id=conversation_id,
+                role="assistant",
+                content=answer,
+                created_at=datetime.utcnow(),
+                message_metadata={
+                    "sources_count": sources_count,
+                    "query_time_ms": query_time_ms,
+                },
+            )
+            session.add(assistant_message)
 
-    logger.info(
-        f"Conversation turn saved: session_id={session_id}, "
-        f"message_length={len(message)}, answer_length={len(answer)}, "
-        f"sources={sources_count}, query_time_ms={query_time_ms:.2f}"
-    )
+            await session.commit()
 
-    return assistant_message_id
+            logger.info(
+                f"Conversation turn saved: session_id={session_id}, "
+                f"message_length={len(message)}, answer_length={len(answer)}, "
+                f"sources={sources_count}, query_time_ms={query_time_ms:.2f}"
+            )
+
+            return assistant_message_id
+
+        except Exception as e:
+            await session.rollback()
+            logger.error(f"Error saving conversation turn: {e}", exc_info=True)
+            raise
 
 
 async def get_conversation_history(
@@ -108,10 +127,6 @@ async def get_conversation_history(
 ) -> tuple[List[dict], int]:
     """
     Retrieve conversation history for a session.
-
-    This implementation uses in-memory storage and will be replaced with:
-    - Database query for conversation messages
-    - Message retrieval with pagination
 
     Args:
         session_id: Session identifier
@@ -121,31 +136,52 @@ async def get_conversation_history(
     Returns:
         Tuple of (list of conversation messages, total count)
     """
-    if session_id not in _conversations:
-        logger.debug(f"No conversation history found for session_id={session_id}")
-        return [], 0
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        try:
+            # Find conversation by session_id
+            result = await session.execute(
+                select(Conversation).where(Conversation.session_id == session_id)
+            )
+            conversation = result.scalar_one_or_none()
 
-    messages = _conversations[session_id]
-    total = len(messages)
+            if conversation is None:
+                logger.debug(f"No conversation history found for session_id={session_id}")
+                return [], 0
 
-    # Apply pagination
-    paginated_messages = messages[offset : offset + limit]
+            # Get total count
+            count_result = await session.execute(
+                select(func.count(Message.id)).where(Message.conversation_id == conversation.id)
+            )
+            total = count_result.scalar() or 0
 
-    logger.info(
-        f"Retrieved conversation history: session_id={session_id}, "
-        f"total={total}, limit={limit}, offset={offset}, returned={len(paginated_messages)}"
-    )
+            # Get messages with pagination
+            result = await session.execute(
+                select(Message)
+                .where(Message.conversation_id == conversation.id)
+                .order_by(Message.created_at.asc())
+                .limit(limit)
+                .offset(offset)
+            )
+            messages = result.scalars().all()
 
-    return paginated_messages, total
+            message_dicts = [msg.to_dict() for msg in messages]
+
+            logger.info(
+                f"Retrieved conversation history: session_id={session_id}, "
+                f"total={total}, limit={limit}, offset={offset}, returned={len(message_dicts)}"
+            )
+
+            return message_dicts, total
+
+        except Exception as e:
+            logger.error(f"Error retrieving conversation history: {e}", exc_info=True)
+            raise
 
 
 async def delete_conversation(session_id: str) -> bool:
     """
     Delete a conversation by session ID.
-
-    This implementation uses in-memory storage and will be replaced with:
-    - Database deletion of conversation records
-    - Cascade deletion of associated messages
 
     Args:
         session_id: Session identifier
@@ -153,19 +189,45 @@ async def delete_conversation(session_id: str) -> bool:
     Returns:
         True if conversation was deleted, False if it didn't exist
     """
-    if session_id not in _conversations:
-        logger.debug(f"No conversation found to delete for session_id={session_id}")
-        return False
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        try:
+            # Find conversation by session_id
+            result = await session.execute(
+                select(Conversation).where(Conversation.session_id == session_id)
+            )
+            conversation = result.scalar_one_or_none()
 
-    message_count = len(_conversations[session_id])
-    del _conversations[session_id]
+            if conversation is None:
+                logger.debug(f"No conversation found to delete for session_id={session_id}")
+                return False
 
-    logger.info(
-        f"Deleted conversation: session_id={session_id}, "
-        f"messages_deleted={message_count}"
-    )
+            # Count messages before deletion
+            count_result = await session.execute(
+                select(func.count(Message.id)).where(Message.conversation_id == conversation.id)
+            )
+            message_count = count_result.scalar() or 0
 
-    return True
+            # Delete messages (cascade should handle this, but explicit is safer)
+            await session.execute(
+                delete(Message).where(Message.conversation_id == conversation.id)
+            )
+
+            # Delete conversation
+            await session.delete(conversation)
+            await session.commit()
+
+            logger.info(
+                f"Deleted conversation: session_id={session_id}, "
+                f"messages_deleted={message_count}"
+            )
+
+            return True
+
+        except Exception as e:
+            await session.rollback()
+            logger.error(f"Error deleting conversation: {e}", exc_info=True)
+            raise
 
 
 # Document management functions
@@ -192,27 +254,35 @@ async def create_document(
     Returns:
         Document metadata dictionary
     """
-    timestamp = datetime.utcnow().isoformat() + "Z"
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        try:
+            document = Document(
+                id=doc_id,
+                name=name,
+                type=doc_type,
+                status=status,
+                file_path=file_path,
+                file_size=file_size,
+                chunk_count=0,
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow(),
+                last_indexed_at=None,
+                error_message=None,
+            )
 
-    document = {
-        "id": doc_id,
-        "name": name,
-        "type": doc_type,
-        "status": status,
-        "file_path": file_path,
-        "file_size": file_size,
-        "chunk_count": 0,
-        "created_at": timestamp,
-        "updated_at": timestamp,
-        "last_indexed_at": None,
-        "error_message": None,
-    }
+            session.add(document)
+            await session.commit()
+            await session.refresh(document)
 
-    _documents[doc_id] = document
+            logger.info(f"Created document record: doc_id={doc_id}, name={name}, status={status}")
 
-    logger.info(f"Created document record: doc_id={doc_id}, name={name}, status={status}")
+            return document.to_dict()
 
-    return document
+        except Exception as e:
+            await session.rollback()
+            logger.error(f"Error creating document: {e}", exc_info=True)
+            raise
 
 
 async def get_document(doc_id: str) -> Optional[dict]:
@@ -225,7 +295,19 @@ async def get_document(doc_id: str) -> Optional[dict]:
     Returns:
         Document metadata dictionary if found, None otherwise
     """
-    return _documents.get(doc_id)
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        try:
+            result = await session.execute(select(Document).where(Document.id == doc_id))
+            document = result.scalar_one_or_none()
+
+            if document:
+                return document.to_dict()
+            return None
+
+        except Exception as e:
+            logger.error(f"Error getting document: {e}", exc_info=True)
+            raise
 
 
 async def update_document(
@@ -246,31 +328,45 @@ async def update_document(
     Returns:
         Updated document metadata dictionary if found, None otherwise
     """
-    if doc_id not in _documents:
-        logger.warning(f"Document not found for update: doc_id={doc_id}")
-        return None
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        try:
+            result = await session.execute(select(Document).where(Document.id == doc_id))
+            document = result.scalar_one_or_none()
 
-    document = _documents[doc_id]
-    document["updated_at"] = datetime.utcnow().isoformat() + "Z"
+            if document is None:
+                logger.warning(f"Document not found for update: doc_id={doc_id}")
+                return None
 
-    if status is not None:
-        document["status"] = status
-        if status == "indexed":
-            document["last_indexed_at"] = document["updated_at"]
-        elif status == "error" and error_message:
-            document["error_message"] = error_message
-        elif status != "error":
-            document["error_message"] = None
+            # Update fields
+            document.updated_at = datetime.utcnow()
 
-    if chunk_count is not None:
-        document["chunk_count"] = chunk_count
+            if status is not None:
+                document.status = status
+                if status == "indexed":
+                    document.last_indexed_at = datetime.utcnow()
+                elif status == "error" and error_message:
+                    document.error_message = error_message
+                elif status != "error":
+                    document.error_message = None
 
-    if error_message is not None:
-        document["error_message"] = error_message
+            if chunk_count is not None:
+                document.chunk_count = chunk_count
 
-    logger.info(f"Updated document: doc_id={doc_id}, status={status}, chunk_count={chunk_count}")
+            if error_message is not None:
+                document.error_message = error_message
 
-    return document
+            await session.commit()
+            await session.refresh(document)
+
+            logger.info(f"Updated document: doc_id={doc_id}, status={status}, chunk_count={chunk_count}")
+
+            return document.to_dict()
+
+        except Exception as e:
+            await session.rollback()
+            logger.error(f"Error updating document: {e}", exc_info=True)
+            raise
 
 
 async def list_documents(
@@ -293,36 +389,50 @@ async def list_documents(
     Returns:
         Tuple of (list of document metadata dictionaries, total count)
     """
-    # Start with all documents
-    documents = list(_documents.values())
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        try:
+            # Build query with filters
+            query = select(Document)
+            conditions = []
 
-    # Apply search filter
-    if search:
-        search_lower = search.lower()
-        documents = [doc for doc in documents if search_lower in doc["name"].lower()]
+            if search:
+                conditions.append(func.lower(Document.name).contains(func.lower(search)))
 
-    # Apply status filter
-    if status:
-        documents = [doc for doc in documents if doc["status"] == status]
+            if status:
+                conditions.append(Document.status == status)
 
-    # Apply type filter
-    if doc_type:
-        documents = [doc for doc in documents if doc["type"] == doc_type]
+            if doc_type:
+                conditions.append(Document.type == doc_type)
 
-    # Sort by created_at descending (newest first)
-    documents.sort(key=lambda x: x["created_at"], reverse=True)
+            if conditions:
+                query = query.where(and_(*conditions))
 
-    total = len(documents)
+            # Get total count
+            count_query = select(func.count(Document.id))
+            if conditions:
+                count_query = count_query.where(and_(*conditions))
+            count_result = await session.execute(count_query)
+            total = count_result.scalar() or 0
 
-    # Apply pagination
-    paginated_documents = documents[offset : offset + limit]
+            # Get paginated results, ordered by created_at descending
+            result = await session.execute(
+                query.order_by(Document.created_at.desc()).limit(limit).offset(offset)
+            )
+            documents = result.scalars().all()
 
-    logger.info(
-        f"Listed documents: total={total}, limit={limit}, offset={offset}, "
-        f"returned={len(paginated_documents)}, search={search}, status={status}, type={doc_type}"
-    )
+            document_dicts = [doc.to_dict() for doc in documents]
 
-    return paginated_documents, total
+            logger.info(
+                f"Listed documents: total={total}, limit={limit}, offset={offset}, "
+                f"returned={len(document_dicts)}, search={search}, status={status}, type={doc_type}"
+            )
+
+            return document_dicts, total
+
+        except Exception as e:
+            logger.error(f"Error listing documents: {e}", exc_info=True)
+            raise
 
 
 async def delete_document(doc_id: str) -> bool:
@@ -335,12 +445,24 @@ async def delete_document(doc_id: str) -> bool:
     Returns:
         True if document was deleted, False if it didn't exist
     """
-    if doc_id not in _documents:
-        logger.warning(f"Document not found for deletion: doc_id={doc_id}")
-        return False
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        try:
+            result = await session.execute(select(Document).where(Document.id == doc_id))
+            document = result.scalar_one_or_none()
 
-    del _documents[doc_id]
+            if document is None:
+                logger.warning(f"Document not found for deletion: doc_id={doc_id}")
+                return False
 
-    logger.info(f"Deleted document record: doc_id={doc_id}")
+            await session.delete(document)
+            await session.commit()
 
-    return True
+            logger.info(f"Deleted document record: doc_id={doc_id}")
+
+            return True
+
+        except Exception as e:
+            await session.rollback()
+            logger.error(f"Error deleting document: {e}", exc_info=True)
+            raise

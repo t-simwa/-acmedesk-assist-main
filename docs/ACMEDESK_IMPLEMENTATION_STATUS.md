@@ -561,20 +561,20 @@ This section lists **granular, implementation-ready checklists** grouped by area
 
 ### C. Data, Storage & Persistence
 
-- **C1 – Database**
-  - [ ] Choose DB (SQLite for local dev is fine; Postgres later).
-  - [ ] Add DB driver dependency (e.g. `sqlalchemy` + `asyncpg` or similar).
-  - [ ] Implement DB models / tables:
-    - [ ] `documents` – id, name, type, status, chunk_count, path, created_at, updated_at.
-    - [ ] `conversations` – id, session_id, started_at, last_activity_at.
-    - [ ] `messages` – id, conversation_id, role, content, created_at, metadata.
-    - [ ] `settings` – global or org-level RAG configuration.
-  - [ ] Implement DB session / connection management.
+- **C1 – Database** ✅ **COMPLETE**
+  - [x] Choose DB (SQLite for local dev is fine; Postgres later).
+  - [x] Add DB driver dependency (e.g. `sqlalchemy` + `aiosqlite`).
+  - [x] Implement DB models / tables:
+    - [x] `documents` – id, name, type, status, chunk_count, path, created_at, updated_at.
+    - [x] `conversations` – id, session_id, started_at, last_activity_at.
+    - [x] `messages` – id, conversation_id, role, content, created_at, metadata.
+    - [x] `settings` – global or org-level RAG configuration.
+  - [x] Implement DB session / connection management.
 
-- **C2 – File Storage**
-  - [ ] For v1, store uploaded docs under `storage/documents/` locally.
-  - [ ] Implement helper to map document IDs → file paths.
-  - [ ] Ensure secure filename handling and size/type checks.
+- **C2 – File Storage** ✅ **COMPLETE**
+  - [x] For v1, store uploaded docs under `storage/documents/` locally.
+  - [x] Implement helper to map document IDs → file paths.
+  - [x] Ensure secure filename handling and size/type checks.
 
 ---
 
@@ -988,7 +988,7 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
   - [x] B3 – Embeddings & vector store integration.
   - [x] B4/B5 – Retrieval + prompt building + answer generation hooked into `/api/chat`.
   - [x] A4 – Document APIs (upload, list, reindex, delete).
-  - [ ] C1/C2 – Minimal DB + storage wiring for documents & conversations.
+  - [x] C1/C2 – Minimal DB + storage wiring for documents & conversations.
   - [ ] D3 – Wire Documents page to backend.
   - [ ] F1.2 – Complete dark mode implementation.
   - [ ] F1.4 – Component library consistency audit.

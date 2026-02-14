@@ -5,13 +5,27 @@ This module defines:
 - The FastAPI app instance.
 - CORS configuration to allow the Vite frontend origin.
 - A simple root `/` route returning JSON for quick smoke testing.
+- Database initialization on startup.
 """
+
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
+from .models.base import close_db, init_db
 from .routers import chat, conversations, documents, health
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager for startup and shutdown events."""
+    # Startup: Initialize database
+    await init_db()
+    yield
+    # Shutdown: Close database connections
+    await close_db()
 
 
 app = FastAPI(
@@ -20,6 +34,7 @@ app = FastAPI(
     docs_url="/api/docs",
     redoc_url="/api/redoc",
     openapi_url="/api/openapi.json",
+    lifespan=lifespan,
 )
 
 # Configure CORS so the Vite frontend can call this API during development.
