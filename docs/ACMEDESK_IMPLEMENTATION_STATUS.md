@@ -452,17 +452,17 @@ This section lists **granular, implementation-ready checklists** grouped by area
     - [x] Remove all messages associated with the session.
     - [x] Return success confirmation.
 
-- **A4 – Admin APIs: Documents**
-  - [ ] Implement `POST /api/documents/upload`:
-    - [ ] Accept file upload (MD/HTML/TXT, basic size limit).
-    - [ ] Store raw file in storage (local folder at first).
-    - [ ] Create document metadata record in DB with status `processing`.
-    - [ ] Enqueue ingestion/indexing task (sync or background).
-  - [ ] Implement `GET /api/documents` with:
-    - [ ] Pagination, search by name, filter by status/type.
-  - [ ] Implement `GET /api/documents/{id}` returning metadata + basic stats (chunk count, last indexed).
-  - [ ] Implement `POST /api/documents/{id}/reindex` to re-run ingestion and indexing for a document.
-  - [ ] Implement `DELETE /api/documents/{id}` to remove metadata, source file, and vectors.
+- **A4 – Admin APIs: Documents** ✅ **COMPLETE**
+  - [x] Implement `POST /api/documents/upload`:
+    - [x] Accept file upload (MD/HTML/TXT, basic size limit).
+    - [x] Store raw file in storage (local folder at first).
+    - [x] Create document metadata record in DB with status `processing`.
+    - [x] Enqueue ingestion/indexing task (sync or background).
+  - [x] Implement `GET /api/documents` with:
+    - [x] Pagination, search by name, filter by status/type.
+  - [x] Implement `GET /api/documents/{id}` returning metadata + basic stats (chunk count, last indexed).
+  - [x] Implement `POST /api/documents/{id}/reindex` to re-run ingestion and indexing for a document.
+  - [x] Implement `DELETE /api/documents/{id}` to remove metadata, source file, and vectors.
 
 - **A5 – Admin APIs: Settings & Analytics**
   - [ ] Implement `GET /api/settings/rag` returning model, temperature, top-k, max tokens, system prompt, chunk size.
@@ -987,7 +987,7 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
   - [x] B2 – Chunking implementation.
   - [x] B3 – Embeddings & vector store integration.
   - [x] B4/B5 – Retrieval + prompt building + answer generation hooked into `/api/chat`.
-  - [ ] A4 – Document APIs (upload, list, reindex, delete).
+  - [x] A4 – Document APIs (upload, list, reindex, delete).
   - [ ] C1/C2 – Minimal DB + storage wiring for documents & conversations.
   - [ ] D3 – Wire Documents page to backend.
   - [ ] F1.2 – Complete dark mode implementation.
