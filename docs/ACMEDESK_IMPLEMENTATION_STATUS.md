@@ -763,12 +763,12 @@ This section covers tasks to elevate the UI from a good prototype to a **world-c
 
 #### F3 – Admin Panel Enterprise Features
 
-- **F3.1 – Dashboard Enhancements**
-  - [ ] Add date range picker for analytics (last 7/30/90 days, custom range).
-  - [ ] Implement real-time updates (WebSocket or polling) for live metrics.
-  - [ ] Add export functionality (download charts as PNG/PDF).
-  - [ ] Add drill-down capabilities (click chart elements to see details).
-  - [ ] Implement dashboard customization (drag-and-drop widget arrangement).
+- **F3.1 – Dashboard Enhancements** ✅
+  - [x] Add date range picker for analytics (last 7/30/90 days, custom range).
+  - [x] Implement real-time updates (WebSocket or polling) for live metrics.
+  - [x] Add export functionality (download charts as PNG/PDF).
+  - [x] Add drill-down capabilities (click chart elements to see details).
+  - [x] Implement dashboard customization (drag-and-drop widget arrangement).
 
 - **F3.2 – Documents Page Improvements** ✅
   - [x] Enhanced upload experience:
@@ -1036,7 +1036,7 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
     - [x] API usage/costs tracking.
   - [x] D4 – Wire Analytics page.
   - [x] D5 – Wire Settings page (including chunk size settings).
-  - [ ] F3.1 – Dashboard enhancements (date picker, real-time updates, exports).
+  - [x] F3.1 – Dashboard enhancements (date picker, real-time updates, exports).
   - [ ] F3.3 – Analytics page enhancements (interactive charts, additional visualizations).
   - [ ] F3.4 – Settings page refinement (validation, presets, advanced config, chunk size UI).
   - [ ] F4.3 – Visual accessibility (color contrast, high contrast mode).

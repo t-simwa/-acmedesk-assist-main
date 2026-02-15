@@ -131,6 +131,12 @@ export interface TopQuery {
   resolved_percentage: number;
 }
 
+export interface TopQueriesResponse {
+  queries: TopQuery[];
+  total: number;
+  limit: number;
+}
+
 export interface RAGSettings {
   model?: string;
   temperature?: number;
@@ -424,8 +430,8 @@ export const analyticsApi = {
   /**
    * Get top queries
    */
-  async getTopQueries(limit: number = 10): Promise<TopQuery[]> {
-    return apiClient<TopQuery[]>("/api/analytics/top-queries", {
+  async getTopQueries(limit: number = 10): Promise<TopQueriesResponse> {
+    return apiClient<TopQueriesResponse>("/api/analytics/top-queries", {
       params: { limit },
     });
   },
