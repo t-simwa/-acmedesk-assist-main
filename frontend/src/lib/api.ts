@@ -83,18 +83,52 @@ export interface ReindexResponse {
   message: string;
 }
 
+export interface ConversationCountByDay {
+  date: string; // ISO 8601 format (YYYY-MM-DD)
+  count: number;
+}
+
+export interface QuestionCategory {
+  category: string;
+  count: number;
+}
+
+export interface APIUsageMetrics {
+  total_requests: number;
+  total_tokens_used?: number;
+  estimated_cost?: number;
+  last_updated: string;
+}
+
 export interface AnalyticsSummary {
   total_conversations: number;
-  total_queries: number;
-  avg_query_time_ms: number;
-  resolution_rate: number;
-  conversations_today: number;
+  total_messages: number;
+  conversations_by_day: ConversationCountByDay[];
+  resolution_rate: {
+    resolved_via_bot?: number;
+    escalated?: number;
+    total?: number;
+    percentage?: number;
+  };
+  response_accuracy: {
+    average_query_time_ms?: number;
+    average_sources_count?: number;
+  };
+  top_categories: QuestionCategory[];
+  api_usage: APIUsageMetrics;
+  user_satisfaction: {
+    thumbs_up?: number;
+    thumbs_down?: number;
+    total_feedback?: number;
+    satisfaction_rate?: number;
+  };
 }
 
 export interface TopQuery {
   query: string;
   count: number;
-  avg_response_time_ms: number;
+  resolved_by_bot: number;
+  resolved_percentage: number;
 }
 
 export interface RAGSettings {
@@ -378,9 +412,12 @@ export const documentsApi = {
 export const analyticsApi = {
   /**
    * Get analytics summary
+   * @param days Number of days to include in conversation counts (default: 7, max: 30)
    */
-  async getSummary(): Promise<AnalyticsSummary> {
-    return apiClient<AnalyticsSummary>("/api/analytics/summary");
+  async getSummary(days: number = 7): Promise<AnalyticsSummary> {
+    return apiClient<AnalyticsSummary>("/api/analytics/summary", {
+      params: { days },
+    });
   },
 
   /**

@@ -612,10 +612,10 @@ This section lists **granular, implementation-ready checklists** grouped by area
   - [x] Reflect document statuses based on backend responses.
   - [x] Add "Reindex" option in row actions menu that calls `documentsApi.reindex`.
 
-- **D4 – Wire Analytics Page**
-  - [ ] Replace static `conversationData` and `resolutionData` with `analyticsApi.getSummary()`.
-  - [ ] Replace `topCategories` with backend categories or top queries.
-  - [ ] Add loading states and error banners for charts.
+- **D4 – Wire Analytics Page** ✅ **COMPLETE**
+  - [x] Replace static `conversationData` and `resolutionData` with `analyticsApi.getSummary()`.
+  - [x] Replace `topCategories` with backend categories or top queries.
+  - [x] Add loading states and error banners for charts.
 
 - **D5 – Wire Settings Page**
   - [ ] On mount, fetch current RAG settings from `settingsApi.getRagSettings()`.
@@ -1031,7 +1031,7 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
     - [x] Response accuracy metrics.
     - [x] User satisfaction tracking (if feedback collected).
     - [x] API usage/costs tracking.
-  - [ ] D4 – Wire Analytics page.
+  - [x] D4 – Wire Analytics page.
   - [ ] D5 – Wire Settings page (including chunk size settings).
   - [ ] F3.1 – Dashboard enhancements (date picker, real-time updates, exports).
   - [ ] F3.3 – Analytics page enhancements (interactive charts, additional visualizations).
