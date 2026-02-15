@@ -762,22 +762,22 @@ This section covers tasks to elevate the UI from a good prototype to a **world-c
   - [ ] Add drill-down capabilities (click chart elements to see details).
   - [ ] Implement dashboard customization (drag-and-drop widget arrangement).
 
-- **F3.2 – Documents Page Improvements**
-  - [ ] Enhanced upload experience:
-    - [ ] Multi-file upload with progress bars per file.
-    - [ ] Drag-and-drop with visual feedback (highlight drop zone).
-    - [ ] File preview before upload (for supported formats).
-    - [ ] Upload queue management (pause, resume, cancel).
-  - [ ] Advanced table features:
-    - [ ] Column sorting (all sortable columns).
-    - [ ] Column visibility toggle.
-    - [ ] Row selection with bulk actions (delete, reindex, tag).
-    - [ ] Inline editing for document names/metadata.
-    - [ ] Virtual scrolling for large document lists (performance).
-  - [ ] Document preview:
-    - [ ] Click document name to preview content in modal/sidebar.
-    - [ ] Show chunk previews with highlighting.
-    - [ ] Display document statistics (word count, chunk count, last indexed).
+- **F3.2 – Documents Page Improvements** ✅
+  - [x] Enhanced upload experience:
+    - [x] Multi-file upload with progress bars per file.
+    - [x] Drag-and-drop with visual feedback (highlight drop zone).
+    - [x] File preview before upload (for supported formats).
+    - [x] Upload queue management (pause, resume, cancel).
+  - [x] Advanced table features:
+    - [x] Column sorting (all sortable columns).
+    - [x] Column visibility toggle.
+    - [x] Row selection with bulk actions (delete, reindex, tag).
+    - [x] Inline editing for document names/metadata.
+    - [x] Virtual scrolling for large document lists (performance).
+  - [x] Document preview:
+    - [x] Click document name to preview content in modal/sidebar.
+    - [x] Show chunk previews with highlighting.
+    - [x] Display document statistics (word count, chunk count, last indexed).
 
 - **F3.3 – Analytics Page Enhancements**
   - [ ] Interactive charts:
@@ -1007,7 +1007,7 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
   - [x] F2.1 – Chat widget visual refinement (message bubbles, citations).
   - [x] F2.2 – Advanced chat interactions (copy, regenerate, reactions).
   - [x] F2.4 – Mobile chat widget optimization.
-  - [ ] F3.2 – Documents page enhancements (multi-file upload, advanced table).
+  - [x] F3.2 – Documents page enhancements (multi-file upload, advanced table).
   - [ ] F4.2 – Screen reader support (ARIA labels, live regions).
   - [ ] F5.1 – Loading performance optimization (code splitting, skeletons).
   - [ ] F6.1 – Smooth transitions and animations.

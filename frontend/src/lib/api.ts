@@ -53,6 +53,16 @@ export interface Document {
   error_message?: string | null;
 }
 
+export interface DocumentDetail {
+  document: Document;
+}
+
+export interface DocumentChunk {
+  chunk_index: number;
+  text: string;
+  metadata?: Record<string, any>;
+}
+
 export interface DocumentListResponse {
   documents: Document[];
   total: number;
@@ -331,6 +341,32 @@ export const documentsApi = {
   async reindex(id: string): Promise<ReindexResponse> {
     return apiClient<ReindexResponse>(`/api/documents/${id}/reindex`, {
       method: "POST",
+    });
+  },
+
+  /**
+   * Get document details by ID
+   */
+  async get(id: string): Promise<DocumentDetail> {
+    return apiClient<DocumentDetail>(`/api/documents/${id}`);
+  },
+
+  /**
+   * Delete a document by ID
+   */
+  async delete(id: string): Promise<{ id: string; deleted: boolean; message: string }> {
+    return apiClient<{ id: string; deleted: boolean; message: string }>(`/api/documents/${id}`, {
+      method: "DELETE",
+    });
+  },
+
+  /**
+   * Update document metadata
+   */
+  async update(id: string, updates: { name?: string }): Promise<Document> {
+    return apiClient<Document>(`/api/documents/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(updates),
     });
   },
 };

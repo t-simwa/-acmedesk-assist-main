@@ -68,9 +68,9 @@ function processCitationsInText(text: string, sources?: SourceInfo[]): string {
  * Create custom components for react-markdown with citation support
  */
 function createMarkdownComponents(sources?: SourceInfo[], isUser: boolean = false): Components {
-  const textColor = isUser ? "text-white" : "text-foreground";
+  const textColor = isUser ? "text-background" : "text-foreground";
   const textColorClasses = isUser 
-    ? "text-white [&_*]:text-white [&_strong]:text-white [&_em]:text-white [&_code]:text-white/90 [&_a]:text-white/90 [&_a:hover]:text-white"
+    ? "text-background [&_*]:text-background [&_strong]:text-background [&_em]:text-background [&_code]:text-background/90 [&_a]:text-background/90 [&_a:hover]:text-background"
     : "";
 
   return {
@@ -303,7 +303,7 @@ export function MessageBubble({ message, onRetry, onRegenerate, onReactionChange
         <div
           className={`px-4 py-2.5 text-[12px] relative ${
             isUser
-              ? "bg-foreground text-white rounded-[18px] rounded-br-[4px] shadow-md border border-foreground/20"
+              ? "bg-foreground text-background rounded-[18px] rounded-br-[4px] shadow-md border border-foreground/20"
               : isError
               ? "bg-destructive/10 text-destructive border border-destructive/20 rounded-[18px] rounded-bl-[4px] shadow-sm"
               : "bg-gradient-to-br from-muted via-muted to-muted/95 text-foreground rounded-[18px] rounded-bl-[4px] shadow-soft-sm border border-border/30 backdrop-blur-sm"
@@ -337,7 +337,7 @@ export function MessageBubble({ message, onRetry, onRegenerate, onReactionChange
               {getErrorIcon()}
             </div>
           )}
-          <div className={isUser ? "text-white [&_*]:text-white [&_strong]:text-white [&_sup]:text-white/90 [&_a]:text-white/90 [&_a:hover]:text-white [&_h1]:text-white [&_h2]:text-white [&_h3]:text-white [&_h4]:text-white [&_h5]:text-white [&_h6]:text-white [&_p]:text-white [&_span]:text-white [&_li]:text-white [&_code]:text-white/90" : ""}>
+          <div className={isUser ? "text-background [&_*]:text-background [&_strong]:text-background [&_sup]:text-background/90 [&_a]:text-background/90 [&_a:hover]:text-background [&_h1]:text-background [&_h2]:text-background [&_h3]:text-background [&_h4]:text-background [&_h5]:text-background [&_h6]:text-background [&_p]:text-background [&_span]:text-background [&_li]:text-background [&_code]:text-background/90" : ""}>
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               rehypePlugins={[rehypeRaw]}
@@ -467,11 +467,10 @@ export function MessageBubble({ message, onRetry, onRegenerate, onReactionChange
               <TooltipTrigger asChild>
                 <button
                   onClick={() => onRegenerate(message.id, message.userMessageId!)}
-                  className="flex items-center gap-1 px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+                  className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
                   aria-label="Regenerate response"
                 >
                   <RotateCcw size={12} />
-                  <span>Regenerate</span>
                 </button>
               </TooltipTrigger>
               <TooltipContent>
