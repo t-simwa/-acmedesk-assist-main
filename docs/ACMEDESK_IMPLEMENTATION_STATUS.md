@@ -836,12 +836,12 @@ This section covers tasks to elevate the UI from a good prototype to a **world-c
 
 #### F5 – Performance & Optimization
 
-- **F5.1 – Loading Performance**
-  - [ ] Implement code splitting for admin routes (lazy load admin pages).
-  - [ ] Optimize bundle size (analyze with webpack-bundle-analyzer or similar).
-  - [ ] Add loading skeletons for all async data (not just spinners).
-  - [ ] Implement progressive image loading (if images are added).
-  - [ ] Optimize font loading (subset fonts, use font-display: swap).
+- **F5.1 – Loading Performance** ✅ **COMPLETE**
+  - [x] Implement code splitting for admin routes (lazy load admin pages).
+  - [x] Optimize bundle size (analyze with rollup-plugin-visualizer).
+  - [x] Add loading skeletons for all async data (not just spinners).
+  - [x] Implement progressive image loading (if images are added) - *Not applicable (no images in admin pages currently)*.
+  - [x] Optimize font loading (font-display: swap already implemented in HTML).
 
 - **F5.2 – Runtime Performance**
   - [ ] Implement virtual scrolling for long lists (documents, messages, analytics data).
@@ -1009,7 +1009,7 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
   - [x] F2.4 – Mobile chat widget optimization.
   - [x] F3.2 – Documents page enhancements (multi-file upload, advanced table).
   - [x] F4.2 – Screen reader support (ARIA labels, live regions).
-  - [ ] F5.1 – Loading performance optimization (code splitting, skeletons).
+  - [x] F5.1 – Loading performance optimization (code splitting, skeletons).
   - [ ] F6.1 – Smooth transitions and animations.
   - [ ] E1 – RAG quality checks with initial test set.
 

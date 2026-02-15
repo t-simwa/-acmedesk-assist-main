@@ -421,3 +421,25 @@
   white-space: nowrap;
   border-width: 0;
 }
+
+/* F5.1 - Loading Performance: Fade-in animation for skeleton loaders */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-in-out;
+}
+
+/* Respect prefers-reduced-motion for fade-in */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in {
+    animation: none;
+    opacity: 1;
+  }
+}
