@@ -1,5 +1,9 @@
 import { useState, useEffect } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
+import { settingsApi, ApiError, RAGSettings } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
+import { AlertCircle } from "lucide-react";
 
 // Helper function to convert hex to HSL
 function hexToHsl(hex: string): string {
@@ -85,10 +89,15 @@ const BRAND_COLOR_STORAGE_KEY = "acmedesk-brand-color";
 
 export default function Settings() {
   const { resolvedTheme } = useTheme();
-  const [model, setModel] = useState("gpt-4o");
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [model, setModel] = useState("");
   const [temperature, setTemperature] = useState(0.1);
   const [topK, setTopK] = useState(5);
   const [maxTokens, setMaxTokens] = useState(1024);
+  const [chunkSize, setChunkSize] = useState(600);
   const [systemPrompt, setSystemPrompt] = useState(
     "You are a helpful AcmeDesk support assistant. Answer questions ONLY based on the provided context. If you cannot find the answer in the context, say so and offer to connect the user with a human agent."
   );
@@ -139,6 +148,105 @@ export default function Settings() {
     localStorage.removeItem(BRAND_COLOR_STORAGE_KEY);
   };
 
+  // Fetch RAG settings on mount
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const settings = await settingsApi.getRagSettings();
+        
+        if (settings.model) setModel(settings.model);
+        if (settings.temperature !== undefined) setTemperature(settings.temperature);
+        if (settings.top_k !== undefined) setTopK(settings.top_k);
+        if (settings.max_tokens !== undefined) setMaxTokens(settings.max_tokens);
+        if (settings.chunk_size !== undefined) setChunkSize(settings.chunk_size);
+        if (settings.system_prompt !== undefined && settings.system_prompt !== null) {
+          setSystemPrompt(settings.system_prompt);
+        }
+      } catch (err) {
+        const apiError = err as ApiError;
+        const errorMessage = apiError?.message || "Failed to load settings";
+        setError(typeof errorMessage === "string" ? errorMessage : String(errorMessage));
+        console.error("Error fetching settings:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSettings();
+  }, []);
+
+  // Handle save changes
+  const handleSaveChanges = async () => {
+    try {
+      setSaving(true);
+      setError(null);
+      
+      const updatePayload: Partial<RAGSettings> = {
+        temperature,
+        top_k: topK,
+        max_tokens: maxTokens,
+        chunk_size: chunkSize,
+      };
+
+      // Only include system_prompt if it's not empty
+      if (systemPrompt.trim()) {
+        updatePayload.system_prompt = systemPrompt.trim();
+      } else {
+        updatePayload.system_prompt = null;
+      }
+
+      await settingsApi.updateRagSettings(updatePayload);
+      
+      toast({
+        title: "Settings saved",
+        description: "RAG settings have been updated successfully.",
+      });
+    } catch (err) {
+      const apiError = err as ApiError;
+      const errorMessage = apiError?.message || "Failed to save settings";
+      setError(typeof errorMessage === "string" ? errorMessage : String(errorMessage));
+      toast({
+        title: "Error saving settings",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      console.error("Error saving settings:", err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Helper function to format model name for display
+  const formatModelName = (modelName: string): string => {
+    const modelMap: Record<string, string> = {
+      "gpt-4o": "GPT-4o",
+      "gpt-4o-mini": "GPT-4o Mini",
+      "gpt-3.5-turbo": "GPT-3.5 Turbo",
+      "gpt-4": "GPT-4",
+    };
+    return modelMap[modelName] || modelName;
+  };
+
+  if (loading) {
+    return (
+      <div className="max-w-2xl space-y-8">
+        <div>
+          <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
+          <p className="text-[14px] text-muted-foreground mt-1">
+            Configure the RAG pipeline and model parameters
+          </p>
+        </div>
+        <div className="space-y-6">
+          <Skeleton className="h-64 w-full" />
+          <Skeleton className="h-48 w-full" />
+          <Skeleton className="h-32 w-full" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-2xl space-y-8">
       <div>
@@ -148,25 +256,33 @@ export default function Settings() {
         </p>
       </div>
 
+      {error && (
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg text-[14px] flex items-center gap-2">
+          <AlertCircle size={16} />
+          {error}
+        </div>
+      )}
+
       <div className="space-y-6">
         {/* Model */}
         <div className="bg-background rounded-xl border border-border p-6 shadow-soft-sm space-y-5">
           <h3 className="text-[15px] font-semibold text-foreground">Model Configuration</h3>
 
           <div>
-            <label htmlFor="model-select" className="text-[13px] font-medium text-foreground block mb-1.5">Model</label>
-            <select
-              id="model-select"
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-[14px] text-foreground focus:outline-none focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 focus:ring-2 focus:ring-ring/20 focus:border-primary"
+            <label htmlFor="model-display" className="text-[13px] font-medium text-foreground block mb-1.5">Model</label>
+            <input
+              id="model-display"
+              type="text"
+              value={model ? formatModelName(model) : ""}
+              readOnly
+              disabled
+              className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-[14px] text-muted-foreground cursor-not-allowed"
               aria-describedby="model-description"
-            >
-              <option value="gpt-4o">GPT-4o</option>
-              <option value="gpt-4o-mini">GPT-4o Mini</option>
-              <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-            </select>
-            <span id="model-description" className="sr-only">Select the language model for generating responses</span>
+            />
+            <span id="model-description" className="sr-only">Current language model in use (read-only)</span>
+            <p className="text-[12px] text-muted-foreground mt-1.5">
+              Current model in use (cannot be changed from this interface)
+            </p>
           </div>
 
           <div>
@@ -243,6 +359,24 @@ export default function Settings() {
               Number of document chunks to retrieve per query
             </p>
           </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label htmlFor="chunk-size-input" className="text-[13px] font-medium text-foreground">Chunk Size</label>
+            </div>
+            <input
+              id="chunk-size-input"
+              type="number"
+              min="1"
+              value={chunkSize}
+              onChange={(e) => setChunkSize(parseInt(e.target.value) || 600)}
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-[14px] text-foreground focus:outline-none focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 focus:ring-2 focus:ring-ring/20 focus:border-primary"
+              aria-describedby="chunk-size-description"
+            />
+            <p id="chunk-size-description" className="text-[12px] text-muted-foreground mt-1.5">
+              Character size for document chunking (default: 600)
+            </p>
+          </div>
         </div>
 
         {/* System Prompt */}
@@ -313,10 +447,12 @@ export default function Settings() {
         </div>
 
         <button 
-          className="px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-[14px] font-medium hover:opacity-90 transition-opacity focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+          onClick={handleSaveChanges}
+          disabled={saving}
+          className="px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-[14px] font-medium hover:opacity-90 transition-opacity focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
           aria-label="Save all settings changes"
         >
-          Save Changes
+          {saving ? "Saving..." : "Save Changes"}
         </button>
       </div>
     </div>

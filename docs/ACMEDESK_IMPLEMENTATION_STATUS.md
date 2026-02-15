@@ -617,10 +617,13 @@ This section lists **granular, implementation-ready checklists** grouped by area
   - [x] Replace `topCategories` with backend categories or top queries.
   - [x] Add loading states and error banners for charts.
 
-- **D5 – Wire Settings Page**
-  - [ ] On mount, fetch current RAG settings from `settingsApi.getRagSettings()`.
-  - [ ] Bind sliders and text areas to fetched values.
-  - [ ] On “Save Changes”, call `settingsApi.updateRagSettings` and show success/error toasts.
+- **D5 – Wire Settings Page** ✅ **COMPLETE**
+  - [x] On mount, fetch current RAG settings from `settingsApi.getRagSettings()`.
+  - [x] Bind sliders and text areas to fetched values.
+  - [x] On "Save Changes", call `settingsApi.updateRagSettings` and show success/error toasts.
+  - [x] Add chunk_size input field for document chunking configuration.
+  - [x] Display current model as read-only (single option).
+  - [x] Add loading states and error handling.
 
 ---
 
@@ -1032,7 +1035,7 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
     - [x] User satisfaction tracking (if feedback collected).
     - [x] API usage/costs tracking.
   - [x] D4 – Wire Analytics page.
-  - [ ] D5 – Wire Settings page (including chunk size settings).
+  - [x] D5 – Wire Settings page (including chunk size settings).
   - [ ] F3.1 – Dashboard enhancements (date picker, real-time updates, exports).
   - [ ] F3.3 – Analytics page enhancements (interactive charts, additional visualizations).
   - [ ] F3.4 – Settings page refinement (validation, presets, advanced config, chunk size UI).

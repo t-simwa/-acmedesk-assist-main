@@ -137,6 +137,7 @@ export interface RAGSettings {
   top_k?: number;
   max_tokens?: number;
   system_prompt?: string;
+  chunk_size?: number;
 }
 
 // ============================================================================
