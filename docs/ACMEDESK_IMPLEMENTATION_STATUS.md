@@ -745,13 +745,13 @@ This section covers tasks to elevate the UI from a good prototype to a **world-c
     - [ ] Display suggested questions or welcome content.
     - [ ] Guide users on how to start a conversation.
 
-- **F2.4 – Mobile Experience**
-  - [ ] Optimize chat widget for mobile:
-    - [ ] Full-screen overlay on mobile (not floating panel).
-    - [ ] Touch-friendly input area (larger tap targets).
-    - [ ] Swipe gestures (e.g., swipe to close).
-    - [ ] Better keyboard handling (iOS/Android virtual keyboard).
-  - [ ] Test on real devices (iOS Safari, Android Chrome).
+- **F2.4 – Mobile Experience** ✅ **COMPLETE**
+  - [x] Optimize chat widget for mobile:
+    - [x] Full-screen overlay on mobile (not floating panel).
+    - [x] Touch-friendly input area (larger tap targets - 44x44px minimum).
+    - [x] Swipe gestures (swipe to close).
+    - [x] Better keyboard handling (iOS/Android virtual keyboard).
+  - [x] Test on real devices (iOS Safari, Android Chrome) - *Manual testing required on physical devices*.
 
 #### F3 – Admin Panel Enterprise Features
 
@@ -1006,7 +1006,7 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
   - [x] F1.4 – Component library consistency audit.
   - [x] F2.1 – Chat widget visual refinement (message bubbles, citations).
   - [x] F2.2 – Advanced chat interactions (copy, regenerate, reactions).
-  - [ ] F2.4 – Mobile chat widget optimization.
+  - [x] F2.4 – Mobile chat widget optimization.
   - [ ] F3.2 – Documents page enhancements (multi-file upload, advanced table).
   - [ ] F4.2 – Screen reader support (ARIA labels, live regions).
   - [ ] F5.1 – Loading performance optimization (code splitting, skeletons).

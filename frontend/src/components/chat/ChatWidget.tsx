@@ -6,6 +6,7 @@ import { ChatInput } from "./ChatInput";
 import { MessageSkeleton } from "./MessageSkeleton";
 import { chatApi, conversationsApi, type ChatResponse, type ApiError } from "@/lib/api";
 import { formatResponse } from "@/utils/formatResponse";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export function ChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
@@ -29,6 +30,14 @@ export function ChatWidget() {
   
   // Track user message IDs for regenerate functionality
   const userMessageMapRef = useRef<Map<string, string>>(new Map()); // assistantMessageId -> userMessageId
+  
+  // F2.4 - Mobile detection
+  const isMobile = useIsMobile();
+  
+  // F2.4 - Swipe gesture state
+  const swipeStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const swipeDistanceRef = useRef<number>(0);
+  const [swipeOffset, setSwipeOffset] = useState(0);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -63,6 +72,102 @@ export function ChatWidget() {
       lastMessageCountRef.current = messages.length;
     }
   }, [messages, isOpen]);
+
+  // F2.4 - Prevent body scroll when chat is open on mobile
+  useEffect(() => {
+    if (isMobile && isOpen) {
+      // Prevent body scroll when chat is open
+      const originalOverflow = document.body.style.overflow;
+      const originalPosition = document.body.style.position;
+      document.body.style.overflow = "hidden";
+      document.body.style.position = "fixed";
+      document.body.style.width = "100%";
+      
+      return () => {
+        document.body.style.overflow = originalOverflow;
+        document.body.style.position = originalPosition;
+        document.body.style.width = "";
+      };
+    }
+  }, [isMobile, isOpen]);
+
+  // F2.4 - Handle keyboard appearance on mobile (iOS/Android)
+  useEffect(() => {
+    if (!isMobile || !isOpen) return;
+
+    const handleResize = () => {
+      // Scroll to bottom when keyboard appears/disappears
+      setTimeout(() => {
+        scrollToBottom();
+      }, 100);
+    };
+
+    // Use visual viewport API if available (better for mobile keyboards)
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", handleResize);
+      return () => {
+        window.visualViewport?.removeEventListener("resize", handleResize);
+      };
+    } else {
+      // Fallback to window resize
+      window.addEventListener("resize", handleResize);
+      return () => {
+        window.removeEventListener("resize", handleResize);
+      };
+    }
+  }, [isMobile, isOpen, scrollToBottom]);
+
+  // F2.4 - Swipe gesture handlers
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (!isMobile || !isOpen) return;
+    
+    const touch = e.touches[0];
+    swipeStartRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+      time: Date.now(),
+    };
+    swipeDistanceRef.current = 0;
+  }, [isMobile, isOpen]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!isMobile || !isOpen || !swipeStartRef.current) return;
+    
+    const touch = e.touches[0];
+    const deltaY = touch.clientY - swipeStartRef.current.y;
+    
+    // Only allow downward swipe (to close)
+    if (deltaY > 0) {
+      swipeDistanceRef.current = deltaY;
+      setSwipeOffset(deltaY);
+      
+      // Prevent default scrolling when swiping
+      if (Math.abs(deltaY) > 10) {
+        e.preventDefault();
+      }
+    }
+  }, [isMobile, isOpen]);
+
+  const handleTouchEnd = useCallback(() => {
+    if (!isMobile || !isOpen || !swipeStartRef.current) {
+      setSwipeOffset(0);
+      swipeStartRef.current = null;
+      return;
+    }
+
+    const swipeThreshold = 100; // Minimum swipe distance to close
+    const swipeSpeed = swipeDistanceRef.current / (Date.now() - swipeStartRef.current.time);
+    
+    // Close if swiped down enough or fast enough
+    if (swipeDistanceRef.current > swipeThreshold || swipeSpeed > 0.5) {
+      setIsOpen(false);
+    }
+    
+    // Reset swipe state
+    setSwipeOffset(0);
+    swipeStartRef.current = null;
+    swipeDistanceRef.current = 0;
+  }, [isMobile, isOpen]);
 
   // F4.1 - Keyboard Navigation: Global keyboard shortcuts
   useEffect(() => {
@@ -442,15 +547,40 @@ export function ChatWidget() {
 
   return (
     <>
+      {/* F2.4 - Mobile backdrop overlay */}
+      {isMobile && isOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm transition-opacity duration-250"
+          onClick={() => setIsOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       {/* Chat Panel */}
       <div
         ref={panelRef}
-        className={`fixed bottom-24 right-6 z-50 w-[380px] max-h-[560px] flex flex-col rounded-2xl overflow-hidden bg-background shadow-chat border border-border transition-all duration-250 ease-out origin-bottom-right ${
-          isOpen
-            ? "opacity-100 scale-100 translate-y-0 pointer-events-auto"
-            : "opacity-0 scale-95 translate-y-3 pointer-events-none"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        className={`fixed z-50 flex flex-col overflow-hidden bg-background shadow-chat border border-border transition-all duration-250 ease-out ${
+          isMobile
+            ? // F2.4 - Full-screen on mobile
+              `inset-0 rounded-none ${
+                isOpen
+                  ? "opacity-100 scale-100 translate-y-0 pointer-events-auto"
+                  : "opacity-0 scale-95 translate-y-full pointer-events-none"
+              }`
+            : // Desktop: floating panel
+              `bottom-24 right-6 w-[380px] max-h-[560px] rounded-2xl origin-bottom-right ${
+                isOpen
+                  ? "opacity-100 scale-100 translate-y-0 pointer-events-auto"
+                  : "opacity-0 scale-95 translate-y-3 pointer-events-none"
+              }`
         }`}
-        style={{ transitionProperty: "opacity, transform" }}
+        style={{
+          transitionProperty: "opacity, transform",
+          transform: isMobile && swipeOffset > 0 ? `translateY(${swipeOffset}px)` : undefined,
+        }}
       >
         {/* Header — Intercom-style with agent identity */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-background">
@@ -484,11 +614,13 @@ export function ChatWidget() {
                       handleExportConversation("pdf");
                     }
                   }}
-                  className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+                  className={`rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 active:scale-95 ${
+                    isMobile ? "p-2.5 min-w-[44px] min-h-[44px]" : "p-1.5"
+                  }`}
                   aria-label="Export conversation"
                   title="Export conversation"
                 >
-                  <Download size={16} />
+                  <Download size={isMobile ? 20 : 16} />
                 </button>
               </div>
             )}
@@ -497,25 +629,33 @@ export function ChatWidget() {
               <button
                 onClick={handleClearConversation}
                 disabled={isClearing}
-                className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:opacity-50"
+                className={`rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:opacity-50 active:scale-95 ${
+                  isMobile ? "p-2.5 min-w-[44px] min-h-[44px]" : "p-1.5"
+                }`}
                 aria-label="Clear conversation"
                 title="Clear conversation"
               >
-                <Trash2 size={16} />
+                <Trash2 size={isMobile ? 20 : 16} />
               </button>
             )}
             <button
               onClick={() => setIsOpen(false)}
-              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+              className={`rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 active:scale-95 ${
+                isMobile ? "p-2.5 min-w-[44px] min-h-[44px]" : "p-1.5"
+              }`}
               aria-label="Close chat"
             >
-              <ChevronDown size={18} />
+              <ChevronDown size={isMobile ? 20 : 18} />
             </button>
           </div>
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 chat-messages min-h-[280px] max-h-[380px] bg-background">
+        <div className={`flex-1 overflow-y-auto px-4 py-4 space-y-3 chat-messages bg-background ${
+          isMobile 
+            ? "min-h-0" // F2.4 - Full height on mobile
+            : "min-h-[280px] max-h-[380px]"
+        }`}>
           {messages.map((msg, index) => (
             <React.Fragment key={msg.id}>
               <MessageBubble 
@@ -527,13 +667,21 @@ export function ChatWidget() {
               {/* Suggested questions - show after welcome message */}
               {index === 0 && msg.id === "welcome" && isConversationEmpty && (
                 <div className="space-y-2 mt-2">
-                  <p className="text-[12px] text-muted-foreground font-medium">Suggested questions:</p>
-                  <div className="flex flex-wrap gap-2">
+                  <p className={`text-muted-foreground font-medium ${
+                    isMobile ? "text-[14px]" : "text-[12px]"
+                  }`}>Suggested questions:</p>
+                  <div className={`flex flex-wrap ${
+                    isMobile ? "gap-3" : "gap-2"
+                  }`}>
                     {suggestedQuestions.map((question, idx) => (
                       <button
                         key={idx}
                         onClick={() => handleSuggestedQuestion(question)}
-                        className="px-3 py-1.5 text-[12px] text-foreground bg-muted hover:bg-muted/80 border border-border rounded-md transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+                        className={`text-foreground bg-muted hover:bg-muted/80 border border-border rounded-md transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 active:scale-95 ${
+                          isMobile
+                            ? "px-4 py-3 text-[14px] min-h-[44px]" // F2.4 - Larger touch target
+                            : "px-3 py-1.5 text-[12px]"
+                        }`}
                       >
                         {question}
                       </button>
@@ -552,25 +700,39 @@ export function ChatWidget() {
       </div>
 
       {/* Floating Button — clean, no generic icons */}
-      <button
-        onClick={() => {
-          setIsOpen(!isOpen);
-          if (!isOpen) {
-            // Reset unread count when opening
-            setUnreadCount(0);
-            setHasNewMessage(false);
-            lastMessageCountRef.current = messages.length;
-          }
-        }}
-        className={`fixed bottom-6 right-6 z-50 flex items-center justify-center transition-all duration-300 ease-out hover:scale-110 active:scale-95 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 ${
-          isOpen
-            ? "w-12 h-12 rounded-full bg-muted text-muted-foreground shadow-soft-md hover:shadow-soft-lg"
-            : `h-12 px-5 rounded-full bg-foreground text-background shadow-soft-lg hover:shadow-soft-xl gap-2 ${
-                hasNewMessage ? "animate-pulse-gentle" : ""
-              }`
-        }`}
-        aria-label={isOpen ? "Close chat" : "Open chat"}
-      >
+      {/* F2.4 - Hide floating button on mobile when chat is open (to avoid overlap with send button) */}
+      {!(isMobile && isOpen) && (
+        <button
+          onClick={() => {
+            setIsOpen(!isOpen);
+            if (!isOpen) {
+              // Reset unread count when opening
+              setUnreadCount(0);
+              setHasNewMessage(false);
+              lastMessageCountRef.current = messages.length;
+            }
+          }}
+          className={`fixed z-50 flex items-center justify-center transition-all duration-300 ease-out focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 ${
+            isMobile
+              ? // F2.4 - Larger touch target on mobile (minimum 44x44px)
+                `bottom-4 right-4 ${
+                  isOpen
+                    ? "w-11 h-11 rounded-full bg-muted text-muted-foreground shadow-soft-md active:scale-95"
+                    : `h-11 px-4 rounded-full bg-foreground text-background shadow-soft-lg active:scale-95 gap-2 ${
+                        hasNewMessage ? "animate-pulse-gentle" : ""
+                      }`
+                }`
+              : // Desktop: hover effects
+                `bottom-6 right-6 hover:scale-110 active:scale-95 ${
+                  isOpen
+                    ? "w-12 h-12 rounded-full bg-muted text-muted-foreground shadow-soft-md hover:shadow-soft-lg"
+                    : `h-12 px-5 rounded-full bg-foreground text-background shadow-soft-lg hover:shadow-soft-xl gap-2 ${
+                        hasNewMessage ? "animate-pulse-gentle" : ""
+                      }`
+                }`
+          }`}
+          aria-label={isOpen ? "Close chat" : "Open chat"}
+        >
         {isOpen ? (
           <X size={18} />
         ) : (
@@ -587,7 +749,8 @@ export function ChatWidget() {
             )}
           </>
         )}
-      </button>
+        </button>
+      )}
     </>
   );
 }
