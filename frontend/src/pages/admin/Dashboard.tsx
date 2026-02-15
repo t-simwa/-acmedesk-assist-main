@@ -29,8 +29,10 @@ export default function Dashboard() {
           <div
             key={stat.label}
             className="bg-background rounded-xl border border-border/40 p-8 hover:border-border/60 transition-all duration-200"
+            role="region"
+            aria-label={stat.label}
           >
-            <div className="text-3xl font-semibold text-foreground tracking-tight mb-3 leading-none">
+            <div className="text-3xl font-semibold text-foreground tracking-tight mb-3 leading-none" aria-live="polite" aria-atomic="true">
               {stat.value}
             </div>
             <div className="text-xs text-muted-foreground font-medium uppercase tracking-[0.05em]">
@@ -41,9 +43,9 @@ export default function Dashboard() {
       </div>
 
       {/* Top Questions */}
-      <div className="bg-background rounded-xl border border-border shadow-soft-sm">
+      <section className="bg-background rounded-xl border border-border shadow-soft-sm" aria-labelledby="top-questions-heading">
         <div className="px-6 py-4 border-b border-border">
-          <h2 className="text-[15px] font-semibold text-foreground">Top Questions Today</h2>
+          <h2 id="top-questions-heading" className="text-[15px] font-semibold text-foreground">Top Questions Today</h2>
         </div>
         <div className="divide-y divide-border">
           {recentQueries.map((q, i) => (
@@ -67,7 +69,7 @@ export default function Dashboard() {
             </div>
           ))}
         </div>
-      </div>
+      </section>
     </div>
   );
 }

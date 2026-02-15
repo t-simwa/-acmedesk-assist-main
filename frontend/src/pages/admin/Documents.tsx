@@ -523,7 +523,7 @@ export default function Documents() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Documents</h1>
-          <p className="text-[14px] text-muted-foreground mt-1">
+          <p className="text-[14px] text-muted-foreground mt-1" id="documents-description">
             Manage knowledge base documents for the chatbot
           </p>
         </div>
@@ -564,6 +564,7 @@ export default function Documents() {
             accept=".md,.html,.htm,.txt,.pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             onChange={handleFileInputChange}
             className="hidden"
+            aria-label="Upload document files"
           />
         </div>
       </div>
@@ -653,13 +654,22 @@ export default function Documents() {
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
         onClick={handleUploadClick}
-        className={`border-2 border-dashed rounded-xl p-8 text-center mb-6 transition-colors cursor-pointer ${
+        role="button"
+        tabIndex={0}
+        aria-label="Drop zone for document uploads. Click or drag files here to upload."
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            handleUploadClick();
+          }
+        }}
+        className={`border-2 border-dashed rounded-xl p-8 text-center mb-6 transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 ${
           dragOver
             ? "border-primary bg-accent"
             : "border-border hover:border-primary/50"
         }`}
       >
-        <FileText size={24} className="mx-auto text-muted-foreground mb-2" />
+        <FileText size={24} className="mx-auto text-muted-foreground mb-2" aria-hidden="true" />
         <p className="text-[14px] text-muted-foreground">
           Drag and drop files here, or click Upload
         </p>
@@ -678,6 +688,8 @@ export default function Documents() {
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search documents…"
             className="pl-9"
+            aria-label="Search documents"
+            aria-describedby="documents-description"
           />
         </div>
         <DropdownMenu>
@@ -731,6 +743,7 @@ export default function Documents() {
                   <Checkbox
                     checked={selectedRows.size === filtered.length && filtered.length > 0}
                     onCheckedChange={toggleAllSelection}
+                    aria-label="Select all documents"
                   />
                 </TableHead>
                 {columnVisibility.name && (
@@ -810,6 +823,7 @@ export default function Documents() {
                       <Checkbox
                         checked={isSelected}
                         onCheckedChange={() => toggleRowSelection(doc.id)}
+                        aria-label={`Select ${doc.name}`}
                       />
                     </TableCell>
                     {columnVisibility.name && (
@@ -846,9 +860,10 @@ export default function Documents() {
                         ) : (
                           <button
                             onClick={() => handlePreview(doc)}
-                            className="flex items-center gap-2 text-left hover:text-primary transition-colors"
+                            className="flex items-center gap-2 text-left hover:text-primary transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+                            aria-label={`Preview ${doc.name} document`}
                           >
-                            <FileIcon size={16} className="text-muted-foreground" />
+                            <FileIcon size={16} className="text-muted-foreground" aria-hidden="true" />
                             <span className="text-[14px] font-medium text-foreground">{doc.name}</span>
                           </button>
                         )}
@@ -887,31 +902,34 @@ export default function Documents() {
                             size="sm"
                             className="h-8 w-8 p-0"
                             disabled={isReindexing}
+                            aria-label={`More options for ${doc.name}`}
+                            aria-haspopup="true"
                           >
-                            <MoreHorizontal size={16} />
+                            <MoreHorizontal size={16} aria-hidden="true" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handlePreview(doc)}>
-                            <Eye size={14} className="mr-2" />
+                          <DropdownMenuItem onClick={() => handlePreview(doc)} aria-label={`Preview ${doc.name}`}>
+                            <Eye size={14} className="mr-2" aria-hidden="true" />
                             Preview
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleEditStart(doc)}>
-                            <Edit2 size={14} className="mr-2" />
+                          <DropdownMenuItem onClick={() => handleEditStart(doc)} aria-label={`Edit name of ${doc.name}`}>
+                            <Edit2 size={14} className="mr-2" aria-hidden="true" />
                             Edit Name
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => handleReindex(doc.id)}
                             disabled={isReindexing}
+                            aria-label={isReindexing ? `Reindexing ${doc.name}` : `Reindex ${doc.name}`}
                           >
                             {isReindexing ? (
                               <>
-                                <Loader2 size={14} className="mr-2 animate-spin" />
+                                <Loader2 size={14} className="mr-2 animate-spin" aria-hidden="true" />
                                 Reindexing...
                               </>
                             ) : (
                               <>
-                                <RefreshCw size={14} className="mr-2" />
+                                <RefreshCw size={14} className="mr-2" aria-hidden="true" />
                                 Reindex
                               </>
                             )}
@@ -920,8 +938,9 @@ export default function Documents() {
                           <DropdownMenuItem
                             onClick={() => handleDelete(doc.id)}
                             className="text-destructive"
+                            aria-label={`Delete ${doc.name}`}
                           >
-                            <Trash2 size={14} className="mr-2" />
+                            <Trash2 size={14} className="mr-2" aria-hidden="true" />
                             Delete
                           </DropdownMenuItem>
                         </DropdownMenuContent>

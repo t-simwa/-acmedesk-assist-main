@@ -562,6 +562,9 @@ export function ChatWidget() {
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        role="dialog"
+        aria-label="Chat with AcmeDesk support assistant"
+        aria-modal="false"
         className={`fixed z-50 flex flex-col overflow-hidden bg-background shadow-chat border border-border transition-all duration-250 ease-out ${
           isMobile
             ? // F2.4 - Full-screen on mobile
@@ -585,17 +588,17 @@ export function ChatWidget() {
         {/* Header — Intercom-style with agent identity */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-background">
           <div className="flex items-center gap-3">
-            <div className="relative">
+            <div className="relative" aria-hidden="true">
               <div className="w-7 h-7 rounded-md bg-foreground flex items-center justify-center">
                 <span className="text-[12px] font-bold text-background tracking-tight">A</span>
               </div>
-              <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-status-online border-2 border-background" />
+              <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-status-online border-2 border-background" aria-label="Online status" />
             </div>
             <div>
-              <h3 className="text-[14px] font-semibold text-foreground leading-tight">
+              <h2 className="text-[14px] font-semibold text-foreground leading-tight">
                 AcmeDesk
-              </h3>
-              <p className="text-[12px] text-muted-foreground">
+              </h2>
+              <p className="text-[12px] text-muted-foreground" aria-live="polite">
                 Active now
               </p>
             </div>
@@ -651,11 +654,17 @@ export function ChatWidget() {
         </div>
 
         {/* Messages */}
-        <div className={`flex-1 overflow-y-auto px-4 py-4 space-y-3 chat-messages bg-background ${
-          isMobile 
-            ? "min-h-0" // F2.4 - Full height on mobile
-            : "min-h-[280px] max-h-[380px]"
-        }`}>
+        <div 
+          className={`flex-1 overflow-y-auto px-4 py-4 space-y-3 chat-messages bg-background ${
+            isMobile 
+              ? "min-h-0" // F2.4 - Full height on mobile
+              : "min-h-[280px] max-h-[380px]"
+          }`}
+          role="log"
+          aria-label="Chat messages"
+          aria-live="polite"
+          aria-atomic="false"
+        >
           {messages.map((msg, index) => (
             <React.Fragment key={msg.id}>
               <MessageBubble 
@@ -672,7 +681,7 @@ export function ChatWidget() {
                   }`}>Suggested questions:</p>
                   <div className={`flex flex-wrap ${
                     isMobile ? "gap-3" : "gap-2"
-                  }`}>
+                  }`} role="group" aria-label="Suggested questions">
                     {suggestedQuestions.map((question, idx) => (
                       <button
                         key={idx}
@@ -682,6 +691,7 @@ export function ChatWidget() {
                             ? "px-4 py-3 text-[14px] min-h-[44px]" // F2.4 - Larger touch target
                             : "px-3 py-1.5 text-[12px]"
                         }`}
+                        aria-label={`Ask: ${question}`}
                       >
                         {question}
                       </button>
@@ -691,8 +701,13 @@ export function ChatWidget() {
               )}
             </React.Fragment>
           ))}
+          {isTyping && (
+            <div aria-live="polite" aria-atomic="true" className="sr-only">
+              Assistant is typing
+            </div>
+          )}
           {isTyping && <MessageSkeleton />}
-          <div ref={messagesEndRef} />
+          <div ref={messagesEndRef} aria-hidden="true" />
         </div>
 
         {/* Input */}
@@ -743,7 +758,10 @@ export function ChatWidget() {
             </span>
             <span className="text-[13px] font-medium">Chat with us</span>
             {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-semibold shadow-sm border-2 border-background animate-in zoom-in-95 fade-in-0">
+              <span 
+                className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-semibold shadow-sm border-2 border-background animate-in zoom-in-95 fade-in-0"
+                aria-label={`${unreadCount} unread message${unreadCount > 1 ? 's' : ''}`}
+              >
                 {unreadCount > 9 ? "9+" : unreadCount}
               </span>
             )}

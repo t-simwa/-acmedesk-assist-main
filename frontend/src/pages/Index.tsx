@@ -38,12 +38,12 @@ export default function Index() {
       </header>
 
       {/* Hero */}
-      <section id="main-content" className="max-w-6xl mx-auto px-6 pt-28 pb-24">
+      <section id="main-content" className="max-w-6xl mx-auto px-6 pt-28 pb-24" aria-labelledby="hero-heading">
         <div className="max-w-xl">
-          <p className="text-[13px] font-medium text-primary tracking-wide uppercase mb-4">
+          <p className="text-[13px] font-medium text-primary tracking-wide uppercase mb-4" aria-label="Product category">
             Support AI
           </p>
-          <h1 className="text-[44px] font-semibold text-foreground leading-[1.1] tracking-tight">
+          <h1 id="hero-heading" className="text-[44px] font-semibold text-foreground leading-[1.1] tracking-tight">
             Resolve tickets before they're filed
           </h1>
           <p className="text-[17px] text-muted-foreground mt-5 leading-relaxed">
@@ -65,7 +65,8 @@ export default function Index() {
       </section>
 
       {/* Features — text-first, no icons */}
-      <section id="features" className="max-w-6xl mx-auto px-6 pb-28">
+      <section id="features" className="max-w-6xl mx-auto px-6 pb-28" aria-labelledby="features-heading">
+        <h2 id="features-heading" className="sr-only">Key Features</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-border rounded-xl overflow-hidden">
           {[
             {
@@ -84,7 +85,7 @@ export default function Index() {
                 "When confidence is low, conversations hand off to a human agent. No dead ends.",
             },
           ].map((feature) => (
-            <div
+            <article
               key={feature.title}
               className="bg-background p-8"
             >
@@ -92,7 +93,7 @@ export default function Index() {
               <p className="text-[14px] text-muted-foreground leading-relaxed">
                 {feature.description}
               </p>
-            </div>
+            </article>
           ))}
         </div>
       </section>

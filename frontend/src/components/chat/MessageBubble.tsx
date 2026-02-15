@@ -290,11 +290,13 @@ export function MessageBubble({ message, onRetry, onRegenerate, onReactionChange
       className={`flex ${isUser ? "justify-end" : "justify-start"} animate-fade-in group`}
       onMouseEnter={() => !isUser && !isError && setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      role="article"
+      aria-label={isUser ? "Your message" : "Assistant message"}
     >
       <div className="max-w-[85%] space-y-1 relative">
         {!isUser && (
-          <div className="flex items-center gap-2 px-1 mb-1">
-            <div className="w-7 h-7 rounded-md bg-foreground flex items-center justify-center">
+          <div className="flex items-center gap-2 px-1 mb-1" aria-label="AcmeDesk assistant">
+            <div className="w-7 h-7 rounded-md bg-foreground flex items-center justify-center" aria-hidden="true">
               <span className="text-[12px] font-bold text-background tracking-tight">A</span>
             </div>
             <span className="text-[11px] font-medium text-muted-foreground">AcmeDesk</span>
@@ -317,7 +319,7 @@ export function MessageBubble({ message, onRetry, onRegenerate, onReactionChange
                   <button
                     onClick={handleCopy}
                     className="p-1.5 rounded-md bg-background border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
-                    aria-label="Copy message"
+                    aria-label={isCopying ? "Message copied" : "Copy message to clipboard"}
                   >
                     {isCopying ? (
                       <span className="text-[10px]">Copied!</span>
@@ -378,6 +380,7 @@ export function MessageBubble({ message, onRetry, onRegenerate, onReactionChange
                         href={`#source-${source.index}`}
                         className="source-badge inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium text-primary bg-primary/10 hover:bg-primary/20 hover:text-primary border border-primary/20 rounded-md transition-all duration-200 hover:scale-105 hover:shadow-sm active:scale-100 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-1"
                         data-source={source.index}
+                        aria-label={`Source ${source.index}: ${source.title}`}
                         onClick={(e) => {
                           e.preventDefault();
                           // Find and highlight the citation in the text
@@ -408,9 +411,13 @@ export function MessageBubble({ message, onRetry, onRegenerate, onReactionChange
         <div className={`flex items-center gap-2 px-1 ${isUser ? "justify-end" : "justify-start"}`}>
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="text-[11px] text-muted-foreground cursor-help">
+              <time 
+                dateTime={message.timestamp.toISOString()}
+                className="text-[11px] text-muted-foreground cursor-help"
+                aria-label={`Message sent ${formatRelativeTime(message.timestamp)}`}
+              >
                 {formatRelativeTime(message.timestamp)}
-              </span>
+              </time>
             </TooltipTrigger>
             <TooltipContent>
               <p className="text-xs">{formatAbsoluteTime(message.timestamp)}</p>
@@ -430,7 +437,8 @@ export function MessageBubble({ message, onRetry, onRegenerate, onReactionChange
                         ? "text-primary bg-primary/10"
                         : "text-muted-foreground hover:text-foreground hover:bg-muted"
                     }`}
-                    aria-label="Thumbs up"
+                    aria-label={currentReaction === "thumbs_up" ? "Remove helpful reaction" : "Mark as helpful"}
+                    aria-pressed={currentReaction === "thumbs_up"}
                   >
                     <ThumbsUp size={12} />
                   </button>
@@ -449,7 +457,8 @@ export function MessageBubble({ message, onRetry, onRegenerate, onReactionChange
                         ? "text-destructive bg-destructive/10"
                         : "text-muted-foreground hover:text-foreground hover:bg-muted"
                     }`}
-                    aria-label="Thumbs down"
+                    aria-label={currentReaction === "thumbs_down" ? "Remove not helpful reaction" : "Mark as not helpful"}
+                    aria-pressed={currentReaction === "thumbs_down"}
                   >
                     <ThumbsDown size={12} />
                   </button>

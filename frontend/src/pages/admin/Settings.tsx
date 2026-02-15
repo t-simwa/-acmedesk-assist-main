@@ -154,25 +154,28 @@ export default function Settings() {
           <h3 className="text-[15px] font-semibold text-foreground">Model Configuration</h3>
 
           <div>
-            <label className="text-[13px] font-medium text-foreground block mb-1.5">Model</label>
+            <label htmlFor="model-select" className="text-[13px] font-medium text-foreground block mb-1.5">Model</label>
             <select
+              id="model-select"
               value={model}
               onChange={(e) => setModel(e.target.value)}
               className="w-full px-3 py-2 bg-background border border-border rounded-lg text-[14px] text-foreground focus:outline-none focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 focus:ring-2 focus:ring-ring/20 focus:border-primary"
-              aria-label="Model selection"
+              aria-describedby="model-description"
             >
               <option value="gpt-4o">GPT-4o</option>
               <option value="gpt-4o-mini">GPT-4o Mini</option>
               <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
             </select>
+            <span id="model-description" className="sr-only">Select the language model for generating responses</span>
           </div>
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-[13px] font-medium text-foreground">Temperature</label>
-              <span className="text-[13px] text-muted-foreground">{temperature}</span>
+              <label htmlFor="temperature-slider" className="text-[13px] font-medium text-foreground">Temperature</label>
+              <span className="text-[13px] text-muted-foreground" aria-live="polite" aria-atomic="true">{temperature}</span>
             </div>
             <input
+              id="temperature-slider"
               type="range"
               min="0"
               max="1"
@@ -180,7 +183,10 @@ export default function Settings() {
               value={temperature}
               onChange={(e) => setTemperature(parseFloat(e.target.value))}
               className="w-full accent-primary focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
-              aria-label="Temperature"
+              aria-valuemin={0}
+              aria-valuemax={1}
+              aria-valuenow={temperature}
+              aria-valuetext={`${temperature}`}
             />
             <div className="flex justify-between text-[11px] text-muted-foreground mt-1">
               <span>Precise</span>
@@ -190,10 +196,11 @@ export default function Settings() {
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-[13px] font-medium text-foreground">Max Tokens</label>
-              <span className="text-[13px] text-muted-foreground">{maxTokens}</span>
+              <label htmlFor="max-tokens-slider" className="text-[13px] font-medium text-foreground">Max Tokens</label>
+              <span className="text-[13px] text-muted-foreground" aria-live="polite" aria-atomic="true">{maxTokens}</span>
             </div>
             <input
+              id="max-tokens-slider"
               type="range"
               min="256"
               max="4096"
@@ -201,7 +208,10 @@ export default function Settings() {
               value={maxTokens}
               onChange={(e) => setMaxTokens(parseInt(e.target.value))}
               className="w-full accent-primary focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
-              aria-label="Max tokens"
+              aria-valuemin={256}
+              aria-valuemax={4096}
+              aria-valuenow={maxTokens}
+              aria-valuetext={`${maxTokens} tokens`}
             />
           </div>
         </div>
@@ -212,10 +222,11 @@ export default function Settings() {
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-[13px] font-medium text-foreground">Top-K Results</label>
-              <span className="text-[13px] text-muted-foreground">{topK}</span>
+              <label htmlFor="top-k-slider" className="text-[13px] font-medium text-foreground">Top-K Results</label>
+              <span className="text-[13px] text-muted-foreground" aria-live="polite" aria-atomic="true">{topK}</span>
             </div>
             <input
+              id="top-k-slider"
               type="range"
               min="1"
               max="10"
@@ -223,7 +234,10 @@ export default function Settings() {
               value={topK}
               onChange={(e) => setTopK(parseInt(e.target.value))}
               className="w-full accent-primary focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
-              aria-label="Top-K results"
+              aria-valuemin={1}
+              aria-valuemax={10}
+              aria-valuenow={topK}
+              aria-valuetext={`${topK} results`}
             />
             <p className="text-[12px] text-muted-foreground mt-1.5">
               Number of document chunks to retrieve per query
@@ -234,14 +248,16 @@ export default function Settings() {
         {/* System Prompt */}
         <div className="bg-background rounded-xl border border-border p-6 shadow-soft-sm space-y-4">
           <h3 className="text-[15px] font-semibold text-foreground">System Prompt</h3>
+          <label htmlFor="system-prompt" className="sr-only">System prompt</label>
           <textarea
+            id="system-prompt"
             value={systemPrompt}
             onChange={(e) => setSystemPrompt(e.target.value)}
             rows={5}
             className="w-full px-3 py-2 bg-background border border-border rounded-lg text-[14px] text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 focus:ring-2 focus:ring-ring/20 focus:border-primary resize-none"
-            aria-label="System prompt"
+            aria-describedby="system-prompt-description"
           />
-          <p className="text-[12px] text-muted-foreground">
+          <p id="system-prompt-description" className="text-[12px] text-muted-foreground">
             This prompt is prepended to every conversation to guide the model's behavior
           </p>
         </div>
@@ -251,18 +267,22 @@ export default function Settings() {
           <h3 className="text-[15px] font-semibold text-foreground">Branding & Appearance</h3>
 
           <div>
-            <label className="text-[13px] font-medium text-foreground block mb-1.5">
+            <label htmlFor="brand-color-picker" className="text-[13px] font-medium text-foreground block mb-1.5">
               Primary Brand Color
             </label>
             <div className="flex items-center gap-3">
+              <label htmlFor="brand-color-picker" className="sr-only">Color picker for primary brand color</label>
               <input
+                id="brand-color-picker"
                 type="color"
                 value={brandColor}
                 onChange={handleBrandColorChange}
                 className="w-16 h-10 rounded-lg border border-border cursor-pointer focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
-                aria-label="Primary brand color"
+                aria-label="Primary brand color picker"
               />
+              <label htmlFor="brand-color-hex" className="sr-only">Hex value for brand color</label>
               <input
+                id="brand-color-hex"
                 type="text"
                 value={brandColor}
                 onChange={(e) => {
@@ -276,7 +296,7 @@ export default function Settings() {
                 }}
                 className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-[14px] text-foreground focus:outline-none focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 focus:ring-2 focus:ring-ring/20 focus:border-primary font-mono"
                 placeholder="#3b5fcf"
-                aria-label="Brand color hex value"
+                aria-label="Brand color hex value input"
               />
               <button
                 onClick={resetBrandColor}
@@ -292,7 +312,10 @@ export default function Settings() {
           </div>
         </div>
 
-        <button className="px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-[14px] font-medium hover:opacity-90 transition-opacity focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2">
+        <button 
+          className="px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-[14px] font-medium hover:opacity-90 transition-opacity focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+          aria-label="Save all settings changes"
+        >
           Save Changes
         </button>
       </div>

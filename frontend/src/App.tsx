@@ -18,6 +18,8 @@ const App = () => (
   <ThemeProvider>
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
+        {/* Global ARIA live region for notifications and announcements */}
+        <div id="aria-live-region" aria-live="polite" aria-atomic="true" className="sr-only" />
         <Toaster />
         <Sonner />
         <BrowserRouter>

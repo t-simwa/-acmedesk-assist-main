@@ -18,10 +18,10 @@ export function AdminLayout() {
         Skip to main content
       </a>
       {/* Sidebar */}
-      <aside className="w-60 border-r border-border bg-background flex flex-col">
+      <aside className="w-60 border-r border-border bg-background flex flex-col" aria-label="Admin navigation">
         <div className="px-5 py-5 border-b border-border">
-          <Link to="/" className="flex items-center gap-2.5 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 rounded-sm">
-            <div className="w-7 h-7 rounded-md bg-foreground flex items-center justify-center">
+          <Link to="/" className="flex items-center gap-2.5 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 rounded-sm" aria-label="AcmeDesk home">
+            <div className="w-7 h-7 rounded-md bg-foreground flex items-center justify-center" aria-hidden="true">
               <span className="text-[12px] font-bold text-background tracking-tight">A</span>
             </div>
             <div>
@@ -31,7 +31,7 @@ export function AdminLayout() {
           </Link>
         </div>
 
-        <nav className="flex-1 px-3 py-4 space-y-0.5">
+        <nav className="flex-1 px-3 py-4 space-y-0.5" aria-label="Main navigation">
           {navItems.map((item) => {
             const isActive =
               item.path === "/admin"
@@ -46,8 +46,9 @@ export function AdminLayout() {
                     ? "bg-accent text-accent-foreground font-medium"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted"
                 }`}
+                aria-current={isActive ? "page" : undefined}
               >
-                <item.icon size={18} />
+                <item.icon size={18} aria-hidden="true" />
                 {item.label}
               </Link>
             );

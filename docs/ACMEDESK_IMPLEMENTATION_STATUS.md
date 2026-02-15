@@ -815,12 +815,12 @@ This section covers tasks to elevate the UI from a good prototype to a **world-c
   - [x] Visible focus indicators on all focusable elements.
   - [x] Skip links for main content areas.
 
-- **F4.2 – Screen Reader Support**
-  - [ ] Add proper ARIA labels to all interactive elements.
-  - [ ] Implement ARIA live regions for dynamic content (chat messages, notifications).
-  - [ ] Ensure all images have alt text (or decorative images marked as such).
-  - [ ] Proper heading hierarchy (h1 → h2 → h3).
-  - [ ] Form labels properly associated with inputs.
+- **F4.2 – Screen Reader Support** ✅ **COMPLETE**
+  - [x] Add proper ARIA labels to all interactive elements.
+  - [x] Implement ARIA live regions for dynamic content (chat messages, notifications).
+  - [x] Ensure all images have alt text (or decorative images marked as such).
+  - [x] Proper heading hierarchy (h1 → h2 → h3).
+  - [x] Form labels properly associated with inputs.
 
 - **F4.3 – Visual Accessibility**
   - [ ] Ensure color is not the only means of conveying information (add icons, patterns).
@@ -1008,7 +1008,7 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
   - [x] F2.2 – Advanced chat interactions (copy, regenerate, reactions).
   - [x] F2.4 – Mobile chat widget optimization.
   - [x] F3.2 – Documents page enhancements (multi-file upload, advanced table).
-  - [ ] F4.2 – Screen reader support (ARIA labels, live regions).
+  - [x] F4.2 – Screen reader support (ARIA labels, live regions).
   - [ ] F5.1 – Loading performance optimization (code splitting, skeletons).
   - [ ] F6.1 – Smooth transitions and animations.
   - [ ] E1 – RAG quality checks with initial test set.
