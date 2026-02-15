@@ -14,6 +14,20 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ChatInputProps>(
     // Use forwarded ref if provided, otherwise use internal ref
     const inputRef = (ref as React.RefObject<HTMLTextAreaElement>) || textareaRef;
 
+    // Expose setValue method via ref for external control
+    useEffect(() => {
+      if (inputRef.current && typeof ref === "object" && ref !== null) {
+        (inputRef.current as any).setValue = (newValue: string) => {
+          setValue(newValue);
+          if (inputRef.current) {
+            inputRef.current.value = newValue;
+            inputRef.current.style.height = "auto";
+            inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 120) + "px";
+          }
+        };
+      }
+    }, [ref]);
+
     useEffect(() => {
       if (inputRef.current) {
         inputRef.current.style.height = "auto";

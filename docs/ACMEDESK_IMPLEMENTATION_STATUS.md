@@ -716,20 +716,20 @@ This section covers tasks to elevate the UI from a good prototype to a **world-c
     - [x] Better badge for unread count.
     - [x] Smooth scale and shadow transitions on hover/active.
 
-- **F2.2 – Advanced Interactions**
-  - [ ] Implement message reactions (thumbs up/down) with backend persistence.
-  - [ ] Add "Copy message" action on hover for assistant messages (spec requirement).
-  - [ ] Add "Regenerate response" option for assistant messages.
-  - [ ] Implement message editing (for user messages, before sending).
-  - [ ] Add conversation export (download chat history as PDF/TXT).
-  - [ ] Add clear conversation button (spec requirement):
-    - [ ] Button in chat widget header or footer.
-    - [ ] Calls `DELETE /api/conversations/{id}` endpoint.
-    - [ ] Resets chat state and shows welcome message.
-  - [ ] Add suggested questions/quick replies (spec requirement):
-    - [ ] Show suggested questions on first load or when conversation is empty.
-    - [ ] Clickable quick reply buttons.
-    - [ ] Pre-populate chat input with selected question.
+- **F2.2 – Advanced Interactions** ✅ **COMPLETE**
+  - [x] Implement message reactions (thumbs up/down) with backend persistence.
+  - [x] Add "Copy message" action on hover for assistant messages (spec requirement).
+  - [x] Add "Regenerate response" option for assistant messages.
+  - [x] Implement message editing (for user messages, before sending).
+  - [x] Add conversation export (download chat history as PDF/TXT).
+  - [x] Add clear conversation button (spec requirement):
+    - [x] Button in chat widget header or footer.
+    - [x] Calls `DELETE /api/conversations/{id}` endpoint.
+    - [x] Resets chat state and shows welcome message.
+  - [x] Add suggested questions/quick replies (spec requirement):
+    - [x] Show suggested questions on first load or when conversation is empty.
+    - [x] Clickable quick reply buttons.
+    - [x] Pre-populate chat input with selected question.
 
 - **F2.3 – Loading & Error States** ✅ **COMPLETE**
   - [x] Replace simple typing indicator with sophisticated skeleton:
@@ -1005,7 +1005,7 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
   - [x] F1.2 – Complete dark mode implementation.
   - [x] F1.4 – Component library consistency audit.
   - [x] F2.1 – Chat widget visual refinement (message bubbles, citations).
-  - [ ] F2.2 – Advanced chat interactions (copy, regenerate, reactions).
+  - [x] F2.2 – Advanced chat interactions (copy, regenerate, reactions).
   - [ ] F2.4 – Mobile chat widget optimization.
   - [ ] F3.2 – Documents page enhancements (multi-file upload, advanced table).
   - [ ] F4.2 – Screen reader support (ARIA labels, live regions).

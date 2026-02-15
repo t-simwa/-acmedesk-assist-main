@@ -125,3 +125,31 @@ class DeleteConversationResponse(BaseModel):
     session_id: str = Field(..., description="Session identifier that was deleted")
     deleted: bool = Field(..., description="Whether the deletion was successful")
     message: str = Field(..., description="Human-readable message about the deletion")
+
+
+class MessageReactionRequest(BaseModel):
+    """
+    Request model for updating message reaction.
+
+    Attributes:
+        message_id: Unique message identifier
+        reaction: Reaction type ("thumbs_up" or "thumbs_down")
+    """
+
+    message_id: str = Field(..., description="Unique message identifier")
+    reaction: str = Field(..., description="Reaction type: 'thumbs_up' or 'thumbs_down'")
+
+
+class MessageReactionResponse(BaseModel):
+    """
+    Response model for message reaction endpoint.
+
+    Attributes:
+        message_id: Unique message identifier
+        reaction: Current reaction type ("thumbs_up", "thumbs_down", or None)
+        success: Whether the update was successful
+    """
+
+    message_id: str = Field(..., description="Unique message identifier")
+    reaction: Optional[str] = Field(None, description="Current reaction type")
+    success: bool = Field(..., description="Whether the update was successful")

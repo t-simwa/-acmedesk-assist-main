@@ -379,3 +379,54 @@ export const settingsApi = {
     });
   },
 };
+
+// ============================================================================
+// Conversations API
+// ============================================================================
+
+export interface MessageReactionRequest {
+  message_id: string;
+  reaction: "thumbs_up" | "thumbs_down";
+}
+
+export interface MessageReactionResponse {
+  message_id: string;
+  reaction: string | null;
+  success: boolean;
+}
+
+export interface DeleteConversationResponse {
+  session_id: string;
+  deleted: boolean;
+  message: string;
+}
+
+export const conversationsApi = {
+  /**
+   * Delete a conversation by session ID
+   */
+  async deleteConversation(sessionId: string): Promise<DeleteConversationResponse> {
+    return apiClient<DeleteConversationResponse>(`/api/conversations/${sessionId}`, {
+      method: "DELETE",
+    });
+  },
+
+  /**
+   * Update message reaction
+   */
+  async updateMessageReaction(request: MessageReactionRequest): Promise<MessageReactionResponse> {
+    return apiClient<MessageReactionResponse>("/api/conversations/messages/reaction", {
+      method: "POST",
+      body: JSON.stringify(request),
+    });
+  },
+
+  /**
+   * Remove message reaction
+   */
+  async removeMessageReaction(messageId: string): Promise<MessageReactionResponse> {
+    return apiClient<MessageReactionResponse>(`/api/conversations/messages/reaction/${messageId}`, {
+      method: "DELETE",
+    });
+  },
+};

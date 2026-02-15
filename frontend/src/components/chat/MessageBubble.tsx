@@ -1,11 +1,12 @@
-import { RefreshCw, WifiOff, Clock, AlertCircle } from "lucide-react";
+import { RefreshCw, WifiOff, Clock, AlertCircle, Copy, ThumbsUp, ThumbsDown, RotateCcw } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import type { Components } from "react-markdown";
-import React from "react";
+import React, { useState } from "react";
 import { formatRelativeTime, formatAbsoluteTime } from "@/utils/formatTime";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { conversationsApi } from "@/lib/api";
 
 export interface SourceInfo {
   index: number; // Citation number (1, 2, 3, etc.)
@@ -22,6 +23,8 @@ export interface ChatMessage {
   isError?: boolean;
   errorType?: "network" | "rate_limit" | "timeout" | "server_error" | "unknown";
   retryMessage?: string;
+  reaction?: "thumbs_up" | "thumbs_down";
+  userMessageId?: string; // For assistant messages, track the user message that triggered them
 }
 
 /**
@@ -105,7 +108,7 @@ function createMarkdownComponents(sources?: SourceInfo[], isUser: boolean = fals
     
     // Paragraphs
     p: ({ children, ...props }) => (
-      <p className={`block leading-relaxed ${textColorClasses}`} {...props}>
+      <p className={`block ${textColorClasses}`} {...props}>
         {children}
       </p>
     ),
@@ -217,12 +220,18 @@ function createMarkdownComponents(sources?: SourceInfo[], isUser: boolean = fals
 interface MessageBubbleProps {
   message: ChatMessage;
   onRetry?: (messageId: string, retryMessage: string) => void;
+  onRegenerate?: (messageId: string, userMessageId: string) => void;
+  onReactionChange?: (messageId: string, reaction: "thumbs_up" | "thumbs_down" | null) => void;
 }
 
-export function MessageBubble({ message, onRetry }: MessageBubbleProps) {
+export function MessageBubble({ message, onRetry, onRegenerate, onReactionChange }: MessageBubbleProps) {
   const isUser = message.role === "user";
   const isError = message.isError === true;
   const errorType = message.errorType || "unknown";
+  const [isHovered, setIsHovered] = useState(false);
+  const [isCopying, setIsCopying] = useState(false);
+  const [currentReaction, setCurrentReaction] = useState<"thumbs_up" | "thumbs_down" | null>(message.reaction || null);
+  const [isUpdatingReaction, setIsUpdatingReaction] = useState(false);
 
   // Get error icon based on error type
   const getErrorIcon = () => {
@@ -239,19 +248,60 @@ export function MessageBubble({ message, onRetry }: MessageBubbleProps) {
     }
   };
 
+  const handleCopy = async () => {
+    try {
+      setIsCopying(true);
+      await navigator.clipboard.writeText(message.content);
+      // Show feedback (you could add a toast here)
+      setTimeout(() => setIsCopying(false), 1000);
+    } catch (err) {
+      console.error("Failed to copy:", err);
+      setIsCopying(false);
+    }
+  };
+
+  const handleReaction = async (reaction: "thumbs_up" | "thumbs_down") => {
+    if (isUpdatingReaction) return;
+    
+    setIsUpdatingReaction(true);
+    try {
+      const newReaction = currentReaction === reaction ? null : reaction;
+      
+      if (newReaction) {
+        await conversationsApi.updateMessageReaction({
+          message_id: message.id,
+          reaction: newReaction,
+        });
+      } else {
+        await conversationsApi.removeMessageReaction(message.id);
+      }
+      
+      setCurrentReaction(newReaction);
+      onReactionChange?.(message.id, newReaction);
+    } catch (err) {
+      console.error("Failed to update reaction:", err);
+    } finally {
+      setIsUpdatingReaction(false);
+    }
+  };
+
   return (
-    <div className={`flex ${isUser ? "justify-end" : "justify-start"} animate-fade-in`}>
-      <div className="max-w-[85%] space-y-1">
+    <div 
+      className={`flex ${isUser ? "justify-end" : "justify-start"} animate-fade-in group`}
+      onMouseEnter={() => !isUser && !isError && setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <div className="max-w-[85%] space-y-1 relative">
         {!isUser && (
           <div className="flex items-center gap-2 px-1 mb-1">
-            <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-[9px] font-semibold text-primary">
-              A
+            <div className="w-7 h-7 rounded-md bg-foreground flex items-center justify-center">
+              <span className="text-[12px] font-bold text-background tracking-tight">A</span>
             </div>
             <span className="text-[11px] font-medium text-muted-foreground">AcmeDesk</span>
           </div>
         )}
         <div
-          className={`px-4 py-2.5 text-[14px] leading-relaxed ${
+          className={`px-4 py-2.5 text-[12px] relative ${
             isUser
               ? "bg-foreground text-white rounded-[18px] rounded-br-[4px] shadow-md border border-foreground/20"
               : isError
@@ -259,6 +309,29 @@ export function MessageBubble({ message, onRetry }: MessageBubbleProps) {
               : "bg-gradient-to-br from-muted via-muted to-muted/95 text-foreground rounded-[18px] rounded-bl-[4px] shadow-soft-sm border border-border/30 backdrop-blur-sm"
           }`}
         >
+          {/* Copy button - only for assistant messages, shows on hover */}
+          {!isUser && !isError && isHovered && (
+            <div className="absolute -top-8 right-0 flex items-center gap-1">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={handleCopy}
+                    className="p-1.5 rounded-md bg-background border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+                    aria-label="Copy message"
+                  >
+                    {isCopying ? (
+                      <span className="text-[10px]">Copied!</span>
+                    ) : (
+                      <Copy size={12} />
+                    )}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs">Copy message</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          )}
           {isError && errorType !== "unknown" && (
             <div className="flex items-center gap-1.5 mb-2">
               {getErrorIcon()}
@@ -343,6 +416,71 @@ export function MessageBubble({ message, onRetry }: MessageBubbleProps) {
               <p className="text-xs">{formatAbsoluteTime(message.timestamp)}</p>
             </TooltipContent>
           </Tooltip>
+          
+          {/* Reactions for assistant messages */}
+          {!isUser && !isError && (
+            <div className="flex items-center gap-1">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => handleReaction("thumbs_up")}
+                    disabled={isUpdatingReaction}
+                    className={`p-1 rounded-md transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 ${
+                      currentReaction === "thumbs_up"
+                        ? "text-primary bg-primary/10"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    }`}
+                    aria-label="Thumbs up"
+                  >
+                    <ThumbsUp size={12} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs">Helpful</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => handleReaction("thumbs_down")}
+                    disabled={isUpdatingReaction}
+                    className={`p-1 rounded-md transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 ${
+                      currentReaction === "thumbs_down"
+                        ? "text-destructive bg-destructive/10"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    }`}
+                    aria-label="Thumbs down"
+                  >
+                    <ThumbsDown size={12} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs">Not helpful</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          )}
+          
+          {/* Regenerate button for assistant messages */}
+          {!isUser && !isError && onRegenerate && message.userMessageId && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => onRegenerate(message.id, message.userMessageId!)}
+                  className="flex items-center gap-1 px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+                  aria-label="Regenerate response"
+                >
+                  <RotateCcw size={12} />
+                  <span>Regenerate</span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs">Regenerate response</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+          
+          {/* Retry button for error messages */}
           {isError && message.retryMessage && onRetry && (
             <button
               onClick={() => onRetry(message.id, message.retryMessage!)}

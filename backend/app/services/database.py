@@ -179,6 +179,52 @@ async def get_conversation_history(
             raise
 
 
+async def update_message_reaction(message_id: str, reaction: Optional[str]) -> bool:
+    """
+    Update reaction for a message.
+
+    Args:
+        message_id: Message identifier
+        reaction: Reaction type ("thumbs_up", "thumbs_down", or None to remove)
+
+    Returns:
+        True if message was found and updated, False otherwise
+    """
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        try:
+            # Find message by ID
+            result = await session.execute(
+                select(Message).where(Message.id == message_id)
+            )
+            message = result.scalar_one_or_none()
+
+            if message is None:
+                logger.debug(f"No message found to update reaction: message_id={message_id}")
+                return False
+
+            # Update metadata with reaction
+            metadata = message.message_metadata or {}
+            if reaction:
+                metadata["reaction"] = reaction
+            else:
+                metadata.pop("reaction", None)
+
+            message.message_metadata = metadata
+            await session.commit()
+
+            logger.info(
+                f"Updated message reaction: message_id={message_id}, reaction={reaction}"
+            )
+
+            return True
+
+        except Exception as e:
+            await session.rollback()
+            logger.error(f"Error updating message reaction: {e}", exc_info=True)
+            raise
+
+
 async def delete_conversation(session_id: str) -> bool:
     """
     Delete a conversation by session ID.

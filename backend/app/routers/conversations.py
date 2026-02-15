@@ -15,6 +15,8 @@ from ..schemas.chat import (
     ConversationHistoryResponse,
     ConversationMessage,
     DeleteConversationResponse,
+    MessageReactionRequest,
+    MessageReactionResponse,
 )
 from ..services import database
 
@@ -164,4 +166,141 @@ async def delete_conversation(session_id: str) -> DeleteConversationResponse:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An error occurred while deleting the conversation: {str(e)}",
+        )
+
+
+@router.post(
+    "/messages/reaction",
+    response_model=MessageReactionResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def update_message_reaction(request: MessageReactionRequest) -> MessageReactionResponse:
+    """
+    Update reaction for a message.
+
+    This endpoint:
+    1. Validates the request body
+    2. Updates the message reaction in the database
+    3. Returns the updated reaction status
+
+    Args:
+        request: MessageReactionRequest containing message_id and reaction
+
+    Returns:
+        MessageReactionResponse with updated reaction status
+
+    Raises:
+        HTTPException: If request validation fails or processing error occurs
+    """
+    logger.info(
+        "Received message reaction update: message_id=%s, reaction=%s",
+        request.message_id,
+        request.reaction,
+    )
+
+    # Validate reaction type
+    if request.reaction not in ["thumbs_up", "thumbs_down"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Reaction must be 'thumbs_up' or 'thumbs_down'",
+        )
+
+    try:
+        # Update message reaction in database
+        updated = await database.update_message_reaction(
+            message_id=request.message_id,
+            reaction=request.reaction,
+        )
+
+        if updated:
+            response = MessageReactionResponse(
+                message_id=request.message_id,
+                reaction=request.reaction,
+                success=True,
+            )
+            logger.info(
+                "Message reaction updated successfully: message_id=%s, reaction=%s",
+                request.message_id,
+                request.reaction,
+            )
+        else:
+            response = MessageReactionResponse(
+                message_id=request.message_id,
+                reaction=None,
+                success=False,
+            )
+            logger.warning(
+                "Message not found for reaction update: message_id=%s",
+                request.message_id,
+            )
+
+        return response
+
+    except Exception as e:
+        logger.error(
+            "Error updating message reaction: %s, message_id=%s",
+            str(e),
+            request.message_id,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while updating message reaction: {str(e)}",
+        )
+
+
+@router.delete(
+    "/messages/reaction/{message_id}",
+    response_model=MessageReactionResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def remove_message_reaction(message_id: str) -> MessageReactionResponse:
+    """
+    Remove reaction from a message.
+
+    Args:
+        message_id: Message identifier
+
+    Returns:
+        MessageReactionResponse with success status
+
+    Raises:
+        HTTPException: If processing error occurs
+    """
+    logger.info("Received remove message reaction request: message_id=%s", message_id)
+
+    try:
+        # Remove message reaction from database
+        updated = await database.update_message_reaction(
+            message_id=message_id,
+            reaction=None,
+        )
+
+        if updated:
+            response = MessageReactionResponse(
+                message_id=message_id,
+                reaction=None,
+                success=True,
+            )
+            logger.info("Message reaction removed successfully: message_id=%s", message_id)
+        else:
+            response = MessageReactionResponse(
+                message_id=message_id,
+                reaction=None,
+                success=False,
+            )
+            logger.warning("Message not found for reaction removal: message_id=%s", message_id)
+
+        return response
+
+    except Exception as e:
+        logger.error(
+            "Error removing message reaction: %s, message_id=%s",
+            str(e),
+            message_id,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while removing message reaction: {str(e)}",
         )
