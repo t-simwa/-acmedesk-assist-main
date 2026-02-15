@@ -787,19 +787,19 @@ This section covers tasks to elevate the UI from a good prototype to a **world-c
     - [x] Show chunk previews with highlighting.
     - [x] Display document statistics (word count, chunk count, last indexed).
 
-- **F3.3 – Analytics Page Enhancements**
-  - [ ] Interactive charts:
-    - [ ] Tooltip improvements (show exact values, percentages).
-    - [ ] Click to filter other charts by category/date.
-    - [ ] Zoom and pan for time-series charts.
-  - [ ] Additional visualizations:
-    - [ ] Heatmap for conversation activity by hour/day.
-    - [ ] Sankey diagram for conversation flow (resolved vs escalated).
-    - [ ] Word cloud for most common question keywords.
-  - [ ] Export options:
-    - [ ] Export charts as images (PNG, SVG).
-    - [ ] Export data as CSV/Excel.
-    - [ ] Generate PDF reports.
+- **F3.3 – Analytics Page Enhancements** ✅ **COMPLETE**
+  - [x] Interactive charts:
+    - [x] Tooltip improvements (show exact values, percentages).
+    - [x] Click to filter other charts by category/date.
+    - [x] Zoom and pan for time-series charts.
+  - [x] Additional visualizations:
+    - [x] Heatmap for conversation activity by hour/day.
+    - [x] Sankey diagram for conversation flow (resolved vs escalated).
+    - [x] Word cloud for most common question keywords.
+  - [x] Export options:
+    - [x] Export charts as images (PNG, SVG).
+    - [x] Export data as CSV/Excel.
+    - [x] Generate PDF reports.
 
 - **F3.4 – Settings Page Refinement**
   - [ ] Enhanced form UX:
@@ -1037,7 +1037,7 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
   - [x] D4 – Wire Analytics page.
   - [x] D5 – Wire Settings page (including chunk size settings).
   - [x] F3.1 – Dashboard enhancements (date picker, real-time updates, exports).
-  - [ ] F3.3 – Analytics page enhancements (interactive charts, additional visualizations).
+  - [x] F3.3 – Analytics page enhancements (interactive charts, additional visualizations).
   - [ ] F3.4 – Settings page refinement (validation, presets, advanced config, chunk size UI).
   - [ ] F4.3 – Visual accessibility (color contrast, high contrast mode).
   - [ ] F4.4 – Motion & animation accessibility (prefers-reduced-motion).
