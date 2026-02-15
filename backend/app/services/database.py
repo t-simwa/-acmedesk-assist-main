@@ -10,18 +10,21 @@ This module provides functions for:
 Implemented with SQLAlchemy and SQLite (async).
 """
 
+import json
 import logging
 import uuid
-from datetime import datetime
-from typing import List, Optional
+from collections import defaultdict
+from datetime import datetime, timedelta
+from typing import List, Optional, Dict, Any
 
-from sqlalchemy import select, func, delete, and_
+from sqlalchemy import select, func, delete, and_, case, cast, String, Date
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.base import get_session_factory
 from ..models.conversation import Conversation
 from ..models.document import Document
 from ..models.message import Message
+from ..models.setting import Setting
 
 logger = logging.getLogger(__name__)
 
@@ -511,4 +514,437 @@ async def delete_document(doc_id: str) -> bool:
         except Exception as e:
             await session.rollback()
             logger.error(f"Error deleting document: {e}", exc_info=True)
+            raise
+
+
+# Settings management functions
+
+async def get_rag_settings() -> Optional[Dict[str, Any]]:
+    """
+    Get RAG configuration settings from database.
+
+    Returns:
+        Dictionary with RAG settings if found, None otherwise
+        Falls back to config defaults if not found in database
+    """
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        try:
+            result = await session.execute(
+                select(Setting).where(Setting.key == "rag_config")
+            )
+            setting = result.scalar_one_or_none()
+
+            if setting:
+                # Parse JSON value
+                settings_dict = json.loads(setting.value)
+                logger.info("Retrieved RAG settings from database")
+                return settings_dict
+            else:
+                logger.debug("No RAG settings found in database, will use config defaults")
+                return None
+
+        except Exception as e:
+            logger.error(f"Error getting RAG settings: {e}", exc_info=True)
+            raise
+
+
+async def update_rag_settings(settings_dict: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Update RAG configuration settings in database.
+
+    Args:
+        settings_dict: Dictionary with RAG settings to update
+
+    Returns:
+        Updated RAG settings dictionary
+    """
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        try:
+            result = await session.execute(
+                select(Setting).where(Setting.key == "rag_config")
+            )
+            setting = result.scalar_one_or_none()
+
+            if setting:
+                # Update existing setting
+                setting.value = json.dumps(settings_dict)
+                setting.updated_at = datetime.utcnow()
+            else:
+                # Create new setting
+                setting_id = str(uuid.uuid4())
+                setting = Setting(
+                    id=setting_id,
+                    key="rag_config",
+                    value=json.dumps(settings_dict),
+                    description="RAG configuration settings (model, temperature, top_k, max_tokens, system_prompt, chunk_size)",
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow(),
+                )
+                session.add(setting)
+
+            await session.commit()
+            await session.refresh(setting)
+
+            logger.info(f"Updated RAG settings: {settings_dict}")
+
+            return settings_dict
+
+        except Exception as e:
+            await session.rollback()
+            logger.error(f"Error updating RAG settings: {e}", exc_info=True)
+            raise
+
+
+# Analytics functions
+
+async def get_total_conversations() -> int:
+    """Get total number of conversations."""
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        try:
+            result = await session.execute(select(func.count(Conversation.id)))
+            total = result.scalar() or 0
+            return total
+        except Exception as e:
+            logger.error(f"Error getting total conversations: {e}", exc_info=True)
+            raise
+
+
+async def get_total_messages() -> int:
+    """Get total number of messages."""
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        try:
+            result = await session.execute(select(func.count(Message.id)))
+            total = result.scalar() or 0
+            return total
+        except Exception as e:
+            logger.error(f"Error getting total messages: {e}", exc_info=True)
+            raise
+
+
+async def get_conversations_by_day(days: int = 7) -> List[Dict[str, Any]]:
+    """
+    Get conversation counts by day for the last N days.
+
+    Args:
+        days: Number of days to look back (default: 7)
+
+    Returns:
+        List of dictionaries with date and count
+    """
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        try:
+            # Calculate start date
+            start_date = datetime.utcnow() - timedelta(days=days)
+            
+            # Query all conversations in the date range
+            result = await session.execute(
+                select(Conversation)
+                .where(Conversation.started_at >= start_date)
+            )
+            
+            conversations = result.scalars().all()
+            
+            # Group by date in Python
+            date_counts = defaultdict(int)
+            
+            for conv in conversations:
+                if conv.started_at:
+                    # Extract date part (YYYY-MM-DD)
+                    date_key = conv.started_at.date().isoformat()
+                    date_counts[date_key] += 1
+            
+            # Convert to list of dicts and sort by date
+            counts = [
+                {"date": date, "count": count}
+                for date, count in sorted(date_counts.items())
+            ]
+            
+            return counts
+
+        except Exception as e:
+            logger.error(f"Error getting conversations by day: {e}", exc_info=True)
+            raise
+
+
+async def get_resolution_rate() -> Dict[str, Any]:
+    """
+    Get resolution rate metrics (resolved via bot vs escalated).
+
+    Note: For now, we assume a conversation is "resolved" if it has at least one
+    assistant message with positive feedback (thumbs_up). "Escalated" conversations
+    are those with negative feedback (thumbs_down) or marked as escalated in metadata.
+    This is a simplified implementation that can be enhanced later.
+    """
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        try:
+            # Get total conversations
+            total_result = await session.execute(select(func.count(Conversation.id)))
+            total_conversations = total_result.scalar() or 0
+
+            # Count conversations with positive feedback (thumbs_up)
+            # This is a simplified approach - we count messages with thumbs_up reaction
+            resolved_result = await session.execute(
+                select(func.count(func.distinct(Message.conversation_id)))
+                .where(
+                    Message.role == "assistant",
+                    Message.message_metadata.contains({"reaction": "thumbs_up"})
+                )
+            )
+            resolved_via_bot = resolved_result.scalar() or 0
+
+            # Count conversations with negative feedback (thumbs_down) as escalated
+            escalated_result = await session.execute(
+                select(func.count(func.distinct(Message.conversation_id)))
+                .where(
+                    Message.role == "assistant",
+                    Message.message_metadata.contains({"reaction": "thumbs_down"})
+                )
+            )
+            escalated = escalated_result.scalar() or 0
+
+            # Calculate percentage
+            percentage = (resolved_via_bot / total_conversations * 100) if total_conversations > 0 else 0.0
+
+            return {
+                "resolved_via_bot": resolved_via_bot,
+                "escalated": escalated,
+                "total": total_conversations,
+                "percentage": round(percentage, 2)
+            }
+
+        except Exception as e:
+            logger.error(f"Error getting resolution rate: {e}", exc_info=True)
+            raise
+
+
+async def get_response_accuracy_metrics() -> Dict[str, Any]:
+    """
+    Get response accuracy metrics (average query time, average sources count).
+    """
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        try:
+            # Get all assistant messages with metadata
+            result = await session.execute(
+                select(Message)
+                .where(
+                    Message.role == "assistant",
+                    Message.message_metadata.isnot(None)
+                )
+            )
+            messages = result.scalars().all()
+
+            # Calculate averages in Python
+            query_times = []
+            sources_counts = []
+
+            for msg in messages:
+                if msg.message_metadata:
+                    if "query_time_ms" in msg.message_metadata:
+                        try:
+                            query_times.append(float(msg.message_metadata["query_time_ms"]))
+                        except (ValueError, TypeError):
+                            pass
+                    if "sources_count" in msg.message_metadata:
+                        try:
+                            sources_counts.append(int(msg.message_metadata["sources_count"]))
+                        except (ValueError, TypeError):
+                            pass
+
+            avg_query_time_ms = sum(query_times) / len(query_times) if query_times else 0.0
+            avg_sources_count = sum(sources_counts) / len(sources_counts) if sources_counts else 0.0
+
+            return {
+                "average_query_time_ms": round(avg_query_time_ms, 2),
+                "average_sources_count": round(avg_sources_count, 1)
+            }
+
+        except Exception as e:
+            logger.error(f"Error getting response accuracy metrics: {e}", exc_info=True)
+            raise
+
+
+async def get_top_question_categories(limit: int = 5) -> List[Dict[str, Any]]:
+    """
+    Get top question categories.
+
+    Note: This is a simplified implementation. In a real system, you would
+    categorize questions using NLP or predefined categories. For now, we'll
+    return a placeholder structure.
+    """
+    # This is a placeholder - in a real implementation, you would:
+    # 1. Extract categories from message content using NLP
+    # 2. Or use predefined categories based on keywords
+    # 3. Or use a classification model
+    
+    # For now, return empty list as categories need to be determined
+    # based on actual question analysis
+    return []
+
+
+async def get_user_satisfaction_metrics() -> Dict[str, Any]:
+    """
+    Get user satisfaction metrics from thumbs up/down feedback.
+    """
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        try:
+            # Count thumbs up
+            thumbs_up_result = await session.execute(
+                select(func.count(Message.id))
+                .where(
+                    Message.role == "assistant",
+                    Message.message_metadata.contains({"reaction": "thumbs_up"})
+                )
+            )
+            thumbs_up = thumbs_up_result.scalar() or 0
+
+            # Count thumbs down
+            thumbs_down_result = await session.execute(
+                select(func.count(Message.id))
+                .where(
+                    Message.role == "assistant",
+                    Message.message_metadata.contains({"reaction": "thumbs_down"})
+                )
+            )
+            thumbs_down = thumbs_down_result.scalar() or 0
+
+            total_feedback = thumbs_up + thumbs_down
+            satisfaction_rate = (thumbs_up / total_feedback * 100) if total_feedback > 0 else 0.0
+
+            return {
+                "thumbs_up": thumbs_up,
+                "thumbs_down": thumbs_down,
+                "total_feedback": total_feedback,
+                "satisfaction_rate": round(satisfaction_rate, 2)
+            }
+
+        except Exception as e:
+            logger.error(f"Error getting user satisfaction metrics: {e}", exc_info=True)
+            raise
+
+
+async def get_api_usage_metrics() -> Dict[str, Any]:
+    """
+    Get API usage and cost tracking metrics.
+
+    Note: This is a simplified implementation. In a real system, you would
+    track API calls and token usage from the LLM service. For now, we'll
+    estimate based on the number of assistant messages (each represents an API call).
+    """
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        try:
+            # Count total assistant messages (each represents an API call)
+            total_requests_result = await session.execute(
+                select(func.count(Message.id))
+                .where(Message.role == "assistant")
+            )
+            total_requests = total_requests_result.scalar() or 0
+
+            # Estimate tokens (simplified - in real system, track actual tokens)
+            # Assume average of 500 tokens per request
+            total_tokens_used = total_requests * 500
+
+            # Estimate cost (simplified - using GPT-3.5-turbo pricing as example)
+            # $0.0015 per 1K input tokens, $0.002 per 1K output tokens
+            # Simplified: assume 50% input, 50% output
+            estimated_cost = (total_tokens_used / 1000) * 0.00175  # Average of input/output pricing
+
+            return {
+                "total_requests": total_requests,
+                "total_tokens_used": total_tokens_used,
+                "estimated_cost": round(estimated_cost, 4),
+                "last_updated": datetime.utcnow().isoformat() + "Z"
+            }
+
+        except Exception as e:
+            logger.error(f"Error getting API usage metrics: {e}", exc_info=True)
+            raise
+
+
+async def get_top_queries(limit: int = 10) -> tuple[List[Dict[str, Any]], int]:
+    """
+    Get top queries with statistics.
+
+    Args:
+        limit: Maximum number of queries to return
+
+    Returns:
+        Tuple of (list of top queries, total unique queries count)
+    """
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        try:
+            # Get all user messages grouped by content
+            result = await session.execute(
+                select(
+                    Message.content.label("query"),
+                    func.count(Message.id).label("count")
+                )
+                .where(Message.role == "user")
+                .group_by(Message.content)
+                .order_by(func.count(Message.id).desc())
+                .limit(limit)
+            )
+            rows = result.all()
+
+            # Get total unique queries
+            total_result = await session.execute(
+                select(func.count(func.distinct(Message.content)))
+                .where(Message.role == "user")
+            )
+            total = total_result.scalar() or 0
+
+            # For each query, count resolved instances
+            queries = []
+            for row in rows:
+                query_text = row.query
+                count = row.count or 0
+
+                # Find all user messages with this query
+                user_messages_result = await session.execute(
+                    select(Message)
+                    .where(Message.role == "user", Message.content == query_text)
+                )
+                user_messages = user_messages_result.scalars().all()
+
+                # For each user message, check if the next assistant message has thumbs_up
+                resolved_count = 0
+                for user_msg in user_messages:
+                    # Find the next assistant message in the same conversation
+                    assistant_result = await session.execute(
+                        select(Message)
+                        .where(
+                            Message.conversation_id == user_msg.conversation_id,
+                            Message.role == "assistant",
+                            Message.created_at > user_msg.created_at
+                        )
+                        .order_by(Message.created_at.asc())
+                        .limit(1)
+                    )
+                    assistant_msg = assistant_result.scalar_one_or_none()
+                    if assistant_msg and assistant_msg.message_metadata:
+                        if assistant_msg.message_metadata.get("reaction") == "thumbs_up":
+                            resolved_count += 1
+
+                resolved_percentage = round((resolved_count / count * 100) if count > 0 else 0.0, 2)
+
+                queries.append({
+                    "query": query_text,
+                    "count": count,
+                    "resolved_by_bot": resolved_count,
+                    "resolved_percentage": resolved_percentage
+                })
+
+            return queries, total
+
+        except Exception as e:
+            logger.error(f"Error getting top queries: {e}", exc_info=True)
             raise

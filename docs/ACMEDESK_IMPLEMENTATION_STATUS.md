@@ -465,29 +465,29 @@ This section lists **granular, implementation-ready checklists** grouped by area
   - [x] Implement `POST /api/documents/{id}/reindex` to re-run ingestion and indexing for a document.
   - [x] Implement `DELETE /api/documents/{id}` to remove metadata, source file, and vectors.
 
-- **A5 – Admin APIs: Settings & Analytics**
-  - [ ] Implement `GET /api/settings/rag` returning model, temperature, top-k, max tokens, system prompt, chunk size.
-  - [ ] Implement `PUT /api/settings/rag` to update RAG configuration for the tenant/project:
-    - [ ] Model selection (GPT-4, GPT-3.5, etc.).
-    - [ ] Temperature settings.
-    - [ ] Max tokens configuration.
-    - [ ] Top-K results.
-    - [ ] System prompt customization.
-    - [ ] Chunk size settings (spec requirement).
-  - [ ] Implement `GET /api/analytics/summary` returning:
-    - [ ] Total conversations count.
-    - [ ] Total messages count (spec requirement).
-    - [ ] Conversation counts by day (last 7 / 30 days).
-    - [ ] Resolution rate (resolved via bot vs escalated).
-    - [ ] Response accuracy metrics (spec requirement).
-    - [ ] Top question categories.
-    - [ ] API usage/costs tracking (spec requirement).
-  - [ ] Implement `GET /api/analytics/top-queries` with:
-    - [ ] Top N questions, counts, and % resolved by bot.
-  - [ ] Implement user satisfaction tracking (if feedback collected) (spec requirement):
-    - [ ] Collect thumbs up/down feedback.
-    - [ ] Store satisfaction scores.
-    - [ ] Include in analytics summary.
+- **A5 – Admin APIs: Settings & Analytics** ✅ **COMPLETE**
+  - [x] Implement `GET /api/settings/rag` returning model, temperature, top-k, max tokens, system prompt, chunk size.
+  - [x] Implement `PUT /api/settings/rag` to update RAG configuration for the tenant/project:
+    - [x] Model selection (GPT-4, GPT-3.5, etc.).
+    - [x] Temperature settings.
+    - [x] Max tokens configuration.
+    - [x] Top-K results.
+    - [x] System prompt customization.
+    - [x] Chunk size settings (spec requirement).
+  - [x] Implement `GET /api/analytics/summary` returning:
+    - [x] Total conversations count.
+    - [x] Total messages count (spec requirement).
+    - [x] Conversation counts by day (last 7 / 30 days).
+    - [x] Resolution rate (resolved via bot vs escalated).
+    - [x] Response accuracy metrics (spec requirement).
+    - [x] Top question categories.
+    - [x] API usage/costs tracking (spec requirement).
+  - [x] Implement `GET /api/analytics/top-queries` with:
+    - [x] Top N questions, counts, and % resolved by bot.
+  - [x] Implement user satisfaction tracking (if feedback collected) (spec requirement):
+    - [x] Collect thumbs up/down feedback.
+    - [x] Store satisfaction scores.
+    - [x] Include in analytics summary.
 
 ---
 
@@ -1025,12 +1025,12 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
   - Elevate UI to world-class enterprise standards.
   - Add minimal automated tests, tighten error handling, and improve docs.
 - **Includes:**
-  - [ ] A5 – Settings & analytics endpoints:
-    - [ ] Chunk size settings in settings API.
-    - [ ] Total messages metric in analytics.
-    - [ ] Response accuracy metrics.
-    - [ ] User satisfaction tracking (if feedback collected).
-    - [ ] API usage/costs tracking.
+  - [x] A5 – Settings & analytics endpoints:
+    - [x] Chunk size settings in settings API.
+    - [x] Total messages metric in analytics.
+    - [x] Response accuracy metrics.
+    - [x] User satisfaction tracking (if feedback collected).
+    - [x] API usage/costs tracking.
   - [ ] D4 – Wire Analytics page.
   - [ ] D5 – Wire Settings page (including chunk size settings).
   - [ ] F3.1 – Dashboard enhancements (date picker, real-time updates, exports).
