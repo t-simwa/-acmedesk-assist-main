@@ -648,9 +648,14 @@ This section lists **granular, implementation-ready checklists** grouped by area
   - [ ] Admin – Analytics (⏳ For Milestone 2):
     - [ ] Charts render from real data.
     - [ ] Time ranges behave as expected (e.g. last 7/30 days).
-  - [ ] RAG Quality (⏳ For Milestone 2):
-    - [ ] Build test set of 15–30 questions.
-    - [ ] Evaluate accuracy and hallucinations; record metrics.
+  - [x] **E1 – RAG Quality Checks** ✅ **COMPLETE**
+    - [x] Test question set created with 25 questions (`backend/scripts/test_questions.json`)
+    - [x] Evaluation script implemented (`backend/scripts/evaluate_rag_quality.py`)
+    - [x] Accuracy evaluation (topic coverage, source relevance)
+    - [x] Hallucination detection implemented
+    - [x] Metrics recording (response time, accuracy score, hallucination rate)
+    - [x] Evaluation report generation (JSON format)
+    - [x] Documentation created (`docs/E-testing-and-quality/E1-rag-quality-checks.md`)
 
 - **E2 – Automated Tests**
   - [ ] Backend:
@@ -1011,7 +1016,7 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
   - [x] F4.2 – Screen reader support (ARIA labels, live regions).
   - [x] F5.1 – Loading performance optimization (code splitting, skeletons).
   - [x] F6.1 – Smooth transitions and animations.
-  - [ ] E1 – RAG quality checks with initial test set.
+  - [x] E1 – RAG quality checks with initial test set.
 
 ### Milestone 3 – Analytics, Settings, Testing & Enterprise Polish (Week 3)
 
