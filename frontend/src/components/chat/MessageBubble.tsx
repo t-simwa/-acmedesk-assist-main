@@ -1,10 +1,11 @@
-import { format } from "date-fns";
 import { RefreshCw, WifiOff, Clock, AlertCircle } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import type { Components } from "react-markdown";
 import React from "react";
+import { formatRelativeTime, formatAbsoluteTime } from "@/utils/formatTime";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export interface SourceInfo {
   index: number; // Citation number (1, 2, 3, etc.)
@@ -252,10 +253,10 @@ export function MessageBubble({ message, onRetry }: MessageBubbleProps) {
         <div
           className={`px-4 py-2.5 text-[14px] leading-relaxed ${
             isUser
-              ? "bg-foreground text-white rounded-[18px] rounded-br-[4px]"
+              ? "bg-foreground text-white rounded-[18px] rounded-br-[4px] shadow-md border border-foreground/20"
               : isError
-              ? "bg-destructive/10 text-destructive border border-destructive/20 rounded-[18px] rounded-bl-[4px]"
-              : "bg-muted text-foreground rounded-[18px] rounded-bl-[4px]"
+              ? "bg-destructive/10 text-destructive border border-destructive/20 rounded-[18px] rounded-bl-[4px] shadow-sm"
+              : "bg-gradient-to-br from-muted via-muted to-muted/95 text-foreground rounded-[18px] rounded-bl-[4px] shadow-soft-sm border border-border/30 backdrop-blur-sm"
           }`}
         >
           {isError && errorType !== "unknown" && (
@@ -302,7 +303,7 @@ export function MessageBubble({ message, onRetry }: MessageBubbleProps) {
                         key={source.index}
                         id={`source-${source.index}`}
                         href={`#source-${source.index}`}
-                        className="source-link text-[11px] text-primary hover:text-primary/80 hover:underline transition-colors inline-flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-primary/5"
+                        className="source-badge inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium text-primary bg-primary/10 hover:bg-primary/20 hover:text-primary border border-primary/20 rounded-md transition-all duration-200 hover:scale-105 hover:shadow-sm active:scale-100 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-1"
                         data-source={source.index}
                         onClick={(e) => {
                           e.preventDefault();
@@ -320,8 +321,8 @@ export function MessageBubble({ message, onRetry }: MessageBubbleProps) {
                           }
                         }}
                       >
-                        <span className="font-medium">[{source.index}]</span>
-                        <span>{source.title}</span>
+                        <span className="font-semibold text-primary">[{source.index}]</span>
+                        <span className="truncate max-w-[120px]">{source.title}</span>
                       </a>
                     ))}
                   </div>
@@ -332,9 +333,16 @@ export function MessageBubble({ message, onRetry }: MessageBubbleProps) {
           })()}
         </div>
         <div className={`flex items-center gap-2 px-1 ${isUser ? "justify-end" : "justify-start"}`}>
-          <span className="text-[11px] text-muted-foreground">
-            {format(message.timestamp, "h:mm a")}
-          </span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="text-[11px] text-muted-foreground cursor-help">
+                {formatRelativeTime(message.timestamp)}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="text-xs">{formatAbsoluteTime(message.timestamp)}</p>
+            </TooltipContent>
+          </Tooltip>
           {isError && message.retryMessage && onRetry && (
             <button
               onClick={() => onRetry(message.id, message.retryMessage!)}

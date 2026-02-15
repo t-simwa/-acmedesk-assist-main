@@ -705,16 +705,16 @@ This section covers tasks to elevate the UI from a good prototype to a **world-c
 
 #### F2 – Chat Widget Enterprise Polish
 
-- **F2.1 – Visual Refinement**
-  - [ ] Enhance message bubble styling:
-    - [ ] Subtle gradients or depth for assistant messages (not flat).
-    - [ ] Better visual distinction between user and assistant messages.
-    - [ ] Improved citation styling (clickable badges with hover states).
-    - [ ] Better timestamp formatting (relative time with tooltip for absolute).
-  - [ ] Refine floating button:
-    - [ ] Add subtle pulse animation when new messages arrive (if minimized).
-    - [ ] Better badge for unread count.
-    - [ ] Smooth scale and shadow transitions on hover/active.
+- **F2.1 – Visual Refinement** ✅ **COMPLETE**
+  - [x] Enhance message bubble styling:
+    - [x] Subtle gradients or depth for assistant messages (not flat).
+    - [x] Better visual distinction between user and assistant messages.
+    - [x] Improved citation styling (clickable badges with hover states).
+    - [x] Better timestamp formatting (relative time with tooltip for absolute).
+  - [x] Refine floating button:
+    - [x] Add subtle pulse animation when new messages arrive (if minimized).
+    - [x] Better badge for unread count.
+    - [x] Smooth scale and shadow transitions on hover/active.
 
 - **F2.2 – Advanced Interactions**
   - [ ] Implement message reactions (thumbs up/down) with backend persistence.
@@ -1004,7 +1004,7 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
   - [x] D3 – Wire Documents page to backend.
   - [x] F1.2 – Complete dark mode implementation.
   - [x] F1.4 – Component library consistency audit.
-  - [ ] F2.1 – Chat widget visual refinement (message bubbles, citations).
+  - [x] F2.1 – Chat widget visual refinement (message bubbles, citations).
   - [ ] F2.2 – Advanced chat interactions (copy, regenerate, reactions).
   - [ ] F2.4 – Mobile chat widget optimization.
   - [ ] F3.2 – Documents page enhancements (multi-file upload, advanced table).

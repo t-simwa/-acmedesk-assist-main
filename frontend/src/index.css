@@ -385,3 +385,26 @@
     transition: none;
   }
 }
+
+/* F2.1 - Visual Refinement: Pulse animation for new messages */
+@keyframes pulse-gentle {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 4px 12px -2px hsl(224 24% 12% / 0.08);
+  }
+  50% {
+    transform: scale(1.02);
+    box-shadow: 0 8px 24px -4px hsl(224 24% 12% / 0.15);
+  }
+}
+
+.animate-pulse-gentle {
+  animation: pulse-gentle 2s ease-in-out infinite;
+}
+
+/* Respect prefers-reduced-motion for animations */
+@media (prefers-reduced-motion: reduce) {
+  .animate-pulse-gentle {
+    animation: none;
+  }
+}

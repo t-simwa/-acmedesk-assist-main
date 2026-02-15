@@ -17,10 +17,13 @@ export function ChatWidget() {
     },
   ]);
   const [isTyping, setIsTyping] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [hasNewMessage, setHasNewMessage] = useState(false);
   const [sessionId] = useState<string>(() => `session-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
+  const lastMessageCountRef = useRef(messages.length);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -29,6 +32,32 @@ export function ChatWidget() {
   useEffect(() => {
     scrollToBottom();
   }, [messages, isTyping, scrollToBottom]);
+
+  // Track unread messages and trigger pulse animation
+  useEffect(() => {
+    if (!isOpen && messages.length > lastMessageCountRef.current) {
+      // New messages arrived while chat is closed
+      const newMessages = messages.slice(lastMessageCountRef.current);
+      const assistantMessages = newMessages.filter(msg => msg.role === "assistant" && !msg.isError);
+      
+      if (assistantMessages.length > 0) {
+        setUnreadCount(prev => prev + assistantMessages.length);
+        setHasNewMessage(true);
+        
+        // Reset pulse animation after 3 seconds
+        const timer = setTimeout(() => {
+          setHasNewMessage(false);
+        }, 3000);
+        
+        return () => clearTimeout(timer);
+      }
+    } else if (isOpen) {
+      // Chat is open, reset unread count and pulse
+      setUnreadCount(0);
+      setHasNewMessage(false);
+      lastMessageCountRef.current = messages.length;
+    }
+  }, [messages, isOpen]);
 
   // F4.1 - Keyboard Navigation: Global keyboard shortcuts
   useEffect(() => {
@@ -72,16 +101,19 @@ export function ChatWidget() {
       setMessages((prev) => prev.filter((msg) => msg.id !== retryMessageId));
     }
 
-    // Add user message (only if not retrying)
-    if (!retryMessageId) {
-      const userMsg: ChatMessage = {
-        id: Date.now().toString(),
-        role: "user",
-        content: text,
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, userMsg]);
-    }
+      // Add user message (only if not retrying)
+      if (!retryMessageId) {
+        const userMsg: ChatMessage = {
+          id: Date.now().toString(),
+          role: "user",
+          content: text,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => {
+          lastMessageCountRef.current = prev.length + 1;
+          return [...prev, userMsg];
+        });
+      }
 
     setIsTyping(true);
 
@@ -196,7 +228,10 @@ export function ChatWidget() {
       };
 
       setIsTyping(false);
-      setMessages((prev) => [...prev, assistantMsg]);
+      setMessages((prev) => {
+        lastMessageCountRef.current = prev.length + 1;
+        return [...prev, assistantMsg];
+      });
     } catch (error: any) {
       setIsTyping(false);
       
@@ -239,7 +274,10 @@ export function ChatWidget() {
         retryMessage: text,
       };
 
-      setMessages((prev) => [...prev, errorMsg]);
+      setMessages((prev) => {
+        lastMessageCountRef.current = prev.length + 1;
+        return [...prev, errorMsg];
+      });
     }
   };
 
@@ -301,11 +339,21 @@ export function ChatWidget() {
 
       {/* Floating Button — clean, no generic icons */}
       <button
-        onClick={() => setIsOpen(!isOpen)}
-        className={`fixed bottom-6 right-6 z-50 flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 ${
+        onClick={() => {
+          setIsOpen(!isOpen);
+          if (!isOpen) {
+            // Reset unread count when opening
+            setUnreadCount(0);
+            setHasNewMessage(false);
+            lastMessageCountRef.current = messages.length;
+          }
+        }}
+        className={`fixed bottom-6 right-6 z-50 flex items-center justify-center transition-all duration-300 ease-out hover:scale-110 active:scale-95 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 ${
           isOpen
-            ? "w-12 h-12 rounded-full bg-muted text-muted-foreground shadow-soft-md"
-            : "h-12 px-5 rounded-full bg-foreground text-background shadow-soft-lg gap-2"
+            ? "w-12 h-12 rounded-full bg-muted text-muted-foreground shadow-soft-md hover:shadow-soft-lg"
+            : `h-12 px-5 rounded-full bg-foreground text-background shadow-soft-lg hover:shadow-soft-xl gap-2 ${
+                hasNewMessage ? "animate-pulse-gentle" : ""
+              }`
         }`}
         aria-label={isOpen ? "Close chat" : "Open chat"}
       >
@@ -318,6 +366,11 @@ export function ChatWidget() {
               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-status-online" />
             </span>
             <span className="text-[13px] font-medium">Chat with us</span>
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-semibold shadow-sm border-2 border-background animate-in zoom-in-95 fade-in-0">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
           </>
         )}
       </button>
