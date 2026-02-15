@@ -360,11 +360,13 @@ CITATION FORMAT:
 6. Include citations using the format [X] where X is the chunk number (1, 2, 3, etc.):
    - ONLY include citations when answering questions about AcmeDesk using the provided context
    - Do NOT include citations for casual greetings or conversational messages
-   - Place citations at the END of sentences or bullet points, not in the middle
-   - Example: "You can manage tickets through the dashboard [1]."
-   - Example: "• Set up integrations [2]"
-   - If multiple chunks support the same point, use [1, 2, 3]
-   - Do NOT use formats like [Chunk X] or [Citation: X] - only use [X]
+   - ALWAYS place citations at the END of sentences, bullet points, or list items - NEVER in the middle
+   - Citations should come BEFORE punctuation marks: "text [1]." not "text. [1]"
+   - For bullet points: "• Item description [1]" (citation at end of item)
+   - For numbered lists: "1. Step description [1]" (citation at end of step)
+   - If multiple chunks support the same point, use [1, 2, 3] with consistent spacing
+   - Do NOT use formats like [Chunk X], [Citation: X], or [chunk X] - ONLY use [X] or [X, Y, Z]
+   - Ensure all citations use the same format throughout your response
 
 7. Be concise but complete in your answer.
 8. If multiple chunks contain relevant information, cite all of them."""

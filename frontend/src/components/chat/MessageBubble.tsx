@@ -1,5 +1,10 @@
 import { format } from "date-fns";
 import { RefreshCw, WifiOff, Clock, AlertCircle } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
+import type { Components } from "react-markdown";
+import React from "react";
 
 export interface SourceInfo {
   index: number; // Citation number (1, 2, 3, etc.)
@@ -18,102 +23,195 @@ export interface ChatMessage {
   retryMessage?: string;
 }
 
-function formatContent(content: string, sources?: SourceInfo[]) {
-  // First, normalize citation formats: [Chunk X] or [Citation: X] -> [X]
-  let normalized = content.replace(/\[Chunk\s+(\d+)\]/gi, '[$1]');
+/**
+ * Normalize citation formats and convert to HTML before markdown parsing
+ * This avoids AST manipulation issues
+ */
+function processCitationsInText(text: string, sources?: SourceInfo[]): string {
+  // First normalize citation formats
+  let normalized = text.replace(/\[Chunk\s+(\d+)\]/gi, '[$1]');
   normalized = normalized.replace(/\[Citation:\s*(\d+)\]/gi, '[$1]');
+  normalized = normalized.replace(/\[citation\s+(\d+)\]/gi, '[$1]');
+  normalized = normalized.replace(/\[chunk\s+(\d+)\]/gi, '[$1]');
   
-  // Split by lines and format
-  return normalized.split("\n").map((line, i) => {
-    // Format markdown headers (##, ###, etc.)
-    const headerMatch = line.match(/^(#{1,6})\s+(.+)$/);
-    if (headerMatch) {
-      const level = headerMatch[1].length;
-      const headerText = headerMatch[2].trim();
-      
-      // Format header text (bold, larger size based on level)
-      let formatted = headerText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-      
-      // Format citations in headers (handles both single [1] and multiple [1, 2])
-      formatted = formatted.replace(
-        /\[(\d+(?:\s*,\s*\d+)*)\]/g,
-        (match, nums) => {
-          const citationNumbers = nums.split(',').map((n: string) => parseInt(n.trim()));
-          const allSourcesExist = citationNumbers.every((num: number) => 
-            sources?.some(s => s.index === num)
-          );
-          
-          if (allSourcesExist && sources) {
-            const citationLinks = citationNumbers.map((num: number) => {
-              return `<a href="#source-${num}" class="citation-link text-primary hover:text-primary/80 font-medium underline decoration-dotted underline-offset-2 transition-colors cursor-pointer" data-citation="${num}" title="View source ${num}">${num}</a>`;
-            }).join(', ');
-            
-            return `<sup class="text-[10px] leading-none">[${citationLinks}]</sup>`;
-          }
-          return `<sup class="text-[10px] text-primary font-medium leading-none">[${nums}]</sup>`;
-        }
-      );
-      
-      // Apply header styling based on level
-      const headerClasses = {
-        1: 'text-lg font-bold mt-4 mb-2',
-        2: 'text-base font-semibold mt-3 mb-2',
-        3: 'text-sm font-semibold mt-2 mb-1',
-        4: 'text-sm font-medium mt-2 mb-1',
-        5: 'text-xs font-medium mt-1 mb-1',
-        6: 'text-xs font-medium mt-1 mb-1',
-      };
-      const className = headerClasses[level as keyof typeof headerClasses] || 'text-sm font-semibold mt-2 mb-1';
-      
-      return (
-        <h3 key={i} className={className} dangerouslySetInnerHTML={{ __html: formatted }} />
-      );
+  // Replace citations with HTML that react-markdown will render
+  const citationPattern = /\[(\d+(?:\s*,\s*\d+)*)\]/g;
+  
+  return normalized.replace(citationPattern, (match, nums) => {
+    const citationNumbers = nums.split(',').map((n: string) => parseInt(n.trim())).filter((n: number) => !isNaN(n));
+    
+    if (citationNumbers.length === 0) {
+      return match; // Return original if no valid numbers
     }
     
-    // Format markdown bold
-    let formatted = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    
-    // Format citations [X] or [X, Y] as clickable superscript links
-    formatted = formatted.replace(
-      /\[(\d+(?:\s*,\s*\d+)*)\]/g,
-      (match, nums) => {
-        // Parse citation numbers (handles both single [1] and multiple [1, 2])
-        const citationNumbers = nums.split(',').map((n: string) => parseInt(n.trim()));
-        const allSourcesExist = citationNumbers.every((num: number) => 
-          sources?.some(s => s.index === num)
-        );
-        
-        if (allSourcesExist && sources) {
-          // Format as clickable links for each citation
-          const citationLinks = citationNumbers.map((num: number) => {
-            return `<a href="#source-${num}" class="citation-link text-primary hover:text-primary/80 font-medium underline decoration-dotted underline-offset-2 transition-colors cursor-pointer" data-citation="${num}" title="View source ${num}">${num}</a>`;
-          }).join(', ');
-          
-          return `<sup class="text-[10px] leading-none">[${citationLinks}]</sup>`;
-        }
-        // Fallback: non-clickable superscript
-        return `<sup class="text-[10px] text-primary font-medium leading-none">[${nums}]</sup>`;
-      }
+    const allSourcesExist = citationNumbers.every((num: number) => 
+      sources?.some(s => s.index === num)
     );
     
-    // Format bullet points
-    if (line.trim().startsWith("•") || line.trim().startsWith("-") || line.trim().startsWith("*")) {
-      return (
-        <span key={i} className="block pl-2 py-0.5" dangerouslySetInnerHTML={{ __html: formatted }} />
-      );
+    if (allSourcesExist && sources && citationNumbers.length > 0) {
+      const citationLinks = citationNumbers.map((num: number) => {
+        return `<a href="#source-${num}" class="citation-link text-primary hover:text-primary/80 font-medium underline decoration-dotted underline-offset-2 transition-colors cursor-pointer" data-citation="${num}" title="View source ${num}">${num}</a>`;
+      }).join(', ');
+      
+      return `<sup class="text-[10px] leading-none align-baseline">[${citationLinks}]</sup>`;
     }
-    // Format numbered lists - ensure proper spacing
-    if (/^\d+\./.test(line.trim())) {
-      return (
-        <span key={i} className="block pl-2 py-1" dangerouslySetInnerHTML={{ __html: formatted }} />
-      );
-    }
-    // Empty lines for spacing
-    if (line.trim() === "") return <span key={i} className="block h-2" />;
-    // Regular paragraphs
-    return <span key={i} className="block" dangerouslySetInnerHTML={{ __html: formatted }} />;
+    
+    return `<sup class="text-[10px] text-primary font-medium leading-none align-baseline">[${nums}]</sup>`;
   });
 }
+
+/**
+ * Create custom components for react-markdown with citation support
+ */
+function createMarkdownComponents(sources?: SourceInfo[], isUser: boolean = false): Components {
+  const textColor = isUser ? "text-white" : "text-foreground";
+  const textColorClasses = isUser 
+    ? "text-white [&_*]:text-white [&_strong]:text-white [&_em]:text-white [&_code]:text-white/90 [&_a]:text-white/90 [&_a:hover]:text-white"
+    : "";
+
+  return {
+    // Headers
+    h1: ({ children, ...props }) => (
+      <h1 className={`text-lg font-bold mt-4 mb-2 ${textColorClasses}`} {...props}>
+        {children}
+      </h1>
+    ),
+    h2: ({ children, ...props }) => (
+      <h2 className={`text-base font-semibold mt-3 mb-2 ${textColorClasses}`} {...props}>
+        {children}
+      </h2>
+    ),
+    h3: ({ children, ...props }) => (
+      <h3 className={`text-sm font-semibold mt-2 mb-1 ${textColorClasses}`} {...props}>
+        {children}
+      </h3>
+    ),
+    h4: ({ children, ...props }) => (
+      <h4 className={`text-sm font-medium mt-2 mb-1 ${textColorClasses}`} {...props}>
+        {children}
+      </h4>
+    ),
+    h5: ({ children, ...props }) => (
+      <h5 className={`text-xs font-medium mt-1 mb-1 ${textColorClasses}`} {...props}>
+        {children}
+      </h5>
+    ),
+    h6: ({ children, ...props }) => (
+      <h6 className={`text-xs font-medium mt-1 mb-1 ${textColorClasses}`} {...props}>
+        {children}
+      </h6>
+    ),
+    
+    // Paragraphs
+    p: ({ children, ...props }) => (
+      <p className={`block leading-relaxed ${textColorClasses}`} {...props}>
+        {children}
+      </p>
+    ),
+    
+    // Lists
+    ul: ({ children, ...props }) => (
+      <ul className={`list-none space-y-0.5 ${textColorClasses}`} {...props}>
+        {children}
+      </ul>
+    ),
+    ol: ({ children, ...props }) => (
+      <ol className={`list-none space-y-0.5 ${textColorClasses}`} {...props}>
+        {children}
+      </ol>
+    ),
+    li: ({ children, ...props }) => {
+      return (
+        <li className="flex items-start gap-2 py-0.5" {...props}>
+          <span className={`${textColor} mt-0.5`}>•</span>
+          <span className="flex-1">{children}</span>
+        </li>
+      );
+    },
+    
+    // Strong and emphasis
+    strong: ({ children, ...props }) => (
+      <strong className={textColorClasses} {...props}>{children}</strong>
+    ),
+    em: ({ children, ...props }) => (
+      <em className={textColorClasses} {...props}>{children}</em>
+    ),
+    
+    // Code
+    code: ({ children, className, ...props }) => {
+      const isInline = !className;
+      return isInline ? (
+        <code className={`px-1 py-0.5 rounded text-[12px] font-mono bg-muted/50 ${textColorClasses}`} {...props}>
+          {children}
+        </code>
+      ) : (
+        <code className={`block p-3 rounded text-[12px] font-mono bg-muted/50 overflow-x-auto ${textColorClasses}`} {...props}>
+          {children}
+        </code>
+      );
+    },
+    
+    // Links (but not citations - those are handled separately)
+    a: ({ href, children, ...props }) => {
+      // Check if this is a citation link (starts with #source-)
+      if (href?.startsWith('#source-')) {
+        return <>{children}</>;
+      }
+      return (
+        <a 
+          href={href} 
+          className={`text-primary hover:text-primary/80 underline ${textColorClasses}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          {...props}
+        >
+          {children}
+        </a>
+      );
+    },
+    
+    // Blockquote
+    blockquote: ({ children, ...props }) => (
+      <blockquote className={`border-l-2 border-border pl-4 italic ${textColorClasses}`} {...props}>
+        {children}
+      </blockquote>
+    ),
+    
+    // Horizontal rule
+    hr: ({ ...props }) => (
+      <hr className="my-4 border-border" {...props} />
+    ),
+    
+    // Tables (from remark-gfm)
+    table: ({ children, ...props }) => (
+      <div className="overflow-x-auto my-2">
+        <table className="min-w-full border-collapse" {...props}>
+          {children}
+        </table>
+      </div>
+    ),
+    thead: ({ children, ...props }) => (
+      <thead className="bg-muted/50" {...props}>{children}</thead>
+    ),
+    tbody: ({ children, ...props }) => (
+      <tbody {...props}>{children}</tbody>
+    ),
+    tr: ({ children, ...props }) => (
+      <tr className="border-b border-border" {...props}>{children}</tr>
+    ),
+    th: ({ children, ...props }) => (
+      <th className={`px-3 py-2 text-left font-semibold ${textColorClasses}`} {...props}>
+        {children}
+      </th>
+    ),
+    td: ({ children, ...props }) => (
+      <td className={`px-3 py-2 ${textColorClasses}`} {...props}>
+        {children}
+      </td>
+    ),
+  };
+}
+
 
 interface MessageBubbleProps {
   message: ChatMessage;
@@ -154,7 +252,7 @@ export function MessageBubble({ message, onRetry }: MessageBubbleProps) {
         <div
           className={`px-4 py-2.5 text-[14px] leading-relaxed ${
             isUser
-              ? "bg-foreground text-background rounded-[18px] rounded-br-[4px]"
+              ? "bg-foreground text-white rounded-[18px] rounded-br-[4px]"
               : isError
               ? "bg-destructive/10 text-destructive border border-destructive/20 rounded-[18px] rounded-bl-[4px]"
               : "bg-muted text-foreground rounded-[18px] rounded-bl-[4px]"
@@ -165,8 +263,14 @@ export function MessageBubble({ message, onRetry }: MessageBubbleProps) {
               {getErrorIcon()}
             </div>
           )}
-          <div>
-            {formatContent(message.content, message.sources)}
+          <div className={isUser ? "text-white [&_*]:text-white [&_strong]:text-white [&_sup]:text-white/90 [&_a]:text-white/90 [&_a:hover]:text-white [&_h1]:text-white [&_h2]:text-white [&_h3]:text-white [&_h4]:text-white [&_h5]:text-white [&_h6]:text-white [&_p]:text-white [&_span]:text-white [&_li]:text-white [&_code]:text-white/90" : ""}>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              rehypePlugins={[rehypeRaw]}
+              components={createMarkdownComponents(message.sources, isUser)}
+            >
+              {processCitationsInText(message.content, message.sources)}
+            </ReactMarkdown>
           </div>
           
           {/* Sources section inside the bubble - only show if response has actual content */}
@@ -203,7 +307,7 @@ export function MessageBubble({ message, onRetry }: MessageBubbleProps) {
                         onClick={(e) => {
                           e.preventDefault();
                           // Find and highlight the citation in the text
-                          const citation = document.querySelector(`a.citation-link[data-citation="${source.index}"]`);
+                          const citation = document.querySelector(`a.citation-link[data-citation="${source.index}"]`) as HTMLElement;
                           if (citation) {
                             citation.scrollIntoView({ behavior: 'smooth', block: 'center' });
                             // Highlight citation briefly

@@ -87,7 +87,7 @@ def ingest_directory(directory_path: Path, recursive: bool = False) -> List[Docu
     """
     Ingest all supported documents from a directory.
 
-    Reads all supported document files (.md, .html, .htm, .txt) from the
+    Reads all supported document files (.md, .html, .htm, .txt, .pdf, .docx) from the
     specified directory and normalizes them into Document objects.
 
     Args:
@@ -106,7 +106,7 @@ def ingest_directory(directory_path: Path, recursive: bool = False) -> List[Docu
         return []
 
     documents: List[Document] = []
-    supported_extensions = {".md", ".markdown", ".html", ".htm", ".txt"}
+    supported_extensions = {".md", ".markdown", ".html", ".htm", ".txt", ".pdf", ".docx"}
 
     if recursive:
         pattern = "**/*"

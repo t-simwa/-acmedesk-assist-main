@@ -72,6 +72,10 @@ def get_document_type(filename: str) -> str:
         return "html"
     elif ext == ".txt":
         return "text"
+    elif ext == ".pdf":
+        return "pdf"
+    elif ext == ".docx":
+        return "docx"
     else:
         return "unknown"
 
@@ -136,7 +140,7 @@ async def upload_document(file: UploadFile = File(...)) -> DocumentUploadRespons
     """
     Upload a document file.
 
-    Accepts MD/HTML/TXT files, stores them, creates metadata record,
+    Accepts MD/HTML/TXT/PDF/DOCX files, stores them, creates metadata record,
     and enqueues ingestion/indexing task.
 
     Args:
@@ -153,7 +157,7 @@ async def upload_document(file: UploadFile = File(...)) -> DocumentUploadRespons
     if doc_type == "unknown":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unsupported file format. Supported formats: .md, .html, .htm, .txt",
+            detail=f"Unsupported file format. Supported formats: .md, .html, .htm, .txt, .pdf, .docx",
         )
 
     # Validate file size (10MB limit)
@@ -213,7 +217,7 @@ async def list_documents(
     offset: int = Query(0, ge=0, description="Number of documents to skip"),
     search: Optional[str] = Query(None, description="Search term to filter by document name"),
     status: Optional[str] = Query(None, description="Filter by status (processing, indexed, error)"),
-    type: Optional[str] = Query(None, alias="type", description="Filter by document type (markdown, html, text)"),
+    type: Optional[str] = Query(None, alias="type", description="Filter by document type (markdown, html, text, pdf, docx)"),
 ) -> DocumentListResponse:
     """
     List documents with pagination, search, and filtering.
@@ -223,7 +227,7 @@ async def list_documents(
         offset: Number of documents to skip
         search: Search term to filter by document name (case-insensitive)
         status: Filter by status (processing, indexed, error)
-        type: Filter by document type (markdown, html, text)
+        type: Filter by document type (markdown, html, text, pdf, docx)
 
     Returns:
         DocumentListResponse with list of documents and pagination info

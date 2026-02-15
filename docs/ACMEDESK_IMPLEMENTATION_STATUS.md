@@ -455,7 +455,7 @@ This section lists **granular, implementation-ready checklists** grouped by area
 - **A4 – Admin APIs: Documents** ✅ **COMPLETE**
   - [x] Implement `POST /api/documents/upload`:
     - [x] Accept file upload (MD/HTML/TXT, basic size limit).
-    - [ ] Extend file upload to support PDF and DOCX formats (requires B1 PDF/DOCX loaders).
+    - [x] Extend file upload to support PDF and DOCX formats (requires B1 PDF/DOCX loaders).
     - [x] Store raw file in storage (local folder at first).
     - [x] Create document metadata record in DB with status `processing`.
     - [x] Enqueue ingestion/indexing task (sync or background).
@@ -502,16 +502,16 @@ This section lists **granular, implementation-ready checklists** grouped by area
   - [x] Implement ingestion function:
     - [x] Reads documents from storage (filesystem for now).
     - [x] Normalizes content into a common structure (`text`, `title`, `url`, `doc_id`).
-  - [ ] Add support for PDF files:
-    - [ ] Implement PDF loader using PyPDF2, pdfplumber, or similar library.
-    - [ ] Extract text content while preserving structure (headings, paragraphs).
-    - [ ] Handle multi-page documents with page metadata.
-    - [ ] Update file upload validation to accept `.pdf` files.
-  - [ ] Add support for DOCX files:
-    - [ ] Implement DOCX loader using python-docx library.
-    - [ ] Extract text content while preserving document structure.
-    - [ ] Handle formatting metadata (headings, lists, tables).
-    - [ ] Update file upload validation to accept `.docx` files.
+  - [x] Add support for PDF files:
+    - [x] Implement PDF loader using PyPDF2, pdfplumber, or similar library.
+    - [x] Extract text content while preserving structure (headings, paragraphs).
+    - [x] Handle multi-page documents with page metadata.
+    - [x] Update file upload validation to accept `.pdf` files.
+  - [x] Add support for DOCX files:
+    - [x] Implement DOCX loader using python-docx library.
+    - [x] Extract text content while preserving document structure.
+    - [x] Handle formatting metadata (headings, lists, tables).
+    - [x] Update file upload validation to accept `.docx` files.
 
 - **B2 – Chunking**
   - [x] Implement `chunk_text(text, config)` using a sensible splitter:
@@ -698,10 +698,10 @@ This section covers tasks to elevate the UI from a good prototype to a **world-c
   - [x] Define shadow system (soft, medium, strong) for depth hierarchy.
 
 - **F1.4 – Component Library Consistency**
-  - [ ] Audit all shadcn/ui components for visual consistency.
-  - [ ] Create custom component variants where needed (e.g., enterprise-style buttons, cards).
-  - [ ] Document component usage patterns in a design system doc.
-  - [ ] Ensure all interactive elements have proper focus states (keyboard navigation).
+  - [x] Audit all shadcn/ui components for visual consistency.
+  - [x] Create custom component variants where needed (e.g., enterprise-style buttons, cards).
+  - [x] Document component usage patterns in a design system doc.
+  - [x] Ensure all interactive elements have proper focus states (keyboard navigation).
 
 #### F2 – Chat Widget Enterprise Polish
 
@@ -995,15 +995,15 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
   - Polish chat widget and documents UI to enterprise standards.
 - **Includes:**
   - [x] B1 – Document ingestion (local docs).
-  - [ ] B1 – Add PDF and DOCX file format support (loaders and upload validation).
+  - [x] B1 – Add PDF and DOCX file format support (loaders and upload validation).
   - [x] B2 – Chunking implementation.
   - [x] B3 – Embeddings & vector store integration.
   - [x] B4/B5 – Retrieval + prompt building + answer generation hooked into `/api/chat`.
   - [x] A4 – Document APIs (upload, list, reindex, delete).
   - [x] C1/C2 – Minimal DB + storage wiring for documents & conversations.
   - [x] D3 – Wire Documents page to backend.
-  - [ ] F1.2 – Complete dark mode implementation.
-  - [ ] F1.4 – Component library consistency audit.
+  - [x] F1.2 – Complete dark mode implementation.
+  - [x] F1.4 – Component library consistency audit.
   - [ ] F2.1 – Chat widget visual refinement (message bubbles, citations).
   - [ ] F2.2 – Advanced chat interactions (copy, regenerate, reactions).
   - [ ] F2.4 – Mobile chat widget optimization.

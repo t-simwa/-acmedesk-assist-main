@@ -71,10 +71,10 @@ export default function Documents() {
 
   const handleFileSelect = async (file: File) => {
     // Validate file type
-    const validExtensions = [".md", ".html", ".htm", ".txt"];
+    const validExtensions = [".md", ".html", ".htm", ".txt", ".pdf", ".docx"];
     const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf("."));
     if (!validExtensions.includes(fileExtension)) {
-      setError("Unsupported file format. Supported formats: .md, .html, .htm, .txt");
+      setError("Unsupported file format. Supported formats: .md, .html, .htm, .txt, .pdf, .docx");
       return;
     }
 
@@ -179,7 +179,7 @@ export default function Documents() {
         <input
           ref={fileInputRef}
           type="file"
-          accept=".md,.html,.htm,.txt"
+          accept=".md,.html,.htm,.txt,.pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
           onChange={handleFileInputChange}
           className="hidden"
         />
@@ -209,7 +209,7 @@ export default function Documents() {
           Drag and drop files here, or click Upload
         </p>
         <p className="text-[12px] text-muted-foreground mt-1">
-          Supports .md, .txt, .html — Max 10MB per file
+          Supports .md, .txt, .html, .pdf, .docx — Max 10MB per file
         </p>
       </div>
 

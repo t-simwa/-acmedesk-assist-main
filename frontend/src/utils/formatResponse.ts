@@ -144,7 +144,30 @@ function formatBulletLists(text: string): string {
     formatted = formatted.replace(pattern, (match) => match.trim() + '\n');
   });
 
-  return formatted;
+  // Normalize all bullet types to use "-" for consistency
+  formatted = formatted.replace(/^(\s*)[•*](\s+)/gm, '$1-$2');
+
+  // Ensure each bullet item is on its own line
+  const lines = formatted.split('\n');
+  const processedLines: string[] = [];
+
+  lines.forEach(line => {
+    // Check if line contains multiple bullet items
+    const bulletMatch = line.match(/^(\s*)(-\s+[^\n-]+?)(?=\s+-\s+)/);
+    if (bulletMatch) {
+      // Split at each bullet point
+      const parts = line.split(/(?=^\s*-\s+)/m);
+      parts.forEach(part => {
+        if (part.trim()) {
+          processedLines.push(part.trim());
+        }
+      });
+    } else {
+      processedLines.push(line);
+    }
+  });
+
+  return processedLines.join('\n');
 }
 
 /**
@@ -177,28 +200,48 @@ function normalizeSpacing(text: string): string {
 }
 
 /**
- * Ensures proper spacing around citations
+ * Ensures proper spacing around citations and normalizes all citation formats
  */
 function formatCitations(text: string): string {
-  // Normalize citation formats first
+  // Step 1: Normalize all citation formats to [X] or [X, Y, Z]
   let formatted = text.replace(/\[Chunk\s+(\d+)\]/gi, '[$1]');
   formatted = formatted.replace(/\[Citation:\s*(\d+)\]/gi, '[$1]');
+  formatted = formatted.replace(/\[citation\s+(\d+)\]/gi, '[$1]');
+  formatted = formatted.replace(/\[chunk\s+(\d+)\]/gi, '[$1]');
 
-  // Normalize multiple citations: [1, 2] or [1,2] -> [1, 2] (consistent spacing)
-  formatted = formatted.replace(/\[(\d+)\s*,\s*(\d+)\s*(?:,\s*(\d+))?\s*(?:,\s*(\d+))?\s*\]/g, (match, ...nums) => {
-    const numbers = nums.filter(n => n).map(n => parseInt(n)).sort((a, b) => a - b);
-    return `[${numbers.join(', ')}]`;
+  // Step 2: Normalize multiple citations: [1, 2] or [1,2] or [1,2,3] -> [1, 2, 3] (consistent spacing)
+  formatted = formatted.replace(/\[(\d+)\s*,\s*(\d+)(?:\s*,\s*(\d+))?(?:\s*,\s*(\d+))?(?:\s*,\s*(\d+))?\s*\]/g, (match, ...nums) => {
+    const numbers = nums.filter(n => n && n !== undefined).map(n => parseInt(n)).sort((a, b) => a - b);
+    // Remove duplicates
+    const uniqueNumbers = Array.from(new Set(numbers));
+    return `[${uniqueNumbers.join(', ')}]`;
   });
 
-  // Ensure proper spacing around citations (single or multiple)
-  // "text[1]" -> "text [1]" or "text[1, 2]" -> "text [1, 2]"
-  formatted = formatted.replace(/([^\s])\[(\d+(?:\s*,\s*\d+)*)\]/g, '$1 [$2]');
-  
-  // "[1]text" -> "[1] text" or "[1, 2]text" -> "[1, 2] text"
-  formatted = formatted.replace(/\[(\d+(?:\s*,\s*\d+)*)\]([^\s])/g, '[$1] $2');
+  // Step 3: Move citations from middle of sentences to end (better readability)
+  // Pattern: "text [1] more text" -> "text more text [1]"
+  formatted = formatted.replace(/([^.\n])\s+\[(\d+(?:\s*,\s*\d+)*)\]\s+([A-Za-z])/g, '$1 $3 [$2]');
 
-  // Remove spaces before citations at end of sentences
-  formatted = formatted.replace(/\s+\[(\d+(?:\s*,\s*\d+)*)\]\s*([.,!?])/g, ' [$1]$2');
+  // Step 4: Ensure proper spacing around citations (single or multiple)
+  // "text[1]" -> "text [1]" or "text[1, 2]" -> "text [1, 2]"
+  formatted = formatted.replace(/([^\s\[\]])\[(\d+(?:\s*,\s*\d+)*)\]/g, '$1 [$2]');
+  
+  // "[1]text" -> "[1] text" (but not if it's at the start of a line or after punctuation)
+  formatted = formatted.replace(/\[(\d+(?:\s*,\s*\d+)*)\]([A-Za-z])/g, '[$1] $2');
+
+  // Step 5: Citations at end of sentences should be before punctuation
+  // "text. [1]" -> "text [1]." or "text, [1]" -> "text [1],"
+  formatted = formatted.replace(/([.,!?;:])\s+\[(\d+(?:\s*,\s*\d+)*)\]/g, ' [$2]$1');
+  
+  // Step 6: Citations should come after punctuation if they're at the end
+  // "text [1]." -> "text [1]." (keep as is, this is correct)
+  // But fix: "text. [1]" -> "text [1]." (already handled above)
+
+  // Step 7: Ensure citations in lists are at the end of the list item
+  // "- item [1] more text" -> "- item more text [1]"
+  formatted = formatted.replace(/(^[\s]*[-•*]\s+[^\n]+?)\s+\[(\d+(?:\s*,\s*\d+)*)\]\s+([^\n]+)/gm, '$1 $3 [$2]');
+  
+  // Step 8: For numbered lists, same treatment
+  formatted = formatted.replace(/(^\d+\.\s+[^\n]+?)\s+\[(\d+(?:\s*,\s*\d+)*)\]\s+([^\n]+)/gm, '$1 $3 [$2]');
 
   return formatted;
 }

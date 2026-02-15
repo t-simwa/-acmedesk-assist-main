@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 STORAGE_DIR = Path("storage/documents")
 
 # Allowed file extensions (whitelist approach for security)
-ALLOWED_EXTENSIONS = {".md", ".markdown", ".html", ".htm", ".txt"}
+ALLOWED_EXTENSIONS = {".md", ".markdown", ".html", ".htm", ".txt", ".pdf", ".docx"}
 
 # Maximum filename length (excluding path)
 MAX_FILENAME_LENGTH = 255
