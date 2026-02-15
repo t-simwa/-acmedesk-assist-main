@@ -859,10 +859,10 @@ This section covers tasks to elevate the UI from a good prototype to a **world-c
 #### F6 – Micro-Interactions & Animations
 
 - **F6.1 – Smooth Transitions**
-  - [ ] Add page transition animations (fade, slide) between routes.
-  - [ ] Smooth modal/dialog open/close animations.
-  - [ ] Smooth dropdown menu animations.
-  - [ ] Smooth table row hover effects.
+  - [x] Add page transition animations (fade, slide) between routes.
+  - [x] Smooth modal/dialog open/close animations.
+  - [x] Smooth dropdown menu animations.
+  - [x] Smooth table row hover effects.
 
 - **F6.2 – Feedback Animations**
   - [ ] Button press animations (subtle scale down on click).
@@ -1010,7 +1010,7 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
   - [x] F3.2 – Documents page enhancements (multi-file upload, advanced table).
   - [x] F4.2 – Screen reader support (ARIA labels, live regions).
   - [x] F5.1 – Loading performance optimization (code splitting, skeletons).
-  - [ ] F6.1 – Smooth transitions and animations.
+  - [x] F6.1 – Smooth transitions and animations.
   - [ ] E1 – RAG quality checks with initial test set.
 
 ### Milestone 3 – Analytics, Settings, Testing & Enterprise Polish (Week 3)

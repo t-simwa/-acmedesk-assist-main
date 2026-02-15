@@ -443,3 +443,39 @@
     opacity: 1;
   }
 }
+
+/* F6.1 - Smooth Transitions: Page transition animations */
+.page-transition-wrapper {
+  width: 100%;
+  min-height: 100%;
+  transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
+}
+
+.page-transition-entering {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.page-transition-entered {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.page-transition-exiting {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+/* Respect prefers-reduced-motion for page transitions */
+@media (prefers-reduced-motion: reduce) {
+  .page-transition-wrapper {
+    transition: none;
+  }
+  
+  .page-transition-entering,
+  .page-transition-entered,
+  .page-transition-exiting {
+    opacity: 1;
+    transform: none;
+  }
+}

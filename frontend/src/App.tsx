@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import { PageTransition } from "@/components/PageTransition";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import { AdminLayout } from "./components/admin/AdminLayout";
@@ -31,42 +32,64 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Index />} />
+            <Route
+              path="/"
+              element={
+                <PageTransition>
+                  <Index />
+                </PageTransition>
+              }
+            />
             <Route path="/admin" element={<AdminLayout />}>
               <Route
                 index
                 element={
-                  <Suspense fallback={<DashboardSkeleton />}>
-                    <Dashboard />
-                  </Suspense>
+                  <PageTransition>
+                    <Suspense fallback={<DashboardSkeleton />}>
+                      <Dashboard />
+                    </Suspense>
+                  </PageTransition>
                 }
               />
               <Route
                 path="documents"
                 element={
-                  <Suspense fallback={<DocumentsSkeleton />}>
-                    <Documents />
-                  </Suspense>
+                  <PageTransition>
+                    <Suspense fallback={<DocumentsSkeleton />}>
+                      <Documents />
+                    </Suspense>
+                  </PageTransition>
                 }
               />
               <Route
                 path="analytics"
                 element={
-                  <Suspense fallback={<AnalyticsSkeleton />}>
-                    <Analytics />
-                  </Suspense>
+                  <PageTransition>
+                    <Suspense fallback={<AnalyticsSkeleton />}>
+                      <Analytics />
+                    </Suspense>
+                  </PageTransition>
                 }
               />
               <Route
                 path="settings"
                 element={
-                  <Suspense fallback={<SettingsSkeleton />}>
-                    <Settings />
-                  </Suspense>
+                  <PageTransition>
+                    <Suspense fallback={<SettingsSkeleton />}>
+                      <Settings />
+                    </Suspense>
+                  </PageTransition>
                 }
               />
             </Route>
-            <Route path="*" element={<NotFound />} />
+            <Route
+              path="*"
+              element={
+                <PageTransition>
+                  <NotFound />
+                </PageTransition>
+              }
+            />
           </Routes>
         </BrowserRouter>
       </TooltipProvider>

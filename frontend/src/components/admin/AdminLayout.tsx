@@ -1,5 +1,6 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
 import { LayoutDashboard, FileText, BarChart3, Settings } from "lucide-react";
+import { PageTransition } from "@/components/PageTransition";
 
 const navItems = [
   { label: "Dashboard", path: "/admin", icon: LayoutDashboard },
@@ -71,7 +72,9 @@ export function AdminLayout() {
       {/* Main content */}
       <main id="admin-main-content" className="flex-1 overflow-auto">
         <div className="max-w-6xl mx-auto px-8 py-8">
-          <Outlet />
+          <PageTransition>
+            <Outlet />
+          </PageTransition>
         </div>
       </main>
     </div>
