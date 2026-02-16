@@ -15,6 +15,7 @@ import {
 } from "recharts";
 import { analyticsApi, ApiError } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAnalyticsSummary } from "@/hooks/useAnalytics";
 import { AlertCircle, Download, RefreshCw, FileSpreadsheet, FileText, FilterX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DateRangePicker } from "@/components/admin/DateRangePicker";
@@ -93,7 +94,6 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps<any, any>) => {
 };
 
 export default function Analytics() {
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [conversationData, setConversationData] = useState<ChartDataPoint[]>([]);
   const [resolutionData, setResolutionData] = useState<ChartDataPoint[]>([]);

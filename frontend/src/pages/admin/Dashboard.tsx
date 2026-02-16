@@ -26,7 +26,6 @@ export default function Dashboard() {
     { label: "Active Users", value: "0", id: "users" },
   ]);
   const [recentQueries, setRecentQueries] = useState<TopQuery[]>([]);
-  const [loading, setLoading] = useState(true);
   const [isPolling, setIsPolling] = useState(true);
   const [widgetOrder, setWidgetOrder] = useState<string[]>(["stats", "queries"]);
 
