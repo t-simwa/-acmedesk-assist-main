@@ -570,7 +570,8 @@ export default function Documents() {
       </div>
 
       {error && (
-        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg text-[14px]">
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg text-[14px] flex items-center gap-2">
+          <AlertCircle size={16} aria-hidden="true" />
           {error}
         </div>
       )}
@@ -1008,9 +1009,12 @@ export default function Documents() {
                 </div>
               </div>
               {previewDocument.error_message && (
-                <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg text-sm">
-                  <p className="font-medium">Error:</p>
-                  <p>{previewDocument.error_message}</p>
+                <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg text-sm flex items-start gap-2">
+                  <AlertCircle size={16} className="flex-shrink-0 mt-0.5" aria-hidden="true" />
+                  <div>
+                    <p className="font-medium">Error:</p>
+                    <p>{previewDocument.error_message}</p>
+                  </div>
                 </div>
               )}
               <div>

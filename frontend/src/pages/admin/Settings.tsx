@@ -4,6 +4,7 @@ import { settingsApi, ApiError, RAGSettings, RAGSettingsValidationResponse } fro
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle, CheckCircle2, Loader2, Save, RotateCcw, TestTube, ChevronDown } from "lucide-react";
+import { AccessibilitySettings } from "@/components/AccessibilitySettings";
 
 // Helper function to convert hex to HSL
 function hexToHsl(hex: string): string {
@@ -1011,6 +1012,9 @@ export default function Settings() {
             </p>
           </div>
         </div>
+
+        {/* Accessibility Settings */}
+        <AccessibilitySettings />
 
         {/* Action Buttons */}
         <div className="flex items-center gap-3">

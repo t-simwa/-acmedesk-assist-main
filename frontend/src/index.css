@@ -181,6 +181,105 @@
     --shadow-lg: 0 12px 32px -4px hsl(0 0% 0% / 0.4);
     --shadow-chat: 0 8px 40px -8px hsl(0 0% 0% / 0.5);
   }
+
+  /* High Contrast Mode - Enhanced contrast ratios (WCAG AAA where possible) */
+  &.high-contrast {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 0%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 0%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 0%;
+
+    --primary: 0 0% 0%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 0 0% 90%;
+    --secondary-foreground: 0 0% 0%;
+
+    --muted: 0 0% 95%;
+    --muted-foreground: 0 0% 20%;
+
+    --accent: 0 0% 0%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 100% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 0%;
+    --input: 0 0% 0%;
+    --ring: 0 0% 0%;
+
+    --success: 120 100% 25%;
+    --success-foreground: 0 0% 100%;
+    --warning: 45 100% 50%;
+    --warning-foreground: 0 0% 0%;
+    --error: 0 100% 50%;
+    --error-foreground: 0 0% 100%;
+    --info: 210 100% 50%;
+    --info-foreground: 0 0% 100%;
+  }
+
+  &.high-contrast.dark {
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+
+    --card: 0 0% 10%;
+    --card-foreground: 0 0% 100%;
+
+    --popover: 0 0% 10%;
+    --popover-foreground: 0 0% 100%;
+
+    --primary: 0 0% 100%;
+    --primary-foreground: 0 0% 0%;
+
+    --secondary: 0 0% 20%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 90%;
+
+    --accent: 0 0% 100%;
+    --accent-foreground: 0 0% 0%;
+
+    --destructive: 0 100% 60%;
+    --destructive-foreground: 0 0% 0%;
+
+    --border: 0 0% 100%;
+    --input: 0 0% 100%;
+    --ring: 0 0% 100%;
+
+    --success: 120 100% 40%;
+    --success-foreground: 0 0% 0%;
+    --warning: 45 100% 60%;
+    --warning-foreground: 0 0% 0%;
+    --error: 0 100% 60%;
+    --error-foreground: 0 0% 0%;
+    --info: 210 100% 60%;
+    --info-foreground: 0 0% 0%;
+  }
+
+  /* Font Size Multiplier - Default to medium */
+  --font-size-multiplier: 1;
+
+  /* Font size classes */
+  &.font-size-small {
+    --font-size-multiplier: 0.875;
+  }
+
+  &.font-size-medium {
+    --font-size-multiplier: 1;
+  }
+
+  &.font-size-large {
+    --font-size-multiplier: 1.25;
+  }
+
+  &.font-size-extra-large {
+    --font-size-multiplier: 1.5;
+  }
 }
 
 @layer base {
@@ -202,7 +301,8 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     /* Base body text - WCAG AA compliant (14px minimum) */
-    font-size: 0.875rem; /* 14px */
+    /* Apply font size multiplier for accessibility */
+    font-size: calc(0.875rem * var(--font-size-multiplier)); /* 14px base, scales with multiplier */
     line-height: 1.5;
   }
 
@@ -275,12 +375,25 @@
     font-size: inherit;
   }
 
-  /* Prevent text from being too small */
+  /* Prevent text from being too small - apply font size multiplier */
   input,
   textarea,
   select,
   button {
-    font-size: 0.875rem; /* 14px minimum */
+    font-size: calc(0.875rem * var(--font-size-multiplier)); /* 14px minimum, scales with multiplier */
+  }
+
+  /* Ensure layouts handle 200% text zoom without breaking */
+  /* Use relative units and flexible layouts */
+  .container,
+  .max-w-\\[.*\\],
+  [class*="max-w-"] {
+    max-width: 100%;
+  }
+
+  /* Ensure text can be resized up to 200% without breaking layout */
+  @media (min-resolution: 192dpi) {
+    /* High DPI support */
   }
 }
 
