@@ -666,14 +666,14 @@ This section lists **granular, implementation-ready checklists** grouped by area
     - [x] Evaluation report generation (JSON format)
     - [x] Documentation created (`docs/E-testing-and-quality/E1-rag-quality-checks.md`)
 
-- **E2 – Automated Tests**
-  - [ ] Backend:
-    - [ ] Test `/api/health` returns 200 and expected payload.
-    - [ ] Test `/api/chat` with a simple in-memory RAG pipeline (can mock embedding/vector DB).
-    - [ ] Test chunking logic (given text, verify chunk sizes and overlaps).
-  - [ ] Frontend:
-    - [ ] Component tests for `ChatWidget` basic flows (open, send, render response with mock API).
-    - [ ] Component tests for `Documents` list (render from mock API data).
+- **E2 – Automated Tests** ✅ **COMPLETE**
+  - [x] Backend:
+    - [x] Test `/api/health` returns 200 and expected payload.
+    - [x] Test `/api/chat` with a simple in-memory RAG pipeline (can mock embedding/vector DB).
+    - [x] Test chunking logic (given text, verify chunk sizes and overlaps).
+  - [x] Frontend:
+    - [x] Component tests for `ChatWidget` basic flows (open, send, render response with mock API).
+    - [x] Component tests for `Documents` list (render from mock API data).
 
 ---
 
@@ -1106,7 +1106,7 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
   - [x] F9.1 – Comprehensive error states. ✅ **COMPLETE**
   - [x] F9.2 – Success feedback (toasts, confirmations). ✅ **COMPLETE**
   - [x] F10.1 – Mobile admin experience. ✅ **COMPLETE**
-  - [ ] E2 – Core backend and frontend tests.
+  - [x] E2 – Core backend and frontend tests. ✅ **COMPLETE**
   - [ ] E1 – Expanded manual checklist for launch scenarios.
   - [ ] Docs – Update README + add at least `architecture.md` and a simple RAG evaluation summary.
 
