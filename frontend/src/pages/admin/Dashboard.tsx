@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useCountUp } from "@/hooks/useCountUp";
 import { NetworkErrorState } from "@/components/error/NetworkErrorState";
 import { EmptyState } from "@/components/error/EmptyState";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface DashboardStat {
   label: string;
@@ -121,27 +122,29 @@ export default function Dashboard() {
     }
   }, []);
 
+  const isMobile = useIsMobile();
+  
   const statsWidget = (
-    <div className="grid grid-cols-4 gap-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
       {stats.map((stat) => (
         <div
           key={stat.label}
-          className="bg-background rounded-xl border border-border/40 p-8 hover:border-border/60 transition-all duration-200"
+          className="bg-background rounded-xl border border-border/40 p-4 sm:p-6 md:p-8 hover:border-border/60 transition-all duration-200"
           role="region"
           aria-label={stat.label}
         >
           {loading ? (
-            <Skeleton className="h-8 w-20 mb-3" />
+            <Skeleton className="h-7 sm:h-8 w-20 mb-2 sm:mb-3" />
           ) : (
             <div
-              className="text-3xl font-semibold text-foreground tracking-tight mb-3 leading-none"
+              className="text-xl sm:text-2xl md:text-3xl font-semibold text-foreground tracking-tight mb-2 sm:mb-3 leading-none"
               aria-live="polite"
               aria-atomic="true"
             >
               {stat.value}
             </div>
           )}
-          <div className="text-xs text-muted-foreground font-medium uppercase tracking-[0.05em]">
+          <div className="text-[11px] sm:text-xs text-muted-foreground font-medium uppercase tracking-[0.05em]">
             {stat.label}
           </div>
         </div>
@@ -154,8 +157,8 @@ export default function Dashboard() {
       className="bg-background rounded-xl border border-border shadow-soft-sm"
       aria-labelledby="top-questions-heading"
     >
-      <div className="px-6 py-4 border-b border-border flex items-center justify-between">
-        <h2 id="top-questions-heading" className="text-[15px] font-semibold text-foreground">
+      <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-border flex items-center justify-between">
+        <h2 id="top-questions-heading" className="text-[14px] sm:text-[15px] font-semibold text-foreground">
           Top Questions Today
         </h2>
         <Button
@@ -165,31 +168,32 @@ export default function Dashboard() {
             refetchSummary();
             refetchQueries();
           }}
-          className="gap-2"
+          className="gap-2 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0"
+          aria-label="Refresh queries"
         >
           <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
         </Button>
       </div>
       <div className="divide-y divide-border">
         {loading ? (
-          <div className="p-6 space-y-4">
+          <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
             {[1, 2, 3, 4, 5].map((i) => (
-              <Skeleton key={i} className="h-12 w-full" />
+              <Skeleton key={i} className="h-14 sm:h-12 w-full" />
             ))}
           </div>
         ) : recentQueries.length === 0 ? (
-          <div className="p-6 text-center text-sm text-muted-foreground">No queries available</div>
+          <div className="p-4 sm:p-6 text-center text-sm text-muted-foreground">No queries available</div>
         ) : (
           recentQueries.map((q, i) => (
-            <div key={i} className="flex items-center justify-between px-6 py-3.5">
-              <div className="flex items-center gap-3">
-                <span className="text-[13px] text-muted-foreground w-5">{i + 1}</span>
-                <span className="text-[14px] text-foreground">{q.question}</span>
+            <div key={i} className="flex flex-col gap-3 px-4 sm:px-6 py-4 sm:py-3.5">
+              <div className="flex items-start gap-3 flex-1 min-w-0">
+                <span className="text-[13px] text-muted-foreground w-5 flex-shrink-0 mt-0.5">{i + 1}</span>
+                <span className="text-[14px] sm:text-[14px] text-foreground break-words flex-1">{q.question}</span>
               </div>
-              <div className="flex items-center gap-4">
-                <span className="text-[13px] text-muted-foreground">{q.count} asks</span>
+              <div className="flex items-center gap-3 sm:gap-4 flex-shrink-0 pl-8">
+                <span className="text-[13px] text-muted-foreground whitespace-nowrap">{q.count} asks</span>
                 <span
-                  className={`text-[12px] px-2 py-0.5 rounded-full font-medium ${
+                  className={`text-[12px] px-2.5 py-1 rounded-full font-medium whitespace-nowrap ${
                     q.answered
                       ? "bg-accent text-accent-foreground"
                       : "bg-destructive/10 text-destructive"
@@ -240,11 +244,11 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 sm:space-y-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
-          <p className="text-[14px] text-muted-foreground mt-1">
+          <h1 className="text-xl sm:text-2xl font-semibold text-foreground">Dashboard</h1>
+          <p className="text-[13px] sm:text-[14px] text-muted-foreground mt-1">
             Overview of your support chatbot performance
           </p>
         </div>
@@ -252,10 +256,12 @@ export default function Dashboard() {
           variant="outline"
           size="sm"
           onClick={() => setIsPolling(!isPolling)}
-          className="gap-2"
+          className="gap-2 w-full sm:w-auto min-h-[44px] sm:min-h-0"
         >
           <RefreshCw className={`h-4 w-4 ${isPolling ? "animate-spin" : ""}`} />
-          {isPolling ? "Auto-refresh ON" : "Auto-refresh OFF"}
+          <span className="text-[13px] sm:text-sm">
+            {isPolling ? "Auto-refresh ON" : "Auto-refresh OFF"}
+          </span>
         </Button>
       </div>
 

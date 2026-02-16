@@ -992,11 +992,11 @@ This section covers tasks to elevate the UI from a good prototype to a **world-c
 
 #### F10 – Responsive Design & Mobile Admin
 
-- **F10.1 – Mobile Admin Experience**
-  - [ ] Responsive admin layout (sidebar becomes drawer on mobile).
-  - [ ] Touch-optimized tables (swipe actions, mobile-friendly filters).
-  - [ ] Mobile-optimized forms (larger inputs, better spacing).
-  - [ ] Mobile navigation (bottom nav or hamburger menu).
+- **F10.1 – Mobile Admin Experience** ✅ **COMPLETE**
+  - [x] Responsive admin layout (sidebar becomes drawer on mobile).
+  - [x] Touch-optimized tables (swipe actions, mobile-friendly filters).
+  - [x] Mobile-optimized forms (larger inputs, better spacing).
+  - [x] Mobile navigation (hamburger menu).
 
 - **F10.2 – Tablet Optimization**
   - [ ] Optimize layouts for tablet breakpoints (768px–1024px).
@@ -1105,7 +1105,7 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
   - [x] F8.2 – Advanced analytics views. ✅ **COMPLETE**
   - [x] F9.1 – Comprehensive error states. ✅ **COMPLETE**
   - [x] F9.2 – Success feedback (toasts, confirmations). ✅ **COMPLETE**
-  - [ ] F10.1 – Mobile admin experience.
+  - [x] F10.1 – Mobile admin experience. ✅ **COMPLETE**
   - [ ] E2 – Core backend and frontend tests.
   - [ ] E1 – Expanded manual checklist for launch scenarios.
   - [ ] Docs – Update README + add at least `architecture.md` and a simple RAG evaluation summary.

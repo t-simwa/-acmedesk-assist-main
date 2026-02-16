@@ -54,6 +54,7 @@ import { useAccessibility } from "@/contexts/AccessibilityContext";
 import { getChartTheme, chartA11y } from "@/lib/chartTheme";
 import { NetworkErrorState } from "@/components/error/NetworkErrorState";
 import { EmptyState } from "@/components/error/EmptyState";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface ChartDataPoint {
   day: string;
@@ -102,6 +103,7 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps<any, any>) => {
 };
 
 export default function Analytics() {
+  const isMobile = useIsMobile();
   const [error, setError] = useState<string | null>(null);
   const [conversationData, setConversationData] = useState<ChartDataPoint[]>([]);
   const [resolutionData, setResolutionData] = useState<ChartDataPoint[]>([]);
@@ -435,50 +437,62 @@ export default function Analytics() {
   const hasActiveFilters = filteredDate !== null || filteredCategory !== null;
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 sm:space-y-8">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Analytics</h1>
-          <p className="text-[14px] text-muted-foreground mt-1">
+          <h1 className="text-xl sm:text-2xl font-semibold text-foreground">Analytics</h1>
+          <p className="text-[13px] sm:text-[14px] text-muted-foreground mt-1">
             Chatbot usage and performance metrics
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <DateRangePicker dateRange={dateRange} onDateRangeChange={setDateRange} />
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+          <div className="w-full sm:w-auto">
+            <DateRangePicker dateRange={dateRange} onDateRangeChange={setDateRange} />
+          </div>
           {hasActiveFilters && (
-            <Button variant="outline" size="sm" onClick={clearFilters} className="gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={clearFilters} 
+              className="gap-2 w-full sm:w-auto min-h-[44px] sm:min-h-0"
+            >
               <FilterX className="h-4 w-4" />
-              Clear Filters
+              <span className="text-[13px] sm:text-sm">Clear Filters</span>
             </Button>
           )}
           <Button
             variant="outline"
             size="sm"
             onClick={() => setIsPolling(!isPolling)}
-            className="gap-2"
+            className="gap-2 w-full sm:w-auto min-h-[44px] sm:min-h-0"
           >
             <RefreshCw className={`h-4 w-4 ${isPolling ? "animate-spin" : ""}`} />
-            {isPolling ? "Auto-refresh ON" : "Auto-refresh OFF"}
+            <span className="text-[13px] sm:text-sm hidden sm:inline">
+              {isPolling ? "Auto-refresh ON" : "Auto-refresh OFF"}
+            </span>
+            <span className="text-[13px] sm:text-sm sm:hidden">
+              {isPolling ? "ON" : "OFF"}
+            </span>
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2">
+              <Button variant="outline" size="sm" className="gap-2 w-full sm:w-auto min-h-[44px] sm:min-h-0">
                 <Download className="h-3 w-3" />
-                Export
+                <span className="text-[13px] sm:text-sm">Export</span>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={handleExportCSV}>
+            <DropdownMenuContent align="end" className="w-[200px]">
+              <DropdownMenuItem onClick={handleExportCSV} className="min-h-[44px]">
                 <FileSpreadsheet className="h-4 w-4 mr-2" />
-                Export as CSV
+                <span className="text-[14px]">Export as CSV</span>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleExportExcel}>
+              <DropdownMenuItem onClick={handleExportExcel} className="min-h-[44px]">
                 <FileSpreadsheet className="h-4 w-4 mr-2" />
-                Export as Excel
+                <span className="text-[14px]">Export as Excel</span>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleExportPDFReport}>
+              <DropdownMenuItem onClick={handleExportPDFReport} className="min-h-[44px]">
                 <FileText className="h-4 w-4 mr-2" />
-                Generate PDF Report
+                <span className="text-[14px]">Generate PDF Report</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -509,22 +523,22 @@ export default function Analytics() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-6 mb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6">
         {/* Conversations chart */}
-        <section className="bg-background rounded-xl border border-border p-6 shadow-soft-sm" aria-labelledby="conversations-chart-heading">
-          <div className="flex items-center justify-between mb-4">
+        <section className="bg-background rounded-xl border border-border p-4 sm:p-6 shadow-soft-sm" aria-labelledby="conversations-chart-heading">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-4">
             <div>
-              <h3 id="conversations-chart-heading" className="text-[15px] font-semibold text-foreground mb-1">
+              <h3 id="conversations-chart-heading" className="text-[14px] sm:text-[15px] font-semibold text-foreground mb-1">
                 Conversations
               </h3>
-              <p className="text-[13px] text-muted-foreground">{getDateRangeLabel()}</p>
+              <p className="text-[12px] sm:text-[13px] text-muted-foreground">{getDateRangeLabel()}</p>
             </div>
             <div className="flex gap-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-2">
+                  <Button variant="outline" size="sm" className="gap-2 min-h-[44px] sm:min-h-0">
                     <Download className="h-3 w-3" />
-                    Export
+                    <span className="text-[13px] sm:text-sm">Export</span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -632,20 +646,20 @@ export default function Analytics() {
         </section>
 
         {/* Resolution rate chart */}
-        <section className="bg-background rounded-xl border border-border p-6 shadow-soft-sm" aria-labelledby="resolution-chart-heading">
-          <div className="flex items-center justify-between mb-4">
+        <section className="bg-background rounded-xl border border-border p-4 sm:p-6 shadow-soft-sm" aria-labelledby="resolution-chart-heading">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-4">
             <div>
-              <h3 id="resolution-chart-heading" className="text-[15px] font-semibold text-foreground mb-1">
+              <h3 id="resolution-chart-heading" className="text-[14px] sm:text-[15px] font-semibold text-foreground mb-1">
                 Resolution Rate
               </h3>
-              <p className="text-[13px] text-muted-foreground">{getDateRangeLabel()}</p>
+              <p className="text-[12px] sm:text-[13px] text-muted-foreground">{getDateRangeLabel()}</p>
             </div>
             <div className="flex gap-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-2">
+                  <Button variant="outline" size="sm" className="gap-2 min-h-[44px] sm:min-h-0">
                     <Download className="h-3 w-3" />
-                    Export
+                    <span className="text-[13px] sm:text-sm">Export</span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -755,10 +769,10 @@ export default function Analytics() {
       </div>
 
       {/* Additional Visualizations */}
-      <div className="grid grid-cols-1 gap-6 mb-6">
+      <div className="grid grid-cols-1 gap-4 sm:gap-6 mb-6">
         {/* Heatmap */}
         <section
-          className="bg-background rounded-xl border border-border p-6 shadow-soft-sm"
+          className="bg-background rounded-xl border border-border p-4 sm:p-6 shadow-soft-sm"
           aria-labelledby="heatmap-section-heading"
         >
           <h3 id="heatmap-section-heading" className="sr-only">
@@ -771,9 +785,9 @@ export default function Analytics() {
         </section>
 
         {/* Sankey and Word Cloud in a row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           <section
-            className="bg-background rounded-xl border border-border p-6 shadow-soft-sm"
+            className="bg-background rounded-xl border border-border p-4 sm:p-6 shadow-soft-sm"
             aria-labelledby="sankey-section-heading"
           >
             <h3 id="sankey-section-heading" className="sr-only">
@@ -786,7 +800,7 @@ export default function Analytics() {
             />
           </section>
           <section
-            className="bg-background rounded-xl border border-border p-6 shadow-soft-sm"
+            className="bg-background rounded-xl border border-border p-4 sm:p-6 shadow-soft-sm"
             aria-labelledby="wordcloud-section-heading"
           >
             <h3 id="wordcloud-section-heading" className="sr-only">
@@ -798,17 +812,17 @@ export default function Analytics() {
       </div>
 
       {/* Advanced Analytics Views - F8.2 */}
-      <div className="space-y-6 mb-6">
+      <div className="space-y-4 sm:space-y-6 mb-6">
         <div>
-          <h2 className="text-xl font-semibold text-foreground mb-2">Advanced Analytics Views</h2>
-          <p className="text-[14px] text-muted-foreground">
+          <h2 className="text-lg sm:text-xl font-semibold text-foreground mb-2">Advanced Analytics Views</h2>
+          <p className="text-[13px] sm:text-[14px] text-muted-foreground">
             Detailed insights into conversation patterns, user journeys, and performance metrics
           </p>
         </div>
 
         {/* Performance Metrics Dashboard */}
         <section
-          className="bg-background rounded-xl border border-border p-6 shadow-soft-sm"
+          className="bg-background rounded-xl border border-border p-4 sm:p-6 shadow-soft-sm"
           aria-labelledby="performance-metrics-heading"
         >
           <h3 id="performance-metrics-heading" className="sr-only">
@@ -824,9 +838,9 @@ export default function Analytics() {
         </section>
 
         {/* Conversation Timeline and User Journey in a row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           <section
-            className="bg-background rounded-xl border border-border p-6 shadow-soft-sm"
+            className="bg-background rounded-xl border border-border p-4 sm:p-6 shadow-soft-sm"
             aria-labelledby="timeline-heading"
           >
             <h3 id="timeline-heading" className="sr-only">
@@ -842,7 +856,7 @@ export default function Analytics() {
           </section>
 
           <section
-            className="bg-background rounded-xl border border-border p-6 shadow-soft-sm"
+            className="bg-background rounded-xl border border-border p-4 sm:p-6 shadow-soft-sm"
             aria-labelledby="user-journey-heading"
           >
             <h3 id="user-journey-heading" className="sr-only">

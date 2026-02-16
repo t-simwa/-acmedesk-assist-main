@@ -74,6 +74,7 @@ import { useToast } from "@/hooks/use-toast";
 import { EmptyState } from "@/components/error/EmptyState";
 import { NetworkErrorState } from "@/components/error/NetworkErrorState";
 import { ConfirmationDialog } from "@/components/feedback/ConfirmationDialog";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const statusConfig = {
   indexed: { icon: CheckCircle2, label: "Indexed", className: "text-primary" },
@@ -154,7 +155,188 @@ function readFilePreview(file: File): Promise<string> {
   });
 }
 
+// Mobile Document Card Component with Swipe Actions
+interface MobileDocumentCardProps {
+  doc: Document;
+  status: { icon: React.ComponentType<{ size?: number; className?: string }>; label: string; className: string };
+  StatusIcon: React.ComponentType<{ size?: number; className?: string }>;
+  FileIcon: React.ComponentType<{ size?: number; className?: string }>;
+  isSelected: boolean;
+  isReindexing: boolean;
+  onSelect: () => void;
+  onPreview: () => void;
+  onEdit: () => void;
+  onReindex: () => void;
+  onDelete: () => void;
+  formatDate: (dateString: string) => string;
+}
+
+function MobileDocumentCard({
+  doc,
+  status,
+  StatusIcon,
+  FileIcon,
+  isSelected,
+  isReindexing,
+  onSelect,
+  onPreview,
+  onEdit,
+  onReindex,
+  onDelete,
+  formatDate,
+}: MobileDocumentCardProps) {
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const SWIPE_THRESHOLD = 100;
+  const ACTION_WIDTH = 80;
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartRef.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY,
+      time: Date.now(),
+    };
+    setIsSwiping(true);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
+    const deltaX = e.touches[0].clientX - touchStartRef.current.x;
+    const deltaY = Math.abs(e.touches[0].clientY - touchStartRef.current.y);
+
+    // Only allow horizontal swipe if it's more horizontal than vertical
+    if (Math.abs(deltaX) > deltaY && deltaX < 0) {
+      e.preventDefault();
+      setSwipeOffset(Math.max(-ACTION_WIDTH, deltaX));
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStartRef.current) return;
+    const shouldReveal = swipeOffset < -SWIPE_THRESHOLD / 2;
+
+    if (shouldReveal) {
+      setSwipeOffset(-ACTION_WIDTH);
+    } else {
+      setSwipeOffset(0);
+    }
+
+    setIsSwiping(false);
+    touchStartRef.current = null;
+  };
+
+  return (
+    <div className="relative overflow-hidden touch-pan-y">
+      {/* Swipe Actions Background */}
+      <div
+        className="absolute right-0 top-0 bottom-0 flex items-center bg-destructive/90 z-10 transition-all duration-200"
+        style={{ width: `${ACTION_WIDTH}px`, transform: `translateX(${ACTION_WIDTH + swipeOffset}px)` }}
+      >
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-full w-full text-destructive-foreground hover:bg-destructive rounded-none min-h-[44px]"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+            setSwipeOffset(0);
+          }}
+          aria-label={`Delete ${doc.name}`}
+        >
+          <Trash2 size={18} aria-hidden="true" />
+        </Button>
+      </div>
+
+      {/* Card Content */}
+      <div
+        className={`relative bg-background border border-border rounded-lg p-4 transition-transform duration-200 ${
+          isSelected ? "ring-2 ring-primary" : ""
+        }`}
+        style={{ transform: `translateX(${swipeOffset}px)` }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        <div className="flex items-start gap-3">
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={onSelect}
+            className="mt-1 min-w-[44px] min-h-[44px]"
+            aria-label={`Select ${doc.name}`}
+          />
+          <div className="flex-1 min-w-0">
+            <button
+              onClick={onPreview}
+              className="flex items-start gap-2 w-full text-left focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 rounded-sm"
+              aria-label={`Preview ${doc.name} document`}
+            >
+              <FileIcon size={20} className="text-muted-foreground flex-shrink-0 mt-0.5" aria-hidden="true" />
+              <div className="flex-1 min-w-0">
+                <h3 className="text-[15px] font-medium text-foreground truncate">{doc.name}</h3>
+                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                  <Badge variant="outline" className="text-[12px] uppercase">
+                    {doc.type}
+                  </Badge>
+                  <div className="flex items-center gap-1.5">
+                    <StatusIcon size={14} className={status.className} aria-hidden="true" />
+                    <span className={`text-[13px] ${status.className}`}>{status.label}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 mt-2 text-[12px] text-muted-foreground">
+                  {doc.chunk_count !== null && doc.chunk_count !== undefined && (
+                    <span>{doc.chunk_count} chunks</span>
+                  )}
+                  <span>{formatDate(doc.updated_at)}</span>
+                </div>
+              </div>
+            </button>
+            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onPreview}
+                className="flex-1 min-h-[44px] text-[14px]"
+                aria-label={`Preview ${doc.name}`}
+              >
+                <Eye size={16} className="mr-2" aria-hidden="true" />
+                Preview
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onEdit}
+                className="flex-1 min-h-[44px] text-[14px]"
+                aria-label={`Edit ${doc.name}`}
+              >
+                <Edit2 size={16} className="mr-2" aria-hidden="true" />
+                Edit
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onReindex}
+                disabled={isReindexing}
+                className="flex-1 min-h-[44px] text-[14px]"
+                aria-label={isReindexing ? `Reindexing ${doc.name}` : `Reindex ${doc.name}`}
+              >
+                {isReindexing ? (
+                  <Loader2 size={16} className="mr-2 animate-spin" aria-hidden="true" />
+                ) : (
+                  <RefreshCw size={16} className="mr-2" aria-hidden="true" />
+                )}
+                Reindex
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Documents() {
+  const isMobile = useIsMobile();
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 300);
   const [reindexing, setReindexing] = useState<Set<string>>(new Set());
@@ -759,7 +941,37 @@ export default function Documents() {
               size="md"
             />
           </div>
+        ) : isMobile ? (
+          // Mobile Card View with Swipe Actions
+          <div className="space-y-3 max-h-[600px] overflow-y-auto">
+            {filtered.map((doc) => {
+              const status = statusConfig[doc.status as keyof typeof statusConfig] || statusConfig.processing;
+              const StatusIcon = status.icon;
+              const isReindexing = reindexing.has(doc.id);
+              const isSelected = selectedRows.has(doc.id);
+              const FileIcon = getFileIcon(doc.type);
+
+              return (
+                <MobileDocumentCard
+                  key={doc.id}
+                  doc={doc}
+                  status={status}
+                  StatusIcon={StatusIcon}
+                  FileIcon={FileIcon}
+                  isSelected={isSelected}
+                  isReindexing={isReindexing}
+                  onSelect={() => toggleRowSelection(doc.id)}
+                  onPreview={() => handlePreview(doc)}
+                  onEdit={() => handleEditStart(doc)}
+                  onReindex={() => handleReindex(doc.id)}
+                  onDelete={() => handleDeleteClick(doc.id)}
+                  formatDate={formatDate}
+                />
+              );
+            })}
+          </div>
         ) : (
+          // Desktop Table View
           <div className="max-h-[600px] overflow-y-auto">
             <Table>
             <TableHeader>

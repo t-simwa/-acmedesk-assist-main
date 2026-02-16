@@ -801,7 +801,7 @@ export default function Settings() {
     return (
       <div className="max-w-2xl space-y-8">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
+          <h1 className="text-xl sm:text-2xl font-semibold text-foreground">Settings</h1>
           <p className="text-[14px] text-muted-foreground mt-1">
             Configure the RAG pipeline and model parameters
           </p>
