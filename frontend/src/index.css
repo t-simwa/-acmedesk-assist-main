@@ -583,6 +583,29 @@
   transition: none;
 }
 
+/* F8.1 - Chart Library Enhancement: Accessibility and styling */
+@layer base {
+  /* SVG element focus states for accessible charts */
+  svg rect:focus-visible,
+  svg path:focus-visible,
+  svg circle:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* Chart container accessibility */
+  [role="img"][aria-label] {
+    position: relative;
+  }
+
+  /* Chart interactive elements */
+  [role="button"][tabindex="0"]:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+}
+
 /* F2.1 - Visual Refinement: Pulse animation for new messages */
 @keyframes pulse-gentle {
   0%, 100% {

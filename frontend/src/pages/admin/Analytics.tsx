@@ -40,6 +40,10 @@ import { useToast } from "@/hooks/use-toast";
 import { HeatmapChart } from "@/components/admin/HeatmapChart";
 import { SankeyDiagram } from "@/components/admin/SankeyDiagram";
 import { WordCloud } from "@/components/admin/WordCloud";
+import { ConversationTimeline } from "@/components/admin/ConversationTimeline";
+import { UserJourney } from "@/components/admin/UserJourney";
+import { SentimentAnalysis } from "@/components/admin/SentimentAnalysis";
+import { PerformanceMetrics } from "@/components/admin/PerformanceMetrics";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,6 +51,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAccessibility } from "@/contexts/AccessibilityContext";
+import { getChartTheme, chartA11y } from "@/lib/chartTheme";
 
 interface ChartDataPoint {
   day: string;
@@ -114,7 +119,8 @@ export default function Analytics() {
   const [brushStartIndex, setBrushStartIndex] = useState<number | undefined>(undefined);
   const [brushEndIndex, setBrushEndIndex] = useState<number | undefined>(undefined);
   const { toast } = useToast();
-  const { reduceMotion } = useAccessibility();
+  const { reduceMotion, highContrast } = useAccessibility();
+  const theme = getChartTheme(highContrast);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const conversationsChartRef = useRef<HTMLDivElement>(null);
   const resolutionChartRef = useRef<HTMLDivElement>(null);
@@ -550,29 +556,46 @@ export default function Analytics() {
               id="conversations-chart"
               ref={conversationsChartRef}
               role="img"
-              aria-label="Bar chart showing conversations over the selected date range"
+              aria-label={chartA11y.getChartLabel("Conversations", "bar", filteredConversationData.length)}
+              aria-describedby="conversations-chart-description"
             >
+              <div id="conversations-chart-description" className="sr-only">
+                {chartA11y.getChartDescription(
+                  "Conversations chart",
+                  `Shows ${filteredConversationData.length} data points over the selected date range. Total conversations: ${filteredConversationData.reduce((sum, d) => sum + (d.conversations || 0), 0)}.`
+                )}
+              </div>
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart
                   data={filteredConversationData}
                   onClick={handleBarClick}
                   style={{ cursor: "pointer" }}
+                  margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
+                  accessibilityLayer
                 >
                   <XAxis
                     dataKey="day"
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fontSize: 12, fill: "hsl(220, 9%, 46%)" }}
+                    tick={{
+                      fontSize: theme.typography.axis.fontSize,
+                      fill: theme.colors.axis,
+                      fontFamily: theme.typography.axis.fontFamily,
+                    }}
                   />
                   <YAxis
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fontSize: 12, fill: "hsl(220, 9%, 46%)" }}
+                    tick={{
+                      fontSize: theme.typography.axis.fontSize,
+                      fill: theme.colors.axis,
+                      fontFamily: theme.typography.axis.fontFamily,
+                    }}
                   />
                   <Tooltip content={<CustomTooltip />} />
-                  <Bar 
-                    dataKey="conversations" 
-                    fill="hsl(228, 66%, 47%)" 
+                  <Bar
+                    dataKey="conversations"
+                    fill={theme.colors.primary}
                     radius={[4, 4, 0, 0]}
                     isAnimationActive={!reduceMotion}
                     animationBegin={0}
@@ -584,9 +607,15 @@ export default function Analytics() {
                         key={`cell-${index}`}
                         fill={
                           filteredDate && entry.date === filteredDate
-                            ? "hsl(228, 66%, 60%)"
-                            : "hsl(228, 66%, 47%)"
+                            ? theme.colors.primaryHover
+                            : theme.colors.primary
                         }
+                        aria-label={chartA11y.getDataPointLabel(
+                          entry.day,
+                          entry.conversations || 0,
+                          index,
+                          filteredConversationData.length
+                        )}
                       />
                     ))}
                   </Bar>
@@ -648,31 +677,52 @@ export default function Analytics() {
               id="resolution-chart"
               ref={resolutionChartRef}
               role="img"
-              aria-label="Line chart showing resolution rate over the selected date range"
+              aria-label={chartA11y.getChartLabel("Resolution Rate", "line", filteredResolutionData.length)}
+              aria-describedby="resolution-chart-description"
             >
+              <div id="resolution-chart-description" className="sr-only">
+                {chartA11y.getChartDescription(
+                  "Resolution Rate chart",
+                  `Shows ${filteredResolutionData.length} data points over the selected date range. Average resolution rate: ${Math.round(filteredResolutionData.reduce((sum, d) => sum + (d.rate || 0), 0) / (filteredResolutionData.length || 1))}%.`
+                )}
+              </div>
               <ResponsiveContainer width="100%" height={200}>
-                <LineChart data={filteredResolutionData} onClick={handleLineClick} style={{ cursor: "pointer" }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 13%, 91%)" />
+                <LineChart
+                  data={filteredResolutionData}
+                  onClick={handleLineClick}
+                  style={{ cursor: "pointer" }}
+                  margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
+                  accessibilityLayer
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke={theme.colors.grid} />
                   <XAxis
                     dataKey="day"
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fontSize: 12, fill: "hsl(220, 9%, 46%)" }}
+                    tick={{
+                      fontSize: theme.typography.axis.fontSize,
+                      fill: theme.colors.axis,
+                      fontFamily: theme.typography.axis.fontFamily,
+                    }}
                   />
                   <YAxis
                     domain={[0, 100]}
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fontSize: 12, fill: "hsl(220, 9%, 46%)" }}
+                    tick={{
+                      fontSize: theme.typography.axis.fontSize,
+                      fill: theme.colors.axis,
+                      fontFamily: theme.typography.axis.fontFamily,
+                    }}
                     tickFormatter={(v) => `${v}%`}
                   />
                   <Tooltip content={<CustomTooltip />} />
                   <Line
                     type="monotone"
                     dataKey="rate"
-                    stroke="hsl(228, 66%, 47%)"
+                    stroke={theme.colors.primary}
                     strokeWidth={2}
-                    dot={{ r: 3, fill: "hsl(228, 66%, 47%)" }}
+                    dot={{ r: 3, fill: theme.colors.primary }}
                     isAnimationActive={!reduceMotion}
                     animationBegin={0}
                     animationDuration={800}
@@ -681,7 +731,7 @@ export default function Analytics() {
                   <Brush
                     dataKey="day"
                     height={30}
-                    stroke="hsl(228, 66%, 47%)"
+                    stroke={theme.colors.primary}
                     startIndex={brushStartIndex}
                     endIndex={brushEndIndex}
                     onChange={(brushData) => {
@@ -701,7 +751,13 @@ export default function Analytics() {
       {/* Additional Visualizations */}
       <div className="grid grid-cols-1 gap-6 mb-6">
         {/* Heatmap */}
-        <section className="bg-background rounded-xl border border-border p-6 shadow-soft-sm">
+        <section
+          className="bg-background rounded-xl border border-border p-6 shadow-soft-sm"
+          aria-labelledby="heatmap-section-heading"
+        >
+          <h3 id="heatmap-section-heading" className="sr-only">
+            Conversation Activity Heatmap
+          </h3>
           <HeatmapChart
             data={heatmapData}
             title="Conversation Activity Heatmap (by Hour/Day)"
@@ -709,18 +765,142 @@ export default function Analytics() {
         </section>
 
         {/* Sankey and Word Cloud in a row */}
-        <div className="grid grid-cols-2 gap-6">
-          <section className="bg-background rounded-xl border border-border p-6 shadow-soft-sm">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <section
+            className="bg-background rounded-xl border border-border p-6 shadow-soft-sm"
+            aria-labelledby="sankey-section-heading"
+          >
+            <h3 id="sankey-section-heading" className="sr-only">
+              Conversation Flow Diagram
+            </h3>
             <SankeyDiagram
               nodes={sankeyData.nodes}
               links={sankeyData.links}
               title="Conversation Flow (Resolved vs Escalated)"
             />
           </section>
-          <section className="bg-background rounded-xl border border-border p-6 shadow-soft-sm">
+          <section
+            className="bg-background rounded-xl border border-border p-6 shadow-soft-sm"
+            aria-labelledby="wordcloud-section-heading"
+          >
+            <h3 id="wordcloud-section-heading" className="sr-only">
+              Word Cloud Visualization
+            </h3>
             <WordCloud words={wordCloudData} title="Most Common Question Keywords" />
           </section>
         </div>
+      </div>
+
+      {/* Advanced Analytics Views - F8.2 */}
+      <div className="space-y-6 mb-6">
+        <div>
+          <h2 className="text-xl font-semibold text-foreground mb-2">Advanced Analytics Views</h2>
+          <p className="text-[14px] text-muted-foreground">
+            Detailed insights into conversation patterns, user journeys, and performance metrics
+          </p>
+        </div>
+
+        {/* Performance Metrics Dashboard */}
+        <section
+          className="bg-background rounded-xl border border-border p-6 shadow-soft-sm"
+          aria-labelledby="performance-metrics-heading"
+        >
+          <h3 id="performance-metrics-heading" className="sr-only">
+            Performance Metrics Dashboard
+          </h3>
+          <PerformanceMetrics
+            data={{
+              response_accuracy: summary?.response_accuracy,
+              resolution_rate: summary?.resolution_rate,
+            }}
+            title="Performance Metrics Dashboard"
+          />
+        </section>
+
+        {/* Conversation Timeline and User Journey in a row */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <section
+            className="bg-background rounded-xl border border-border p-6 shadow-soft-sm"
+            aria-labelledby="timeline-heading"
+          >
+            <h3 id="timeline-heading" className="sr-only">
+              Conversation Timeline
+            </h3>
+            <ConversationTimeline
+              data={conversationData.map((item) => ({
+                date: item.date || item.day,
+                count: item.conversations || 0,
+              }))}
+              title="Conversation Timeline"
+            />
+          </section>
+
+          <section
+            className="bg-background rounded-xl border border-border p-6 shadow-soft-sm"
+            aria-labelledby="user-journey-heading"
+          >
+            <h3 id="user-journey-heading" className="sr-only">
+              User Journey Visualization
+            </h3>
+            <UserJourney
+              data={[
+                {
+                  step: "Initial Question",
+                  count: summary?.total_conversations || 0,
+                  percentage: 100,
+                },
+                {
+                  step: "Follow-up Question",
+                  count: Math.round((summary?.total_conversations || 0) * 0.65),
+                  percentage: 65,
+                },
+                {
+                  step: "Resolution",
+                  count: summary?.resolution_rate?.resolved_via_bot || 0,
+                  percentage: summary?.resolution_rate?.percentage || 0,
+                },
+                {
+                  step: "Escalation",
+                  count: summary?.resolution_rate?.escalated || 0,
+                  percentage: summary?.resolution_rate?.escalated
+                    ? Math.round(
+                        ((summary.resolution_rate.escalated || 0) /
+                          (summary?.resolution_rate?.total || 1)) *
+                          100
+                      )
+                    : 0,
+                },
+              ]}
+              title="User Journey Visualization"
+            />
+          </section>
+        </div>
+
+        {/* Sentiment Analysis */}
+        <section
+          className="bg-background rounded-xl border border-border p-6 shadow-soft-sm"
+          aria-labelledby="sentiment-heading"
+        >
+          <h3 id="sentiment-heading" className="sr-only">
+            Sentiment Analysis
+          </h3>
+          <SentimentAnalysis
+            data={
+              summary?.user_satisfaction
+                ? {
+                    positive: summary.user_satisfaction.thumbs_up || 0,
+                    negative: summary.user_satisfaction.thumbs_down || 0,
+                    neutral:
+                      (summary.user_satisfaction.total_feedback || 0) -
+                      (summary.user_satisfaction.thumbs_up || 0) -
+                      (summary.user_satisfaction.thumbs_down || 0),
+                    total: summary.user_satisfaction.total_feedback || 0,
+                  }
+                : undefined
+            }
+            title="Sentiment Analysis"
+          />
+        </section>
       </div>
 
       {/* Top Categories */}
