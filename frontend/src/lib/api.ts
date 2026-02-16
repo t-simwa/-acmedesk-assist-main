@@ -161,10 +161,17 @@ export interface RAGSettingsValidationResponse {
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const DEFAULT_TIMEOUT_MS = 30000; // 30 seconds default timeout
+const DEFAULT_MAX_RETRIES = 3; // Maximum number of retry attempts
+const DEFAULT_RETRY_DELAY_MS = 1000; // Initial retry delay in milliseconds
+const DEFAULT_RETRY_MULTIPLIER = 2; // Exponential backoff multiplier
 
 interface ApiClientOptions extends RequestInit {
   params?: Record<string, string | number | boolean>;
   timeout?: number; // Timeout in milliseconds
+  retries?: number; // Number of retry attempts (default: 3)
+  retryDelay?: number; // Initial retry delay in ms (default: 1000)
+  retryOn?: number[]; // HTTP status codes to retry on (default: [408, 429, 500, 502, 503, 504])
+  requestId?: string; // Optional request ID for cancellation tracking
 }
 
 export interface ApiError {
@@ -174,14 +181,92 @@ export interface ApiError {
   errorType?: "network" | "rate_limit" | "timeout" | "server_error" | "unknown";
 }
 
+// Request cancellation manager
+class RequestManager {
+  private activeRequests = new Map<string, AbortController>();
+
+  /**
+   * Register a new request with optional ID for cancellation
+   */
+  register(requestId: string | undefined, controller: AbortController): void {
+    if (requestId) {
+      // Cancel any existing request with the same ID
+      this.cancel(requestId);
+      this.activeRequests.set(requestId, controller);
+    }
+  }
+
+  /**
+   * Cancel a request by ID
+   */
+  cancel(requestId: string): void {
+    const controller = this.activeRequests.get(requestId);
+    if (controller) {
+      controller.abort();
+      this.activeRequests.delete(requestId);
+    }
+  }
+
+  /**
+   * Unregister a request (called when request completes)
+   */
+  unregister(requestId: string | undefined): void {
+    if (requestId) {
+      this.activeRequests.delete(requestId);
+    }
+  }
+
+  /**
+   * Cancel all active requests
+   */
+  cancelAll(): void {
+    this.activeRequests.forEach((controller) => controller.abort());
+    this.activeRequests.clear();
+  }
+}
+
+const requestManager = new RequestManager();
+
 /**
- * Generic API client using fetch with enhanced error handling
+ * Calculate exponential backoff delay
+ */
+function calculateRetryDelay(attempt: number, baseDelay: number, multiplier: number): number {
+  return baseDelay * Math.pow(multiplier, attempt);
+}
+
+/**
+ * Check if an error is retryable
+ */
+function isRetryableError(error: ApiError, retryOn: number[]): boolean {
+  // Network errors are always retryable
+  if (error.errorType === "network" || error.errorType === "timeout") {
+    return true;
+  }
+
+  // Check if status code is in retry list
+  if (error.status && retryOn.includes(error.status)) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Generic API client using fetch with enhanced error handling, retry logic, and request cancellation
  */
 async function apiClient<T>(
   endpoint: string,
   options: ApiClientOptions = {}
 ): Promise<T> {
-  const { params, timeout = DEFAULT_TIMEOUT_MS, ...fetchOptions } = options;
+  const {
+    params,
+    timeout = DEFAULT_TIMEOUT_MS,
+    retries = DEFAULT_MAX_RETRIES,
+    retryDelay = DEFAULT_RETRY_DELAY_MS,
+    retryOn = [408, 429, 500, 502, 503, 504], // Default retryable status codes
+    requestId,
+    ...fetchOptions
+  } = options;
 
   // Build URL with query parameters
   let url = `${API_BASE_URL}${endpoint}`;
@@ -199,140 +284,224 @@ async function apiClient<T>(
     }
   }
 
-  // Set default headers
-  // Don't set Content-Type for FormData - let browser set it with boundary
+  // Retry logic with exponential backoff
+  let lastError: ApiError | null = null;
+  
+  // Don't retry FormData requests (file uploads) - FormData can't be reused
   const isFormData = fetchOptions.body instanceof FormData;
-  const headers: HeadersInit = {
-    ...(isFormData ? {} : { "Content-Type": "application/json" }),
-    ...fetchOptions.headers,
-  };
-
-  // Create abort controller for timeout
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-  try {
-    const response = await fetch(url, {
-      ...fetchOptions,
-      headers,
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeoutId);
-
-    // Handle non-JSON responses (e.g., file uploads)
-    const contentType = response.headers.get("content-type");
-    if (!contentType?.includes("application/json")) {
-      if (!response.ok) {
-        const error: ApiError = {
-          message: `HTTP error! status: ${response.status}`,
-          status: response.status,
-          statusText: response.statusText,
-          errorType: response.status >= 500 ? "server_error" : "unknown",
-        };
-        throw error;
-      }
-      return response as unknown as T;
-    }
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      // Extract error message from FastAPI response format
-      let errorMessage = "An error occurred";
-      
-      if (data.detail) {
-        // FastAPI validation errors can be an array or a string
-        if (Array.isArray(data.detail)) {
-          // Extract messages from validation error array
-          errorMessage = data.detail
-            .map((err: any) => {
-              if (typeof err === "string") return err;
-              if (err.msg) return err.msg;
-              if (err.message) return err.message;
-              return JSON.stringify(err);
-            })
-            .join(", ");
-        } else if (typeof data.detail === "string") {
-          errorMessage = data.detail;
-        } else {
-          errorMessage = JSON.stringify(data.detail);
-        }
-      } else if (data.message) {
-        errorMessage = typeof data.message === "string" ? data.message : JSON.stringify(data.message);
-      } else {
-        errorMessage = `HTTP error! status: ${response.status}`;
-      }
-
-      // Detect rate limit errors (429)
-      if (response.status === 429) {
-        const error: ApiError = {
-          message: errorMessage,
-          status: response.status,
-          statusText: response.statusText,
-          errorType: "rate_limit",
-        };
-        throw error;
-      }
-
-      // Server errors (5xx)
-      if (response.status >= 500) {
-        const error: ApiError = {
-          message: errorMessage,
-          status: response.status,
-          statusText: response.statusText,
-          errorType: "server_error",
-        };
-        throw error;
-      }
-
-      // Other HTTP errors (including 422 validation errors)
-      const error: ApiError = {
-        message: errorMessage,
-        status: response.status,
-        statusText: response.statusText,
-        errorType: response.status === 422 ? "unknown" : "unknown",
-      };
-      throw error;
-    }
-
-    return data as T;
-  } catch (error) {
-    clearTimeout(timeoutId);
-
-    // Handle timeout errors
-    if (error instanceof Error && error.name === "AbortError") {
-      const timeoutError: ApiError = {
-        message: "Request took too long. Please check your connection and try again.",
-        status: 0,
-        errorType: "timeout",
-      };
-      throw timeoutError;
-    }
-
-    // Handle network errors (fetch failures, CORS, etc.)
-    if (error instanceof TypeError && error.message.includes("fetch")) {
-      const networkError: ApiError = {
-        message: "Network error: Unable to reach the API server. Please check your connection.",
-        status: 0,
-        errorType: "network",
-      };
-      throw networkError;
-    }
-
-    // Re-throw ApiError instances as-is
-    if (error && typeof error === "object" && "message" in error) {
-      throw error;
-    }
-
-    // Fallback for unknown errors
-    const unknownError: ApiError = {
-      message: error instanceof Error ? error.message : "An unexpected error occurred. Please try again.",
-      status: 0,
-      errorType: "unknown",
+  const effectiveRetries = isFormData ? 0 : retries;
+  
+  for (let attempt = 0; attempt <= effectiveRetries; attempt++) {
+    // Set default headers
+    // Don't set Content-Type for FormData - let browser set it with boundary
+    const headers: HeadersInit = {
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
+      ...fetchOptions.headers,
     };
-    throw unknownError;
+
+    // Create abort controller for timeout and cancellation
+    const controller = new AbortController();
+    
+    // Register request for cancellation tracking
+    requestManager.register(requestId, controller);
+    
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    try {
+      const response = await fetch(url, {
+        ...fetchOptions,
+        headers,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+      requestManager.unregister(requestId);
+
+      // Handle non-JSON responses (e.g., file uploads)
+      const contentType = response.headers.get("content-type");
+      if (!contentType?.includes("application/json")) {
+        if (!response.ok) {
+          const error: ApiError = {
+            message: `HTTP error! status: ${response.status}`,
+            status: response.status,
+            statusText: response.statusText,
+            errorType: response.status >= 500 ? "server_error" : "unknown",
+          };
+          throw error;
+        }
+        return response as unknown as T;
+      }
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        // Extract error message from FastAPI response format
+        let errorMessage = "An error occurred";
+        
+        if (data.detail) {
+          // FastAPI validation errors can be an array or a string
+          if (Array.isArray(data.detail)) {
+            // Extract messages from validation error array
+            errorMessage = data.detail
+              .map((err: any) => {
+                if (typeof err === "string") return err;
+                if (err.msg) return err.msg;
+                if (err.message) return err.message;
+                return JSON.stringify(err);
+              })
+              .join(", ");
+          } else if (typeof data.detail === "string") {
+            errorMessage = data.detail;
+          } else {
+            errorMessage = JSON.stringify(data.detail);
+          }
+        } else if (data.message) {
+          errorMessage = typeof data.message === "string" ? data.message : JSON.stringify(data.message);
+        } else {
+          errorMessage = `HTTP error! status: ${response.status}`;
+        }
+
+        // Detect rate limit errors (429)
+        if (response.status === 429) {
+          const error: ApiError = {
+            message: errorMessage,
+            status: response.status,
+            statusText: response.statusText,
+            errorType: "rate_limit",
+          };
+          throw error;
+        }
+
+        // Server errors (5xx)
+        if (response.status >= 500) {
+          const error: ApiError = {
+            message: errorMessage,
+            status: response.status,
+            statusText: response.statusText,
+            errorType: "server_error",
+          };
+          throw error;
+        }
+
+        // Other HTTP errors (including 422 validation errors)
+        const error: ApiError = {
+          message: errorMessage,
+          status: response.status,
+          statusText: response.statusText,
+          errorType: response.status === 422 ? "unknown" : "unknown",
+        };
+        throw error;
+      }
+
+      return data as T;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      requestManager.unregister(requestId);
+
+      // Handle abort errors (user cancellation or timeout)
+      if (error instanceof Error && error.name === "AbortError") {
+        // Check if it was a timeout or user cancellation
+        const timeoutError: ApiError = {
+          message: "Request was cancelled or took too long. Please check your connection and try again.",
+          status: 0,
+          errorType: "timeout",
+        };
+        
+        // If this was the last attempt, throw the error
+        if (attempt === effectiveRetries) {
+          throw timeoutError;
+        }
+        
+        lastError = timeoutError;
+        // Wait before retrying (exponential backoff)
+        if (attempt < effectiveRetries) {
+          const delay = calculateRetryDelay(attempt, retryDelay, DEFAULT_RETRY_MULTIPLIER);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+        continue;
+      }
+
+      // Handle network errors (fetch failures, CORS, etc.)
+      if (error instanceof TypeError && error.message.includes("fetch")) {
+        const networkError: ApiError = {
+          message: "Network error: Unable to reach the API server. Please check your connection.",
+          status: 0,
+          errorType: "network",
+        };
+        
+        // If this was the last attempt, throw the error
+        if (attempt === effectiveRetries) {
+          throw networkError;
+        }
+        
+        lastError = networkError;
+        // Wait before retrying (exponential backoff)
+        if (attempt < effectiveRetries) {
+          const delay = calculateRetryDelay(attempt, retryDelay, DEFAULT_RETRY_MULTIPLIER);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+        continue;
+      }
+
+      // Handle HTTP errors
+      if (error && typeof error === "object" && "message" in error) {
+        const apiError = error as ApiError;
+        lastError = apiError;
+
+        // Check if error is retryable
+        if (isRetryableError(apiError, retryOn) && attempt < effectiveRetries) {
+          // Wait before retrying (exponential backoff)
+          const delay = calculateRetryDelay(attempt, retryDelay, DEFAULT_RETRY_MULTIPLIER);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          continue;
+        }
+
+        // Not retryable or last attempt - throw the error
+        throw apiError;
+      }
+
+      // Fallback for unknown errors
+      const unknownError: ApiError = {
+        message: error instanceof Error ? error.message : "An unexpected error occurred. Please try again.",
+        status: 0,
+        errorType: "unknown",
+      };
+      
+      // If this was the last attempt, throw the error
+      if (attempt === effectiveRetries) {
+        throw unknownError;
+      }
+      
+      lastError = unknownError;
+      // Wait before retrying (exponential backoff)
+      if (attempt < effectiveRetries) {
+        const delay = calculateRetryDelay(attempt, retryDelay, DEFAULT_RETRY_MULTIPLIER);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
   }
+
+  // If we've exhausted all retries, throw the last error
+  if (lastError) {
+    throw lastError;
+  }
+
+  // This should never be reached, but TypeScript requires it
+  throw new Error("Unexpected error in apiClient");
+}
+
+/**
+ * Cancel an active request by ID
+ */
+export function cancelRequest(requestId: string): void {
+  requestManager.cancel(requestId);
+}
+
+/**
+ * Cancel all active requests
+ */
+export function cancelAllRequests(): void {
+  requestManager.cancelAll();
 }
 
 // ============================================================================
