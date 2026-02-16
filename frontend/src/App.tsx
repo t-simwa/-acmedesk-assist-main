@@ -2,12 +2,13 @@ import { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AccessibilityProvider } from "@/contexts/AccessibilityContext";
 import { PageTransition } from "@/components/PageTransition";
 import { ChatWidget } from "@/components/chat/ChatWidget";
+import { queryClient } from "@/lib/queryClient";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import { AdminLayout } from "./components/admin/AdminLayout";
@@ -21,8 +22,6 @@ const Dashboard = lazy(() => import("./pages/admin/Dashboard"));
 const Documents = lazy(() => import("./pages/admin/Documents"));
 const Analytics = lazy(() => import("./pages/admin/Analytics"));
 const Settings = lazy(() => import("./pages/admin/Settings"));
-
-const queryClient = new QueryClient();
 
 const App = () => (
   <ThemeProvider>

@@ -3,10 +3,11 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import type { Components } from "react-markdown";
-import React, { useState } from "react";
+import React, { useState, memo } from "react";
 import { formatRelativeTime, formatAbsoluteTime } from "@/utils/formatTime";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { conversationsApi } from "@/lib/api";
+import { useAccessibility } from "@/contexts/AccessibilityContext";
 
 export interface SourceInfo {
   index: number; // Citation number (1, 2, 3, etc.)
@@ -226,7 +227,8 @@ interface MessageBubbleProps {
   onReactionChange?: (messageId: string, reaction: "thumbs_up" | "thumbs_down" | null) => void;
 }
 
-export function MessageBubble({ message, onRetry, onRegenerate, onReactionChange }: MessageBubbleProps) {
+export const MessageBubble = memo(function MessageBubble({ message, onRetry, onRegenerate, onReactionChange }: MessageBubbleProps) {
+  const { reduceMotion } = useAccessibility();
   const isUser = message.role === "user";
   const isError = message.isError === true;
   const errorType = message.errorType || "unknown";
@@ -388,14 +390,16 @@ export function MessageBubble({ message, onRetry, onRegenerate, onReactionChange
                           // Find and highlight the citation in the text
                           const citation = document.querySelector(`a.citation-link[data-citation="${source.index}"]`) as HTMLElement;
                           if (citation) {
-                            citation.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            // Highlight citation briefly
-                            const originalBg = citation.style.backgroundColor;
-                            citation.style.backgroundColor = 'rgba(var(--primary), 0.2)';
-                            citation.style.transition = 'background-color 0.3s';
-                            setTimeout(() => {
-                              citation.style.backgroundColor = originalBg;
-                            }, 1000);
+                            citation.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
+                            // Highlight citation briefly (skip if reduced motion)
+                            if (!reduceMotion) {
+                              const originalBg = citation.style.backgroundColor;
+                              citation.style.backgroundColor = 'rgba(var(--primary), 0.2)';
+                              citation.style.transition = 'background-color 0.3s';
+                              setTimeout(() => {
+                                citation.style.backgroundColor = originalBg;
+                              }, 1000);
+                            }
                           }
                         }}
                       >
@@ -505,4 +509,4 @@ export function MessageBubble({ message, onRetry, onRegenerate, onReactionChange
       </div>
     </div>
   );
-}
+});

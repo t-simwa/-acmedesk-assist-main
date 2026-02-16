@@ -421,6 +421,19 @@
   animation-delay: 0.4s;
 }
 
+/* Respect prefers-reduced-motion and user setting for typing indicator */
+@media (prefers-reduced-motion: reduce) {
+  .typing-dot {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+.reduce-motion .typing-dot {
+  animation: none;
+  opacity: 1;
+}
+
 /* Chat widget transitions */
 .chat-panel-enter {
   opacity: 0;
@@ -437,6 +450,29 @@
   opacity: 0;
   transform: translateY(16px) scale(0.96);
   transition: opacity 0.15s ease-in, transform 0.15s ease-in;
+}
+
+/* Respect prefers-reduced-motion and user setting for chat panel */
+@media (prefers-reduced-motion: reduce) {
+  .chat-panel-enter,
+  .chat-panel-exit {
+    opacity: 1;
+    transform: none;
+  }
+  
+  .chat-panel-active {
+    transition: none;
+  }
+}
+
+.reduce-motion .chat-panel-enter,
+.reduce-motion .chat-panel-exit {
+  opacity: 1;
+  transform: none;
+}
+
+.reduce-motion .chat-panel-active {
+  transition: none;
 }
 
 /* Smooth scrollbar */
@@ -472,6 +508,19 @@
   );
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* Respect prefers-reduced-motion and user setting for skeleton shimmer */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-shimmer {
+    animation: none;
+    background-position: 0 0;
+  }
+}
+
+.reduce-motion .skeleton-shimmer {
+  animation: none;
+  background-position: 0 0;
 }
 
 /* F4.1 - Keyboard Navigation: Visible Focus Indicators */
@@ -523,11 +572,15 @@
   }
 }
 
-/* Respect prefers-reduced-motion for focus indicators */
+/* Respect prefers-reduced-motion and user setting for focus indicators */
 @media (prefers-reduced-motion: reduce) {
   *:focus-visible {
     transition: none;
   }
+}
+
+.reduce-motion *:focus-visible {
+  transition: none;
 }
 
 /* F2.1 - Visual Refinement: Pulse animation for new messages */
@@ -546,11 +599,15 @@
   animation: pulse-gentle 2s ease-in-out infinite;
 }
 
-/* Respect prefers-reduced-motion for animations */
+/* Respect prefers-reduced-motion and user setting for pulse animation */
 @media (prefers-reduced-motion: reduce) {
   .animate-pulse-gentle {
     animation: none;
   }
+}
+
+.reduce-motion .animate-pulse-gentle {
+  animation: none;
 }
 
 /* Screen reader only utility class */
@@ -580,12 +637,17 @@
   animation: fade-in 0.3s ease-in-out;
 }
 
-/* Respect prefers-reduced-motion for fade-in */
+/* Respect prefers-reduced-motion and user setting for fade-in */
 @media (prefers-reduced-motion: reduce) {
   .animate-fade-in {
     animation: none;
     opacity: 1;
   }
+}
+
+.reduce-motion .animate-fade-in {
+  animation: none;
+  opacity: 1;
 }
 
 /* F6.1 - Smooth Transitions: Page transition animations */
@@ -610,7 +672,7 @@
   transform: translateY(-8px);
 }
 
-/* Respect prefers-reduced-motion for page transitions */
+/* Respect prefers-reduced-motion and user setting for page transitions */
 @media (prefers-reduced-motion: reduce) {
   .page-transition-wrapper {
     transition: none;
@@ -622,6 +684,38 @@
     opacity: 1;
     transform: none;
   }
+}
+
+.reduce-motion .page-transition-wrapper {
+  transition: none;
+}
+
+.reduce-motion .page-transition-entering,
+.reduce-motion .page-transition-entered,
+.reduce-motion .page-transition-exiting {
+  opacity: 1;
+  transform: none;
+}
+
+/* Tailwind animations - respect prefers-reduced-motion and user setting */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
 }
 
 /* Typography Utility Classes */

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import {
   FileText,
   Upload,
@@ -24,7 +24,15 @@ import {
   FileCode,
   File,
 } from "lucide-react";
-import { documentsApi, Document, ApiError } from "@/lib/api";
+import { Document, ApiError } from "@/lib/api";
+import {
+  useDocuments,
+  useUploadDocument,
+  useDeleteDocument,
+  useReindexDocument,
+  useUpdateDocument,
+} from "@/hooks/useDocuments";
+import { useDebounce } from "@/hooks/useDebounce";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -144,11 +152,9 @@ function readFilePreview(file: File): Promise<string> {
 }
 
 export default function Documents() {
-  const [documents, setDocuments] = useState<Document[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [reindexing, setReindexing] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
+  const [reindexing, setReindexing] = useState<Set<string>>(new Set());
   const [dragOver, setDragOver] = useState(false);
   const [uploadQueue, setUploadQueue] = useState<UploadFileItem[]>([]);
   const [sortField, setSortField] = useState<SortField>("updated_at");
@@ -168,32 +174,22 @@ export default function Documents() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  const fetchDocuments = useCallback(async (searchTerm?: string) => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await documentsApi.list({ search: searchTerm || undefined });
-      setDocuments(response.documents);
-    } catch (err) {
-      const apiError = err as ApiError;
-      const errorMessage = apiError?.message || "Failed to load documents";
-      setError(typeof errorMessage === "string" ? errorMessage : String(errorMessage));
-      console.error("Error fetching documents:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  // Use React Query for documents fetching with caching
+  const {
+    data: documentsData,
+    isLoading: loading,
+    error: queryError,
+    refetch,
+  } = useDocuments({ search: debouncedSearch || undefined });
 
-  useEffect(() => {
-    fetchDocuments();
-  }, [fetchDocuments]);
+  const documents = documentsData?.documents || [];
+  const error = queryError?.message || null;
 
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      fetchDocuments(search);
-    }, 300);
-    return () => clearTimeout(timeoutId);
-  }, [search, fetchDocuments]);
+  // Mutations
+  const uploadMutation = useUploadDocument();
+  const deleteMutation = useDeleteDocument();
+  const reindexMutation = useReindexDocument();
+  const updateMutation = useUpdateDocument();
 
   const handleFileSelect = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -266,7 +262,7 @@ export default function Documents() {
         );
       }, 200);
 
-      await documentsApi.upload(item.file);
+      await uploadMutation.mutateAsync(item.file);
 
       clearInterval(progressInterval);
       setUploadQueue((prev) =>
@@ -275,7 +271,7 @@ export default function Documents() {
         )
       );
 
-      await fetchDocuments(search);
+      // React Query will automatically refetch documents list
       setTimeout(() => {
         setUploadQueue((prev) => prev.filter((i) => i.id !== item.id));
       }, 2000);
@@ -329,21 +325,10 @@ export default function Documents() {
   const handleReindex = async (docId: string) => {
     try {
       setReindexing((prev) => new Set(prev).add(docId));
-      setError(null);
-      await documentsApi.reindex(docId);
-      await fetchDocuments(search);
-      toast({
-        title: "Success",
-        description: "Document reindexed successfully",
-      });
+      await reindexMutation.mutateAsync(docId);
+      // React Query will automatically refetch documents list
     } catch (err) {
-      const apiError = err as ApiError;
-      const errorMessage = apiError?.message || "Failed to reindex document";
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive",
-      });
+      // Error is handled by the mutation's onError
     } finally {
       setReindexing((prev) => {
         const next = new Set(prev);
@@ -355,33 +340,24 @@ export default function Documents() {
 
   const handleDelete = async (docId: string) => {
     try {
-      await documentsApi.delete(docId);
-      await fetchDocuments(search);
+      await deleteMutation.mutateAsync(docId);
       setSelectedRows((prev) => {
         const next = new Set(prev);
         next.delete(docId);
         return next;
       });
-      toast({
-        title: "Success",
-        description: "Document deleted successfully",
-      });
+      // React Query will automatically refetch documents list
     } catch (err) {
-      const apiError = err as ApiError;
-      toast({
-        title: "Error",
-        description: apiError?.message || "Failed to delete document",
-        variant: "destructive",
-      });
+      // Error is handled by the mutation's onError
     }
   };
 
   const handleBulkDelete = async () => {
     const ids = Array.from(selectedRows);
     try {
-      await Promise.all(ids.map((id) => documentsApi.delete(id)));
-      await fetchDocuments(search);
+      await Promise.all(ids.map((id) => deleteMutation.mutateAsync(id)));
       setSelectedRows(new Set());
+      // React Query will automatically refetch documents list
       toast({
         title: "Success",
         description: `${ids.length} document(s) deleted successfully`,
@@ -399,13 +375,9 @@ export default function Documents() {
     const ids = Array.from(selectedRows);
     try {
       setReindexing(new Set(ids));
-      await Promise.all(ids.map((id) => documentsApi.reindex(id)));
-      await fetchDocuments(search);
+      await Promise.all(ids.map((id) => reindexMutation.mutateAsync(id)));
       setSelectedRows(new Set());
-      toast({
-        title: "Success",
-        description: `${ids.length} document(s) reindexed successfully`,
-      });
+      // React Query will automatically refetch documents list
     } catch (err) {
       toast({
         title: "Error",

@@ -33,6 +33,25 @@
   }
 }
 
+/* Respect prefers-reduced-motion and user setting for logo animations */
+@media (prefers-reduced-motion: reduce) {
+  .logo {
+    transition: none;
+  }
+  
+  a:nth-of-type(2) .logo {
+    animation: none;
+  }
+}
+
+.reduce-motion .logo {
+  transition: none;
+}
+
+.reduce-motion a:nth-of-type(2) .logo {
+  animation: none;
+}
+
 .card {
   padding: 2em;
 }

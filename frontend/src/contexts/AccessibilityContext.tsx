@@ -7,12 +7,15 @@ interface AccessibilityContextType {
   setHighContrast: (enabled: boolean) => void;
   fontSize: FontSize;
   setFontSize: (size: FontSize) => void;
+  reduceMotion: boolean;
+  setReduceMotion: (enabled: boolean) => void;
 }
 
 const AccessibilityContext = createContext<AccessibilityContextType | undefined>(undefined);
 
 const HIGH_CONTRAST_STORAGE_KEY = "acmedesk-high-contrast";
 const FONT_SIZE_STORAGE_KEY = "acmedesk-font-size";
+const REDUCE_MOTION_STORAGE_KEY = "acmedesk-reduce-motion";
 
 export function AccessibilityProvider({ children }: { children: ReactNode }) {
   const [highContrast, setHighContrastState] = useState<boolean>(() => {
@@ -26,6 +29,15 @@ export function AccessibilityProvider({ children }: { children: ReactNode }) {
       return stored;
     }
     return "medium";
+  });
+
+  const [reduceMotion, setReduceMotionState] = useState<boolean>(() => {
+    const stored = localStorage.getItem(REDUCE_MOTION_STORAGE_KEY);
+    if (stored !== null) {
+      return stored === "true";
+    }
+    // Default to system preference if not set
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   });
 
   useEffect(() => {
@@ -57,6 +69,32 @@ export function AccessibilityProvider({ children }: { children: ReactNode }) {
     root.style.setProperty("--font-size-multiplier", multipliers[fontSize]);
   }, [fontSize]);
 
+  useEffect(() => {
+    const root = window.document.documentElement;
+    
+    // Apply reduce motion mode
+    if (reduceMotion) {
+      root.classList.add("reduce-motion");
+    } else {
+      root.classList.remove("reduce-motion");
+    }
+  }, [reduceMotion]);
+
+  // Listen to system preference changes
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const handleChange = (e: MediaQueryListEvent) => {
+      // Only update if user hasn't manually set a preference
+      const stored = localStorage.getItem(REDUCE_MOTION_STORAGE_KEY);
+      if (stored === null) {
+        setReduceMotionState(e.matches);
+      }
+    };
+    
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
+  }, []);
+
   const setHighContrast = (enabled: boolean) => {
     setHighContrastState(enabled);
     localStorage.setItem(HIGH_CONTRAST_STORAGE_KEY, enabled.toString());
@@ -67,8 +105,13 @@ export function AccessibilityProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(FONT_SIZE_STORAGE_KEY, size);
   };
 
+  const setReduceMotion = (enabled: boolean) => {
+    setReduceMotionState(enabled);
+    localStorage.setItem(REDUCE_MOTION_STORAGE_KEY, enabled.toString());
+  };
+
   return (
-    <AccessibilityContext.Provider value={{ highContrast, setHighContrast, fontSize, setFontSize }}>
+    <AccessibilityContext.Provider value={{ highContrast, setHighContrast, fontSize, setFontSize, reduceMotion, setReduceMotion }}>
       {children}
     </AccessibilityContext.Provider>
   );

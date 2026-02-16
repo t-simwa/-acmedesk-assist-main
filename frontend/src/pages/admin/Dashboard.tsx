@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DraggableDashboard } from "@/components/admin/DraggableDashboard";
-import { analyticsApi, ApiError } from "@/lib/api";
+import { ApiError } from "@/lib/api";
+import { useAnalyticsSummary, useTopQueries } from "@/hooks/useAnalytics";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface DashboardStat {
@@ -29,12 +30,22 @@ export default function Dashboard() {
   const [isPolling, setIsPolling] = useState(true);
   const [widgetOrder, setWidgetOrder] = useState<string[]>(["stats", "queries"]);
 
-  const fetchDashboardData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const summary = await analyticsApi.getSummary(1); // Today's data
+  // Use React Query for dashboard data with automatic caching and refetching
+  const {
+    data: summary,
+    isLoading: summaryLoading,
+  } = useAnalyticsSummary(1); // Today's data
 
-      // Update stats
+  const {
+    data: topQueriesResponse,
+    isLoading: queriesLoading,
+  } = useTopQueries(5);
+
+  const loading = summaryLoading || queriesLoading;
+
+  // Update stats when data changes
+  useEffect(() => {
+    if (summary) {
       setStats([
         {
           label: "Conversations Today",
@@ -57,9 +68,12 @@ export default function Dashboard() {
           id: "users",
         },
       ]);
+    }
+  }, [summary]);
 
-      // Get top queries
-      const topQueriesResponse = await analyticsApi.getTopQueries(5);
+  // Update queries when data changes
+  useEffect(() => {
+    if (topQueriesResponse) {
       setRecentQueries(
         (topQueriesResponse.queries || []).map((q) => ({
           question: q.query,
@@ -67,29 +81,8 @@ export default function Dashboard() {
           answered: q.resolved_percentage > 50,
         }))
       );
-    } catch (err) {
-      const apiError = err as ApiError;
-      console.error("Error fetching dashboard data:", apiError);
-      // Keep existing data on error
-    } finally {
-      setLoading(false);
     }
-  }, []);
-
-  // Real-time polling
-  useEffect(() => {
-    fetchDashboardData();
-
-    if (isPolling) {
-      const interval = setInterval(() => {
-        fetchDashboardData();
-      }, 30000); // Poll every 30 seconds
-
-      return () => {
-        clearInterval(interval);
-      };
-    }
-  }, [fetchDashboardData, isPolling]);
+  }, [topQueriesResponse]);
 
   const handleReorder = (newOrder: string[]) => {
     setWidgetOrder(newOrder);

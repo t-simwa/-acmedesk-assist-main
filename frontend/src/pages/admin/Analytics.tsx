@@ -123,13 +123,18 @@ export default function Analytics() {
     return Math.max(1, Math.min(days, 90)); // Clamp between 1 and 90 days
   }, []);
 
-  const fetchAnalytics = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const days = calculateDays(dateRange);
-      const summary = await analyticsApi.getSummary(days);
+  const days = calculateDays(dateRange);
+  
+  // Use React Query for analytics with automatic caching and refetching
+  const {
+    data: summary,
+    isLoading: loading,
+    error: queryError,
+  } = useAnalyticsSummary(days);
 
+  // Transform data when summary changes
+  useEffect(() => {
+    if (summary) {
       // Transform conversations_by_day to chart format
       const transformedConversations = summary.conversations_by_day.map((item) => {
         const date = new Date(item.date);
@@ -156,36 +161,18 @@ export default function Analytics() {
       setResolutionData(transformedResolution);
       setResolutionRate(summary.resolution_rate?.percentage || 0);
       setTopCategories(summary.top_categories);
-    } catch (err) {
-      const apiError = err as ApiError;
-      const errorMessage = apiError?.message || "Failed to load analytics data";
-      setError(typeof errorMessage === "string" ? errorMessage : String(errorMessage));
-      console.error("Error fetching analytics:", err);
-    } finally {
-      setLoading(false);
     }
-  }, [dateRange, calculateDays]);
+  }, [summary]);
 
-  // Real-time polling
+  // Set error from query
   useEffect(() => {
-    fetchAnalytics();
-
-    if (isPolling) {
-      pollingIntervalRef.current = setInterval(() => {
-        fetchAnalytics();
-      }, 30000); // Poll every 30 seconds
-
-      return () => {
-        if (pollingIntervalRef.current) {
-          clearInterval(pollingIntervalRef.current);
-        }
-      };
+    if (queryError) {
+      const errorMessage = queryError?.message || "Failed to load analytics data";
+      setError(typeof errorMessage === "string" ? errorMessage : String(errorMessage));
     } else {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-      }
+      setError(null);
     }
-  }, [fetchAnalytics, isPolling]);
+  }, [queryError]);
 
   // Cleanup on unmount
   useEffect(() => {

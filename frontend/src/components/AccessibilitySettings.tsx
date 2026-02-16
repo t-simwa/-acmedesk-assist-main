@@ -1,11 +1,11 @@
 import { useAccessibility } from "@/contexts/AccessibilityContext";
-import { Contrast, Type, CheckCircle2 } from "lucide-react";
+import { Contrast, Type, CheckCircle2, Move } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 
 export function AccessibilitySettings() {
-  const { highContrast, setHighContrast, fontSize, setFontSize } = useAccessibility();
+  const { highContrast, setHighContrast, fontSize, setFontSize, reduceMotion, setReduceMotion } = useAccessibility();
 
   return (
     <div className="bg-background rounded-xl border border-border p-6 shadow-soft-sm space-y-6">
@@ -61,6 +61,27 @@ export function AccessibilitySettings() {
         </div>
         <p className="text-[12px] text-muted-foreground">
           Adjust the global font size. Text can also be resized up to 200% using browser zoom without breaking the layout.
+        </p>
+      </div>
+
+      {/* Reduce Motion */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Move className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            <Label htmlFor="reduce-motion-toggle" className="text-[13px] font-medium text-foreground cursor-pointer">
+              Reduce Motion
+            </Label>
+          </div>
+          <Switch
+            id="reduce-motion-toggle"
+            checked={reduceMotion}
+            onCheckedChange={setReduceMotion}
+            aria-label="Toggle reduce motion"
+          />
+        </div>
+        <p className="text-[12px] text-muted-foreground">
+          Disables animations and transitions throughout the application. Respects your system's "Reduce motion" preference by default.
         </p>
       </div>
 

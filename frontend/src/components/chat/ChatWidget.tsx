@@ -7,6 +7,7 @@ import { MessageSkeleton } from "./MessageSkeleton";
 import { chatApi, conversationsApi, type ChatResponse, type ApiError } from "@/lib/api";
 import { formatResponse } from "@/utils/formatResponse";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useAccessibility } from "@/contexts/AccessibilityContext";
 
 export function ChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
@@ -34,14 +35,17 @@ export function ChatWidget() {
   // F2.4 - Mobile detection
   const isMobile = useIsMobile();
   
+  // F4.4 - Reduced motion support
+  const { reduceMotion } = useAccessibility();
+  
   // F2.4 - Swipe gesture state
   const swipeStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
   const swipeDistanceRef = useRef<number>(0);
   const [swipeOffset, setSwipeOffset] = useState(0);
 
   const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, []);
+    messagesEndRef.current?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" });
+  }, [reduceMotion]);
 
   useEffect(() => {
     scrollToBottom();

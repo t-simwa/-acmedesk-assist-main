@@ -858,10 +858,10 @@ This section covers tasks to elevate the UI from a good prototype to a **world-c
   - [x] Ensure text is resizable up to 200% without breaking layout.
   - [x] Add option to increase font size globally.
 
-- **F4.4 – Motion & Animation**
-  - [ ] Respect `prefers-reduced-motion` media query (disable animations for users who prefer reduced motion).
-  - [ ] Keep animations subtle and purposeful (no distracting motion).
-  - [ ] Provide option to disable animations entirely.
+- **F4.4 – Motion & Animation** ✅ **COMPLETE**
+  - [x] Respect `prefers-reduced-motion` media query (disable animations for users who prefer reduced motion).
+  - [x] Keep animations subtle and purposeful (no distracting motion).
+  - [x] Provide option to disable animations entirely.
 
 #### F5 – Performance & Optimization
 
@@ -872,12 +872,12 @@ This section covers tasks to elevate the UI from a good prototype to a **world-c
   - [x] Implement progressive image loading (if images are added) - *Not applicable (no images in admin pages currently)*.
   - [x] Optimize font loading (font-display: swap already implemented in HTML).
 
-- **F5.2 – Runtime Performance**
-  - [ ] Implement virtual scrolling for long lists (documents, messages, analytics data).
-  - [ ] Debounce search inputs and API calls.
-  - [ ] Implement request caching (react-query or similar) to avoid redundant API calls.
-  - [ ] Optimize re-renders (use React.memo, useMemo, useCallback where appropriate).
-  - [ ] Add performance monitoring (e.g., Web Vitals tracking).
+- **F5.2 – Runtime Performance** ✅ **COMPLETE**
+  - [x] Implement virtual scrolling for long lists (documents, messages, analytics data).
+  - [x] Debounce search inputs and API calls.
+  - [x] Implement request caching (react-query or similar) to avoid redundant API calls.
+  - [x] Optimize re-renders (use React.memo, useMemo, useCallback where appropriate).
+  - [x] Add performance monitoring (e.g., Web Vitals tracking).
 
 - **F5.3 – Network Optimization**
   - [ ] Implement request retry logic with exponential backoff.
@@ -1062,8 +1062,8 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
   - [x] F3.3 – Analytics page enhancements (interactive charts, additional visualizations).
   - [x] F3.4 – Settings page refinement (validation, presets, advanced config, chunk size UI).
   - [x] F4.3 – Visual accessibility (color contrast, high contrast mode).
-  - [ ] F4.4 – Motion & animation accessibility (prefers-reduced-motion).
-  - [ ] F5.2 – Runtime performance optimization (virtual scrolling, debouncing, caching).
+  - [x] F4.4 – Motion & animation accessibility (prefers-reduced-motion). ✅ **COMPLETE**
+  - [x] F5.2 – Runtime performance optimization (virtual scrolling, debouncing, caching). ✅ **COMPLETE**
   - [ ] F5.3 – Network optimization (retry logic, optimistic updates).
   - [ ] F6.2 – Feedback animations (button press, success states).
   - [ ] F6.3 – Data visualization animations.
