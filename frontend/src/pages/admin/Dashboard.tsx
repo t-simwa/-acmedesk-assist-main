@@ -5,6 +5,7 @@ import { DraggableDashboard } from "@/components/admin/DraggableDashboard";
 import { ApiError } from "@/lib/api";
 import { useAnalyticsSummary, useTopQueries } from "@/hooks/useAnalytics";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useCountUp } from "@/hooks/useCountUp";
 
 interface DashboardStat {
   label: string;
@@ -33,14 +34,28 @@ export default function Dashboard() {
   const {
     data: summary,
     isLoading: summaryLoading,
+    refetch: refetchSummary,
   } = useAnalyticsSummary(1); // Today's data
 
   const {
     data: topQueriesResponse,
     isLoading: queriesLoading,
+    refetch: refetchQueries,
   } = useTopQueries(5);
 
   const loading = summaryLoading || queriesLoading;
+
+  // Extract raw numeric values for counting animations
+  const conversationsValue = summary?.conversations_by_day[summary.conversations_by_day.length - 1]?.count || 0;
+  const documentsValue = summary?.total_conversations || 0;
+  const resolutionValue = summary?.resolution_rate?.percentage || 0;
+  const usersValue = summary?.total_messages || 0;
+
+  // Animated counting values
+  const conversationsCount = useCountUp(conversationsValue, 1000, 0, "");
+  const documentsCount = useCountUp(documentsValue, 1000, 0, "");
+  const resolutionCount = useCountUp(resolutionValue, 1000, 1, "%");
+  const usersCount = useCountUp(usersValue, 1000, 0, "");
 
   // Update stats when data changes
   useEffect(() => {
@@ -48,27 +63,27 @@ export default function Dashboard() {
       setStats([
         {
           label: "Conversations Today",
-          value: summary.conversations_by_day[summary.conversations_by_day.length - 1]?.count || 0,
+          value: conversationsCount,
           id: "stats",
         },
         {
           label: "Documents Indexed",
-          value: summary.total_conversations || 0, // Using as placeholder
+          value: documentsCount,
           id: "documents",
         },
         {
           label: "Resolution Rate",
-          value: `${summary.resolution_rate?.percentage?.toFixed(1) || 0}%`,
+          value: resolutionCount,
           id: "resolution",
         },
         {
           label: "Active Users",
-          value: summary.total_messages || 0, // Using as placeholder
+          value: usersCount,
           id: "users",
         },
       ]);
     }
-  }, [summary]);
+  }, [summary, conversationsCount, documentsCount, resolutionCount, usersCount]);
 
   // Update queries when data changes
   useEffect(() => {
@@ -141,7 +156,10 @@ export default function Dashboard() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => fetchDashboardData()}
+          onClick={() => {
+            refetchSummary();
+            refetchQueries();
+          }}
           className="gap-2"
         >
           <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />

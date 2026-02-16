@@ -8,14 +8,25 @@ import { chatApi, conversationsApi, type ChatResponse, type ApiError } from "@/l
 import { formatResponse } from "@/utils/formatResponse";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAccessibility } from "@/contexts/AccessibilityContext";
+import { Logo } from "@/components/Branding/Logo";
+
+const CHAT_GREETING_KEY = "acmedesk-chat-greeting";
+const DEFAULT_GREETING = "Hi there! 👋 I'm here to help with questions about AcmeDesk — pricing, setup, integrations, and more. What can I help you with?";
 
 export function ChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
+  
+  // Load custom greeting or use default
+  const getGreetingMessage = (): string => {
+    const stored = localStorage.getItem(CHAT_GREETING_KEY);
+    return stored || DEFAULT_GREETING;
+  };
+
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "welcome",
       role: "assistant",
-      content: "Hi there! 👋 I'm here to help with questions about AcmeDesk — pricing, setup, integrations, and more. What can I help you with?",
+      content: getGreetingMessage(),
       timestamp: new Date(),
     },
   ]);
@@ -440,7 +451,7 @@ export function ChatWidget() {
         {
           id: "welcome",
           role: "assistant",
-          content: "Hi there! 👋 I'm here to help with questions about AcmeDesk — pricing, setup, integrations, and more. What can I help you with?",
+          content: getGreetingMessage(),
           timestamp: new Date(),
         },
       ]);
@@ -593,16 +604,8 @@ export function ChatWidget() {
         {/* Header — Intercom-style with agent identity */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-background">
           <div className="flex items-center gap-3">
-            <div className="relative" aria-hidden="true">
-              <div className="w-7 h-7 rounded-md bg-foreground flex items-center justify-center">
-                <span className="text-[12px] font-bold text-background tracking-tight">A</span>
-              </div>
-              <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-status-online border-2 border-background" aria-label="Online status" />
-            </div>
+            <Logo size={28} showOnlineIndicator={true} showText={false} />
             <div>
-              <h2 className="text-[14px] font-semibold text-foreground leading-tight font-chat">
-                AcmeDesk
-              </h2>
               <p className="text-[12px] text-muted-foreground font-chat" aria-live="polite">
                 Active now
               </p>

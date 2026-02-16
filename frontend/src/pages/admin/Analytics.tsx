@@ -46,6 +46,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useAccessibility } from "@/contexts/AccessibilityContext";
 
 interface ChartDataPoint {
   day: string;
@@ -113,6 +114,7 @@ export default function Analytics() {
   const [brushStartIndex, setBrushStartIndex] = useState<number | undefined>(undefined);
   const [brushEndIndex, setBrushEndIndex] = useState<number | undefined>(undefined);
   const { toast } = useToast();
+  const { reduceMotion } = useAccessibility();
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const conversationsChartRef = useRef<HTMLDivElement>(null);
   const resolutionChartRef = useRef<HTMLDivElement>(null);
@@ -568,7 +570,15 @@ export default function Analytics() {
                     tick={{ fontSize: 12, fill: "hsl(220, 9%, 46%)" }}
                   />
                   <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="conversations" fill="hsl(228, 66%, 47%)" radius={[4, 4, 0, 0]}>
+                  <Bar 
+                    dataKey="conversations" 
+                    fill="hsl(228, 66%, 47%)" 
+                    radius={[4, 4, 0, 0]}
+                    isAnimationActive={!reduceMotion}
+                    animationBegin={0}
+                    animationDuration={800}
+                    animationEasing="ease-out"
+                  >
                     {filteredConversationData.map((entry, index) => (
                       <Cell
                         key={`cell-${index}`}
@@ -663,6 +673,10 @@ export default function Analytics() {
                     stroke="hsl(228, 66%, 47%)"
                     strokeWidth={2}
                     dot={{ r: 3, fill: "hsl(228, 66%, 47%)" }}
+                    isAnimationActive={!reduceMotion}
+                    animationBegin={0}
+                    animationDuration={800}
+                    animationEasing="ease-out"
                   />
                   <Brush
                     dataKey="day"

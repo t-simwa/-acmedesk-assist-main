@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Logo } from "@/components/Branding/Logo";
 
 export default function Index() {
   return (
@@ -12,12 +13,7 @@ export default function Index() {
       {/* Nav */}
       <header className="border-b border-border">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-md bg-foreground flex items-center justify-center">
-              <span className="text-[12px] font-bold text-background tracking-tight">A</span>
-            </div>
-            <span className="text-[15px] font-semibold text-foreground tracking-tight">AcmeDesk</span>
-          </div>
+          <Logo size={28} showText={true} />
           <nav className="flex items-center gap-6">
             <Link
               to="/admin"

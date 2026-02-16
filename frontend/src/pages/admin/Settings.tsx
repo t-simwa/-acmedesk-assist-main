@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { settingsApi, ApiError, RAGSettings, RAGSettingsValidationResponse } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, CheckCircle2, Loader2, Save, RotateCcw, TestTube, ChevronDown } from "lucide-react";
+import { AlertCircle, CheckCircle2, Loader2, Save, RotateCcw, TestTube, ChevronDown, Upload, X } from "lucide-react";
 import { AccessibilitySettings } from "@/components/AccessibilitySettings";
+import { Logo } from "@/components/Branding/Logo";
 
 // Helper function to convert hex to HSL
 function hexToHsl(hex: string): string {
@@ -88,6 +89,10 @@ function hslToHex(hsl: string): string {
 
 const BRAND_COLOR_STORAGE_KEY = "acmedesk-brand-color";
 const PROMPT_TEMPLATES_KEY = "acmedesk-prompt-templates";
+const BRANDING_SETTINGS_KEY = "acmedesk-branding-settings";
+const LOGO_STORAGE_KEY = "acmedesk-custom-logo";
+const CHAT_GREETING_KEY = "acmedesk-chat-greeting";
+const CHAT_COLORS_KEY = "acmedesk-chat-colors";
 
 interface PromptTemplate {
   id: string;
@@ -196,6 +201,60 @@ export default function Settings() {
     const foreground = luminance > 0.5 ? "0 0% 100%" : "0 0% 0%";
     root.style.setProperty("--brand-primary-foreground", foreground);
   }, [brandColor]);
+
+  // Branding state (logo, chat colors, greeting, domain)
+  const [logoUrl, setLogoUrl] = useState<string | null>(() => {
+    const stored = localStorage.getItem(LOGO_STORAGE_KEY);
+    if (stored) {
+      try {
+        const logoData = JSON.parse(stored);
+        return logoData.url || null;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  });
+  const [companyName, setCompanyName] = useState<string>(() => {
+    const stored = localStorage.getItem(BRANDING_SETTINGS_KEY);
+    if (stored) {
+      try {
+        const settings = JSON.parse(stored);
+        return settings.companyName || "AcmeDesk";
+      } catch {
+        return "AcmeDesk";
+      }
+    }
+    return "AcmeDesk";
+  });
+  const [chatGreeting, setChatGreeting] = useState<string>(() => {
+    const stored = localStorage.getItem(CHAT_GREETING_KEY);
+    return stored || "Hi there! 👋 I'm here to help with questions about AcmeDesk — pricing, setup, integrations, and more. What can I help you with?";
+  });
+  const [chatColors, setChatColors] = useState(() => {
+    const stored = localStorage.getItem(CHAT_COLORS_KEY);
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch {
+        return { primary: null, secondary: null, background: null };
+      }
+    }
+    return { primary: null, secondary: null, background: null };
+  });
+  const [customDomain, setCustomDomain] = useState<string>(() => {
+    const stored = localStorage.getItem(BRANDING_SETTINGS_KEY);
+    if (stored) {
+      try {
+        const settings = JSON.parse(stored);
+        return settings.customDomain || "";
+      } catch {
+        return "";
+      }
+    }
+    return "";
+  });
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   // Load prompt templates from localStorage
   useEffect(() => {
@@ -554,6 +613,170 @@ export default function Settings() {
     setBrandColor(defaultColor);
     localStorage.removeItem(BRAND_COLOR_STORAGE_KEY);
   };
+
+  // Branding handlers
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload an image file (PNG, JPG, SVG, etc.)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Logo file must be less than 2MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const url = event.target?.result as string;
+      const logoData = {
+        url,
+        companyName,
+        uploadedAt: new Date().toISOString(),
+      };
+      localStorage.setItem(LOGO_STORAGE_KEY, JSON.stringify(logoData));
+      setLogoUrl(url);
+      
+      // Dispatch custom event for Logo component to update
+      window.dispatchEvent(new Event("logo-updated"));
+      
+      toast({
+        title: "Logo uploaded",
+        description: "Your custom logo has been uploaded successfully",
+      });
+    };
+    reader.onerror = () => {
+      toast({
+        title: "Upload failed",
+        description: "Failed to read the logo file",
+        variant: "destructive",
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveLogo = () => {
+    localStorage.removeItem(LOGO_STORAGE_KEY);
+    setLogoUrl(null);
+    window.dispatchEvent(new Event("logo-updated"));
+    toast({
+      title: "Logo removed",
+      description: "Default AcmeDesk logo will be displayed",
+    });
+  };
+
+  const handleCompanyNameChange = (value: string) => {
+    setCompanyName(value);
+    const settings = {
+      companyName: value,
+      customDomain,
+    };
+    localStorage.setItem(BRANDING_SETTINGS_KEY, JSON.stringify(settings));
+    
+    // Update logo data if exists
+    const storedLogo = localStorage.getItem(LOGO_STORAGE_KEY);
+    if (storedLogo) {
+      try {
+        const logoData = JSON.parse(storedLogo);
+        logoData.companyName = value;
+        localStorage.setItem(LOGO_STORAGE_KEY, JSON.stringify(logoData));
+      } catch {
+        // Ignore
+      }
+    }
+  };
+
+  const handleChatGreetingChange = (value: string) => {
+    setChatGreeting(value);
+    localStorage.setItem(CHAT_GREETING_KEY, value);
+  };
+
+  const handleChatColorChange = (colorType: "primary" | "secondary" | "background", value: string) => {
+    const newColors = { ...chatColors, [colorType]: value || null };
+    setChatColors(newColors);
+    localStorage.setItem(CHAT_COLORS_KEY, JSON.stringify(newColors));
+    
+    // Apply colors immediately via CSS custom properties
+    const root = document.documentElement;
+    if (colorType === "primary") {
+      if (value) {
+        const hsl = hexToHsl(value);
+        root.style.setProperty("--chat-user-bg", hsl);
+        root.style.setProperty("--chat-header-bg", hsl);
+      } else {
+        root.style.removeProperty("--chat-user-bg");
+        root.style.removeProperty("--chat-header-bg");
+      }
+    } else if (colorType === "secondary") {
+      if (value) {
+        const hsl = hexToHsl(value);
+        root.style.setProperty("--chat-assistant-bg", hsl);
+      } else {
+        root.style.removeProperty("--chat-assistant-bg");
+      }
+    } else if (colorType === "background") {
+      if (value) {
+        const hsl = hexToHsl(value);
+        root.style.setProperty("--chat-panel-bg", hsl);
+      } else {
+        root.style.removeProperty("--chat-panel-bg");
+      }
+    }
+  };
+
+  const handleResetChatColors = () => {
+    setChatColors({ primary: null, secondary: null, background: null });
+    localStorage.removeItem(CHAT_COLORS_KEY);
+    const root = document.documentElement;
+    root.style.removeProperty("--chat-user-bg");
+    root.style.removeProperty("--chat-header-bg");
+    root.style.removeProperty("--chat-assistant-bg");
+    root.style.removeProperty("--chat-panel-bg");
+    toast({
+      title: "Chat colors reset",
+      description: "Chat widget colors have been reset to defaults",
+    });
+  };
+
+  const handleCustomDomainChange = (value: string) => {
+    setCustomDomain(value);
+    const settings = {
+      companyName,
+      customDomain: value,
+    };
+    localStorage.setItem(BRANDING_SETTINGS_KEY, JSON.stringify(settings));
+  };
+
+  // Apply chat colors on mount
+  useEffect(() => {
+    const root = document.documentElement;
+    if (chatColors.primary) {
+      const hsl = hexToHsl(chatColors.primary);
+      root.style.setProperty("--chat-user-bg", hsl);
+      root.style.setProperty("--chat-header-bg", hsl);
+    }
+    if (chatColors.secondary) {
+      const hsl = hexToHsl(chatColors.secondary);
+      root.style.setProperty("--chat-assistant-bg", hsl);
+    }
+    if (chatColors.background) {
+      const hsl = hexToHsl(chatColors.background);
+      root.style.setProperty("--chat-panel-bg", hsl);
+    }
+  }, []);
 
   const formatModelName = (modelName: string): string => {
     const modelMap: Record<string, string> = {
@@ -963,6 +1186,236 @@ export default function Settings() {
           <p id="system-prompt-description" className="text-[12px] text-muted-foreground">
             This prompt is prepended to every conversation to guide the model's behavior
           </p>
+        </div>
+
+        {/* White-Labeling & Branding */}
+        <div className="bg-background rounded-xl border border-border p-6 shadow-soft-sm space-y-6">
+          <div>
+            <h3 className="text-[15px] font-semibold text-foreground mb-1">White-Labeling & Branding</h3>
+            <p className="text-[12px] text-muted-foreground">Customize your brand identity across the application</p>
+          </div>
+
+          {/* Logo Upload */}
+          <div>
+            <label className="text-[13px] font-medium text-foreground block mb-1.5">
+              Company Logo
+            </label>
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0">
+                <Logo size={64} showText={false} />
+              </div>
+              <div className="flex-1 space-y-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={logoInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleLogoUpload}
+                    className="hidden"
+                    id="logo-upload"
+                  />
+                  <label
+                    htmlFor="logo-upload"
+                    className="px-3 py-2 bg-primary text-primary-foreground rounded-lg text-[13px] font-medium hover:opacity-90 transition-opacity cursor-pointer focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 inline-flex items-center gap-2"
+                  >
+                    <Upload size={14} />
+                    {logoUrl ? "Change Logo" : "Upload Logo"}
+                  </label>
+                  {logoUrl && (
+                    <button
+                      onClick={handleRemoveLogo}
+                      className="px-3 py-2 text-muted-foreground hover:text-foreground border border-border rounded-lg text-[13px] font-medium hover:bg-muted transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 inline-flex items-center gap-2"
+                    >
+                      <X size={14} />
+                      Remove
+                    </button>
+                  )}
+                </div>
+                <p className="text-[12px] text-muted-foreground">
+                  Upload a logo image (PNG, JPG, SVG). Max size: 2MB. Recommended: 128x128px or larger.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Company Name */}
+          <div>
+            <label htmlFor="company-name" className="text-[13px] font-medium text-foreground block mb-1.5">
+              Company Name
+            </label>
+            <input
+              id="company-name"
+              type="text"
+              value={companyName}
+              onChange={(e) => handleCompanyNameChange(e.target.value)}
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-[14px] text-foreground focus:outline-none focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 focus:ring-2 focus:ring-ring/20 focus:border-primary"
+              placeholder="AcmeDesk"
+            />
+            <p className="text-[12px] text-muted-foreground mt-1.5">
+              This name will appear alongside your logo throughout the application.
+            </p>
+          </div>
+
+          {/* Chat Widget Colors */}
+          <div className="space-y-4 pt-4 border-t border-border">
+            <div>
+              <label className="text-[13px] font-medium text-foreground block mb-3">
+                Chat Widget Colors
+              </label>
+              <div className="space-y-3">
+                {/* Primary Color */}
+                <div>
+                  <label htmlFor="chat-primary-color" className="text-[12px] text-muted-foreground block mb-1.5">
+                    Primary Color (Header & User Messages)
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      id="chat-primary-color"
+                      type="color"
+                      value={chatColors.primary || "#3b5fcf"}
+                      onChange={(e) => handleChatColorChange("primary", e.target.value)}
+                      className="w-16 h-10 rounded-lg border border-border cursor-pointer focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+                    />
+                    <input
+                      type="text"
+                      value={chatColors.primary || ""}
+                      onChange={(e) => {
+                        if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value) || e.target.value === "") {
+                          handleChatColorChange("primary", e.target.value);
+                        }
+                      }}
+                      className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-[14px] text-foreground focus:outline-none focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 focus:ring-2 focus:ring-ring/20 focus:border-primary font-mono"
+                      placeholder="#3b5fcf"
+                    />
+                    {chatColors.primary && (
+                      <button
+                        onClick={() => handleChatColorChange("primary", "")}
+                        className="px-2 py-1 text-[12px] text-muted-foreground hover:text-foreground"
+                        aria-label="Reset primary color"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Secondary Color */}
+                <div>
+                  <label htmlFor="chat-secondary-color" className="text-[12px] text-muted-foreground block mb-1.5">
+                    Secondary Color (Assistant Messages)
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      id="chat-secondary-color"
+                      type="color"
+                      value={chatColors.secondary || "#e2e8f0"}
+                      onChange={(e) => handleChatColorChange("secondary", e.target.value)}
+                      className="w-16 h-10 rounded-lg border border-border cursor-pointer focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+                    />
+                    <input
+                      type="text"
+                      value={chatColors.secondary || ""}
+                      onChange={(e) => {
+                        if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value) || e.target.value === "") {
+                          handleChatColorChange("secondary", e.target.value);
+                        }
+                      }}
+                      className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-[14px] text-foreground focus:outline-none focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 focus:ring-2 focus:ring-ring/20 focus:border-primary font-mono"
+                      placeholder="#e2e8f0"
+                    />
+                    {chatColors.secondary && (
+                      <button
+                        onClick={() => handleChatColorChange("secondary", "")}
+                        className="px-2 py-1 text-[12px] text-muted-foreground hover:text-foreground"
+                        aria-label="Reset secondary color"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Background Color */}
+                <div>
+                  <label htmlFor="chat-background-color" className="text-[12px] text-muted-foreground block mb-1.5">
+                    Background Color (Chat Panel)
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      id="chat-background-color"
+                      type="color"
+                      value={chatColors.background || "#ffffff"}
+                      onChange={(e) => handleChatColorChange("background", e.target.value)}
+                      className="w-16 h-10 rounded-lg border border-border cursor-pointer focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+                    />
+                    <input
+                      type="text"
+                      value={chatColors.background || ""}
+                      onChange={(e) => {
+                        if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value) || e.target.value === "") {
+                          handleChatColorChange("background", e.target.value);
+                        }
+                      }}
+                      className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-[14px] text-foreground focus:outline-none focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 focus:ring-2 focus:ring-ring/20 focus:border-primary font-mono"
+                      placeholder="#ffffff"
+                    />
+                    {chatColors.background && (
+                      <button
+                        onClick={() => handleChatColorChange("background", "")}
+                        className="px-2 py-1 text-[12px] text-muted-foreground hover:text-foreground"
+                        aria-label="Reset background color"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleResetChatColors}
+                  className="px-3 py-2 text-[13px] text-muted-foreground hover:text-foreground border border-border rounded-lg hover:bg-muted transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+                >
+                  Reset All Chat Colors
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Chat Widget Greeting Message */}
+          <div className="pt-4 border-t border-border">
+            <label htmlFor="chat-greeting" className="text-[13px] font-medium text-foreground block mb-1.5">
+              Chat Widget Greeting Message
+            </label>
+            <textarea
+              id="chat-greeting"
+              value={chatGreeting}
+              onChange={(e) => handleChatGreetingChange(e.target.value)}
+              rows={3}
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-[14px] text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 focus:ring-2 focus:ring-ring/20 focus:border-primary resize-none"
+              placeholder="Hi there! 👋 I'm here to help..."
+            />
+            <p className="text-[12px] text-muted-foreground mt-1.5">
+              This message will be shown when users first open the chat widget.
+            </p>
+          </div>
+
+          {/* Custom Domain */}
+          <div className="pt-4 border-t border-border">
+            <label htmlFor="custom-domain" className="text-[13px] font-medium text-foreground block mb-1.5">
+              Custom Domain (Optional)
+            </label>
+            <input
+              id="custom-domain"
+              type="text"
+              value={customDomain}
+              onChange={(e) => handleCustomDomainChange(e.target.value)}
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-[14px] text-foreground focus:outline-none focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 focus:ring-2 focus:ring-ring/20 focus:border-primary"
+              placeholder="support.yourcompany.com"
+            />
+            <p className="text-[12px] text-muted-foreground mt-1.5">
+              Configure a custom domain for your chat widget (requires backend configuration).
+            </p>
+          </div>
         </div>
 
         {/* Branding & Appearance */}

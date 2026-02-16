@@ -1,6 +1,7 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
 import { LayoutDashboard, FileText, BarChart3, Settings } from "lucide-react";
 import { PageTransition } from "@/components/PageTransition";
+import { Logo } from "@/components/Branding/Logo";
 
 const navItems = [
   { label: "Dashboard", path: "/admin", icon: LayoutDashboard },
@@ -21,14 +22,9 @@ export function AdminLayout() {
       {/* Sidebar */}
       <aside className="w-60 border-r border-border bg-background flex flex-col" aria-label="Admin navigation">
         <div className="px-5 py-5 border-b border-border">
-          <Link to="/" className="flex items-center gap-2.5 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 rounded-sm" aria-label="AcmeDesk home">
-            <div className="w-7 h-7 rounded-md bg-foreground flex items-center justify-center" aria-hidden="true">
-              <span className="text-[12px] font-bold text-background tracking-tight">A</span>
-            </div>
-            <div>
-              <span className="text-[15px] font-semibold text-foreground">AcmeDesk</span>
-              <span className="text-[11px] text-muted-foreground block -mt-0.5">Support AI</span>
-            </div>
+          <Link to="/" className="focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 rounded-sm" aria-label="Home">
+            <Logo size={28} showText={true} textClassName="text-[15px]" />
+            <span className="text-[11px] text-muted-foreground block -mt-0.5 ml-[36px]">Support AI</span>
           </Link>
         </div>
 
