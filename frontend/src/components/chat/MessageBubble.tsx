@@ -57,10 +57,10 @@ function processCitationsInText(text: string, sources?: SourceInfo[]): string {
         return `<a href="#source-${num}" class="citation-link text-primary hover:text-primary/80 font-medium underline decoration-dotted underline-offset-2 transition-colors cursor-pointer" data-citation="${num}" title="View source ${num}">${num}</a>`;
       }).join(', ');
       
-      return `<sup class="text-[10px] leading-none align-baseline">[${citationLinks}]</sup>`;
+      return `<sup class="text-technical leading-none align-baseline">[${citationLinks}]</sup>`;
     }
     
-    return `<sup class="text-[10px] text-primary font-medium leading-none align-baseline">[${nums}]</sup>`;
+    return `<sup class="text-technical text-primary font-medium leading-none align-baseline">[${nums}]</sup>`;
   });
 }
 
@@ -72,61 +72,63 @@ function createMarkdownComponents(sources?: SourceInfo[], isUser: boolean = fals
   const textColorClasses = isUser 
     ? "text-background [&_*]:text-background [&_strong]:text-background [&_em]:text-background [&_code]:text-background/90 [&_a]:text-background/90 [&_a:hover]:text-background"
     : "";
+  // Use Satoshi font for all chat content (except technical/code which uses Geist Mono)
+  const chatFontClass = "font-chat";
 
   return {
     // Headers
     h1: ({ children, ...props }) => (
-      <h1 className={`text-lg font-bold mt-4 mb-2 ${textColorClasses}`} {...props}>
+      <h1 className={`text-lg font-bold mt-4 mb-2 ${chatFontClass} ${textColorClasses}`} {...props}>
         {children}
       </h1>
     ),
     h2: ({ children, ...props }) => (
-      <h2 className={`text-base font-semibold mt-3 mb-2 ${textColorClasses}`} {...props}>
+      <h2 className={`text-base font-semibold mt-3 mb-2 ${chatFontClass} ${textColorClasses}`} {...props}>
         {children}
       </h2>
     ),
     h3: ({ children, ...props }) => (
-      <h3 className={`text-sm font-semibold mt-2 mb-1 ${textColorClasses}`} {...props}>
+      <h3 className={`text-sm font-semibold mt-2 mb-1 ${chatFontClass} ${textColorClasses}`} {...props}>
         {children}
       </h3>
     ),
     h4: ({ children, ...props }) => (
-      <h4 className={`text-sm font-medium mt-2 mb-1 ${textColorClasses}`} {...props}>
+      <h4 className={`text-sm font-medium mt-2 mb-1 ${chatFontClass} ${textColorClasses}`} {...props}>
         {children}
       </h4>
     ),
     h5: ({ children, ...props }) => (
-      <h5 className={`text-xs font-medium mt-1 mb-1 ${textColorClasses}`} {...props}>
+      <h5 className={`text-xs font-medium mt-1 mb-1 ${chatFontClass} ${textColorClasses}`} {...props}>
         {children}
       </h5>
     ),
     h6: ({ children, ...props }) => (
-      <h6 className={`text-xs font-medium mt-1 mb-1 ${textColorClasses}`} {...props}>
+      <h6 className={`text-xs font-medium mt-1 mb-1 ${chatFontClass} ${textColorClasses}`} {...props}>
         {children}
       </h6>
     ),
     
     // Paragraphs
     p: ({ children, ...props }) => (
-      <p className={`block ${textColorClasses}`} {...props}>
+      <p className={`block ${chatFontClass} ${textColorClasses}`} {...props}>
         {children}
       </p>
     ),
     
     // Lists
     ul: ({ children, ...props }) => (
-      <ul className={`list-none space-y-0.5 ${textColorClasses}`} {...props}>
+      <ul className={`list-none space-y-0.5 ${chatFontClass} ${textColorClasses}`} {...props}>
         {children}
       </ul>
     ),
     ol: ({ children, ...props }) => (
-      <ol className={`list-none space-y-0.5 ${textColorClasses}`} {...props}>
+      <ol className={`list-none space-y-0.5 ${chatFontClass} ${textColorClasses}`} {...props}>
         {children}
       </ol>
     ),
     li: ({ children, ...props }) => {
       return (
-        <li className="flex items-start gap-2 py-0.5" {...props}>
+        <li className={`flex items-start gap-2 py-0.5 ${chatFontClass}`} {...props}>
           <span className={`${textColor} mt-0.5`}>•</span>
           <span className="flex-1">{children}</span>
         </li>
@@ -135,21 +137,21 @@ function createMarkdownComponents(sources?: SourceInfo[], isUser: boolean = fals
     
     // Strong and emphasis
     strong: ({ children, ...props }) => (
-      <strong className={textColorClasses} {...props}>{children}</strong>
+      <strong className={`${chatFontClass} ${textColorClasses}`} {...props}>{children}</strong>
     ),
     em: ({ children, ...props }) => (
-      <em className={textColorClasses} {...props}>{children}</em>
+      <em className={`${chatFontClass} ${textColorClasses}`} {...props}>{children}</em>
     ),
     
     // Code
     code: ({ children, className, ...props }) => {
       const isInline = !className;
       return isInline ? (
-        <code className={`px-1 py-0.5 rounded text-[12px] font-mono bg-muted/50 ${textColorClasses}`} {...props}>
+        <code className={`px-1 py-0.5 rounded text-technical bg-muted/50 ${textColorClasses}`} {...props}>
           {children}
         </code>
       ) : (
-        <code className={`block p-3 rounded text-[12px] font-mono bg-muted/50 overflow-x-auto ${textColorClasses}`} {...props}>
+        <code className={`block p-3 rounded text-technical bg-muted/50 overflow-x-auto ${textColorClasses}`} {...props}>
           {children}
         </code>
       );
@@ -164,7 +166,7 @@ function createMarkdownComponents(sources?: SourceInfo[], isUser: boolean = fals
       return (
         <a 
           href={href} 
-          className={`text-primary hover:text-primary/80 underline ${textColorClasses}`}
+          className={`${chatFontClass} text-primary hover:text-primary/80 underline ${textColorClasses}`}
           target="_blank"
           rel="noopener noreferrer"
           {...props}
@@ -176,7 +178,7 @@ function createMarkdownComponents(sources?: SourceInfo[], isUser: boolean = fals
     
     // Blockquote
     blockquote: ({ children, ...props }) => (
-      <blockquote className={`border-l-2 border-border pl-4 italic ${textColorClasses}`} {...props}>
+      <blockquote className={`${chatFontClass} border-l-2 border-border pl-4 italic ${textColorClasses}`} {...props}>
         {children}
       </blockquote>
     ),
@@ -186,10 +188,10 @@ function createMarkdownComponents(sources?: SourceInfo[], isUser: boolean = fals
       <hr className="my-4 border-border" {...props} />
     ),
     
-    // Tables (from remark-gfm)
+    // Tables (from remark-gfm) - use Geist Mono for technical data
     table: ({ children, ...props }) => (
       <div className="overflow-x-auto my-2">
-        <table className="min-w-full border-collapse" {...props}>
+        <table className="min-w-full border-collapse text-technical" {...props}>
           {children}
         </table>
       </div>
@@ -303,12 +305,12 @@ export function MessageBubble({ message, onRetry, onRegenerate, onReactionChange
           </div>
         )}
         <div
-          className={`px-4 py-2.5 text-[12px] relative ${
+          className={`px-4 py-2.5 text-chat relative ${
             isUser
               ? "bg-foreground text-background rounded-[18px] rounded-br-[4px] shadow-md border border-foreground/20"
               : isError
               ? "bg-destructive/10 text-destructive border border-destructive/20 rounded-[18px] rounded-bl-[4px] shadow-sm"
-              : "bg-gradient-to-br from-muted via-muted to-muted/95 text-foreground rounded-[18px] rounded-bl-[4px] shadow-soft-sm border border-border/30 backdrop-blur-sm"
+              : "bg-gradient-to-br from-muted via-muted to-muted/95 rounded-[18px] rounded-bl-[4px] shadow-soft-sm border border-border/30 backdrop-blur-sm"
           }`}
         >
           {/* Copy button - only for assistant messages, shows on hover */}
@@ -339,7 +341,7 @@ export function MessageBubble({ message, onRetry, onRegenerate, onReactionChange
               {getErrorIcon()}
             </div>
           )}
-          <div className={isUser ? "text-background [&_*]:text-background [&_strong]:text-background [&_sup]:text-background/90 [&_a]:text-background/90 [&_a:hover]:text-background [&_h1]:text-background [&_h2]:text-background [&_h3]:text-background [&_h4]:text-background [&_h5]:text-background [&_h6]:text-background [&_p]:text-background [&_span]:text-background [&_li]:text-background [&_code]:text-background/90" : ""}>
+          <div className={`text-chat ${isUser ? "text-background [&_*]:text-background [&_strong]:text-background [&_sup]:text-background/90 [&_a]:text-background/90 [&_a:hover]:text-background [&_h1]:text-background [&_h2]:text-background [&_h3]:text-background [&_h4]:text-background [&_h5]:text-background [&_h6]:text-background [&_p]:text-background [&_span]:text-background [&_li]:text-background [&_code]:text-background/90" : ""}`}>
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               rehypePlugins={[rehypeRaw]}
@@ -369,7 +371,7 @@ export function MessageBubble({ message, onRetry, onRegenerate, onReactionChange
             if (!hasNoInfo && !hasMinimalContent) {
               return (
                 <div className="mt-3 pt-3 border-t border-border/50">
-                  <div className="text-[11px] font-medium text-muted-foreground mb-1.5">
+                  <div className="text-technical font-medium text-muted-foreground mb-1.5">
                     Sources:
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -378,7 +380,7 @@ export function MessageBubble({ message, onRetry, onRegenerate, onReactionChange
                         key={source.index}
                         id={`source-${source.index}`}
                         href={`#source-${source.index}`}
-                        className="source-badge inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium text-primary bg-primary/10 hover:bg-primary/20 hover:text-primary border border-primary/20 rounded-md transition-all duration-200 hover:scale-105 hover:shadow-sm active:scale-100 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-1"
+                        className="source-badge inline-flex items-center gap-1.5 px-2.5 py-1.5 text-technical font-medium text-primary bg-primary/10 hover:bg-primary/20 hover:text-primary border border-primary/20 rounded-md transition-all duration-200 hover:scale-105 hover:shadow-sm active:scale-100 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-1"
                         data-source={source.index}
                         aria-label={`Source ${source.index}: ${source.title}`}
                         onClick={(e) => {
@@ -413,7 +415,7 @@ export function MessageBubble({ message, onRetry, onRegenerate, onReactionChange
             <TooltipTrigger asChild>
               <time 
                 dateTime={message.timestamp.toISOString()}
-                className="text-[11px] text-muted-foreground cursor-help"
+                className="text-[12px] font-chat text-muted-foreground cursor-help"
                 aria-label={`Message sent ${formatRelativeTime(message.timestamp)}`}
               >
                 {formatRelativeTime(message.timestamp)}

@@ -16,23 +16,75 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['IBM Plex Sans', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'system-ui', 'sans-serif'],
-        serif: ['IBM Plex Serif', 'Georgia', 'Times New Roman', 'serif'],
+        // Main headings - Plus Jakarta Sans
+        heading: ['Plus Jakarta Sans', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'system-ui', 'sans-serif'],
+        // Description text and chat - Satoshi
+        sans: ['Satoshi', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'system-ui', 'sans-serif'],
+        description: ['Satoshi', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'system-ui', 'sans-serif'],
+        chat: ['Satoshi', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'system-ui', 'sans-serif'],
+        // Technical data - Geist Mono
+        mono: ['Geist Mono', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
       },
       fontSize: {
-        // Heading scale - semantic sizes with proper line heights
-        'h1': ['2.75rem', { lineHeight: '1.1', letterSpacing: '-0.02em', fontWeight: '600' }], // 44px
-        'h2': ['2rem', { lineHeight: '1.2', letterSpacing: '-0.01em', fontWeight: '600' }], // 32px
-        'h3': ['1.5rem', { lineHeight: '1.3', letterSpacing: '-0.01em', fontWeight: '600' }], // 24px
-        'h4': ['1.25rem', { lineHeight: '1.4', letterSpacing: '0', fontWeight: '600' }], // 20px
-        'h5': ['1.125rem', { lineHeight: '1.4', letterSpacing: '0', fontWeight: '600' }], // 18px
-        'h6': ['1rem', { lineHeight: '1.5', letterSpacing: '0', fontWeight: '600' }], // 16px
+        // Heading scale - responsive with Plus Jakarta Sans
+        // Desktop (>1024px): 56px | Tablet (768-1024px): 40px | Mobile (<767px): 32px
+        'h1': [
+          '3.5rem', // 56px desktop
+          {
+            lineHeight: '1.1',
+            letterSpacing: '-0.02em',
+            fontWeight: '700',
+          },
+        ],
+        'h2': ['2.5rem', { lineHeight: '1.2', letterSpacing: '-0.01em', fontWeight: '700' }], // 40px
+        'h3': ['2rem', { lineHeight: '1.3', letterSpacing: '-0.01em', fontWeight: '700' }], // 32px
+        'h4': ['1.5rem', { lineHeight: '1.4', letterSpacing: '0', fontWeight: '700' }], // 24px
+        'h5': ['1.25rem', { lineHeight: '1.4', letterSpacing: '0', fontWeight: '700' }], // 20px
+        'h6': ['1rem', { lineHeight: '1.5', letterSpacing: '0', fontWeight: '700' }], // 16px
         
-        // Body text scale - WCAG AA compliant (minimum 12px)
+        // Description text - responsive with Satoshi Medium (500)
+        // Desktop: 20px | Tablet: 18px | Mobile: 16px
+        'description': [
+          '1.25rem', // 20px desktop
+          {
+            lineHeight: '1.6',
+            letterSpacing: '0',
+            fontWeight: '500',
+          },
+        ],
+        'description-tablet': ['1.125rem', { lineHeight: '1.5', letterSpacing: '0', fontWeight: '500' }], // 18px
+        'description-mobile': ['1rem', { lineHeight: '1.5', letterSpacing: '0', fontWeight: '500' }], // 16px
+        
+        // Chat bubbles - responsive with Satoshi Regular (400)
+        // Desktop: 16px | Tablet: 16px | Mobile: 15px
+        'chat': [
+          '1rem', // 16px desktop/tablet
+          {
+            lineHeight: '1.5',
+            letterSpacing: '0',
+            fontWeight: '400',
+          },
+        ],
+        'chat-mobile': ['0.9375rem', { lineHeight: '1.4', letterSpacing: '0', fontWeight: '400' }], // 15px
+        
+        // Technical data (citations/tables) - responsive with Geist Mono
+        // Desktop: 14px | Tablet: 13px | Mobile: 12px
+        'technical': [
+          '0.875rem', // 14px desktop
+          {
+            lineHeight: '1.4',
+            letterSpacing: '0',
+            fontWeight: '450',
+          },
+        ],
+        'technical-tablet': ['0.8125rem', { lineHeight: '1.4', letterSpacing: '0', fontWeight: '450' }], // 13px
+        'technical-mobile': ['0.75rem', { lineHeight: '1.4', letterSpacing: '0', fontWeight: '450' }], // 12px
+        
+        // Legacy body text scale - kept for compatibility
         'body-lg': ['1.0625rem', { lineHeight: '1.6', letterSpacing: '0', fontWeight: '400' }], // 17px
-        'body': ['0.875rem', { lineHeight: '1.5', letterSpacing: '0', fontWeight: '400' }], // 14px - primary body
+        'body': ['0.875rem', { lineHeight: '1.5', letterSpacing: '0', fontWeight: '400' }], // 14px
         'body-sm': ['0.8125rem', { lineHeight: '1.5', letterSpacing: '0', fontWeight: '400' }], // 13px
-        'body-xs': ['0.75rem', { lineHeight: '1.5', letterSpacing: '0', fontWeight: '400' }], // 12px - minimum WCAG AA
+        'body-xs': ['0.75rem', { lineHeight: '1.5', letterSpacing: '0', fontWeight: '400' }], // 12px
         
         // Label scale
         'label': ['0.8125rem', { lineHeight: '1.4', letterSpacing: '0.01em', fontWeight: '500' }], // 13px

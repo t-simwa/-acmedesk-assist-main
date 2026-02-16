@@ -34,8 +34,14 @@ This document evaluates the current `acmedesk-assist-main` codebase against the 
 - ⚠️ **Testing & Infra:** Basic Vitest + React Testing Library scaffolding exists, but no meaningful tests, no ingestion scripts, and no deployment configuration specific to this project (beyond generic Lovable/Vite guidance).
 
 **Overall completion vs target AcmeDesk v1 spec:**  
-Frontend visual shell: ~40% | Backend & RAG: 0% | Admin functionality: 5–10% (UI only) | Testing: 5% | Infra/Deployment: 10%  
-**Very rough overall:** ~20–25% of a full “execution-phase” v1.
+Frontend visual shell: ~50% | Backend & RAG: 0% | Admin functionality: 5–10% (UI only) | Testing: 5% | Infra/Deployment: 10%  
+**Very rough overall:** ~22–27% of a full "execution-phase" v1.
+
+**Recent Updates (Typography & Chat Widget Improvements):**
+- ✅ Comprehensive typography system implemented (Plus Jakarta Sans, Satoshi, Geist Mono) with responsive font sizes
+- ✅ Chat widget made persistent and always visible across all pages
+- ✅ Tooltip clipping issues resolved with Portal wrapper and overflow adjustments
+- ✅ All chat components updated to use consistent Satoshi font
 
 ---
 
@@ -683,6 +689,15 @@ This section covers tasks to elevate the UI from a good prototype to a **world-c
   - [x] Implement proper text hierarchy with semantic HTML and CSS classes.
   - [x] Add font loading optimization (preload, font-display: swap).
   - [x] Verify readability at all sizes (12px minimum for body text, WCAG AA compliance).
+  - [x] Implement comprehensive typography system with three font families:
+    - [x] Plus Jakarta Sans (700 Bold) for main headings with responsive sizes (32px mobile → 40px tablet → 56px desktop).
+    - [x] Satoshi (500 Medium) for description text with responsive sizes (16px mobile → 18px tablet → 20px desktop) and lighter gray (#4B5563) for visual hierarchy.
+    - [x] Satoshi (400 Regular) for chat bubbles with responsive sizes (15px mobile → 16px tablet/desktop) and near-black (#111827) for maximum contrast.
+    - [x] Geist Mono (450 Medium) for technical data (citations, tables, policy IDs) with responsive sizes (12px mobile → 13px tablet → 14px desktop).
+  - [x] Update all chat components (MessageBubble, ChatInput, ChatWidget) to use Satoshi font consistently.
+  - [x] Apply new typography to landing page, dashboard, and all UI elements.
+  - [x] Create utility classes (text-description, text-chat, text-technical) with responsive breakpoints.
+  - [x] Update Tailwind config with new font families and responsive font size definitions.
 
 - **F1.2 – Color System & Theming** ✅ **COMPLETE**
   - [x] Expand color palette beyond basic Tailwind defaults:
@@ -719,10 +734,16 @@ This section covers tasks to elevate the UI from a good prototype to a **world-c
     - [x] Better visual distinction between user and assistant messages.
     - [x] Improved citation styling (clickable badges with hover states).
     - [x] Better timestamp formatting (relative time with tooltip for absolute).
+    - [x] Update timestamp text size to match reaction icons (12px) for visual consistency.
+    - [x] Apply Satoshi font to all chat text elements (messages, timestamps, headers, suggested questions).
   - [x] Refine floating button:
     - [x] Add subtle pulse animation when new messages arrive (if minimized).
     - [x] Better badge for unread count.
     - [x] Smooth scale and shadow transitions on hover/active.
+    - [x] Ensure chat widget is always visible by moving to App level (persistent across all pages).
+    - [x] Fix chat button positioning with higher z-index (99999) for persistent visibility regardless of scroll position.
+    - [x] Fix tooltip clipping issues by adding Portal wrapper and adjusting overflow behavior (overflow-clip on desktop).
+    - [x] Increase tooltip z-index to z-[10000] to ensure tooltips appear above chat interface.
 
 - **F2.2 – Advanced Interactions** ✅ **COMPLETE**
   - [x] Implement message reactions (thumbs up/down) with backend persistence.
@@ -988,9 +1009,10 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
   - [x] A3 – Chat API (initial implementation with simple echo or canned responses from backend).
   - [x] D1 – API client layer.
   - [x] D2 – Wire `ChatWidget` to backend (using stubbed chat logic).
-  - [x] F1.1 – Typography system refinement.
+  - [x] F1.1 – Typography system refinement (comprehensive typography system with Plus Jakarta Sans, Satoshi, and Geist Mono fonts, responsive font sizes, and utility classes).
   - [x] F1.2 – Color system & dark mode foundation (basic implementation).
   - [x] F1.3 – Spacing & layout system audit.
+  - [x] F2.1 – Chat widget visual refinement (timestamp sizing, font consistency, chat widget visibility fixes, tooltip clipping fixes).
   - [x] F2.3 – Enhanced loading & error states for chat widget.
   - [x] F4.1 – Basic keyboard navigation (tab order, focus indicators).
   - [x] E1 – Basic manual smoke tests for health + chat.
@@ -1012,7 +1034,7 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
   - [x] D3 – Wire Documents page to backend.
   - [x] F1.2 – Complete dark mode implementation.
   - [x] F1.4 – Component library consistency audit.
-  - [x] F2.1 – Chat widget visual refinement (message bubbles, citations).
+  - [x] F2.1 – Chat widget visual refinement (message bubbles, citations, timestamp sizing, font consistency, chat widget visibility fixes, tooltip clipping fixes).
   - [x] F2.2 – Advanced chat interactions (copy, regenerate, reactions).
   - [x] F2.4 – Mobile chat widget optimization.
   - [x] F3.2 – Documents page enhancements (multi-file upload, advanced table).

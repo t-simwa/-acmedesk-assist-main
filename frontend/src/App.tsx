@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { PageTransition } from "@/components/PageTransition";
+import { ChatWidget } from "@/components/chat/ChatWidget";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import { AdminLayout } from "./components/admin/AdminLayout";
@@ -92,6 +93,8 @@ const App = () => (
             />
           </Routes>
         </BrowserRouter>
+        {/* ChatWidget at App level - always visible on all pages */}
+        <ChatWidget />
       </TooltipProvider>
     </QueryClientProvider>
   </ThemeProvider>

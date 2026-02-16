@@ -184,13 +184,21 @@
 }
 
 @layer base {
+  /* CSS Custom Properties for Font Families */
+  :root {
+    --font-heading: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    --font-description: 'Satoshi', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    --font-chat: 'Satoshi', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    --font-mono: 'Geist Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
+  }
+
   * {
     @apply border-border;
   }
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    font-family: var(--font-description);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     /* Base body text - WCAG AA compliant (14px minimum) */
@@ -198,35 +206,58 @@
     line-height: 1.5;
   }
 
-  /* Semantic heading styles with proper hierarchy - using IBM Plex Serif */
+  /* Semantic heading styles with proper hierarchy - using Plus Jakarta Sans */
   h1 {
-    @apply text-h1 text-foreground font-serif;
-    font-family: 'IBM Plex Serif', Georgia, 'Times New Roman', serif;
+    @apply text-foreground;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    /* Responsive font sizes */
+    font-size: 2rem; /* 32px mobile */
+    line-height: 1.2;
+  }
+
+  @media (min-width: 768px) {
+    h1 {
+      font-size: 2.5rem; /* 40px tablet */
+    }
+  }
+
+  @media (min-width: 1025px) {
+    h1 {
+      font-size: 3.5rem; /* 56px desktop */
+      line-height: 1.1;
+    }
   }
 
   h2 {
-    @apply text-h2 text-foreground font-serif;
-    font-family: 'IBM Plex Serif', Georgia, 'Times New Roman', serif;
+    @apply text-h2 text-foreground;
+    font-family: var(--font-heading);
+    font-weight: 700;
   }
 
   h3 {
-    @apply text-h3 text-foreground font-serif;
-    font-family: 'IBM Plex Serif', Georgia, 'Times New Roman', serif;
+    @apply text-h3 text-foreground;
+    font-family: var(--font-heading);
+    font-weight: 700;
   }
 
   h4 {
-    @apply text-h4 text-foreground font-serif;
-    font-family: 'IBM Plex Serif', Georgia, 'Times New Roman', serif;
+    @apply text-h4 text-foreground;
+    font-family: var(--font-heading);
+    font-weight: 700;
   }
 
   h5 {
-    @apply text-h5 text-foreground font-serif;
-    font-family: 'IBM Plex Serif', Georgia, 'Times New Roman', serif;
+    @apply text-h5 text-foreground;
+    font-family: var(--font-heading);
+    font-weight: 700;
   }
 
   h6 {
-    @apply text-h6 text-foreground font-serif;
-    font-family: 'IBM Plex Serif', Georgia, 'Times New Roman', serif;
+    @apply text-h6 text-foreground;
+    font-family: var(--font-heading);
+    font-weight: 700;
   }
 
   /* Ensure paragraphs use body text size */
@@ -477,5 +508,66 @@
   .page-transition-exiting {
     opacity: 1;
     transform: none;
+  }
+}
+
+/* Typography Utility Classes */
+@layer utilities {
+  /* Description text - Satoshi Medium (500) with lighter gray */
+  .text-description {
+    font-family: var(--font-description);
+    font-weight: 500;
+    color: #4B5563; /* Lighter gray for subtext feel */
+    font-size: 1rem; /* 16px mobile */
+    line-height: 1.5;
+  }
+
+  @media (min-width: 768px) {
+    .text-description {
+      font-size: 1.125rem; /* 18px tablet */
+    }
+  }
+
+  @media (min-width: 1025px) {
+    .text-description {
+      font-size: 1.25rem; /* 20px desktop */
+      line-height: 1.6;
+    }
+  }
+
+  /* Chat bubbles - Satoshi Regular (400) with near-black */
+  .text-chat {
+    font-family: var(--font-chat);
+    font-weight: 400;
+    color: #111827; /* Near-black for maximum contrast */
+    font-size: 0.9375rem; /* 15px mobile */
+    line-height: 1.4;
+  }
+
+  @media (min-width: 768px) {
+    .text-chat {
+      font-size: 1rem; /* 16px tablet/desktop */
+      line-height: 1.5;
+    }
+  }
+
+  /* Technical data (citations, tables) - Geist Mono Medium (450) */
+  .text-technical {
+    font-family: var(--font-mono);
+    font-weight: 450;
+    font-size: 0.75rem; /* 12px mobile */
+    line-height: 1.4;
+  }
+
+  @media (min-width: 768px) {
+    .text-technical {
+      font-size: 0.8125rem; /* 13px tablet */
+    }
+  }
+
+  @media (min-width: 1025px) {
+    .text-technical {
+      font-size: 0.875rem; /* 14px desktop */
+    }
   }
 }

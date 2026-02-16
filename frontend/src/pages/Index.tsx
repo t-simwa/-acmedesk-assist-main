@@ -1,5 +1,4 @@
 import { Link } from "react-router-dom";
-import { ChatWidget } from "@/components/chat/ChatWidget";
 import { ArrowRight } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
@@ -43,10 +42,10 @@ export default function Index() {
           <p className="text-[13px] font-medium text-primary tracking-wide uppercase mb-4" aria-label="Product category">
             Support AI
           </p>
-          <h1 id="hero-heading" className="text-[44px] font-semibold text-foreground leading-[1.1] tracking-tight">
-            Resolve tickets before they're filed
+          <h1 id="hero-heading" className="font-heading font-bold text-foreground">
+            Resolve Tickets Before They're Filed
           </h1>
-          <p className="text-[17px] text-muted-foreground mt-5 leading-relaxed">
+          <p className="text-description mt-5">
             AcmeDesk answers customer questions instantly from your docs. Accurate, on-brand, and always available.
           </p>
           <div className="flex items-center gap-4 mt-10">
@@ -89,16 +88,14 @@ export default function Index() {
               key={feature.title}
               className="bg-background p-8"
             >
-              <h3 className="text-[15px] font-semibold text-foreground mb-2">{feature.title}</h3>
-              <p className="text-[14px] text-muted-foreground leading-relaxed">
+              <h3 className="text-[15px] font-heading font-bold text-foreground mb-2">{feature.title}</h3>
+              <p className="text-description">
                 {feature.description}
               </p>
             </article>
           ))}
         </div>
       </section>
-
-      <ChatWidget />
     </div>
   );
 }

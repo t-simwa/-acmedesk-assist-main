@@ -565,16 +565,17 @@ export function ChatWidget() {
         role="dialog"
         aria-label="Chat with AcmeDesk support assistant"
         aria-modal="false"
-        className={`fixed z-50 flex flex-col overflow-hidden bg-background shadow-chat border border-border transition-all duration-250 ease-out ${
+        className={`fixed z-50 flex flex-col bg-background shadow-chat border border-border transition-all duration-250 ease-out ${
           isMobile
             ? // F2.4 - Full-screen on mobile
-              `inset-0 rounded-none ${
+              `inset-0 rounded-none overflow-hidden ${
                 isOpen
                   ? "opacity-100 scale-100 translate-y-0 pointer-events-auto"
                   : "opacity-0 scale-95 translate-y-full pointer-events-none"
               }`
-            : // Desktop: floating panel
-              `bottom-24 right-6 w-[380px] max-h-[560px] rounded-2xl origin-bottom-right ${
+            : // Desktop: floating panel - positioned above the button
+              // Use overflow-clip instead of overflow-hidden to allow tooltips to escape
+              `bottom-28 right-6 w-[380px] max-h-[560px] rounded-2xl origin-bottom-right z-[9998] overflow-clip ${
                 isOpen
                   ? "opacity-100 scale-100 translate-y-0 pointer-events-auto"
                   : "opacity-0 scale-95 translate-y-3 pointer-events-none"
@@ -595,10 +596,10 @@ export function ChatWidget() {
               <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-status-online border-2 border-background" aria-label="Online status" />
             </div>
             <div>
-              <h2 className="text-[14px] font-semibold text-foreground leading-tight">
+              <h2 className="text-[14px] font-semibold text-foreground leading-tight font-chat">
                 AcmeDesk
               </h2>
-              <p className="text-[12px] text-muted-foreground" aria-live="polite">
+              <p className="text-[12px] text-muted-foreground font-chat" aria-live="polite">
                 Active now
               </p>
             </div>
@@ -676,7 +677,7 @@ export function ChatWidget() {
               {/* Suggested questions - show after welcome message */}
               {index === 0 && msg.id === "welcome" && isConversationEmpty && (
                 <div className="space-y-2 mt-2">
-                  <p className={`text-muted-foreground font-medium ${
+                  <p className={`text-muted-foreground font-medium font-chat ${
                     isMobile ? "text-[14px]" : "text-[12px]"
                   }`}>Suggested questions:</p>
                   <div className={`flex flex-wrap ${
@@ -686,7 +687,7 @@ export function ChatWidget() {
                       <button
                         key={idx}
                         onClick={() => handleSuggestedQuestion(question)}
-                        className={`text-foreground bg-muted hover:bg-muted/80 border border-border rounded-md transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 active:scale-95 ${
+                        className={`text-foreground bg-muted hover:bg-muted/80 border border-border rounded-md transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 active:scale-95 font-chat ${
                           isMobile
                             ? "px-4 py-3 text-[14px] min-h-[44px]" // F2.4 - Larger touch target
                             : "px-3 py-1.5 text-[12px]"
@@ -727,7 +728,7 @@ export function ChatWidget() {
               lastMessageCountRef.current = messages.length;
             }
           }}
-          className={`fixed z-50 flex items-center justify-center transition-all duration-300 ease-out focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 ${
+          className={`flex items-center justify-center transition-all duration-300 ease-out focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 ${
             isMobile
               ? // F2.4 - Larger touch target on mobile (minimum 44x44px)
                 `bottom-4 right-4 ${
@@ -737,7 +738,7 @@ export function ChatWidget() {
                         hasNewMessage ? "animate-pulse-gentle" : ""
                       }`
                 }`
-              : // Desktop: hover effects
+              : // Desktop: always visible, positioned bottom-right
                 `bottom-6 right-6 hover:scale-110 active:scale-95 ${
                   isOpen
                     ? "w-12 h-12 rounded-full bg-muted text-muted-foreground shadow-soft-md hover:shadow-soft-lg"
@@ -746,6 +747,12 @@ export function ChatWidget() {
                       }`
                 }`
           }`}
+          style={{
+            position: 'fixed',
+            bottom: isMobile ? '1rem' : '1.5rem',
+            right: isMobile ? '1rem' : '1.5rem',
+            zIndex: 99999,
+          }}
           aria-label={isOpen ? "Close chat" : "Open chat"}
         >
         {isOpen ? (
@@ -756,7 +763,7 @@ export function ChatWidget() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-status-online opacity-75" />
               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-status-online" />
             </span>
-            <span className="text-[13px] font-medium">Chat with us</span>
+            <span className="text-[13px] font-medium font-chat">Chat with us</span>
             {unreadCount > 0 && (
               <span 
                 className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-semibold shadow-sm border-2 border-background animate-in zoom-in-95 fade-in-0"
