@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
-import { settingsApi, ApiError, RAGSettings } from "@/lib/api";
+import { settingsApi, ApiError, RAGSettings, RAGSettingsValidationResponse } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, CheckCircle2, Loader2, Save, RotateCcw, TestTube, ChevronDown } from "lucide-react";
 
 // Helper function to convert hex to HSL
 function hexToHsl(hex: string): string {
@@ -86,6 +86,57 @@ function hslToHex(hsl: string): string {
 }
 
 const BRAND_COLOR_STORAGE_KEY = "acmedesk-brand-color";
+const PROMPT_TEMPLATES_KEY = "acmedesk-prompt-templates";
+
+interface PromptTemplate {
+  id: string;
+  name: string;
+  prompt: string;
+  createdAt: string;
+}
+
+interface FieldError {
+  field: string;
+  message: string;
+}
+
+type SettingsPreset = "conservative" | "balanced" | "aggressive" | "custom";
+
+const PRESETS: Record<SettingsPreset, Partial<RAGSettings>> = {
+  conservative: {
+    temperature: 0.1,
+    top_k: 3,
+    max_tokens: 512,
+    chunk_size: 400,
+    chunk_overlap: 50,
+  },
+  balanced: {
+    temperature: 0.7,
+    top_k: 5,
+    max_tokens: 1024,
+    chunk_size: 600,
+    chunk_overlap: 100,
+  },
+  aggressive: {
+    temperature: 1.2,
+    top_k: 10,
+    max_tokens: 2048,
+    chunk_size: 1000,
+    chunk_overlap: 200,
+  },
+  custom: {},
+};
+
+const DEFAULT_SETTINGS: RAGSettings = {
+  temperature: 0.7,
+  top_k: 5,
+  max_tokens: 1000,
+  chunk_size: 600,
+  chunk_overlap: 100,
+  embedding_model: "all-MiniLM-L6-v2",
+  chunking_strategy: "recursive",
+  system_prompt: "You are a helpful AcmeDesk support assistant. Answer questions ONLY based on the provided context. If you cannot find the answer in the context, say so and offer to connect the user with a human agent.",
+};
 
 export default function Settings() {
   const { resolvedTheme } = useTheme();
@@ -93,25 +144,35 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [validationResult, setValidationResult] = useState<RAGSettingsValidationResponse | null>(null);
+  
+  // Form state
   const [model, setModel] = useState("");
-  const [temperature, setTemperature] = useState(0.1);
+  const [temperature, setTemperature] = useState(0.7);
   const [topK, setTopK] = useState(5);
   const [maxTokens, setMaxTokens] = useState(1024);
   const [chunkSize, setChunkSize] = useState(600);
-  const [systemPrompt, setSystemPrompt] = useState(
-    "You are a helpful AcmeDesk support assistant. Answer questions ONLY based on the provided context. If you cannot find the answer in the context, say so and offer to connect the user with a human agent."
-  );
+  const [chunkOverlap, setChunkOverlap] = useState(100);
+  const [embeddingModel, setEmbeddingModel] = useState("all-MiniLM-L6-v2");
+  const [chunkingStrategy, setChunkingStrategy] = useState<"recursive" | "fixed" | "semantic">("recursive");
+  const [systemPrompt, setSystemPrompt] = useState("");
+  
+  // UI state
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [currentPreset, setCurrentPreset] = useState<SettingsPreset>("custom");
+  const [showPromptTemplates, setShowPromptTemplates] = useState(false);
+  const [promptTemplates, setPromptTemplates] = useState<PromptTemplate[]>([]);
+  const [templateName, setTemplateName] = useState("");
 
-  // Get default brand color from CSS
+  // Brand color state
   const getDefaultBrandColor = (): string => {
     const root = document.documentElement;
     const computedStyle = getComputedStyle(root);
     const brandPrimary = computedStyle.getPropertyValue("--brand-primary").trim();
-    // Default colors based on theme
     if (!brandPrimary || brandPrimary === "var(--brand-primary)") {
       return resolvedTheme === "dark" ? "#5b8def" : "#3b5fcf";
     }
-    // Convert HSL to hex for color input
     return hslToHex(brandPrimary);
   };
 
@@ -126,7 +187,6 @@ export default function Settings() {
     const hsl = hexToHsl(brandColor);
     root.style.setProperty("--brand-primary", hsl);
     
-    // Calculate foreground color (white or black based on luminance)
     const [h, s, l] = hsl.split(" ").map((val, idx) => {
       if (idx === 0) return parseFloat(val);
       return parseFloat(val.replace("%", "")) / 100;
@@ -136,17 +196,17 @@ export default function Settings() {
     root.style.setProperty("--brand-primary-foreground", foreground);
   }, [brandColor]);
 
-  const handleBrandColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newColor = e.target.value;
-    setBrandColor(newColor);
-    localStorage.setItem(BRAND_COLOR_STORAGE_KEY, newColor);
-  };
-
-  const resetBrandColor = () => {
-    const defaultColor = resolvedTheme === "dark" ? "#5b8def" : "#3b5fcf";
-    setBrandColor(defaultColor);
-    localStorage.removeItem(BRAND_COLOR_STORAGE_KEY);
-  };
+  // Load prompt templates from localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem(PROMPT_TEMPLATES_KEY);
+    if (stored) {
+      try {
+        setPromptTemplates(JSON.parse(stored));
+      } catch (e) {
+        console.error("Error loading prompt templates:", e);
+      }
+    }
+  }, []);
 
   // Fetch RAG settings on mount
   useEffect(() => {
@@ -161,8 +221,13 @@ export default function Settings() {
         if (settings.top_k !== undefined) setTopK(settings.top_k);
         if (settings.max_tokens !== undefined) setMaxTokens(settings.max_tokens);
         if (settings.chunk_size !== undefined) setChunkSize(settings.chunk_size);
+        if (settings.chunk_overlap !== undefined) setChunkOverlap(settings.chunk_overlap);
+        if (settings.embedding_model) setEmbeddingModel(settings.embedding_model);
+        if (settings.chunking_strategy) setChunkingStrategy(settings.chunking_strategy);
         if (settings.system_prompt !== undefined && settings.system_prompt !== null) {
           setSystemPrompt(settings.system_prompt);
+        } else {
+          setSystemPrompt(DEFAULT_SETTINGS.system_prompt || "");
         }
       } catch (err) {
         const apiError = err as ApiError;
@@ -177,8 +242,265 @@ export default function Settings() {
     fetchSettings();
   }, []);
 
+  // Inline validation
+  const validateField = (field: string, value: any): string | null => {
+    switch (field) {
+      case "chunkSize":
+        if (value < 1) return "Chunk size must be at least 1";
+        if (value > 5000) return "Chunk size should not exceed 5000";
+        if (chunkOverlap >= value) return "Chunk overlap must be less than chunk size";
+        return null;
+      case "chunkOverlap":
+        if (value < 0) return "Chunk overlap must be non-negative";
+        if (value >= chunkSize) return "Chunk overlap must be less than chunk size";
+        if (value > chunkSize * 0.5) return "High overlap (>50%) may cause redundant processing";
+        return null;
+      case "temperature":
+        if (value < 0 || value > 2) return "Temperature must be between 0 and 2";
+        return null;
+      case "topK":
+        if (value < 1) return "Top-K must be at least 1";
+        if (value > 50) return "Top-K should not exceed 50";
+        return null;
+      case "maxTokens":
+        if (value < 256) return "Max tokens must be at least 256";
+        if (value > 8192) return "Max tokens should not exceed 8192";
+        return null;
+      default:
+        return null;
+    }
+  };
+
+  const handleFieldChange = (field: string, value: any) => {
+    const error = validateField(field, value);
+    if (error) {
+      setFieldErrors((prev) => ({ ...prev, [field]: error }));
+    } else {
+      setFieldErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors[field];
+        return newErrors;
+      });
+    }
+
+    // Update state
+    switch (field) {
+      case "temperature":
+        setTemperature(value);
+        break;
+      case "topK":
+        setTopK(value);
+        break;
+      case "maxTokens":
+        setMaxTokens(value);
+        break;
+      case "chunkSize":
+        setChunkSize(value);
+        // Re-validate chunkOverlap
+        if (chunkOverlap >= value) {
+          setFieldErrors((prev) => ({ ...prev, chunkOverlap: "Chunk overlap must be less than chunk size" }));
+        }
+        break;
+      case "chunkOverlap":
+        setChunkOverlap(value);
+        break;
+      case "embeddingModel":
+        setEmbeddingModel(value);
+        break;
+      case "chunkingStrategy":
+        setChunkingStrategy(value);
+        break;
+      case "systemPrompt":
+        setSystemPrompt(value);
+        break;
+    }
+
+    // Check if current settings match a preset
+    checkPresetMatch();
+  };
+
+  const checkPresetMatch = () => {
+    const current: Partial<RAGSettings> = {
+      temperature,
+      top_k: topK,
+      max_tokens: maxTokens,
+      chunk_size: chunkSize,
+      chunk_overlap: chunkOverlap,
+    };
+
+    for (const [presetName, preset] of Object.entries(PRESETS)) {
+      if (presetName === "custom") continue;
+      let matches = true;
+      for (const [key, value] of Object.entries(preset)) {
+        const currentKey = key === "top_k" ? "top_k" : key === "max_tokens" ? "max_tokens" : key === "chunk_size" ? "chunk_size" : key === "chunk_overlap" ? "chunk_overlap" : key;
+        if (current[currentKey as keyof RAGSettings] !== value) {
+          matches = false;
+          break;
+        }
+      }
+      if (matches) {
+        setCurrentPreset(presetName as SettingsPreset);
+        return;
+      }
+    }
+    setCurrentPreset("custom");
+  };
+
+  // Test settings
+  const handleTestSettings = async () => {
+    try {
+      setTesting(true);
+      setValidationResult(null);
+      setError(null);
+
+      const payload: Partial<RAGSettings> = {
+        temperature,
+        top_k: topK,
+        max_tokens: maxTokens,
+        chunk_size: chunkSize,
+        chunk_overlap: chunkOverlap,
+        embedding_model: embeddingModel,
+        chunking_strategy: chunkingStrategy,
+        system_prompt: systemPrompt.trim() || null,
+      };
+
+      const result = await settingsApi.validateRagSettings(payload);
+      setValidationResult(result);
+
+      if (result.valid) {
+        toast({
+          title: "Settings validated",
+          description: result.warnings.length > 0 
+            ? `Valid with ${result.warnings.length} warning(s)` 
+            : "All settings are valid",
+        });
+      } else {
+        toast({
+          title: "Validation failed",
+          description: result.errors.join(", "),
+          variant: "destructive",
+        });
+      }
+    } catch (err) {
+      const apiError = err as ApiError;
+      const errorMessage = apiError?.message || "Failed to validate settings";
+      setError(typeof errorMessage === "string" ? errorMessage : String(errorMessage));
+      toast({
+        title: "Error validating settings",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  // Apply preset
+  const handleApplyPreset = (preset: SettingsPreset) => {
+    if (preset === "custom") return;
+    
+    const presetValues = PRESETS[preset];
+    if (presetValues.temperature !== undefined) {
+      handleFieldChange("temperature", presetValues.temperature);
+    }
+    if (presetValues.top_k !== undefined) {
+      handleFieldChange("topK", presetValues.top_k);
+    }
+    if (presetValues.max_tokens !== undefined) {
+      handleFieldChange("maxTokens", presetValues.max_tokens);
+    }
+    if (presetValues.chunk_size !== undefined) {
+      handleFieldChange("chunkSize", presetValues.chunk_size);
+    }
+    if (presetValues.chunk_overlap !== undefined) {
+      handleFieldChange("chunkOverlap", presetValues.chunk_overlap);
+    }
+    
+    setCurrentPreset(preset);
+    toast({
+      title: "Preset applied",
+      description: `${preset.charAt(0).toUpperCase() + preset.slice(1)} preset has been applied`,
+    });
+  };
+
+  // Reset to defaults
+  const handleResetToDefaults = () => {
+    handleFieldChange("temperature", DEFAULT_SETTINGS.temperature);
+    handleFieldChange("topK", DEFAULT_SETTINGS.top_k);
+    handleFieldChange("maxTokens", DEFAULT_SETTINGS.max_tokens);
+    handleFieldChange("chunkSize", DEFAULT_SETTINGS.chunk_size);
+    handleFieldChange("chunkOverlap", DEFAULT_SETTINGS.chunk_overlap);
+    handleFieldChange("embeddingModel", DEFAULT_SETTINGS.embedding_model);
+    handleFieldChange("chunkingStrategy", DEFAULT_SETTINGS.chunking_strategy);
+    handleFieldChange("systemPrompt", DEFAULT_SETTINGS.system_prompt);
+    setCurrentPreset("custom");
+    toast({
+      title: "Settings reset",
+      description: "All settings have been reset to defaults",
+    });
+  };
+
+  // Save prompt template
+  const handleSavePromptTemplate = () => {
+    if (!templateName.trim() || !systemPrompt.trim()) {
+      toast({
+        title: "Invalid template",
+        description: "Please provide both a name and prompt text",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const newTemplate: PromptTemplate = {
+      id: `template-${Date.now()}`,
+      name: templateName.trim(),
+      prompt: systemPrompt.trim(),
+      createdAt: new Date().toISOString(),
+    };
+
+    const updated = [...promptTemplates, newTemplate];
+    setPromptTemplates(updated);
+    localStorage.setItem(PROMPT_TEMPLATES_KEY, JSON.stringify(updated));
+    setTemplateName("");
+    toast({
+      title: "Template saved",
+      description: `"${newTemplate.name}" has been saved`,
+    });
+  };
+
+  // Load prompt template
+  const handleLoadPromptTemplate = (template: PromptTemplate) => {
+    setSystemPrompt(template.prompt);
+    toast({
+      title: "Template loaded",
+      description: `"${template.name}" has been loaded`,
+    });
+  };
+
+  // Delete prompt template
+  const handleDeletePromptTemplate = (id: string) => {
+    const updated = promptTemplates.filter((t) => t.id !== id);
+    setPromptTemplates(updated);
+    localStorage.setItem(PROMPT_TEMPLATES_KEY, JSON.stringify(updated));
+    toast({
+      title: "Template deleted",
+      description: "Template has been removed",
+    });
+  };
+
   // Handle save changes
   const handleSaveChanges = async () => {
+    // Check for validation errors
+    const hasErrors = Object.keys(fieldErrors).length > 0;
+    if (hasErrors) {
+      toast({
+        title: "Validation errors",
+        description: "Please fix all validation errors before saving",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setSaving(true);
       setError(null);
@@ -188,9 +510,11 @@ export default function Settings() {
         top_k: topK,
         max_tokens: maxTokens,
         chunk_size: chunkSize,
+        chunk_overlap: chunkOverlap,
+        embedding_model: embeddingModel,
+        chunking_strategy: chunkingStrategy,
       };
 
-      // Only include system_prompt if it's not empty
       if (systemPrompt.trim()) {
         updatePayload.system_prompt = systemPrompt.trim();
       } else {
@@ -218,7 +542,18 @@ export default function Settings() {
     }
   };
 
-  // Helper function to format model name for display
+  const handleBrandColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newColor = e.target.value;
+    setBrandColor(newColor);
+    localStorage.setItem(BRAND_COLOR_STORAGE_KEY, newColor);
+  };
+
+  const resetBrandColor = () => {
+    const defaultColor = resolvedTheme === "dark" ? "#5b8def" : "#3b5fcf";
+    setBrandColor(defaultColor);
+    localStorage.removeItem(BRAND_COLOR_STORAGE_KEY);
+  };
+
   const formatModelName = (modelName: string): string => {
     const modelMap: Record<string, string> = {
       "gpt-4o": "GPT-4o",
@@ -263,8 +598,68 @@ export default function Settings() {
         </div>
       )}
 
+      {validationResult && (
+        <div className={`px-4 py-3 rounded-lg text-[14px] flex items-start gap-2 ${
+          validationResult.valid 
+            ? "bg-green-500/10 border border-green-500/20 text-green-600 dark:text-green-400" 
+            : "bg-destructive/10 border border-destructive/20 text-destructive"
+        }`}>
+          {validationResult.valid ? <CheckCircle2 size={16} className="mt-0.5" /> : <AlertCircle size={16} className="mt-0.5" />}
+          <div className="flex-1">
+            <p className="font-medium mb-1">
+              {validationResult.valid ? "Settings are valid" : "Validation failed"}
+            </p>
+            {validationResult.errors.length > 0 && (
+              <ul className="list-disc list-inside space-y-1">
+                {validationResult.errors.map((err, i) => (
+                  <li key={i}>{err}</li>
+                ))}
+              </ul>
+            )}
+            {validationResult.warnings.length > 0 && (
+              <div className="mt-2">
+                <p className="font-medium mb-1">Warnings:</p>
+                <ul className="list-disc list-inside space-y-1">
+                  {validationResult.warnings.map((warn, i) => (
+                    <li key={i}>{warn}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="space-y-6">
-        {/* Model */}
+        {/* Settings Presets */}
+        <div className="bg-background rounded-xl border border-border p-6 shadow-soft-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-[15px] font-semibold text-foreground">Settings Presets</h3>
+            <span className="text-[12px] text-muted-foreground">
+              Current: <span className="font-medium capitalize">{currentPreset}</span>
+            </span>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {(["conservative", "balanced", "aggressive"] as SettingsPreset[]).map((preset) => (
+              <button
+                key={preset}
+                onClick={() => handleApplyPreset(preset)}
+                className={`px-3 py-2 rounded-lg text-[13px] font-medium transition-colors ${
+                  currentPreset === preset
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-foreground hover:bg-muted/80"
+                }`}
+              >
+                {preset.charAt(0).toUpperCase() + preset.slice(1)}
+              </button>
+            ))}
+          </div>
+          <p className="text-[12px] text-muted-foreground">
+            Presets configure temperature, top-k, max tokens, chunk size, and overlap for common use cases
+          </p>
+        </div>
+
+        {/* Model Configuration */}
         <div className="bg-background rounded-xl border border-border p-6 shadow-soft-sm space-y-5">
           <h3 className="text-[15px] font-semibold text-foreground">Model Configuration</h3>
 
@@ -279,7 +674,6 @@ export default function Settings() {
               className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-[14px] text-muted-foreground cursor-not-allowed"
               aria-describedby="model-description"
             />
-            <span id="model-description" className="sr-only">Current language model in use (read-only)</span>
             <p className="text-[12px] text-muted-foreground mt-1.5">
               Current model in use (cannot be changed from this interface)
             </p>
@@ -294,16 +688,25 @@ export default function Settings() {
               id="temperature-slider"
               type="range"
               min="0"
-              max="1"
+              max="2"
               step="0.1"
               value={temperature}
-              onChange={(e) => setTemperature(parseFloat(e.target.value))}
-              className="w-full accent-primary focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+              onChange={(e) => handleFieldChange("temperature", parseFloat(e.target.value))}
+              className={`w-full accent-primary focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 ${
+                fieldErrors.temperature ? "border-destructive" : ""
+              }`}
               aria-valuemin={0}
-              aria-valuemax={1}
+              aria-valuemax={2}
               aria-valuenow={temperature}
               aria-valuetext={`${temperature}`}
+              aria-invalid={!!fieldErrors.temperature}
+              aria-describedby={fieldErrors.temperature ? "temperature-error" : undefined}
             />
+            {fieldErrors.temperature && (
+              <p id="temperature-error" className="text-[12px] text-destructive mt-1">
+                {fieldErrors.temperature}
+              </p>
+            )}
             <div className="flex justify-between text-[11px] text-muted-foreground mt-1">
               <span>Precise</span>
               <span>Creative</span>
@@ -322,17 +725,26 @@ export default function Settings() {
               max="4096"
               step="256"
               value={maxTokens}
-              onChange={(e) => setMaxTokens(parseInt(e.target.value))}
-              className="w-full accent-primary focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+              onChange={(e) => handleFieldChange("maxTokens", parseInt(e.target.value))}
+              className={`w-full accent-primary focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 ${
+                fieldErrors.maxTokens ? "border-destructive" : ""
+              }`}
               aria-valuemin={256}
               aria-valuemax={4096}
               aria-valuenow={maxTokens}
               aria-valuetext={`${maxTokens} tokens`}
+              aria-invalid={!!fieldErrors.maxTokens}
+              aria-describedby={fieldErrors.maxTokens ? "max-tokens-error" : undefined}
             />
+            {fieldErrors.maxTokens && (
+              <p id="max-tokens-error" className="text-[12px] text-destructive mt-1">
+                {fieldErrors.maxTokens}
+              </p>
+            )}
           </div>
         </div>
 
-        {/* Retrieval */}
+        {/* Retrieval Settings */}
         <div className="bg-background rounded-xl border border-border p-6 shadow-soft-sm space-y-5">
           <h3 className="text-[15px] font-semibold text-foreground">Retrieval Settings</h3>
 
@@ -345,18 +757,51 @@ export default function Settings() {
               id="top-k-slider"
               type="range"
               min="1"
-              max="10"
+              max="20"
               step="1"
               value={topK}
-              onChange={(e) => setTopK(parseInt(e.target.value))}
-              className="w-full accent-primary focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+              onChange={(e) => handleFieldChange("topK", parseInt(e.target.value))}
+              className={`w-full accent-primary focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 ${
+                fieldErrors.topK ? "border-destructive" : ""
+              }`}
               aria-valuemin={1}
-              aria-valuemax={10}
+              aria-valuemax={20}
               aria-valuenow={topK}
               aria-valuetext={`${topK} results`}
+              aria-invalid={!!fieldErrors.topK}
+              aria-describedby={fieldErrors.topK ? "top-k-error" : undefined}
             />
+            {fieldErrors.topK && (
+              <p id="top-k-error" className="text-[12px] text-destructive mt-1">
+                {fieldErrors.topK}
+              </p>
+            )}
             <p className="text-[12px] text-muted-foreground mt-1.5">
               Number of document chunks to retrieve per query
+            </p>
+          </div>
+        </div>
+
+        {/* Chunking Strategy Configuration */}
+        <div className="bg-background rounded-xl border border-border p-6 shadow-soft-sm space-y-5">
+          <h3 className="text-[15px] font-semibold text-foreground">Chunking Strategy</h3>
+
+          <div>
+            <label htmlFor="chunking-strategy" className="text-[13px] font-medium text-foreground block mb-1.5">
+              Chunking Method
+            </label>
+            <select
+              id="chunking-strategy"
+              value={chunkingStrategy}
+              onChange={(e) => handleFieldChange("chunkingStrategy", e.target.value)}
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-[14px] text-foreground focus:outline-none focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 focus:ring-2 focus:ring-ring/20 focus:border-primary"
+            >
+              <option value="recursive">Recursive (intelligent splitting)</option>
+              <option value="fixed">Fixed (character-based)</option>
+              <option value="semantic">Semantic (meaning-based)</option>
+            </select>
+            <p className="text-[12px] text-muted-foreground mt-1.5">
+              Method used to split documents into chunks
             </p>
           </div>
 
@@ -368,25 +813,148 @@ export default function Settings() {
               id="chunk-size-input"
               type="number"
               min="1"
+              max="5000"
               value={chunkSize}
-              onChange={(e) => setChunkSize(parseInt(e.target.value) || 600)}
-              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-[14px] text-foreground focus:outline-none focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 focus:ring-2 focus:ring-ring/20 focus:border-primary"
-              aria-describedby="chunk-size-description"
+              onChange={(e) => handleFieldChange("chunkSize", parseInt(e.target.value) || 600)}
+              className={`w-full px-3 py-2 bg-background border rounded-lg text-[14px] text-foreground focus:outline-none focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 focus:ring-2 focus:ring-ring/20 ${
+                fieldErrors.chunkSize 
+                  ? "border-destructive focus:border-destructive" 
+                  : "border-border focus:border-primary"
+              }`}
+              aria-describedby={fieldErrors.chunkSize ? "chunk-size-error" : "chunk-size-description"}
+              aria-invalid={!!fieldErrors.chunkSize}
             />
-            <p id="chunk-size-description" className="text-[12px] text-muted-foreground mt-1.5">
-              Character size for document chunking (default: 600)
+            {fieldErrors.chunkSize ? (
+              <p id="chunk-size-error" className="text-[12px] text-destructive mt-1">
+                {fieldErrors.chunkSize}
+              </p>
+            ) : (
+              <p id="chunk-size-description" className="text-[12px] text-muted-foreground mt-1.5">
+                Character size for document chunking (default: 600)
+              </p>
+            )}
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label htmlFor="chunk-overlap-input" className="text-[13px] font-medium text-foreground">Chunk Overlap</label>
+            </div>
+            <input
+              id="chunk-overlap-input"
+              type="number"
+              min="0"
+              max={chunkSize - 1}
+              value={chunkOverlap}
+              onChange={(e) => handleFieldChange("chunkOverlap", parseInt(e.target.value) || 0)}
+              className={`w-full px-3 py-2 bg-background border rounded-lg text-[14px] text-foreground focus:outline-none focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 focus:ring-2 focus:ring-ring/20 ${
+                fieldErrors.chunkOverlap 
+                  ? "border-destructive focus:border-destructive" 
+                  : "border-border focus:border-primary"
+              }`}
+              aria-describedby={fieldErrors.chunkOverlap ? "chunk-overlap-error" : "chunk-overlap-description"}
+              aria-invalid={!!fieldErrors.chunkOverlap}
+            />
+            {fieldErrors.chunkOverlap ? (
+              <p id="chunk-overlap-error" className="text-[12px] text-destructive mt-1">
+                {fieldErrors.chunkOverlap}
+              </p>
+            ) : (
+              <p id="chunk-overlap-description" className="text-[12px] text-muted-foreground mt-1.5">
+                Number of characters to overlap between chunks (default: 100)
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Embedding Model Selection */}
+        <div className="bg-background rounded-xl border border-border p-6 shadow-soft-sm space-y-5">
+          <h3 className="text-[15px] font-semibold text-foreground">Embedding Model</h3>
+
+          <div>
+            <label htmlFor="embedding-model" className="text-[13px] font-medium text-foreground block mb-1.5">
+              Embedding Model
+            </label>
+            <select
+              id="embedding-model"
+              value={embeddingModel}
+              onChange={(e) => handleFieldChange("embeddingModel", e.target.value)}
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-[14px] text-foreground focus:outline-none focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 focus:ring-2 focus:ring-ring/20 focus:border-primary"
+            >
+              <option value="all-MiniLM-L6-v2">all-MiniLM-L6-v2 (Default, Fast)</option>
+              <option value="all-mpnet-base-v2">all-mpnet-base-v2 (Better Quality)</option>
+              <option value="sentence-transformers/all-MiniLM-L12-v2">all-MiniLM-L12-v2 (Balanced)</option>
+            </select>
+            <p className="text-[12px] text-muted-foreground mt-1.5">
+              Model used for generating document embeddings
             </p>
           </div>
         </div>
 
-        {/* System Prompt */}
+        {/* System Prompt with Templates */}
         <div className="bg-background rounded-xl border border-border p-6 shadow-soft-sm space-y-4">
-          <h3 className="text-[15px] font-semibold text-foreground">System Prompt</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-[15px] font-semibold text-foreground">System Prompt</h3>
+            <button
+              onClick={() => setShowPromptTemplates(!showPromptTemplates)}
+              className="text-[13px] text-muted-foreground hover:text-foreground flex items-center gap-1"
+            >
+              Templates
+              <ChevronDown size={14} className={showPromptTemplates ? "rotate-180" : ""} />
+            </button>
+          </div>
+
+          {showPromptTemplates && (
+            <div className="bg-muted/50 rounded-lg p-4 space-y-3 border border-border">
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={templateName}
+                  onChange={(e) => setTemplateName(e.target.value)}
+                  placeholder="Template name"
+                  className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-[14px] text-foreground focus:outline-none focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+                />
+                <button
+                  onClick={handleSavePromptTemplate}
+                  className="px-3 py-2 bg-primary text-primary-foreground rounded-lg text-[13px] font-medium hover:opacity-90"
+                >
+                  Save
+                </button>
+              </div>
+              {promptTemplates.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-[12px] font-medium text-foreground">Saved Templates:</p>
+                  {promptTemplates.map((template) => (
+                    <div key={template.id} className="flex items-center justify-between bg-background p-2 rounded border border-border">
+                      <div className="flex-1">
+                        <p className="text-[13px] font-medium text-foreground">{template.name}</p>
+                        <p className="text-[11px] text-muted-foreground line-clamp-1">{template.prompt}</p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleLoadPromptTemplate(template)}
+                          className="px-2 py-1 text-[12px] text-primary hover:bg-primary/10 rounded"
+                        >
+                          Load
+                        </button>
+                        <button
+                          onClick={() => handleDeletePromptTemplate(template.id)}
+                          className="px-2 py-1 text-[12px] text-destructive hover:bg-destructive/10 rounded"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           <label htmlFor="system-prompt" className="sr-only">System prompt</label>
           <textarea
             id="system-prompt"
             value={systemPrompt}
-            onChange={(e) => setSystemPrompt(e.target.value)}
+            onChange={(e) => handleFieldChange("systemPrompt", e.target.value)}
             rows={5}
             className="w-full px-3 py-2 bg-background border border-border rounded-lg text-[14px] text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 focus:ring-2 focus:ring-ring/20 focus:border-primary resize-none"
             aria-describedby="system-prompt-description"
@@ -405,7 +973,6 @@ export default function Settings() {
               Primary Brand Color
             </label>
             <div className="flex items-center gap-3">
-              <label htmlFor="brand-color-picker" className="sr-only">Color picker for primary brand color</label>
               <input
                 id="brand-color-picker"
                 type="color"
@@ -414,7 +981,6 @@ export default function Settings() {
                 className="w-16 h-10 rounded-lg border border-border cursor-pointer focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
                 aria-label="Primary brand color picker"
               />
-              <label htmlFor="brand-color-hex" className="sr-only">Hex value for brand color</label>
               <input
                 id="brand-color-hex"
                 type="text"
@@ -446,14 +1012,53 @@ export default function Settings() {
           </div>
         </div>
 
-        <button 
-          onClick={handleSaveChanges}
-          disabled={saving}
-          className="px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-[14px] font-medium hover:opacity-90 transition-opacity focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          aria-label="Save all settings changes"
-        >
-          {saving ? "Saving..." : "Save Changes"}
-        </button>
+        {/* Action Buttons */}
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={handleTestSettings}
+            disabled={testing || Object.keys(fieldErrors).length > 0}
+            className="px-4 py-2.5 bg-muted text-foreground rounded-lg text-[14px] font-medium hover:bg-muted/80 transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            aria-label="Test settings without saving"
+          >
+            {testing ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                Testing...
+              </>
+            ) : (
+              <>
+                <TestTube size={16} />
+                Test Settings
+              </>
+            )}
+          </button>
+          <button 
+            onClick={handleResetToDefaults}
+            className="px-4 py-2.5 text-muted-foreground hover:text-foreground border border-border rounded-lg text-[14px] font-medium hover:bg-muted transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 flex items-center gap-2"
+            aria-label="Reset all settings to defaults"
+          >
+            <RotateCcw size={16} />
+            Reset to Defaults
+          </button>
+          <button 
+            onClick={handleSaveChanges}
+            disabled={saving || Object.keys(fieldErrors).length > 0}
+            className="flex-1 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-[14px] font-medium hover:opacity-90 transition-opacity focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            aria-label="Save all settings changes"
+          >
+            {saving ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save size={16} />
+                Save Changes
+              </>
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );

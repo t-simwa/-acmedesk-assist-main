@@ -822,18 +822,18 @@ This section covers tasks to elevate the UI from a good prototype to a **world-c
     - [x] Export data as CSV/Excel.
     - [x] Generate PDF reports.
 
-- **F3.4 – Settings Page Refinement**
-  - [ ] Enhanced form UX:
-    - [ ] Inline validation with helpful error messages.
-    - [ ] "Test settings" button to preview changes before saving.
-    - [ ] Settings presets (e.g., "Conservative", "Balanced", "Aggressive").
-    - [ ] Reset to defaults option.
-  - [ ] Advanced configuration:
-    - [ ] Chunking strategy configuration (size, overlap, split method).
-    - [ ] Chunk size settings (spec requirement - currently missing from UI).
-    - [ ] Embedding model selection (if multiple providers).
-    - [ ] Vector DB configuration (if multiple options).
-    - [ ] Prompt templates library (save/load custom prompts).
+- **F3.4 – Settings Page Refinement** ✅ **COMPLETE**
+  - [x] Enhanced form UX:
+    - [x] Inline validation with helpful error messages.
+    - [x] "Test settings" button to preview changes before saving.
+    - [x] Settings presets (e.g., "Conservative", "Balanced", "Aggressive").
+    - [x] Reset to defaults option.
+  - [x] Advanced configuration:
+    - [x] Chunking strategy configuration (size, overlap, split method).
+    - [x] Chunk size settings (spec requirement - currently missing from UI).
+    - [x] Embedding model selection (if multiple providers).
+    - [x] Prompt templates library (save/load custom prompts).
+    - [ ] Vector DB configuration (if multiple options) - Not implemented (single vector DB in use).
 
 #### F4 – Accessibility (WCAG 2.1 AA Compliance)
 
@@ -1060,7 +1060,7 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
   - [x] D5 – Wire Settings page (including chunk size settings).
   - [x] F3.1 – Dashboard enhancements (date picker, real-time updates, exports).
   - [x] F3.3 – Analytics page enhancements (interactive charts, additional visualizations).
-  - [ ] F3.4 – Settings page refinement (validation, presets, advanced config, chunk size UI).
+  - [x] F3.4 – Settings page refinement (validation, presets, advanced config, chunk size UI).
   - [ ] F4.3 – Visual accessibility (color contrast, high contrast mode).
   - [ ] F4.4 – Motion & animation accessibility (prefers-reduced-motion).
   - [ ] F5.2 – Runtime performance optimization (virtual scrolling, debouncing, caching).

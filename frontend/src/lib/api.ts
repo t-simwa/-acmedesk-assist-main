@@ -142,8 +142,17 @@ export interface RAGSettings {
   temperature?: number;
   top_k?: number;
   max_tokens?: number;
-  system_prompt?: string;
+  system_prompt?: string | null;
   chunk_size?: number;
+  chunk_overlap?: number;
+  embedding_model?: string;
+  chunking_strategy?: "recursive" | "fixed" | "semantic";
+}
+
+export interface RAGSettingsValidationResponse {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
 }
 
 // ============================================================================
@@ -453,8 +462,19 @@ export const settingsApi = {
    * Update RAG settings
    */
   async updateRagSettings(payload: Partial<RAGSettings>): Promise<RAGSettings> {
-    return apiClient<RAGSettings>("/api/settings/rag", {
+    const response = await apiClient<{ message: string; settings: RAGSettings }>("/api/settings/rag", {
       method: "PUT",
+      body: JSON.stringify(payload),
+    });
+    return response.settings;
+  },
+
+  /**
+   * Validate RAG settings without saving
+   */
+  async validateRagSettings(payload: Partial<RAGSettings>): Promise<RAGSettingsValidationResponse> {
+    return apiClient<RAGSettingsValidationResponse>("/api/settings/rag/validate", {
+      method: "POST",
       body: JSON.stringify(payload),
     });
   },

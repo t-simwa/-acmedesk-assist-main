@@ -66,7 +66,7 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ChatInputProps>(
             placeholder="Type a message…"
             disabled={disabled}
             rows={1}
-            className={`flex-1 resize-none bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 max-h-[120px] rounded-md text-chat ${
+            className={`flex-1 resize-none bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none max-h-[120px] rounded-md text-sm ${
               isMobile 
                 ? "py-3" // F2.4 - Larger text and padding on mobile (prevents zoom on iOS)
                 : "py-1.5"

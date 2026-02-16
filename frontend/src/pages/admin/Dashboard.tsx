@@ -203,8 +203,8 @@ export default function Dashboard() {
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-heading font-bold text-foreground">Dashboard</h1>
-          <p className="text-description mt-1">
+          <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
+          <p className="text-[14px] text-muted-foreground mt-1">
             Overview of your support chatbot performance
           </p>
         </div>
