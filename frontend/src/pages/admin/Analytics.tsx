@@ -52,6 +52,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAccessibility } from "@/contexts/AccessibilityContext";
 import { getChartTheme, chartA11y } from "@/lib/chartTheme";
+import { NetworkErrorState } from "@/components/error/NetworkErrorState";
+import { EmptyState } from "@/components/error/EmptyState";
 
 interface ChartDataPoint {
   day: string;
@@ -138,6 +140,7 @@ export default function Analytics() {
     data: summary,
     isLoading: loading,
     error: queryError,
+    refetch: refetchAnalytics,
   } = useAnalyticsSummary(days);
 
   // Transform data when summary changes
@@ -482,11 +485,14 @@ export default function Analytics() {
         </div>
       </div>
 
-      {error && (
-        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg text-[14px] flex items-center gap-2">
-          <AlertCircle size={16} />
-          {error}
-        </div>
+      {queryError && (
+        <NetworkErrorState
+          error={queryError as ApiError}
+          onRetry={() => {
+            refetchAnalytics();
+          }}
+          variant="inline"
+        />
       )}
 
       {hasActiveFilters && (

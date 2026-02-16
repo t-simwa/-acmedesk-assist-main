@@ -433,6 +433,7 @@ export default function Settings() {
           description: result.warnings.length > 0 
             ? `Valid with ${result.warnings.length} warning(s)` 
             : "All settings are valid",
+          variant: "success",
         });
       } else {
         toast({
@@ -480,6 +481,7 @@ export default function Settings() {
     toast({
       title: "Preset applied",
       description: `${preset.charAt(0).toUpperCase() + preset.slice(1)} preset has been applied`,
+      variant: "success",
     });
   };
 
@@ -497,6 +499,7 @@ export default function Settings() {
     toast({
       title: "Settings reset",
       description: "All settings have been reset to defaults",
+      variant: "success",
     });
   };
 
@@ -525,6 +528,7 @@ export default function Settings() {
     toast({
       title: "Template saved",
       description: `"${newTemplate.name}" has been saved`,
+      variant: "success",
     });
   };
 
@@ -534,6 +538,7 @@ export default function Settings() {
     toast({
       title: "Template loaded",
       description: `"${template.name}" has been loaded`,
+      variant: "success",
     });
   };
 
@@ -545,6 +550,7 @@ export default function Settings() {
     toast({
       title: "Template deleted",
       description: "Template has been removed",
+      variant: "success",
     });
   };
 
@@ -586,6 +592,7 @@ export default function Settings() {
       toast({
         title: "Settings saved",
         description: "RAG settings have been updated successfully.",
+        variant: "success",
       });
     } catch (err) {
       const apiError = err as ApiError;
@@ -656,6 +663,7 @@ export default function Settings() {
       toast({
         title: "Logo uploaded",
         description: "Your custom logo has been uploaded successfully",
+        variant: "success",
       });
     };
     reader.onerror = () => {
@@ -674,6 +682,7 @@ export default function Settings() {
     window.dispatchEvent(new Event("logo-updated"));
     toast({
       title: "Logo removed",
+      variant: "success",
       description: "Default AcmeDesk logo will be displayed",
     });
   };

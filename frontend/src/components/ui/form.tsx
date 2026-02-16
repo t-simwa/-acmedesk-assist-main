@@ -118,9 +118,34 @@ const FormMessage = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<
     }
 
     return (
-      <p ref={ref} id={formMessageId} className={cn("text-sm font-medium text-destructive", className)} {...props}>
-        {body}
-      </p>
+      <div
+        ref={ref}
+        id={formMessageId}
+        className={cn(
+          "flex items-start gap-2 text-sm font-medium text-destructive mt-1.5",
+          "bg-destructive/10 border border-destructive/20 rounded-md px-3 py-2",
+          className
+        )}
+        role="alert"
+        aria-live="polite"
+        {...props}
+      >
+        <svg
+          className="w-4 h-4 mt-0.5 flex-shrink-0"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          aria-hidden="true"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
+        </svg>
+        <p className="flex-1">{body}</p>
+      </div>
     );
   },
 );

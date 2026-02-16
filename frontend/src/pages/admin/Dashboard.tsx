@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DraggableDashboard } from "@/components/admin/DraggableDashboard";
 import { ApiError } from "@/lib/api";
 import { useAnalyticsSummary, useTopQueries } from "@/hooks/useAnalytics";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCountUp } from "@/hooks/useCountUp";
+import { NetworkErrorState } from "@/components/error/NetworkErrorState";
+import { EmptyState } from "@/components/error/EmptyState";
 
 interface DashboardStat {
   label: string;
@@ -34,16 +36,19 @@ export default function Dashboard() {
   const {
     data: summary,
     isLoading: summaryLoading,
+    error: summaryError,
     refetch: refetchSummary,
   } = useAnalyticsSummary(1); // Today's data
 
   const {
     data: topQueriesResponse,
     isLoading: queriesLoading,
+    error: queriesError,
     refetch: refetchQueries,
   } = useTopQueries(5);
 
   const loading = summaryLoading || queriesLoading;
+  const hasError = summaryError || queriesError;
 
   // Extract raw numeric values for counting animations
   const conversationsValue = summary?.conversations_by_day[summary.conversations_by_day.length - 1]?.count || 0;
@@ -208,6 +213,31 @@ export default function Dashboard() {
   const orderedWidgets = widgetOrder
     .map((id) => widgetMap[id])
     .filter((widget) => widget !== undefined);
+
+  // Show error state if both queries failed
+  if (hasError && !loading && !summary && !topQueriesResponse) {
+    return (
+      <div className="space-y-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
+            <p className="text-[14px] text-muted-foreground mt-1">
+              Overview of your support chatbot performance
+            </p>
+          </div>
+        </div>
+        <NetworkErrorState
+          error={(summaryError || queriesError) as ApiError}
+          onRetry={() => {
+            refetchSummary();
+            refetchQueries();
+          }}
+          title="Failed to load dashboard data"
+          description="We couldn't load your dashboard data. Please try again."
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">

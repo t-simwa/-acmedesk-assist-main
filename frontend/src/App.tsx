@@ -9,6 +9,7 @@ import { AccessibilityProvider } from "@/contexts/AccessibilityContext";
 import { PageTransition } from "@/components/PageTransition";
 import { ChatWidget } from "@/components/chat/ChatWidget";
 import { queryClient } from "@/lib/queryClient";
+import { ErrorBoundary } from "@/components/error/ErrorBoundary";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import { AdminLayout } from "./components/admin/AdminLayout";
@@ -24,82 +25,84 @@ const Analytics = lazy(() => import("./pages/admin/Analytics"));
 const Settings = lazy(() => import("./pages/admin/Settings"));
 
 const App = () => (
-  <ThemeProvider>
-    <AccessibilityProvider>
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-        {/* Global ARIA live region for notifications and announcements */}
-        <div id="aria-live-region" aria-live="polite" aria-atomic="true" className="sr-only" />
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route
-              path="/"
-              element={
-                <PageTransition>
-                  <Index />
-                </PageTransition>
-              }
-            />
-            <Route path="/admin" element={<AdminLayout />}>
+  <ErrorBoundary>
+    <ThemeProvider>
+      <AccessibilityProvider>
+        <QueryClientProvider client={queryClient}>
+          <TooltipProvider>
+          {/* Global ARIA live region for notifications and announcements */}
+          <div id="aria-live-region" aria-live="polite" aria-atomic="true" className="sr-only" />
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
               <Route
-                index
+                path="/"
                 element={
                   <PageTransition>
-                    <Suspense fallback={<DashboardSkeleton />}>
-                      <Dashboard />
-                    </Suspense>
+                    <Index />
                   </PageTransition>
                 }
               />
+              <Route path="/admin" element={<AdminLayout />}>
+                <Route
+                  index
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <Dashboard />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="documents"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<DocumentsSkeleton />}>
+                        <Documents />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="analytics"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<AnalyticsSkeleton />}>
+                        <Analytics />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="settings"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<SettingsSkeleton />}>
+                        <Settings />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+              </Route>
               <Route
-                path="documents"
+                path="*"
                 element={
                   <PageTransition>
-                    <Suspense fallback={<DocumentsSkeleton />}>
-                      <Documents />
-                    </Suspense>
+                    <NotFound />
                   </PageTransition>
                 }
               />
-              <Route
-                path="analytics"
-                element={
-                  <PageTransition>
-                    <Suspense fallback={<AnalyticsSkeleton />}>
-                      <Analytics />
-                    </Suspense>
-                  </PageTransition>
-                }
-              />
-              <Route
-                path="settings"
-                element={
-                  <PageTransition>
-                    <Suspense fallback={<SettingsSkeleton />}>
-                      <Settings />
-                    </Suspense>
-                  </PageTransition>
-                }
-              />
-            </Route>
-            <Route
-              path="*"
-              element={
-                <PageTransition>
-                  <NotFound />
-                </PageTransition>
-              }
-            />
-          </Routes>
-        </BrowserRouter>
-        {/* ChatWidget at App level - always visible on all pages */}
-        <ChatWidget />
-        </TooltipProvider>
-      </QueryClientProvider>
-    </AccessibilityProvider>
-  </ThemeProvider>
+            </Routes>
+          </BrowserRouter>
+          {/* ChatWidget at App level - always visible on all pages */}
+          <ChatWidget />
+          </TooltipProvider>
+        </QueryClientProvider>
+      </AccessibilityProvider>
+    </ThemeProvider>
+  </ErrorBoundary>
 );
 
 export default App;

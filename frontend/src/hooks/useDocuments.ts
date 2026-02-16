@@ -122,6 +122,7 @@ export function useUploadDocument() {
       toast({
         title: "Document uploaded",
         description: "Your document has been uploaded successfully.",
+        variant: "success",
       });
     },
   });
@@ -181,6 +182,7 @@ export function useDeleteDocument() {
       toast({
         title: "Document deleted",
         description: "The document has been deleted successfully.",
+        variant: "success",
       });
     },
   });
@@ -201,6 +203,7 @@ export function useReindexDocument() {
       toast({
         title: "Reindexing started",
         description: "The document is being reindexed. This may take a few moments.",
+        variant: "success",
       });
     },
     onError: (error: ApiError) => {

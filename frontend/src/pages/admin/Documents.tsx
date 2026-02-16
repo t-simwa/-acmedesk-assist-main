@@ -71,6 +71,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
+import { EmptyState } from "@/components/error/EmptyState";
+import { NetworkErrorState } from "@/components/error/NetworkErrorState";
+import { ConfirmationDialog } from "@/components/feedback/ConfirmationDialog";
 
 const statusConfig = {
   indexed: { icon: CheckCircle2, label: "Indexed", className: "text-primary" },
@@ -171,6 +174,9 @@ export default function Documents() {
   });
   const [previewDocument, setPreviewDocument] = useState<Document | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -338,21 +344,34 @@ export default function Documents() {
     }
   };
 
-  const handleDelete = async (docId: string) => {
+  const handleDeleteClick = (docId: string) => {
+    setDeleteTargetId(docId);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTargetId) return;
     try {
-      await deleteMutation.mutateAsync(docId);
+      await deleteMutation.mutateAsync(deleteTargetId);
       setSelectedRows((prev) => {
         const next = new Set(prev);
-        next.delete(docId);
+        next.delete(deleteTargetId);
         return next;
       });
       // React Query will automatically refetch documents list
     } catch (err) {
       // Error is handled by the mutation's onError
+    } finally {
+      setDeleteTargetId(null);
     }
   };
 
-  const handleBulkDelete = async () => {
+  const handleBulkDeleteClick = () => {
+    if (selectedRows.size === 0) return;
+    setBulkDeleteDialogOpen(true);
+  };
+
+  const confirmBulkDelete = async () => {
     const ids = Array.from(selectedRows);
     try {
       await Promise.all(ids.map((id) => deleteMutation.mutateAsync(id)));
@@ -361,6 +380,7 @@ export default function Documents() {
       toast({
         title: "Success",
         description: `${ids.length} document(s) deleted successfully`,
+        variant: "success",
       });
     } catch (err) {
       toast({
@@ -517,7 +537,7 @@ export default function Documents() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleBulkDelete}
+                onClick={handleBulkDeleteClick}
                 className="text-destructive hover:text-destructive"
               >
                 <Trash2 size={14} className="mr-2" />
@@ -700,12 +720,44 @@ export default function Documents() {
           <div className="flex items-center justify-center py-12">
             <Loader2 size={24} className="animate-spin text-muted-foreground" />
           </div>
+        ) : queryError ? (
+          <div className="p-6">
+            <NetworkErrorState
+              error={queryError as ApiError}
+              onRetry={() => refetch()}
+              variant="compact"
+            />
+          </div>
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <FileText size={48} className="text-muted-foreground mb-4" />
-            <p className="text-[14px] text-muted-foreground">
-              {documents.length === 0 ? "No documents uploaded yet" : "No documents match your search"}
-            </p>
+          <div className="p-6">
+            <EmptyState
+              icon={documents.length === 0 ? FileText : Search}
+              title={documents.length === 0 ? "No documents uploaded yet" : "No documents match your search"}
+              description={
+                documents.length === 0
+                  ? "Get started by uploading your first document. Supported formats include Markdown, HTML, Text, PDF, and DOCX."
+                  : "Try adjusting your search or filters to find what you're looking for."
+              }
+              action={
+                documents.length === 0
+                  ? {
+                      label: "Upload Document",
+                      onClick: () => fileInputRef.current?.click(),
+                      variant: "default",
+                    }
+                  : undefined
+              }
+              secondaryAction={
+                documents.length > 0
+                  ? {
+                      label: "Clear Search",
+                      onClick: () => setSearch(""),
+                      variant: "outline",
+                    }
+                  : undefined
+              }
+              size="md"
+            />
           </div>
         ) : (
           <div className="max-h-[600px] overflow-y-auto">
@@ -909,7 +961,7 @@ export default function Documents() {
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
-                            onClick={() => handleDelete(doc.id)}
+                            onClick={() => handleDeleteClick(doc.id)}
                             className="text-destructive"
                             aria-label={`Delete ${doc.name}`}
                           >
@@ -1016,6 +1068,31 @@ export default function Documents() {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Confirmation Dialogs */}
+      <ConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Delete Document"
+        description="Are you sure you want to delete this document? This action cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        confirmVariant="destructive"
+        onConfirm={confirmDelete}
+        isLoading={deleteMutation.isPending}
+      />
+
+      <ConfirmationDialog
+        open={bulkDeleteDialogOpen}
+        onOpenChange={setBulkDeleteDialogOpen}
+        title="Delete Documents"
+        description={`Are you sure you want to delete ${selectedRows.size} document(s)? This action cannot be undone.`}
+        confirmLabel="Delete All"
+        cancelLabel="Cancel"
+        confirmVariant="destructive"
+        onConfirm={confirmBulkDelete}
+        isLoading={deleteMutation.isPending}
+      />
     </div>
   );
 }

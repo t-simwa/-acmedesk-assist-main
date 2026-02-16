@@ -9,6 +9,8 @@ import { formatResponse } from "@/utils/formatResponse";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAccessibility } from "@/contexts/AccessibilityContext";
 import { Logo } from "@/components/Branding/Logo";
+import { ConfirmationDialog } from "@/components/feedback/ConfirmationDialog";
+import { useToast } from "@/hooks/use-toast";
 
 const CHAT_GREETING_KEY = "acmedesk-chat-greeting";
 const DEFAULT_GREETING = "Hi there! 👋 I'm here to help with questions about AcmeDesk — pricing, setup, integrations, and more. What can I help you with?";
@@ -35,6 +37,8 @@ export function ChatWidget() {
   const [hasNewMessage, setHasNewMessage] = useState(false);
   const [sessionId] = useState<string>(() => `session-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`);
   const [isClearing, setIsClearing] = useState(false);
+  const [showClearDialog, setShowClearDialog] = useState(false);
+  const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
@@ -437,11 +441,10 @@ export function ChatWidget() {
 
   const handleClearConversation = async () => {
     if (isClearing) return;
-    
-    if (!confirm("Are you sure you want to clear this conversation? This action cannot be undone.")) {
-      return;
-    }
-    
+    setShowClearDialog(true);
+  };
+
+  const confirmClearConversation = async () => {
     setIsClearing(true);
     try {
       await conversationsApi.deleteConversation(sessionId);
@@ -457,9 +460,19 @@ export function ChatWidget() {
       ]);
       lastMessageCountRef.current = 1;
       userMessageMapRef.current.clear();
+      
+      toast({
+        title: "Conversation cleared",
+        description: "Your conversation has been cleared successfully.",
+        variant: "success",
+      });
     } catch (error) {
       console.error("Failed to clear conversation:", error);
-      alert("Failed to clear conversation. Please try again.");
+      toast({
+        title: "Failed to clear conversation",
+        description: "Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setIsClearing(false);
     }
@@ -783,6 +796,19 @@ export function ChatWidget() {
         )}
         </button>
       )}
+
+      {/* Confirmation Dialog for Clearing Conversation */}
+      <ConfirmationDialog
+        open={showClearDialog}
+        onOpenChange={setShowClearDialog}
+        title="Clear Conversation"
+        description="Are you sure you want to clear this conversation? This action cannot be undone."
+        confirmLabel="Clear"
+        cancelLabel="Cancel"
+        confirmVariant="destructive"
+        onConfirm={confirmClearConversation}
+        isLoading={isClearing}
+      />
     </>
   );
 }
