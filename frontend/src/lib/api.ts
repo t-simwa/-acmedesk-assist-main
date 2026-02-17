@@ -699,3 +699,88 @@ export const conversationsApi = {
     });
   },
 };
+
+// ============================================================================
+// User Preferences API
+// ============================================================================
+
+export interface NotificationPreferences {
+  email: boolean;
+  in_app: boolean;
+  push: boolean;
+}
+
+export interface UserPreferences {
+  id: string;
+  user_id: string;
+  name: string | null;
+  email: string | null;
+  avatar_url: string | null;
+  notifications: NotificationPreferences;
+  language: string | null;
+  timezone: string | null;
+  additional_preferences: Record<string, any> | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserPreferencesUpdateRequest {
+  name?: string;
+  email?: string;
+  notifications?: NotificationPreferences;
+  language?: string;
+  timezone?: string;
+}
+
+export interface UserPreferencesUpdateResponse {
+  message: string;
+  preferences: UserPreferences;
+}
+
+export interface AvatarUploadResponse {
+  message: string;
+  avatar_url: string;
+}
+
+export const userPreferencesApi = {
+  /**
+   * Get user preferences
+   */
+  async getPreferences(): Promise<UserPreferences> {
+    return apiClient<UserPreferences>("/api/user/preferences");
+  },
+
+  /**
+   * Update user preferences
+   */
+  async updatePreferences(payload: UserPreferencesUpdateRequest): Promise<UserPreferences> {
+    const response = await apiClient<UserPreferencesUpdateResponse>("/api/user/preferences", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+    return response.preferences;
+  },
+
+  /**
+   * Upload user avatar
+   */
+  async uploadAvatar(file: File): Promise<AvatarUploadResponse> {
+    const formData = new FormData();
+    formData.append("file", file);
+    
+    return apiClient<AvatarUploadResponse>("/api/user/avatar", {
+      method: "POST",
+      body: formData,
+      // Don't set headers - apiClient will handle FormData correctly
+    });
+  },
+
+  /**
+   * Delete user avatar
+   */
+  async deleteAvatar(): Promise<{ message: string }> {
+    return apiClient<{ message: string }>("/api/user/avatar", {
+      method: "DELETE",
+    });
+  },
+};

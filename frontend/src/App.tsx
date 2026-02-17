@@ -17,12 +17,14 @@ import { DashboardSkeleton } from "./components/admin/skeletons/DashboardSkeleto
 import { DocumentsSkeleton } from "./components/admin/skeletons/DocumentsSkeleton";
 import { AnalyticsSkeleton } from "./components/admin/skeletons/AnalyticsSkeleton";
 import { SettingsSkeleton } from "./components/admin/skeletons/SettingsSkeleton";
+import { ProfileSkeleton } from "./components/admin/skeletons/ProfileSkeleton";
 
 // Lazy load admin pages for code splitting
 const Dashboard = lazy(() => import("./pages/admin/Dashboard"));
 const Documents = lazy(() => import("./pages/admin/Documents"));
 const Analytics = lazy(() => import("./pages/admin/Analytics"));
 const Settings = lazy(() => import("./pages/admin/Settings"));
+const Profile = lazy(() => import("./pages/admin/Profile"));
 
 const App = () => (
   <ErrorBoundary>
@@ -81,6 +83,16 @@ const App = () => (
                     <PageTransition>
                       <Suspense fallback={<SettingsSkeleton />}>
                         <Settings />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="profile"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<ProfileSkeleton />}>
+                        <Profile />
                       </Suspense>
                     </PageTransition>
                   }

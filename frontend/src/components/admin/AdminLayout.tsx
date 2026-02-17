@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Outlet, Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, FileText, BarChart3, Settings, Menu, X } from "lucide-react";
+import { LayoutDashboard, FileText, BarChart3, Settings, User, Menu, X } from "lucide-react";
 import { PageTransition } from "@/components/PageTransition";
 import { Logo } from "@/components/Branding/Logo";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -12,6 +12,7 @@ const navItems = [
   { label: "Documents", path: "/admin/documents", icon: FileText },
   { label: "Analytics", path: "/admin/analytics", icon: BarChart3 },
   { label: "Settings", path: "/admin/settings", icon: Settings },
+  { label: "Profile", path: "/admin/profile", icon: User },
 ];
 
 export function AdminLayout() {

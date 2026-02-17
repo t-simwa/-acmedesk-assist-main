@@ -25,6 +25,7 @@ from ..models.conversation import Conversation
 from ..models.document import Document
 from ..models.message import Message
 from ..models.setting import Setting
+from ..models.user_preferences import UserPreferences
 
 logger = logging.getLogger(__name__)
 
@@ -947,4 +948,159 @@ async def get_top_queries(limit: int = 10) -> tuple[List[Dict[str, Any]], int]:
 
         except Exception as e:
             logger.error(f"Error getting top queries: {e}", exc_info=True)
+            raise
+
+
+# User Preferences management functions
+
+DEFAULT_USER_ID = "default"  # For single-user prototype
+
+
+async def get_user_preferences(user_id: str = DEFAULT_USER_ID) -> Optional[dict]:
+    """
+    Get user preferences for a user.
+    
+    Args:
+        user_id: User ID (defaults to "default" for single-user prototype)
+    
+    Returns:
+        User preferences dictionary or None if not found
+    """
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        try:
+            result = await session.execute(
+                select(UserPreferences).where(UserPreferences.user_id == user_id)
+            )
+            preferences = result.scalar_one_or_none()
+            
+            if preferences:
+                return preferences.to_dict()
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error getting user preferences: {e}", exc_info=True)
+            raise
+
+
+async def create_or_update_user_preferences(
+    user_id: str = DEFAULT_USER_ID,
+    name: Optional[str] = None,
+    email: Optional[str] = None,
+    avatar_url: Optional[str] = None,
+    notifications_email: Optional[bool] = None,
+    notifications_in_app: Optional[bool] = None,
+    notifications_push: Optional[bool] = None,
+    language: Optional[str] = None,
+    timezone: Optional[str] = None,
+) -> dict:
+    """
+    Create or update user preferences.
+    
+    Args:
+        user_id: User ID (defaults to "default" for single-user prototype)
+        name: User's full name (optional)
+        email: User's email address (optional)
+        avatar_url: Avatar image URL or base64 data URL (optional)
+        notifications_email: Enable email notifications (optional)
+        notifications_in_app: Enable in-app notifications (optional)
+        notifications_push: Enable push notifications (optional)
+        language: Language preference (optional)
+        timezone: Timezone preference (optional)
+    
+    Returns:
+        Updated user preferences dictionary
+    """
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        try:
+            result = await session.execute(
+                select(UserPreferences).where(UserPreferences.user_id == user_id)
+            )
+            preferences = result.scalar_one_or_none()
+            
+            if preferences is None:
+                # Create new preferences
+                preferences_id = str(uuid.uuid4())
+                preferences = UserPreferences(
+                    id=preferences_id,
+                    user_id=user_id,
+                    name=name,
+                    email=email,
+                    avatar_url=avatar_url,
+                    notifications_email=notifications_email if notifications_email is not None else True,
+                    notifications_in_app=notifications_in_app if notifications_in_app is not None else True,
+                    notifications_push=notifications_push if notifications_push is not None else False,
+                    language=language or "en",
+                    timezone=timezone or "UTC",
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow(),
+                )
+                session.add(preferences)
+            else:
+                # Update existing preferences
+                if name is not None:
+                    preferences.name = name
+                if email is not None:
+                    preferences.email = email
+                if avatar_url is not None:
+                    preferences.avatar_url = avatar_url
+                if notifications_email is not None:
+                    preferences.notifications_email = notifications_email
+                if notifications_in_app is not None:
+                    preferences.notifications_in_app = notifications_in_app
+                if notifications_push is not None:
+                    preferences.notifications_push = notifications_push
+                if language is not None:
+                    preferences.language = language
+                if timezone is not None:
+                    preferences.timezone = timezone
+                preferences.updated_at = datetime.utcnow()
+            
+            await session.commit()
+            
+            # Refresh to get updated values
+            await session.refresh(preferences)
+            
+            logger.info(f"User preferences saved: user_id={user_id}")
+            return preferences.to_dict()
+            
+        except Exception as e:
+            await session.rollback()
+            logger.error(f"Error saving user preferences: {e}", exc_info=True)
+            raise
+
+
+async def delete_user_avatar(user_id: str = DEFAULT_USER_ID) -> bool:
+    """
+    Delete user avatar.
+    
+    Args:
+        user_id: User ID (defaults to "default" for single-user prototype)
+    
+    Returns:
+        True if avatar was deleted, False if user preferences not found
+    """
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        try:
+            result = await session.execute(
+                select(UserPreferences).where(UserPreferences.user_id == user_id)
+            )
+            preferences = result.scalar_one_or_none()
+            
+            if preferences is None:
+                return False
+            
+            preferences.avatar_url = None
+            preferences.updated_at = datetime.utcnow()
+            
+            await session.commit()
+            
+            logger.info(f"User avatar deleted: user_id={user_id}")
+            return True
+            
+        except Exception as e:
+            await session.rollback()
+            logger.error(f"Error deleting user avatar: {e}", exc_info=True)
             raise

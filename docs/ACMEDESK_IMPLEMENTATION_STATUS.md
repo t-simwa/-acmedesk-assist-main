@@ -912,11 +912,11 @@ This section covers tasks to elevate the UI from a good prototype to a **world-c
   - [x] Customizable chat widget greeting message.
   - [x] Custom domain support (if applicable).
 
-- **F7.2 – User Preferences**
-  - [ ] User profile page with avatar upload.
-  - [ ] Notification preferences (email, in-app, push).
-  - [ ] Language preferences (if i18n is added).
-  - [ ] Timezone preferences.
+- **F7.2 – User Preferences** ✅ **COMPLETE**
+  - [x] User profile page with avatar upload.
+  - [x] Notification preferences (email, in-app, push).
+  - [x] Language preferences (if i18n is added).
+  - [x] Timezone preferences.
 
 - **F7.3 – Advanced Admin Features**
   - [ ] Role-based UI (hide/show features based on user role).
@@ -1116,7 +1116,7 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
   - Add advanced enterprise features and accessibility.
   - Make the project feel like a polished client engagement deliverable and a strong portfolio piece.
 - **Includes:**
-  - [ ] F7.2 – User preferences (profile, notifications, timezone).
+  - [x] F7.2 – User preferences (profile, notifications, timezone). ✅ **COMPLETE**
   - [ ] F7.3 – Advanced admin features (RBAC UI, audit log, team management).
   - [ ] F9.3 – Help & onboarding (tooltips, help center, onboarding tour).
   - [ ] F10.2 – Tablet optimization.
