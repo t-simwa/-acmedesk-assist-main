@@ -35,4 +35,9 @@ backend/.env.*.local
 *.sw?
 
 # Documentation (internal/planning docs - setup guides can be tracked separately if needed)
+# Keep most of docs/ ignored by default, but explicitly track key public docs.
 docs/
+!docs/ACMEDESK_IMPLEMENTATION_STATUS.md
+!docs/architecture.md
+!docs/RAG_EVALUATION_SUMMARY.md
+!README.md

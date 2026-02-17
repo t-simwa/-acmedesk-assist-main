@@ -650,13 +650,13 @@ This section lists **granular, implementation-ready checklists** grouped by area
     - [x] Handles network errors gracefully.
     - [x] Multiple messages in conversation.
     - [x] UI behavior and responsiveness.
-  - [ ] Admin – Documents (⏳ For Milestone 2):
-    - [ ] Can upload MD/TXT/HTML docs.
-    - [ ] Status transitions from `processing` → `indexed` or `error`.
-    - [ ] Reindex triggers ingestion again.
-  - [ ] Admin – Analytics (⏳ For Milestone 2):
-    - [ ] Charts render from real data.
-    - [ ] Time ranges behave as expected (e.g. last 7/30 days).
+  - [x] Admin – Documents (⏳ For Milestone 2):
+  - [x] Can upload MD/TXT/HTML docs.
+  - [x] Status transitions from `processing` → `indexed` or `error`.
+  - [x] Reindex triggers ingestion again.
+  - [x] Admin – Analytics (⏳ For Milestone 2):
+  - [x] Charts render from real data.
+  - [x] Time ranges behave as expected (e.g. last 7/30 days).
   - [x] **E1 – RAG Quality Checks** ✅ **COMPLETE**
     - [x] Test question set created with 25 questions (`backend/scripts/test_questions.json`)
     - [x] Evaluation script implemented (`backend/scripts/evaluate_rag_quality.py`)
@@ -975,7 +975,7 @@ This section covers tasks to elevate the UI from a good prototype to a **world-c
 
 - **F9.1 – Comprehensive Error States**
   - [x] Empty states with helpful illustrations and CTAs.
-  - [x] Error boundaries with helpful error messages and recovery actions.
+  - [x] Error boundaries with helpful error messages and recovery acti-ons.
   - [x] Network error states with retry mechanisms.
   - [x] Validation error states with inline feedback.
 
@@ -1107,8 +1107,8 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
   - [x] F9.2 – Success feedback (toasts, confirmations). ✅ **COMPLETE**
   - [x] F10.1 – Mobile admin experience. ✅ **COMPLETE**
   - [x] E2 – Core backend and frontend tests. ✅ **COMPLETE**
-  - [ ] E1 – Expanded manual checklist for launch scenarios.
-  - [ ] Docs – Update README + add at least `architecture.md` and a simple RAG evaluation summary.
+  - [x] E1 – Expanded manual checklist for launch scenarios.
+  - [x] Docs – Update README + add at least `architecture.md` and a simple RAG evaluation summary. ✅ **COMPLETE** (README refreshed, `docs/architecture.md` added, `docs/RAG_EVALUATION_SUMMARY.md` created)
 
 ### Optional Milestone 4 – Enterprise Features & Portfolio Packaging (Week 4)
 
