@@ -6,6 +6,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AccessibilityProvider } from "@/contexts/AccessibilityContext";
+import { RoleProvider } from "@/contexts/RoleContext";
 import { PageTransition } from "@/components/PageTransition";
 import { ChatWidget } from "@/components/chat/ChatWidget";
 import { queryClient } from "@/lib/queryClient";
@@ -25,12 +26,16 @@ const Documents = lazy(() => import("./pages/admin/Documents"));
 const Analytics = lazy(() => import("./pages/admin/Analytics"));
 const Settings = lazy(() => import("./pages/admin/Settings"));
 const Profile = lazy(() => import("./pages/admin/Profile"));
+const TeamManagement = lazy(() => import("./pages/admin/TeamManagement"));
+const AuditLogs = lazy(() => import("./pages/admin/AuditLogs"));
+const APIKeys = lazy(() => import("./pages/admin/APIKeys"));
 
 const App = () => (
   <ErrorBoundary>
     <ThemeProvider>
       <AccessibilityProvider>
-        <QueryClientProvider client={queryClient}>
+        <RoleProvider>
+          <QueryClientProvider client={queryClient}>
           <TooltipProvider>
           {/* Global ARIA live region for notifications and announcements */}
           <div id="aria-live-region" aria-live="polite" aria-atomic="true" className="sr-only" />
@@ -97,6 +102,36 @@ const App = () => (
                     </PageTransition>
                   }
                 />
+                <Route
+                  path="team"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <TeamManagement />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="audit-logs"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <AuditLogs />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="api-keys"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <APIKeys />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
               </Route>
               <Route
                 path="*"
@@ -112,6 +147,7 @@ const App = () => (
           <ChatWidget />
           </TooltipProvider>
         </QueryClientProvider>
+        </RoleProvider>
       </AccessibilityProvider>
     </ThemeProvider>
   </ErrorBoundary>

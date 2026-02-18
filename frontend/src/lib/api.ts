@@ -784,3 +784,204 @@ export const userPreferencesApi = {
     });
   },
 };
+
+// ============================================================================
+// Admin API
+// ============================================================================
+
+export interface CurrentUser {
+  id: string;
+  email: string;
+  name: string | null;
+  role: "admin" | "analyst" | "viewer";
+  is_active: boolean;
+  permissions: string[];
+}
+
+export interface AuditLog {
+  id: string;
+  user_id: string | null;
+  user_email: string | null;
+  action: string;
+  resource_type: string;
+  resource_id: string | null;
+  resource_name: string | null;
+  description: string;
+  metadata: Record<string, any> | null;
+  ip_address: string | null;
+  user_agent: string | null;
+  status: string;
+  created_at: string;
+}
+
+export interface AuditLogListResponse {
+  logs: AuditLog[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface AuditLogFilters {
+  action?: string;
+  resource_type?: string;
+  resource_id?: string;
+  user_id?: string;
+  status?: string;
+  start_date?: string;
+  end_date?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface APIKey {
+  id: string;
+  user_id: string;
+  name: string;
+  key_prefix: string;
+  last_used_at: string | null;
+  expires_at: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface APIKeyCreateRequest {
+  name: string;
+  expires_in_days?: number;
+}
+
+export interface APIKeyCreateResponse {
+  id: string;
+  name: string;
+  key: string;
+  key_prefix: string;
+  expires_at: string | null;
+  created_at: string;
+  message: string;
+}
+
+export interface APIKeyListResponse {
+  keys: APIKey[];
+  total: number;
+}
+
+export interface TeamMember {
+  id: string;
+  user_id: string | null;
+  email: string;
+  name: string | null;
+  role: "admin" | "analyst" | "viewer";
+  status: "pending" | "accepted" | "rejected" | "expired";
+  invited_by: string;
+  invited_at: string;
+  accepted_at: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TeamMemberListResponse {
+  members: TeamMember[];
+  total: number;
+}
+
+export interface TeamMemberInviteRequest {
+  email: string;
+  name?: string;
+  role: "admin" | "analyst" | "viewer";
+}
+
+export interface TeamMemberInviteResponse {
+  id: string;
+  email: string;
+  name: string | null;
+  role: string;
+  status: string;
+  invited_at: string;
+  message: string;
+}
+
+export interface TeamMemberUpdateRoleRequest {
+  role: "admin" | "analyst" | "viewer";
+}
+
+export const adminApi = {
+  /**
+   * Get current user information and permissions
+   */
+  async getCurrentUser(): Promise<CurrentUser> {
+    return apiClient<CurrentUser>("/api/admin/current-user");
+  },
+
+  /**
+   * List audit logs with optional filters
+   */
+  async listAuditLogs(filters?: AuditLogFilters): Promise<AuditLogListResponse> {
+    return apiClient<AuditLogListResponse>("/api/admin/audit-logs", {
+      params: filters as Record<string, string | number> | undefined,
+    });
+  },
+
+  /**
+   * List API keys
+   */
+  async listAPIKeys(): Promise<APIKeyListResponse> {
+    return apiClient<APIKeyListResponse>("/api/admin/api-keys");
+  },
+
+  /**
+   * Create API key
+   */
+  async createAPIKey(payload: APIKeyCreateRequest): Promise<APIKeyCreateResponse> {
+    return apiClient<APIKeyCreateResponse>("/api/admin/api-keys", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  /**
+   * Revoke API key
+   */
+  async revokeAPIKey(keyId: string, reason?: string): Promise<{ message: string; id: string }> {
+    return apiClient<{ message: string; id: string }>(`/api/admin/api-keys/${keyId}`, {
+      method: "DELETE",
+      body: reason ? JSON.stringify({ reason }) : undefined,
+    });
+  },
+
+  /**
+   * List team members
+   */
+  async listTeamMembers(): Promise<TeamMemberListResponse> {
+    return apiClient<TeamMemberListResponse>("/api/admin/team");
+  },
+
+  /**
+   * Invite team member
+   */
+  async inviteTeamMember(payload: TeamMemberInviteRequest): Promise<TeamMemberInviteResponse> {
+    return apiClient<TeamMemberInviteResponse>("/api/admin/team/invite", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  /**
+   * Update team member role
+   */
+  async updateTeamMemberRole(memberId: string, payload: TeamMemberUpdateRoleRequest): Promise<{ id: string; role: string; message: string }> {
+    return apiClient<{ id: string; role: string; message: string }>(`/api/admin/team/${memberId}/role`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  /**
+   * Remove team member
+   */
+  async removeTeamMember(memberId: string): Promise<{ message: string; id: string }> {
+    return apiClient<{ message: string; id: string }>(`/api/admin/team/${memberId}`, {
+      method: "DELETE",
+    });
+  },
+};

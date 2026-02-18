@@ -3,6 +3,7 @@ Base model and database setup for SQLAlchemy.
 """
 
 from pathlib import Path
+from contextlib import asynccontextmanager
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
@@ -66,9 +67,10 @@ def get_session_factory():
     return _session_factory
 
 
-async def get_db_session() -> AsyncSession:
+@asynccontextmanager
+async def get_db_session():
     """
-    Get a database session.
+    Get a database session as an async context manager.
     
     Usage:
         async with get_db_session() as session:

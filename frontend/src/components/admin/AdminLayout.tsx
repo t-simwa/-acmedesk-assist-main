@@ -1,24 +1,47 @@
 import { useState, useEffect } from "react";
 import { Outlet, Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, FileText, BarChart3, Settings, User, Menu, X } from "lucide-react";
+import { LayoutDashboard, FileText, BarChart3, Settings, User, Menu, X, Users, FileTextIcon, KeyRound, Shield } from "lucide-react";
 import { PageTransition } from "@/components/PageTransition";
 import { Logo } from "@/components/Branding/Logo";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useRole } from "@/hooks/useRole";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
-const navItems = [
-  { label: "Dashboard", path: "/admin", icon: LayoutDashboard },
-  { label: "Documents", path: "/admin/documents", icon: FileText },
-  { label: "Analytics", path: "/admin/analytics", icon: BarChart3 },
-  { label: "Settings", path: "/admin/settings", icon: Settings },
-  { label: "Profile", path: "/admin/profile", icon: User },
+// Base navigation items available to all users
+const baseNavItems = [
+  { label: "Dashboard", path: "/admin", icon: LayoutDashboard, permission: "analytics:read" },
+  { label: "Documents", path: "/admin/documents", icon: FileText, permission: "documents:read" },
+  { label: "Analytics", path: "/admin/analytics", icon: BarChart3, permission: "analytics:read" },
+  { label: "Settings", path: "/admin/settings", icon: Settings, permission: "settings:read" },
+  { label: "Profile", path: "/admin/profile", icon: User, permission: null },
+];
+
+// Admin-only navigation items
+const adminNavItems = [
+  { label: "Team", path: "/admin/team", icon: Users, permission: "team:read" },
+  { label: "Audit Logs", path: "/admin/audit-logs", icon: FileTextIcon, permission: "audit_logs:read" },
+  { label: "API Keys", path: "/admin/api-keys", icon: KeyRound, permission: "api_keys:read" },
 ];
 
 export function AdminLayout() {
   const location = useLocation();
   const isMobile = useIsMobile();
+  const { hasPermission } = useRole();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Filter navigation items based on permissions
+  const getNavItems = () => {
+    const items = baseNavItems.filter(
+      (item) => !item.permission || hasPermission(item.permission)
+    );
+    const adminItems = adminNavItems.filter(
+      (item) => hasPermission(item.permission)
+    );
+    return [...items, ...adminItems];
+  };
+
+  const navItems = getNavItems();
 
   // Close mobile menu when route changes
   useEffect(() => {

@@ -15,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .models.base import close_db, init_db
-from .routers import analytics, chat, conversations, documents, health, settings as settings_router, user_preferences
+from .routers import analytics, chat, conversations, documents, health, settings as settings_router, user_preferences, admin
 
 
 @asynccontextmanager
@@ -64,6 +64,7 @@ app.include_router(documents.router)
 app.include_router(settings_router.router)
 app.include_router(analytics.router)
 app.include_router(user_preferences.router)
+app.include_router(admin.router)
 
 
 @app.get("/")

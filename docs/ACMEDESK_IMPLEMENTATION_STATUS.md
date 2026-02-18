@@ -918,11 +918,29 @@ This section covers tasks to elevate the UI from a good prototype to a **world-c
   - [x] Language preferences (if i18n is added).
   - [x] Timezone preferences.
 
-- **F7.3 – Advanced Admin Features**
-  - [ ] Role-based UI (hide/show features based on user role).
-  - [ ] Audit log viewer (who changed what, when).
-  - [ ] API key management UI (if API access is provided).
-  - [ ] Team management (invite users, assign roles).
+- **F7.3 – Advanced Admin Features** ✅ **COMPLETE**
+  - [x] Role-based UI (hide/show features based on user role).
+    - [x] RoleContext and useRole hook for role-based access control.
+    - [x] Permission-based UI hiding/showing throughout admin panel.
+    - [x] Role-based navigation in AdminLayout (Team, Audit Logs, API Keys only visible to admins).
+    - [x] Three role levels: Admin (full access), Analyst (read/write documents), Viewer (read-only).
+  - [x] Audit log viewer (who changed what, when).
+    - [x] Comprehensive audit log system tracking all system changes.
+    - [x] Audit log viewer page with filtering (action, resource type, status, date range).
+    - [x] Pagination support for large log sets.
+    - [x] Detailed log entries showing user, action, resource, description, timestamp, and metadata.
+  - [x] API key management UI (if API access is provided).
+    - [x] API key creation with secure key generation (SHA-256 hashing).
+    - [x] API key list view showing key prefixes, status, last used, expiration.
+    - [x] API key revocation functionality.
+    - [x] One-time key display on creation with copy functionality.
+    - [x] Optional expiration date support.
+  - [x] Team management (invite users, assign roles).
+    - [x] Team member list view with roles and invitation status.
+    - [x] Invite team members via email with role assignment.
+    - [x] Update team member roles (admin, analyst, viewer).
+    - [x] Remove team members from the team.
+    - [x] Invitation status tracking (pending, accepted, rejected, expired).
 
 #### F8 – Data Visualization & Charts
 
@@ -1117,7 +1135,7 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
   - Make the project feel like a polished client engagement deliverable and a strong portfolio piece.
 - **Includes:**
   - [x] F7.2 – User preferences (profile, notifications, timezone). ✅ **COMPLETE**
-  - [ ] F7.3 – Advanced admin features (RBAC UI, audit log, team management).
+  - [x] F7.3 – Advanced admin features (RBAC UI, audit log, team management). ✅ **COMPLETE**
   - [ ] F9.3 – Help & onboarding (tooltips, help center, onboarding tour).
   - [ ] F10.2 – Tablet optimization.
   - [ ] F11.1 – Security UI elements (SSL indicators, privacy links).

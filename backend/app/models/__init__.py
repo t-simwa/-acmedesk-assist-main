@@ -7,6 +7,10 @@ This module defines SQLAlchemy models for:
 - messages: Individual messages in conversations
 - settings: RAG configuration settings
 - user_preferences: User profile and preferences
+- users: User authentication and roles
+- audit_logs: Audit trail for system changes
+- api_keys: API access tokens
+- team_members: Team invitations and memberships
 """
 
 from .base import Base
@@ -15,5 +19,25 @@ from .document import Document
 from .message import Message
 from .setting import Setting
 from .user_preferences import UserPreferences
+from .user import User, UserRole
+from .audit_log import AuditLog, AuditAction, AuditResourceType
+from .api_key import APIKey
+from .team_member import TeamMember, TeamMemberRole, InvitationStatus
 
-__all__ = ["Base", "Document", "Conversation", "Message", "Setting", "UserPreferences"]
+__all__ = [
+    "Base",
+    "Document",
+    "Conversation",
+    "Message",
+    "Setting",
+    "UserPreferences",
+    "User",
+    "UserRole",
+    "AuditLog",
+    "AuditAction",
+    "AuditResourceType",
+    "APIKey",
+    "TeamMember",
+    "TeamMemberRole",
+    "InvitationStatus",
+]
