@@ -19,17 +19,21 @@ import { DocumentsSkeleton } from "./components/admin/skeletons/DocumentsSkeleto
 import { AnalyticsSkeleton } from "./components/admin/skeletons/AnalyticsSkeleton";
 import { SettingsSkeleton } from "./components/admin/skeletons/SettingsSkeleton";
 import { ProfileSkeleton } from "./components/admin/skeletons/ProfileSkeleton";
+import { SettingsSkeleton as SecuritySkeleton } from "./components/admin/skeletons/SettingsSkeleton";
 
 // Lazy load admin pages for code splitting
 const Dashboard = lazy(() => import("./pages/admin/Dashboard"));
 const Documents = lazy(() => import("./pages/admin/Documents"));
 const Analytics = lazy(() => import("./pages/admin/Analytics"));
 const Settings = lazy(() => import("./pages/admin/Settings"));
+const Security = lazy(() => import("./pages/admin/Security"));
 const Profile = lazy(() => import("./pages/admin/Profile"));
 const TeamManagement = lazy(() => import("./pages/admin/TeamManagement"));
 const AuditLogs = lazy(() => import("./pages/admin/AuditLogs"));
 const APIKeys = lazy(() => import("./pages/admin/APIKeys"));
 const HelpCenter = lazy(() => import("./pages/admin/HelpCenter"));
+const Privacy = lazy(() => import("./pages/Privacy"));
+const Terms = lazy(() => import("./pages/Terms"));
 
 const App = () => (
   <ErrorBoundary>
@@ -94,6 +98,16 @@ const App = () => (
                   }
                 />
                 <Route
+                  path="security"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<SecuritySkeleton />}>
+                        <Security />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
                   path="profile"
                   element={
                     <PageTransition>
@@ -144,6 +158,26 @@ const App = () => (
                   }
                 />
               </Route>
+              <Route
+                path="privacy"
+                element={
+                  <PageTransition>
+                    <Suspense fallback={<div>Loading...</div>}>
+                      <Privacy />
+                    </Suspense>
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="terms"
+                element={
+                  <PageTransition>
+                    <Suspense fallback={<div>Loading...</div>}>
+                      <Terms />
+                    </Suspense>
+                  </PageTransition>
+                }
+              />
               <Route
                 path="*"
                 element={

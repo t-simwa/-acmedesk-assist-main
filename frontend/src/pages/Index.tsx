@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ArrowRight, Menu, X } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Logo } from "@/components/Branding/Logo";
+import { Footer } from "@/components/Footer";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -168,6 +169,9 @@ export default function Index() {
           ))}
         </div>
       </section>
+
+      {/* Footer */}
+      <Footer />
     </div>
   );
 }

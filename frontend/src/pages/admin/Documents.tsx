@@ -75,6 +75,7 @@ import { EmptyState } from "@/components/error/EmptyState";
 import { NetworkErrorState } from "@/components/error/NetworkErrorState";
 import { ConfirmationDialog } from "@/components/feedback/ConfirmationDialog";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useIsTablet } from "@/hooks/use-tablet";
 
 const statusConfig = {
   indexed: { icon: CheckCircle2, label: "Indexed", className: "text-primary" },
@@ -337,6 +338,7 @@ function MobileDocumentCard({
 
 export default function Documents() {
   const isMobile = useIsMobile();
+  const isTablet = useIsTablet();
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 300);
   const [reindexing, setReindexing] = useState<Set<string>>(new Set());
@@ -727,7 +729,11 @@ export default function Documents() {
               </Button>
             </div>
           )}
-          <Button onClick={handleUploadClick} disabled={uploadQueue.some((u) => u.status === "uploading")}>
+          <Button 
+            onClick={handleUploadClick} 
+            disabled={uploadQueue.some((u) => u.status === "uploading")}
+            className={isTablet ? "min-h-[44px]" : ""}
+          >
             <Upload size={16} className="mr-2" />
             Upload
           </Button>
@@ -854,22 +860,22 @@ export default function Documents() {
       </div>
 
       {/* Search and Table Controls */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="relative flex-1 max-w-sm">
+      <div className={`flex items-center justify-between gap-4 ${isTablet ? "flex-col sm:flex-row" : ""}`}>
+        <div className={`relative flex-1 ${isTablet ? "w-full sm:max-w-sm" : "max-w-sm"}`}>
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search documents…"
-            className="pl-9"
+            className={`pl-9 ${isTablet ? "h-11 text-[16px]" : ""}`}
             aria-label="Search documents"
             aria-describedby="documents-description"
           />
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" className={isTablet ? "min-h-[44px]" : ""}>
               <Eye size={14} className="mr-2" />
               Columns
             </Button>
@@ -971,9 +977,9 @@ export default function Documents() {
             })}
           </div>
         ) : (
-          // Desktop Table View
-          <div className="max-h-[600px] overflow-y-auto">
-            <Table>
+          // Desktop & Tablet Table View
+          <div className={`max-h-[600px] overflow-y-auto ${isTablet ? "overflow-x-auto" : ""}`}>
+            <Table className={isTablet ? "min-w-[800px]" : ""}>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-12">

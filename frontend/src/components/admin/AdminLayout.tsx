@@ -3,7 +3,9 @@ import { Outlet, Link, useLocation } from "react-router-dom";
 import { LayoutDashboard, FileText, BarChart3, Settings, User, Menu, X, Users, FileTextIcon, KeyRound, Shield, HelpCircle } from "lucide-react";
 import { PageTransition } from "@/components/PageTransition";
 import { Logo } from "@/components/Branding/Logo";
+import { Footer } from "@/components/Footer";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useIsTablet } from "@/hooks/use-tablet";
 import { useRole } from "@/hooks/useRole";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -14,6 +16,7 @@ const baseNavItems = [
   { label: "Documents", path: "/admin/documents", icon: FileText, permission: "documents:read" },
   { label: "Analytics", path: "/admin/analytics", icon: BarChart3, permission: "analytics:read" },
   { label: "Settings", path: "/admin/settings", icon: Settings, permission: "settings:read" },
+  { label: "Security", path: "/admin/security", icon: Shield, permission: null },
   { label: "Profile", path: "/admin/profile", icon: User, permission: null },
   { label: "Help Center", path: "/admin/help", icon: HelpCircle, permission: null },
 ];
@@ -28,6 +31,7 @@ const adminNavItems = [
 export function AdminLayout() {
   const location = useLocation();
   const isMobile = useIsMobile();
+  const isTablet = useIsTablet();
   const { hasPermission } = useRole();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -123,9 +127,9 @@ export function AdminLayout() {
         Skip to main content
       </a>
       
-      {/* Desktop Sidebar */}
+      {/* Desktop & Tablet Sidebar */}
       {!isMobile && (
-        <aside className="hidden md:flex w-60 border-r border-border bg-background flex-col" aria-label="Admin navigation">
+        <aside className={`hidden md:flex border-r border-border bg-background flex-col ${isTablet ? "w-56" : "w-60"}`} aria-label="Admin navigation">
           <SidebarContent />
         </aside>
       )}
@@ -170,13 +174,15 @@ export function AdminLayout() {
       {/* Main content */}
       <main 
         id="admin-main-content" 
-        className={`flex-1 overflow-auto ${isMobile ? "pt-14" : ""}`}
+        className={`flex-1 overflow-auto flex flex-col ${isMobile ? "pt-14" : ""}`}
       >
-        <div className="max-w-6xl mx-auto px-4 md:px-8 py-4 md:py-8">
+        <div className={`flex-1 max-w-6xl mx-auto ${isTablet ? "px-4 md:px-6" : "px-4 md:px-8"} py-4 ${isTablet ? "md:py-6" : "md:py-8"}`}>
           <PageTransition>
             <Outlet />
           </PageTransition>
         </div>
+        {/* Footer in admin layout */}
+        <Footer />
       </main>
     </div>
   );

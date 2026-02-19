@@ -55,6 +55,7 @@ import { getChartTheme, chartA11y } from "@/lib/chartTheme";
 import { NetworkErrorState } from "@/components/error/NetworkErrorState";
 import { EmptyState } from "@/components/error/EmptyState";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useIsTablet } from "@/hooks/use-tablet";
 import { HelpIcon } from "@/components/help/HelpIcon";
 
 interface ChartDataPoint {
@@ -105,6 +106,7 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps<any, any>) => {
 
 export default function Analytics() {
   const isMobile = useIsMobile();
+  const isTablet = useIsTablet();
   const [error, setError] = useState<string | null>(null);
   const [conversationData, setConversationData] = useState<ChartDataPoint[]>([]);
   const [resolutionData, setResolutionData] = useState<ChartDataPoint[]>([]);
@@ -462,7 +464,7 @@ export default function Analytics() {
               variant="outline" 
               size="sm" 
               onClick={clearFilters} 
-              className="gap-2 w-full sm:w-auto min-h-[44px] sm:min-h-0"
+              className={`gap-2 w-full sm:w-auto ${isTablet ? "min-h-[44px]" : "min-h-[44px] sm:min-h-0"}`}
             >
               <FilterX className="h-4 w-4" />
               <span className="text-[13px] sm:text-sm">Clear Filters</span>
@@ -472,7 +474,7 @@ export default function Analytics() {
             variant="outline"
             size="sm"
             onClick={() => setIsPolling(!isPolling)}
-            className="gap-2 w-full sm:w-auto min-h-[44px] sm:min-h-0"
+            className={`gap-2 w-full sm:w-auto ${isTablet ? "min-h-[44px]" : "min-h-[44px] sm:min-h-0"}`}
           >
             <RefreshCw className={`h-4 w-4 ${isPolling ? "animate-spin" : ""}`} />
             <span className="text-[13px] sm:text-sm hidden sm:inline">
@@ -484,7 +486,7 @@ export default function Analytics() {
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2 w-full sm:w-auto min-h-[44px] sm:min-h-0">
+              <Button variant="outline" size="sm" className={`gap-2 w-full sm:w-auto ${isTablet ? "min-h-[44px]" : "min-h-[44px] sm:min-h-0"}`}>
                 <Download className="h-3 w-3" />
                 <span className="text-[13px] sm:text-sm">Export</span>
               </Button>
@@ -531,7 +533,7 @@ export default function Analytics() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6">
+      <div className={`grid grid-cols-1 ${isTablet ? "" : "lg:grid-cols-2"} gap-4 ${isTablet ? "md:gap-5" : "sm:gap-6"} mb-6`}>
         {/* Conversations chart */}
         <section className="bg-background rounded-xl border border-border p-4 sm:p-6 shadow-soft-sm" aria-labelledby="conversations-chart-heading">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-4">
@@ -576,7 +578,7 @@ export default function Analytics() {
             </div>
           </div>
           {loading ? (
-            <div className="h-[200px] flex items-center justify-center">
+            <div className={`${isTablet ? "h-[280px]" : isMobile ? "h-[200px]" : "h-[250px]"} flex items-center justify-center`}>
               <Skeleton className="w-full h-full" />
             </div>
           ) : (
@@ -593,7 +595,7 @@ export default function Analytics() {
                   `Shows ${filteredConversationData.length} data points over the selected date range. Total conversations: ${filteredConversationData.reduce((sum, d) => sum + (d.conversations || 0), 0)}.`
                 )}
               </div>
-              <ResponsiveContainer width="100%" height={200}>
+              <ResponsiveContainer width="100%" height={isTablet ? 280 : isMobile ? 200 : 250}>
                 <BarChart
                   data={filteredConversationData}
                   onClick={handleBarClick}
@@ -697,7 +699,7 @@ export default function Analytics() {
             </div>
           </div>
           {loading ? (
-            <div className="h-[200px] flex items-center justify-center">
+            <div className={`${isTablet ? "h-[280px]" : isMobile ? "h-[200px]" : "h-[250px]"} flex items-center justify-center`}>
               <Skeleton className="w-full h-full" />
             </div>
           ) : (
@@ -714,7 +716,7 @@ export default function Analytics() {
                   `Shows ${filteredResolutionData.length} data points over the selected date range. Average resolution rate: ${Math.round(filteredResolutionData.reduce((sum, d) => sum + (d.rate || 0), 0) / (filteredResolutionData.length || 1))}%.`
                 )}
               </div>
-              <ResponsiveContainer width="100%" height={200}>
+              <ResponsiveContainer width="100%" height={isTablet ? 280 : isMobile ? 200 : 250}>
                 <LineChart
                   data={filteredResolutionData}
                   onClick={handleLineClick}
@@ -793,7 +795,7 @@ export default function Analytics() {
         </section>
 
         {/* Sankey and Word Cloud in a row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+        <div className={`grid grid-cols-1 ${isTablet ? "" : "lg:grid-cols-2"} gap-4 ${isTablet ? "md:gap-5" : "sm:gap-6"}`}>
           <section
             className="bg-background rounded-xl border border-border p-4 sm:p-6 shadow-soft-sm"
             aria-labelledby="sankey-section-heading"
@@ -846,7 +848,7 @@ export default function Analytics() {
         </section>
 
         {/* Conversation Timeline and User Journey in a row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+        <div className={`grid grid-cols-1 ${isTablet ? "" : "lg:grid-cols-2"} gap-4 ${isTablet ? "md:gap-5" : "sm:gap-6"}`}>
           <section
             className="bg-background rounded-xl border border-border p-4 sm:p-6 shadow-soft-sm"
             aria-labelledby="timeline-heading"

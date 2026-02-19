@@ -9,6 +9,7 @@ import { useCountUp } from "@/hooks/useCountUp";
 import { NetworkErrorState } from "@/components/error/NetworkErrorState";
 import { EmptyState } from "@/components/error/EmptyState";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useIsTablet } from "@/hooks/use-tablet";
 import { HelpIcon } from "@/components/help/HelpIcon";
 import { OnboardingTour, TourStep } from "@/components/help/OnboardingTour";
 
@@ -125,9 +126,10 @@ export default function Dashboard() {
   }, []);
 
   const isMobile = useIsMobile();
+  const isTablet = useIsTablet();
   
   const statsWidget = (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
+    <div className={`grid grid-cols-1 ${isTablet ? "sm:grid-cols-2" : "sm:grid-cols-2 lg:grid-cols-4"} gap-3 ${isTablet ? "sm:gap-4 md:gap-5" : "sm:gap-4 md:gap-6"}`}>
       {stats.map((stat) => (
         <div
           key={stat.label}
@@ -176,7 +178,7 @@ export default function Dashboard() {
             refetchSummary();
             refetchQueries();
           }}
-          className="gap-2 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0"
+          className={`gap-2 ${isTablet ? "min-h-[44px] min-w-[44px]" : "min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0"}`}
           aria-label="Refresh queries"
         >
           <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
