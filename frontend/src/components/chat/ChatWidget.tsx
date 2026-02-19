@@ -11,17 +11,18 @@ import { useAccessibility } from "@/contexts/AccessibilityContext";
 import { Logo } from "@/components/Branding/Logo";
 import { ConfirmationDialog } from "@/components/feedback/ConfirmationDialog";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 
 const CHAT_GREETING_KEY = "acmedesk-chat-greeting";
-const DEFAULT_GREETING = "Hi there! 👋 I'm here to help with questions about AcmeDesk — pricing, setup, integrations, and more. What can I help you with?";
 
 export function ChatWidget() {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   
   // Load custom greeting or use default
   const getGreetingMessage = (): string => {
     const stored = localStorage.getItem(CHAT_GREETING_KEY);
-    return stored || DEFAULT_GREETING;
+    return stored || t("chat.greeting");
   };
 
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -374,7 +375,7 @@ export function ChatWidget() {
       setIsTyping(false);
       
       // Determine error message based on error type
-      let errorMessage = "Sorry, I encountered an error while processing your message. Please try again.";
+      let errorMessage = t("chat.errorUnknown");
       let errorType: "network" | "rate_limit" | "timeout" | "server_error" | "unknown" = "unknown";
 
       if (error && typeof error === "object" && "errorType" in error) {
@@ -383,16 +384,16 @@ export function ChatWidget() {
         
         switch (apiError.errorType) {
           case "network":
-            errorMessage = "Unable to connect to the server. Please check your internet connection and try again.";
+            errorMessage = t("chat.errorNetwork");
             break;
           case "rate_limit":
-            errorMessage = apiError.message || "Rate limit exceeded. Please wait a moment and try again.";
+            errorMessage = apiError.message || t("chat.errorRateLimit");
             break;
           case "timeout":
-            errorMessage = "Request took too long. Please check your connection and try again.";
+            errorMessage = t("chat.errorTimeout");
             break;
           case "server_error":
-            errorMessage = "Server error occurred. Please try again later.";
+            errorMessage = t("errors.serverError");
             break;
           default:
             errorMessage = apiError.message || errorMessage;
@@ -462,14 +463,14 @@ export function ChatWidget() {
       userMessageMapRef.current.clear();
       
       toast({
-        title: "Conversation cleared",
-        description: "Your conversation has been cleared successfully.",
+        title: t("chat.clearConversation"),
+        description: t("chat.conversationCleared"),
         variant: "success",
       });
     } catch (error) {
       console.error("Failed to clear conversation:", error);
       toast({
-        title: "Failed to clear conversation",
+        title: t("chat.clearConversationError", { defaultValue: "Failed to clear conversation" }),
         description: "Please try again.",
         variant: "destructive",
       });
@@ -549,10 +550,10 @@ export function ChatWidget() {
 
   // Suggested questions
   const suggestedQuestions = [
-    "What is AcmeDesk?",
-    "How much does AcmeDesk cost?",
-    "What integrations does AcmeDesk support?",
-    "How do I get started with AcmeDesk?",
+    t("chat.suggestedQuestion1"),
+    t("chat.suggestedQuestion2"),
+    t("chat.suggestedQuestion3"),
+    t("chat.suggestedQuestion4"),
   ];
 
   const handleSuggestedQuestion = (question: string) => {
@@ -591,7 +592,7 @@ export function ChatWidget() {
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         role="dialog"
-        aria-label="Chat with AcmeDesk support assistant"
+        aria-label={t("chat.title")}
         aria-modal="false"
         className={`fixed z-50 flex flex-col bg-background shadow-chat border border-border transition-all duration-250 ease-out ${
           isMobile
@@ -620,7 +621,7 @@ export function ChatWidget() {
             <Logo size={28} showOnlineIndicator={true} showText={false} />
             <div>
               <p className="text-[12px] text-muted-foreground font-chat" aria-live="polite">
-                Active now
+                {t("chat.activeNow")}
               </p>
             </div>
           </div>
@@ -641,8 +642,8 @@ export function ChatWidget() {
                   className={`rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 active:scale-95 ${
                     isMobile ? "p-2.5 min-w-[44px] min-h-[44px]" : "p-1.5"
                   }`}
-                  aria-label="Export conversation"
-                  title="Export conversation"
+                  aria-label={t("chat.exportConversation")}
+                  title={t("chat.exportConversation")}
                 >
                   <Download size={isMobile ? 20 : 16} />
                 </button>
@@ -656,8 +657,8 @@ export function ChatWidget() {
                 className={`rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:opacity-50 active:scale-95 ${
                   isMobile ? "p-2.5 min-w-[44px] min-h-[44px]" : "p-1.5"
                 }`}
-                aria-label="Clear conversation"
-                title="Clear conversation"
+                aria-label={t("chat.clearConversation")}
+                title={t("chat.clearConversation")}
               >
                 <Trash2 size={isMobile ? 20 : 16} />
               </button>
@@ -667,7 +668,7 @@ export function ChatWidget() {
               className={`rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 active:scale-95 ${
                 isMobile ? "p-2.5 min-w-[44px] min-h-[44px]" : "p-1.5"
               }`}
-              aria-label="Close chat"
+              aria-label={t("chat.closeChat")}
             >
               <ChevronDown size={isMobile ? 20 : 18} />
             </button>
@@ -699,10 +700,10 @@ export function ChatWidget() {
                 <div className="space-y-2 mt-2">
                   <p className={`text-muted-foreground font-medium font-chat ${
                     isMobile ? "text-[14px]" : "text-[12px]"
-                  }`}>Suggested questions:</p>
+                  }`}>{t("chat.suggestedQuestions")}</p>
                   <div className={`flex flex-wrap ${
                     isMobile ? "gap-3" : "gap-2"
-                  }`} role="group" aria-label="Suggested questions">
+                  }`} role="group" aria-label={t("chat.suggestedQuestions")}>
                     {suggestedQuestions.map((question, idx) => (
                       <button
                         key={idx}
@@ -724,7 +725,7 @@ export function ChatWidget() {
           ))}
           {isTyping && (
             <div aria-live="polite" aria-atomic="true" className="sr-only">
-              Assistant is typing
+              {t("chat.assistantTyping")}
             </div>
           )}
           {isTyping && <MessageSkeleton />}
@@ -773,7 +774,7 @@ export function ChatWidget() {
             right: isMobile ? '1rem' : '1.5rem',
             zIndex: 99999,
           }}
-          aria-label={isOpen ? "Close chat" : "Open chat"}
+          aria-label={isOpen ? t("chat.closeChat") : t("chat.chatWithUs")}
         >
         {isOpen ? (
           <X size={18} />
@@ -783,7 +784,7 @@ export function ChatWidget() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-status-online opacity-75" />
               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-status-online" />
             </span>
-            <span className="text-[13px] font-medium font-chat">Chat with us</span>
+            <span className="text-[13px] font-medium font-chat">{t("chat.chatWithUs")}</span>
             {unreadCount > 0 && (
               <span 
                 className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-semibold shadow-sm border-2 border-background animate-in zoom-in-95 fade-in-0"
@@ -801,10 +802,10 @@ export function ChatWidget() {
       <ConfirmationDialog
         open={showClearDialog}
         onOpenChange={setShowClearDialog}
-        title="Clear Conversation"
-        description="Are you sure you want to clear this conversation? This action cannot be undone."
-        confirmLabel="Clear"
-        cancelLabel="Cancel"
+        title={t("chat.clearConversation")}
+        description={t("chat.clearConversationConfirm", { defaultValue: "Are you sure you want to clear this conversation? This action cannot be undone." })}
+        confirmLabel={t("common.clear")}
+        cancelLabel={t("common.cancel")}
         confirmVariant="destructive"
         onConfirm={confirmClearConversation}
         isLoading={isClearing}

@@ -3,13 +3,16 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { settingsApi, ApiError, RAGSettings, RAGSettingsValidationResponse } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, CheckCircle2, Loader2, Save, RotateCcw, TestTube, ChevronDown, Upload, X } from "lucide-react";
+import { AlertCircle, CheckCircle2, Loader2, Save, RotateCcw, TestTube, ChevronDown, Upload, X, Globe } from "lucide-react";
 import { AccessibilitySettings } from "@/components/AccessibilitySettings";
 import { Logo } from "@/components/Branding/Logo";
 import { HelpIcon } from "@/components/help/HelpIcon";
 import { HelpText } from "@/components/help/HelpText";
 import { ProgressLoader } from "@/components/trust/ProgressLoader";
 import { DataHandlingInfo } from "@/components/trust/DataHandlingInfo";
+import { useTranslation } from "react-i18next";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { updateDocumentDirection } from "@/lib/i18n";
 
 // Helper function to convert hex to HSL
 function hexToHsl(hex: string): string {
@@ -148,9 +151,25 @@ const DEFAULT_SETTINGS: RAGSettings = {
   system_prompt: "You are a helpful AcmeDesk support assistant. Answer questions ONLY based on the provided context. If you cannot find the answer in the context, say so and offer to connect the user with a human agent.",
 };
 
+const LANGUAGES = [
+  { code: "en", name: "English" },
+  { code: "es", name: "Español" },
+  { code: "fr", name: "Français" },
+  { code: "de", name: "Deutsch" },
+  { code: "ar", name: "العربية" },
+  { code: "zh", name: "中文" },
+  { code: "ja", name: "日本語" },
+  { code: "pt", name: "Português" },
+  { code: "it", name: "Italiano" },
+  { code: "ru", name: "Русский" },
+  { code: "hi", name: "हिन्दी" },
+  { code: "ko", name: "한국어" },
+];
+
 export default function Settings() {
   const { resolvedTheme } = useTheme();
   const { toast } = useToast();
+  const { t, i18n } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -1558,6 +1577,55 @@ export default function Settings() {
             </div>
             <p className="text-[12px] text-muted-foreground mt-1.5">
               Customize the primary brand color used throughout the application. Changes apply immediately.
+            </p>
+          </div>
+        </div>
+
+        {/* Language Settings */}
+        <div className="bg-background rounded-xl border border-border p-6 shadow-soft-sm space-y-5">
+          <div className="flex items-start gap-2">
+            <div>
+              <h3 className="text-[15px] font-semibold text-foreground flex items-center gap-2">
+                <Globe size={16} />
+                {t("settings.language")}
+              </h3>
+              <p className="text-[13px] text-muted-foreground mt-1">
+                {t("settings.selectLanguage")}
+              </p>
+            </div>
+            <HelpIcon
+              content="Change the interface language. The selected language will be applied immediately across the entire application."
+              side="right"
+              className="mt-1"
+            />
+          </div>
+          
+          <div>
+            <Select
+              value={i18n.language || "en"}
+              onValueChange={(value) => {
+                i18n.changeLanguage(value);
+                updateDocumentDirection(value);
+                toast({
+                  title: t("common.success"),
+                  description: t("settings.languageChanged", { defaultValue: "Language changed successfully" }),
+                  variant: "default",
+                });
+              }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder={t("settings.selectLanguage")} />
+              </SelectTrigger>
+              <SelectContent>
+                {LANGUAGES.map((lang) => (
+                  <SelectItem key={lang.code} value={lang.code}>
+                    {lang.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[12px] text-muted-foreground mt-1.5">
+              {t("settings.languageDescription", { defaultValue: "Select your preferred language for the interface" })}
             </p>
           </div>
         </div>

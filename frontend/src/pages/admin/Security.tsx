@@ -274,10 +274,10 @@ export default function Security() {
         {/* Connection Security Status */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-[15px]">
+            <h3 className="flex items-center gap-2 text-[15px] font-semibold text-foreground">
               <Shield size={18} />
               Connection Security
-            </CardTitle>
+            </h3>
             <CardDescription className="text-[12px]">
               Current security status of your connection
             </CardDescription>
@@ -308,10 +308,10 @@ export default function Security() {
         {/* Password Change */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-[15px]">
+            <h3 className="flex items-center gap-2 text-[15px] font-semibold text-foreground">
               <Lock size={18} />
               Change Password
-            </CardTitle>
+            </h3>
             <CardDescription className="text-[12px]">
               Update your account password
             </CardDescription>

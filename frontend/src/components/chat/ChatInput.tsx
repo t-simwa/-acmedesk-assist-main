@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, forwardRef } from "react";
 import { ArrowUp } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useTranslation } from "react-i18next";
 
 interface ChatInputProps {
   onSend: (message: string) => void;
@@ -9,6 +10,7 @@ interface ChatInputProps {
 
 export const ChatInput = forwardRef<HTMLTextAreaElement, ChatInputProps>(
   ({ onSend, disabled }, ref) => {
+    const { t } = useTranslation();
     const [value, setValue] = useState("");
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const isMobile = useIsMobile();
@@ -63,7 +65,7 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ChatInputProps>(
             value={value}
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Type a message…"
+            placeholder={t("chat.inputPlaceholder")}
             disabled={disabled}
             rows={1}
             className={`flex-1 resize-none bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none max-h-[120px] rounded-md text-sm ${
@@ -71,7 +73,7 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ChatInputProps>(
                 ? "py-3" // F2.4 - Larger text and padding on mobile (prevents zoom on iOS)
                 : "py-1.5"
             }`}
-            aria-label="Chat message input"
+            aria-label={t("chat.inputPlaceholder")}
           />
           <button
             onClick={handleSubmit}
@@ -81,7 +83,7 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ChatInputProps>(
                 ? "w-11 h-11 hover:opacity-90" // F2.4 - Larger touch target (44x44px minimum)
                 : "w-8 h-8 hover:opacity-90"
             }`}
-            aria-label="Send message"
+            aria-label={t("chat.sendMessage")}
           >
             <ArrowUp size={isMobile ? 20 : 16} />
           </button>

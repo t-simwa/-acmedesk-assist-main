@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Outlet, Link, useLocation } from "react-router-dom";
 import { LayoutDashboard, FileText, BarChart3, Settings, User, Menu, X, Users, FileTextIcon, KeyRound, Shield, HelpCircle } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { PageTransition } from "@/components/PageTransition";
 import { Logo } from "@/components/Branding/Logo";
 import { Footer } from "@/components/Footer";
@@ -10,25 +11,26 @@ import { useRole } from "@/hooks/useRole";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
-// Base navigation items available to all users
+// Base navigation items available to all users - labels will be translated in component
 const baseNavItems = [
-  { label: "Dashboard", path: "/admin", icon: LayoutDashboard, permission: "analytics:read" },
-  { label: "Documents", path: "/admin/documents", icon: FileText, permission: "documents:read" },
-  { label: "Analytics", path: "/admin/analytics", icon: BarChart3, permission: "analytics:read" },
-  { label: "Settings", path: "/admin/settings", icon: Settings, permission: "settings:read" },
-  { label: "Security", path: "/admin/security", icon: Shield, permission: null },
-  { label: "Profile", path: "/admin/profile", icon: User, permission: null },
-  { label: "Help Center", path: "/admin/help", icon: HelpCircle, permission: null },
+  { labelKey: "navigation.dashboard", path: "/admin", icon: LayoutDashboard, permission: "analytics:read" },
+  { labelKey: "navigation.documents", path: "/admin/documents", icon: FileText, permission: "documents:read" },
+  { labelKey: "navigation.analytics", path: "/admin/analytics", icon: BarChart3, permission: "analytics:read" },
+  { labelKey: "navigation.settings", path: "/admin/settings", icon: Settings, permission: "settings:read" },
+  { labelKey: "navigation.security", path: "/admin/security", icon: Shield, permission: null },
+  { labelKey: "navigation.profile", path: "/admin/profile", icon: User, permission: null },
+  { labelKey: "navigation.helpCenter", path: "/admin/help", icon: HelpCircle, permission: null },
 ];
 
 // Admin-only navigation items
 const adminNavItems = [
-  { label: "Team", path: "/admin/team", icon: Users, permission: "team:read" },
-  { label: "Audit Logs", path: "/admin/audit-logs", icon: FileTextIcon, permission: "audit_logs:read" },
-  { label: "API Keys", path: "/admin/api-keys", icon: KeyRound, permission: "api_keys:read" },
+  { labelKey: "navigation.team", path: "/admin/team", icon: Users, permission: "team:read" },
+  { labelKey: "navigation.auditLogs", path: "/admin/audit-logs", icon: FileTextIcon, permission: "audit_logs:read" },
+  { labelKey: "navigation.apiKeys", path: "/admin/api-keys", icon: KeyRound, permission: "api_keys:read" },
 ];
 
 export function AdminLayout() {
+  const { t } = useTranslation();
   const location = useLocation();
   const isMobile = useIsMobile();
   const isTablet = useIsTablet();
@@ -100,7 +102,7 @@ export function AdminLayout() {
               onClick={() => isMobile && setMobileMenuOpen(false)}
             >
               <item.icon size={18} aria-hidden="true" />
-              {item.label}
+              {t(item.labelKey)}
             </Link>
           );
         })}
@@ -124,7 +126,7 @@ export function AdminLayout() {
     <div className="flex h-screen bg-surface">
       {/* F4.1 - Skip link for main content */}
       <a href="#admin-main-content" className="skip-link">
-        Skip to main content
+        {t("navigation.skipToContent")}
       </a>
       
       {/* Desktop & Tablet Sidebar */}

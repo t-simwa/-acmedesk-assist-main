@@ -7,8 +7,10 @@ import { Footer } from "@/components/Footer";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { useTranslation } from "react-i18next";
 
 export default function Index() {
+  const { t } = useTranslation();
   const isMobile = useIsMobile();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -34,7 +36,7 @@ export default function Index() {
     <div className="min-h-screen bg-background">
       {/* F4.1 - Skip link for main content */}
       <a href="#main-content" className="skip-link">
-        Skip to main content
+        {t("navigation.skipToContent")}
       </a>
       {/* Nav */}
       <header className="border-b border-border">
@@ -47,13 +49,13 @@ export default function Index() {
                 to="/admin"
                 className="text-[13px] text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 rounded-sm"
               >
-                Admin
+                {t("navigation.admin")}
               </Link>
               <a
                 href="#features"
                 className="text-[13px] text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 rounded-sm"
               >
-                Features
+                {t("navigation.features")}
               </a>
               <ThemeToggle variant="pill" />
             </nav>
@@ -116,21 +118,21 @@ export default function Index() {
             Support AI
           </p>
           <h1 id="hero-heading" className="font-heading font-bold text-foreground text-3xl sm:text-4xl md:text-5xl lg:text-6xl">
-            Resolve Tickets Before They're Filed
+            {t("landing.heroTitle")}
           </h1>
           <p className="text-description mt-4 sm:mt-5 text-[15px] sm:text-base">
-            AcmeDesk answers customer questions instantly from your docs. Accurate, on-brand, and always available.
+            {t("landing.heroDescription")}
           </p>
           <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mt-8 sm:mt-10">
             <Link
               to="/admin"
               className="inline-flex items-center justify-center gap-2 px-5 py-3 sm:py-2.5 bg-foreground text-background rounded-lg text-[13px] sm:text-[13px] font-medium hover:opacity-90 transition-opacity focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 min-h-[44px] sm:min-h-0"
             >
-              Open Admin
+              {t("landing.openAdmin")}
               <ArrowRight size={14} />
             </Link>
             <span className="text-[13px] text-muted-foreground text-center sm:text-left">
-              or try the chat widget →
+              {t("landing.tryChatWidget")}
             </span>
           </div>
         </div>
@@ -142,28 +144,25 @@ export default function Index() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-border rounded-xl overflow-hidden">
           {[
             {
-              title: "Grounded answers",
-              description:
-                "Every response cites your knowledge base. No hallucinations, no made-up pricing or policies.",
+              titleKey: "landing.feature1Title",
+              descriptionKey: "landing.feature1Description",
             },
             {
-              title: "Usage analytics",
-              description:
-                "See top questions, resolution rates, and documentation gaps — all in one dashboard.",
+              titleKey: "landing.feature2Title",
+              descriptionKey: "landing.feature2Description",
             },
             {
-              title: "Safe escalation",
-              description:
-                "When confidence is low, conversations hand off to a human agent. No dead ends.",
+              titleKey: "landing.feature3Title",
+              descriptionKey: "landing.feature3Description",
             },
-          ].map((feature) => (
+          ].map((feature, index) => (
             <article
-              key={feature.title}
+              key={feature.titleKey}
               className="bg-background p-6 sm:p-8"
             >
-              <h3 className="text-[14px] sm:text-[15px] font-heading font-bold text-foreground mb-2">{feature.title}</h3>
+              <h3 className="text-[14px] sm:text-[15px] font-heading font-bold text-foreground mb-2">{t(feature.titleKey)}</h3>
               <p className="text-description text-[14px] sm:text-base">
-                {feature.description}
+                {t(feature.descriptionKey)}
               </p>
             </article>
           ))}

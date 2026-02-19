@@ -1036,11 +1036,11 @@ This section covers tasks to elevate the UI from a good prototype to a **world-c
 
 #### F12 – Internationalization (i18n) – Optional but Enterprise-Ready
 
-- **F12.1 – Multi-Language Support**
-  - [ ] Set up i18n framework (react-i18next or similar).
-  - [ ] Extract all user-facing strings to translation files.
-  - [ ] Language switcher in settings.
-  - [ ] RTL (right-to-left) support for Arabic/Hebrew (if needed).
+- **F12.1 – Multi-Language Support** ✅ **COMPLETE**
+  - [x] Set up i18n framework (react-i18next or similar).
+  - [x] Extract all user-facing strings to translation files.
+  - [x] Language switcher in settings.
+  - [x] RTL (right-to-left) support for Arabic/Hebrew (if needed).
 
 ---
 
@@ -1140,7 +1140,7 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
   - [x] F10.2 – Tablet optimization. ✅ **COMPLETE**
   - [x] F11.1 – Security UI elements (SSL indicators, privacy links). ✅ **COMPLETE**
   - [x] F11.2 – Trust building (data handling messaging, compliance badges). ✅ **COMPLETE**
-  - [ ] F12.1 – Internationalization (i18n) – Optional but adds enterprise value.
+  - [x] F12.1 – Internationalization (i18n) – Optional but adds enterprise value. ✅ **COMPLETE**
   - [ ] Performance and error logging improvements.
   - [ ] Improved RAG evaluation (better test set, documented results).
   - [ ] Screenshots/GIFs and README polish.

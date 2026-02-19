@@ -862,13 +862,12 @@ export default function Documents() {
       {/* Search and Table Controls */}
       <div className={`flex items-center justify-between gap-4 ${isTablet ? "flex-col sm:flex-row" : ""}`}>
         <div className={`relative flex-1 ${isTablet ? "w-full sm:max-w-sm" : "max-w-sm"}`}>
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search documents…"
-            className={`pl-9 ${isTablet ? "h-11 text-[16px]" : ""}`}
+            className={isTablet ? "h-11 text-[16px]" : ""}
             aria-label="Search documents"
             aria-describedby="documents-description"
           />
