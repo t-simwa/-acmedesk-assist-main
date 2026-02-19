@@ -1029,10 +1029,10 @@ This section covers tasks to elevate the UI from a good prototype to a **world-c
   - [x] Privacy policy and terms links in footer.
   - [x] Security settings page (password change, 2FA if implemented).
 
-- **F11.2 – Trust Building**
-  - [ ] Loading states that show progress (not just spinners).
-  - [ ] Clear data handling messaging (where data is stored, how it's used).
-  - [ ] Compliance badges (GDPR, SOC 2, if applicable).
+- **F11.2 – Trust Building** ✅ **COMPLETE**
+  - [x] Loading states that show progress (not just spinners).
+  - [x] Clear data handling messaging (where data is stored, how it's used).
+  - [x] Compliance badges (GDPR, SOC 2, if applicable).
 
 #### F12 – Internationalization (i18n) – Optional but Enterprise-Ready
 
@@ -1139,7 +1139,7 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
   - [x] F9.3 – Help & onboarding (tooltips, help center, onboarding tour). ✅ **COMPLETE**
   - [x] F10.2 – Tablet optimization. ✅ **COMPLETE**
   - [x] F11.1 – Security UI elements (SSL indicators, privacy links). ✅ **COMPLETE**
-  - [ ] F11.2 – Trust building (data handling messaging, compliance badges).
+  - [x] F11.2 – Trust building (data handling messaging, compliance badges). ✅ **COMPLETE**
   - [ ] F12.1 – Internationalization (i18n) – Optional but adds enterprise value.
   - [ ] Performance and error logging improvements.
   - [ ] Improved RAG evaluation (better test set, documented results).

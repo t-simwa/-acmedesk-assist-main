@@ -8,6 +8,8 @@ import { AccessibilitySettings } from "@/components/AccessibilitySettings";
 import { Logo } from "@/components/Branding/Logo";
 import { HelpIcon } from "@/components/help/HelpIcon";
 import { HelpText } from "@/components/help/HelpText";
+import { ProgressLoader } from "@/components/trust/ProgressLoader";
+import { DataHandlingInfo } from "@/components/trust/DataHandlingInfo";
 
 // Helper function to convert hex to HSL
 function hexToHsl(hex: string): string {
@@ -152,6 +154,7 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [saveProgress, setSaveProgress] = useState(0);
   const [testing, setTesting] = useState(false);
   const [validationResult, setValidationResult] = useState<RAGSettingsValidationResponse | null>(null);
   
@@ -571,7 +574,19 @@ export default function Settings() {
 
     try {
       setSaving(true);
+      setSaveProgress(0);
       setError(null);
+      
+      // Simulate progress for better UX
+      const progressInterval = setInterval(() => {
+        setSaveProgress((prev) => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return prev;
+          }
+          return prev + 10;
+        });
+      }, 100);
       
       const updatePayload: Partial<RAGSettings> = {
         temperature,
@@ -591,6 +606,15 @@ export default function Settings() {
 
       await settingsApi.updateRagSettings(updatePayload);
       
+      clearInterval(progressInterval);
+      setSaveProgress(100);
+      
+      // Wait a moment to show 100% before hiding
+      setTimeout(() => {
+        setSaving(false);
+        setSaveProgress(0);
+      }, 300);
+      
       toast({
         title: "Settings saved",
         description: "RAG settings have been updated successfully.",
@@ -600,6 +624,7 @@ export default function Settings() {
       const apiError = err as ApiError;
       const errorMessage = apiError?.message || "Failed to save settings";
       setError(typeof errorMessage === "string" ? errorMessage : String(errorMessage));
+      setSaveProgress(0);
       toast({
         title: "Error saving settings",
         description: errorMessage,
@@ -1571,13 +1596,13 @@ export default function Settings() {
           <button 
             onClick={handleSaveChanges}
             disabled={saving || Object.keys(fieldErrors).length > 0}
-            className="flex-1 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-[14px] font-medium hover:opacity-90 transition-opacity focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="flex-1 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-[14px] font-medium hover:opacity-90 transition-opacity focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 relative"
             aria-label="Save all settings changes"
           >
             {saving ? (
               <>
                 <Loader2 size={16} className="animate-spin" />
-                Saving...
+                Saving... {saveProgress > 0 && `${saveProgress}%`}
               </>
             ) : (
               <>
@@ -1586,6 +1611,15 @@ export default function Settings() {
               </>
             )}
           </button>
+          {saving && saveProgress > 0 && (
+            <div className="absolute bottom-0 left-0 right-0 h-1 bg-muted">
+              <div 
+                className="h-full bg-primary transition-all duration-300"
+                style={{ width: `${saveProgress}%` }}
+                aria-label={`Saving progress: ${saveProgress}%`}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>
