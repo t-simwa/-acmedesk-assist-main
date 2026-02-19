@@ -55,6 +55,7 @@ import { getChartTheme, chartA11y } from "@/lib/chartTheme";
 import { NetworkErrorState } from "@/components/error/NetworkErrorState";
 import { EmptyState } from "@/components/error/EmptyState";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { HelpIcon } from "@/components/help/HelpIcon";
 
 interface ChartDataPoint {
   day: string;
@@ -439,11 +440,18 @@ export default function Analytics() {
   return (
     <div className="space-y-6 sm:space-y-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-semibold text-foreground">Analytics</h1>
-          <p className="text-[13px] sm:text-[14px] text-muted-foreground mt-1">
-            Chatbot usage and performance metrics
-          </p>
+        <div className="flex items-start gap-2">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-semibold text-foreground">Analytics</h1>
+            <p className="text-[13px] sm:text-[14px] text-muted-foreground mt-1">
+              Chatbot usage and performance metrics
+            </p>
+          </div>
+          <HelpIcon
+            content="View detailed analytics about your chatbot's performance. Track conversations over time, resolution rates, top questions, and more. Use date range filters to analyze specific periods. Export data as CSV, Excel, or PDF."
+            side="right"
+            className="mt-1"
+          />
         </div>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
           <div className="w-full sm:w-auto">

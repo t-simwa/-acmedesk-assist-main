@@ -29,6 +29,7 @@ const Profile = lazy(() => import("./pages/admin/Profile"));
 const TeamManagement = lazy(() => import("./pages/admin/TeamManagement"));
 const AuditLogs = lazy(() => import("./pages/admin/AuditLogs"));
 const APIKeys = lazy(() => import("./pages/admin/APIKeys"));
+const HelpCenter = lazy(() => import("./pages/admin/HelpCenter"));
 
 const App = () => (
   <ErrorBoundary>
@@ -128,6 +129,16 @@ const App = () => (
                     <PageTransition>
                       <Suspense fallback={<DashboardSkeleton />}>
                         <APIKeys />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="help"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <HelpCenter />
                       </Suspense>
                     </PageTransition>
                   }

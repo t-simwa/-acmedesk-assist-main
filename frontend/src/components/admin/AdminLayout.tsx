@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Outlet, Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, FileText, BarChart3, Settings, User, Menu, X, Users, FileTextIcon, KeyRound, Shield } from "lucide-react";
+import { LayoutDashboard, FileText, BarChart3, Settings, User, Menu, X, Users, FileTextIcon, KeyRound, Shield, HelpCircle } from "lucide-react";
 import { PageTransition } from "@/components/PageTransition";
 import { Logo } from "@/components/Branding/Logo";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -15,6 +15,7 @@ const baseNavItems = [
   { label: "Analytics", path: "/admin/analytics", icon: BarChart3, permission: "analytics:read" },
   { label: "Settings", path: "/admin/settings", icon: Settings, permission: "settings:read" },
   { label: "Profile", path: "/admin/profile", icon: User, permission: null },
+  { label: "Help Center", path: "/admin/help", icon: HelpCircle, permission: null },
 ];
 
 // Admin-only navigation items

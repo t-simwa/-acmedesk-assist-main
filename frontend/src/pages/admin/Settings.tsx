@@ -6,6 +6,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle, CheckCircle2, Loader2, Save, RotateCcw, TestTube, ChevronDown, Upload, X } from "lucide-react";
 import { AccessibilitySettings } from "@/components/AccessibilitySettings";
 import { Logo } from "@/components/Branding/Logo";
+import { HelpIcon } from "@/components/help/HelpIcon";
+import { HelpText } from "@/components/help/HelpText";
 
 // Helper function to convert hex to HSL
 function hexToHsl(hex: string): string {
@@ -867,7 +869,13 @@ export default function Settings() {
         {/* Settings Presets */}
         <div className="bg-background rounded-xl border border-border p-6 shadow-soft-sm space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-[15px] font-semibold text-foreground">Settings Presets</h3>
+            <div className="flex items-center gap-1.5">
+              <h3 className="text-[15px] font-semibold text-foreground">Settings Presets</h3>
+              <HelpIcon
+                content="Quick configuration presets for common use cases. Conservative: precise, focused answers. Balanced: good mix of precision and creativity. Aggressive: creative, varied responses with more context."
+                side="right"
+              />
+            </div>
             <span className="text-[12px] text-muted-foreground">
               Current: <span className="font-medium capitalize">{currentPreset}</span>
             </span>
@@ -887,9 +895,9 @@ export default function Settings() {
               </button>
             ))}
           </div>
-          <p className="text-[12px] text-muted-foreground">
-            Presets configure temperature, top-k, max tokens, chunk size, and overlap for common use cases
-          </p>
+          <HelpText>
+            Presets configure temperature, top-k, max tokens, chunk size, and overlap for common use cases. You can customize individual settings after applying a preset.
+          </HelpText>
         </div>
 
         {/* Model Configuration */}
@@ -914,7 +922,13 @@ export default function Settings() {
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label htmlFor="temperature-slider" className="text-[13px] font-medium text-foreground">Temperature</label>
+              <div className="flex items-center gap-1.5">
+                <label htmlFor="temperature-slider" className="text-[13px] font-medium text-foreground">Temperature</label>
+                <HelpIcon
+                  content="Controls the creativity/randomness of responses. Lower values (0-0.5) produce more focused, deterministic answers. Higher values (1-2) produce more creative, varied responses."
+                  side="right"
+                />
+              </div>
               <span className="text-[13px] text-muted-foreground" aria-live="polite" aria-atomic="true">{temperature}</span>
             </div>
             <input
@@ -944,11 +958,20 @@ export default function Settings() {
               <span>Precise</span>
               <span>Creative</span>
             </div>
+            <HelpText>
+              Lower values produce more consistent, factual responses. Higher values allow for more varied and creative answers.
+            </HelpText>
           </div>
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label htmlFor="max-tokens-slider" className="text-[13px] font-medium text-foreground">Max Tokens</label>
+              <div className="flex items-center gap-1.5">
+                <label htmlFor="max-tokens-slider" className="text-[13px] font-medium text-foreground">Max Tokens</label>
+                <HelpIcon
+                  content="Maximum number of tokens (words/characters) in the AI's response. Higher values allow longer responses but increase API costs. Recommended: 512-2048 tokens."
+                  side="right"
+                />
+              </div>
               <span className="text-[13px] text-muted-foreground" aria-live="polite" aria-atomic="true">{maxTokens}</span>
             </div>
             <input
@@ -974,6 +997,9 @@ export default function Settings() {
                 {fieldErrors.maxTokens}
               </p>
             )}
+            <HelpText>
+              Limits response length. A token is roughly 4 characters. Typical responses use 100-500 tokens.
+            </HelpText>
           </div>
         </div>
 
@@ -983,7 +1009,13 @@ export default function Settings() {
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label htmlFor="top-k-slider" className="text-[13px] font-medium text-foreground">Top-K Results</label>
+              <div className="flex items-center gap-1.5">
+                <label htmlFor="top-k-slider" className="text-[13px] font-medium text-foreground">Top-K Results</label>
+                <HelpIcon
+                  content="Number of document chunks to retrieve and use as context for each query. Higher values provide more context but may include less relevant information. Recommended: 3-10 chunks."
+                  side="right"
+                />
+              </div>
               <span className="text-[13px] text-muted-foreground" aria-live="polite" aria-atomic="true">{topK}</span>
             </div>
             <input
@@ -1009,15 +1041,21 @@ export default function Settings() {
                 {fieldErrors.topK}
               </p>
             )}
-            <p className="text-[12px] text-muted-foreground mt-1.5">
-              Number of document chunks to retrieve per query
-            </p>
+            <HelpText>
+              More chunks provide broader context but may reduce answer precision. Start with 5 and adjust based on your document structure.
+            </HelpText>
           </div>
         </div>
 
         {/* Chunking Strategy Configuration */}
         <div className="bg-background rounded-xl border border-border p-6 shadow-soft-sm space-y-5">
-          <h3 className="text-[15px] font-semibold text-foreground">Chunking Strategy</h3>
+          <div className="flex items-center gap-1.5">
+            <h3 className="text-[15px] font-semibold text-foreground">Chunking Strategy</h3>
+            <HelpIcon
+              content="Method for splitting documents into chunks. Recursive: intelligently splits on paragraphs and sentences. Fixed: splits at exact character counts. Semantic: splits based on meaning and context."
+              side="right"
+            />
+          </div>
 
           <div>
             <label htmlFor="chunking-strategy" className="text-[13px] font-medium text-foreground block mb-1.5">
@@ -1033,14 +1071,20 @@ export default function Settings() {
               <option value="fixed">Fixed (character-based)</option>
               <option value="semantic">Semantic (meaning-based)</option>
             </select>
-            <p className="text-[12px] text-muted-foreground mt-1.5">
-              Method used to split documents into chunks
-            </p>
+            <HelpText>
+              Recursive splitting is recommended for most documents as it preserves sentence and paragraph boundaries. Use fixed splitting for uniform content, semantic for complex technical documents.
+            </HelpText>
           </div>
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label htmlFor="chunk-size-input" className="text-[13px] font-medium text-foreground">Chunk Size</label>
+              <div className="flex items-center gap-1.5">
+                <label htmlFor="chunk-size-input" className="text-[13px] font-medium text-foreground">Chunk Size</label>
+                <HelpIcon
+                  content="Character size for splitting documents into chunks. Smaller chunks (200-400) are more precise but may lose context. Larger chunks (800-1200) preserve context but may include irrelevant information."
+                  side="right"
+                />
+              </div>
             </div>
             <input
               id="chunk-size-input"
@@ -1062,15 +1106,21 @@ export default function Settings() {
                 {fieldErrors.chunkSize}
               </p>
             ) : (
-              <p id="chunk-size-description" className="text-[12px] text-muted-foreground mt-1.5">
-                Character size for document chunking (default: 600)
-              </p>
+              <HelpText id="chunk-size-description">
+                Character size for document chunking. Default: 600 characters. Adjust based on your document structure - technical docs may need larger chunks, FAQs may need smaller ones.
+              </HelpText>
             )}
           </div>
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label htmlFor="chunk-overlap-input" className="text-[13px] font-medium text-foreground">Chunk Overlap</label>
+              <div className="flex items-center gap-1.5">
+                <label htmlFor="chunk-overlap-input" className="text-[13px] font-medium text-foreground">Chunk Overlap</label>
+                <HelpIcon
+                  content="Number of characters shared between adjacent chunks. Overlap prevents information loss at chunk boundaries. Recommended: 10-20% of chunk size (e.g., 50-100 for 600-char chunks)."
+                  side="right"
+                />
+              </div>
             </div>
             <input
               id="chunk-overlap-input"
@@ -1092,9 +1142,9 @@ export default function Settings() {
                 {fieldErrors.chunkOverlap}
               </p>
             ) : (
-              <p id="chunk-overlap-description" className="text-[12px] text-muted-foreground mt-1.5">
-                Number of characters to overlap between chunks (default: 100)
-              </p>
+              <HelpText id="chunk-overlap-description">
+                Number of characters to overlap between chunks. Default: 100. Overlap ensures context isn't lost when splitting documents, especially for sentences that span chunk boundaries.
+              </HelpText>
             )}
           </div>
         </div>
@@ -1104,9 +1154,15 @@ export default function Settings() {
           <h3 className="text-[15px] font-semibold text-foreground">Embedding Model</h3>
 
           <div>
-            <label htmlFor="embedding-model" className="text-[13px] font-medium text-foreground block mb-1.5">
-              Embedding Model
-            </label>
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <label htmlFor="embedding-model" className="text-[13px] font-medium text-foreground">
+                Embedding Model
+              </label>
+              <HelpIcon
+                content="Model used to convert text into numerical vectors for semantic search. all-MiniLM-L6-v2 is fast and efficient. all-mpnet-base-v2 offers better quality but is slower."
+                side="right"
+              />
+            </div>
             <select
               id="embedding-model"
               value={embeddingModel}
@@ -1117,16 +1173,22 @@ export default function Settings() {
               <option value="all-mpnet-base-v2">all-mpnet-base-v2 (Better Quality)</option>
               <option value="sentence-transformers/all-MiniLM-L12-v2">all-MiniLM-L12-v2 (Balanced)</option>
             </select>
-            <p className="text-[12px] text-muted-foreground mt-1.5">
-              Model used for generating document embeddings
-            </p>
+            <HelpText>
+              Embeddings enable semantic search. The default model balances speed and quality. Switch to all-mpnet-base-v2 for better accuracy on complex queries.
+            </HelpText>
           </div>
         </div>
 
         {/* System Prompt with Templates */}
         <div className="bg-background rounded-xl border border-border p-6 shadow-soft-sm space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-[15px] font-semibold text-foreground">System Prompt</h3>
+            <div className="flex items-center gap-1.5">
+              <h3 className="text-[15px] font-semibold text-foreground">System Prompt</h3>
+              <HelpIcon
+                content="Instructions prepended to every conversation to guide the AI's behavior. Use this to set tone, enforce answer style, and specify what to do when information isn't available in the knowledge base."
+                side="right"
+              />
+            </div>
             <button
               onClick={() => setShowPromptTemplates(!showPromptTemplates)}
               className="text-[13px] text-muted-foreground hover:text-foreground flex items-center gap-1"
@@ -1192,9 +1254,9 @@ export default function Settings() {
             className="w-full px-3 py-2 bg-background border border-border rounded-lg text-[14px] text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 focus:ring-2 focus:ring-ring/20 focus:border-primary resize-none"
             aria-describedby="system-prompt-description"
           />
-          <p id="system-prompt-description" className="text-[12px] text-muted-foreground">
-            This prompt is prepended to every conversation to guide the model's behavior
-          </p>
+          <HelpText id="system-prompt-description">
+            This prompt is prepended to every conversation to guide the model's behavior. Be specific about answer style, tone, and what to do when information isn't available.
+          </HelpText>
         </div>
 
         {/* White-Labeling & Branding */}

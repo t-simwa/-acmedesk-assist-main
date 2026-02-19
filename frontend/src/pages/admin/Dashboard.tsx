@@ -9,6 +9,8 @@ import { useCountUp } from "@/hooks/useCountUp";
 import { NetworkErrorState } from "@/components/error/NetworkErrorState";
 import { EmptyState } from "@/components/error/EmptyState";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { HelpIcon } from "@/components/help/HelpIcon";
+import { OnboardingTour, TourStep } from "@/components/help/OnboardingTour";
 
 interface DashboardStat {
   label: string;
@@ -158,9 +160,15 @@ export default function Dashboard() {
       aria-labelledby="top-questions-heading"
     >
       <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-border flex items-center justify-between">
-        <h2 id="top-questions-heading" className="text-[14px] sm:text-[15px] font-semibold text-foreground">
-          Top Questions Today
-        </h2>
+        <div className="flex items-center gap-1.5">
+          <h2 id="top-questions-heading" className="text-[14px] sm:text-[15px] font-semibold text-foreground">
+            Top Questions Today
+          </h2>
+          <HelpIcon
+            content="Most frequently asked questions from today. Questions marked 'Resolved' were answered by the bot. 'Escalated' questions required human intervention."
+            side="right"
+          />
+        </div>
         <Button
           variant="ghost"
           size="sm"
@@ -243,14 +251,54 @@ export default function Dashboard() {
     );
   }
 
+  const tourSteps: TourStep[] = [
+    {
+      id: "dashboard-overview",
+      target: "h1",
+      title: "Welcome to AcmeDesk Assist!",
+      content: "This is your dashboard where you can monitor your chatbot's performance. Let's take a quick tour of the key features.",
+      position: "bottom",
+    },
+    {
+      id: "stats-widget",
+      target: '[role="region"][aria-label*="Conversations"]',
+      title: "Key Metrics",
+      content: "These cards show important metrics: conversations today, documents indexed, resolution rate, and active users. They update in real-time.",
+      position: "bottom",
+    },
+    {
+      id: "top-questions",
+      target: "#top-questions-heading",
+      title: "Top Questions",
+      content: "See the most frequently asked questions. Questions marked 'Resolved' were answered by the bot, while 'Escalated' ones needed human help.",
+      position: "bottom",
+    },
+  ];
+
   return (
     <div className="space-y-6 sm:space-y-8">
+      <OnboardingTour
+        steps={tourSteps}
+        onComplete={() => {
+          // Tour completed
+        }}
+        onSkip={() => {
+          // Tour skipped
+        }}
+      />
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-semibold text-foreground">Dashboard</h1>
-          <p className="text-[13px] sm:text-[14px] text-muted-foreground mt-1">
-            Overview of your support chatbot performance
-          </p>
+        <div className="flex items-start gap-2">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-semibold text-foreground">Dashboard</h1>
+            <p className="text-[13px] sm:text-[14px] text-muted-foreground mt-1">
+              Overview of your support chatbot performance
+            </p>
+          </div>
+          <HelpIcon
+            content="The dashboard shows key metrics about your chatbot's performance. View conversations, documents, resolution rates, and top questions. You can drag widgets to reorder them."
+            side="right"
+            className="mt-1"
+          />
         </div>
         <Button
           variant="outline"
