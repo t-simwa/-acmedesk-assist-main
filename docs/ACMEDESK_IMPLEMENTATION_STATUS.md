@@ -2,7 +2,7 @@
 
 **Generated:** February 2026  
 **Project:** `acmedesk-assist-main` (AcmeDesk RAG Support Chatbot v1 – Portfolio Project)  
-**Project Type:** Frontend prototype (no backend / RAG pipeline yet)  
+**Project Type:** Full-stack RAG application (backend + frontend + RAG pipeline fully implemented)  
 **Specification Reference:** Project 1 from `experience-bootstrapping-selection-phase-part3.txt` (lines 111-466)  
 **Gap Analysis:** See `docs/GAP_ANALYSIS_PROJECT1_SPEC.md` for detailed comparison  
 
@@ -26,16 +26,35 @@ This document evaluates the current `acmedesk-assist-main` codebase against the 
 
 - ✅ **Frontend UI Shell:** Vite + React + Tailwind + shadcn-style components, implementing:
   - Public landing/home page with embedded chat widget (`src/pages/Index.tsx`, `src/components/chat/ChatWidget.tsx`).
-  - Admin layout + pages: Dashboard, Documents, Analytics, Settings (all UI-only; static data).
-- ⚠️ **No Backend / API / RAG:** There is **no** `backend/` folder, FastAPI/Express app, or any HTTP calls from the frontend.
-- ⚠️ **No Real RAG Pipeline:** All chat answers are local mock responses; no embeddings, vector DB, or document ingestion.
-- ⚠️ **No Persistence:** No database (relational or vector); all state is in-memory in React components only.
-- ⚠️ **No Admin Functionality Behind UI:** Uploads, document statuses, analytics, and settings are purely presentational; nothing is wired to a backend.
-- ⚠️ **Testing & Infra:** Basic Vitest + React Testing Library scaffolding exists, but no meaningful tests, no ingestion scripts, and no deployment configuration specific to this project (beyond generic Lovable/Vite guidance).
+  - Admin layout + pages: Dashboard, Documents, Analytics, Settings (fully wired to backend APIs with real-time data).
+- ✅ **Backend / API / RAG:** Full FastAPI backend with:
+  - Complete RAG pipeline (document ingestion, chunking, embeddings, vector store, hybrid search, re-ranking).
+  - Chat endpoints (`POST /api/chat`, `GET /api/chat/stream`) with real RAG-powered responses.
+  - Document management APIs (upload, list, reindex, delete).
+  - Analytics APIs with real metrics from database.
+  - Settings APIs with persistence.
+  - Health endpoints (`/api/health`, `/api/health/ready`, `/api/health/live`).
+- ✅ **RAG Pipeline:** Fully operational with:
+  - Document loaders for MD, HTML, TXT, PDF, DOCX formats.
+  - Chunking with configurable size/overlap.
+  - Embeddings via Sentence Transformers (default) or OpenAI.
+  - ChromaDB vector store with hybrid semantic + BM25 keyword search.
+  - Optional re-ranking with cross-encoder.
+  - LLM generation with citation parsing.
+- ✅ **Persistence:** SQLite database for conversations, documents, settings, and analytics. ChromaDB for vector storage.
+- ✅ **Admin Functionality:** All admin pages fully functional:
+  - Documents: Real upload, processing, indexing, and status tracking.
+  - Analytics: Real-time metrics from database (conversations, messages, resolution rates, API costs).
+  - Settings: Persistent RAG configuration (model, temperature, top-k, chunk size, system prompt).
+- ✅ **Testing & Infra:** Comprehensive test suite:
+  - Backend tests (API endpoints, RAG pipeline, chunking, embeddings, vector store).
+  - Frontend tests (components, integration).
+  - Manual test checklists and RAG quality evaluation scripts.
+  - Ingestion scripts for knowledge base documents.
 
 **Overall completion vs target AcmeDesk v1 spec:**  
-Frontend visual shell: ~50% | Backend & RAG: 0% | Admin functionality: 5–10% (UI only) | Testing: 5% | Infra/Deployment: 10%  
-**Very rough overall:** ~22–27% of a full "execution-phase" v1.
+Frontend: ~95% | Backend & RAG: ~100% | Admin functionality: ~95% | Testing: ~90% | Infra/Deployment: ~70%  
+**Overall:** ~90–95% of a full "execution-phase" v1 (remaining work is primarily deployment and final polish).
 
 **Recent Updates (Typography & Chat Widget Improvements):**
 - ✅ Comprehensive typography system implemented (Plus Jakarta Sans, Satoshi, Geist Mono) with responsive font sizes
@@ -66,26 +85,25 @@ This section maps the **intended architecture and execution-phase requirements**
   - `src/components/chat/ChatWidget.tsx`:
     - Floating button bottom-right with polished animation and online indicator.
     - Slide-up panel with:
-      - Header showing “AcmeDesk”, online badge.
+      - Header showing "AcmeDesk", online badge.
       - Message list using `MessageBubble`.
       - Typing indicator (`TypingIndicator`).
       - Input area (`ChatInput`) with send behavior.
-    - `getMockResponse()` implements **local keyword-based canned responses** (pricing, integrations, setup, SLA, default “escalate to human” text).
-  - ✅ Good adherence to visual spec (professional, minimal, no “AI robot” branding).
-- ❌ **Missing / Not Implemented**
-  - No API calls to a backend (`fetch`, `axios`, or react-query are not used here).
-  - No true multi-turn conversation with backend context or session IDs.
-  - No citations sourced from real documents (hardcoded `"Getting Started Guide", "FAQ"` names only).
-  - No error handling for network issues (since no network requests exist).
-  - No mobile-specific behavior tweaks beyond plain CSS responsiveness.
-  - ❌ Copy message functionality (spec requirement).
-  - ❌ Clear conversation button (spec requirement).
-  - ❌ Suggested questions/quick replies (spec requirement).
-  - ❌ Empty state when no messages (spec requirement).
+  - ✅ Good adherence to visual spec (professional, minimal, no "AI robot" branding).
+- ✅ **Backend Integration & RAG Functionality**
+  - ✅ API calls to backend via `src/lib/api.ts` using `fetch` with proper error handling.
+  - ✅ Real multi-turn conversation with backend context and session IDs.
+  - ✅ Citations sourced from real documents with proper metadata (document titles, chunk references).
+  - ✅ Comprehensive error handling for network issues, timeouts, and API errors.
+  - ✅ Mobile-optimized experience with full-screen overlay on mobile devices.
+  - ✅ Copy message functionality implemented (spec requirement).
+  - ✅ Clear conversation button implemented (spec requirement).
+  - ✅ Suggested questions/quick replies implemented (spec requirement).
+  - ⚠️ Empty state when no messages (partially implemented - shows suggested questions).
 
 **Status:**  
-UI/UX: **~80% of target** (for a polished prototype widget).  
-Real functionality (RAG + API): **0%**.
+UI/UX: **~95% of target** (enterprise-grade widget with polished interactions).  
+Real functionality (RAG + API): **~100%** (fully operational RAG pipeline with real document retrieval and citations).
 
 ---
 
@@ -101,47 +119,51 @@ Real functionality (RAG + API): **0%**.
 **Current Implementation:**
 
 - `src/components/admin/AdminLayout.tsx`
-  - ✅ Sidebar navigation (`Dashboard`, `Documents`, `Analytics`, `Settings`).
+  - ✅ Sidebar navigation (`Dashboard`, `Documents`, `Analytics`, `Settings`, plus enterprise features like Team, Audit Logs, API Keys).
   - ✅ Layout structure similar to Linear/Vercel admin shells.
-  - ❌ No auth / protected routes; accessible directly via `/admin`.
+  - ⚠️ No auth / protected routes; accessible directly via `/admin` (auth can be added as enhancement).
 
 - `src/pages/admin/Dashboard.tsx`
-  - ✅ UI for key metrics and top questions, but **all values are hard-coded**:
-    - `stats` array with static counts.
-    - `recentQueries` array with mock questions and status.
-  - ❌ No backing API or real-time updates.
+  - ✅ UI for key metrics and top questions, **fully wired to backend APIs**:
+    - Real-time stats from analytics API.
+    - Recent queries from conversation history.
+    - Live updates and loading states.
 
 - `src/pages/admin/Documents.tsx`
-  - ✅ Drag-and-drop styled drop zone, upload button, and a documents table:
-    - `mockDocs` array with example docs, statuses, chunk counts, timestamps.
-    - Search/filter over the mock array.
-  - ❌ Upload:
-    - OnDrop handler **does nothing** beyond resetting `dragOver` state.
-    - Upload button has no file picker, no API call, no integration with a storage/RAG pipeline.
-  - ❌ Status and chunks:
-    - All document statuses are static; no linkage to a processing queue, embeddings, or RAG index.
+  - ✅ Drag-and-drop styled drop zone, upload button, and documents table:
+    - Real document data from `/api/documents` endpoint.
+    - Search/filter over real document list.
+  - ✅ Upload functionality:
+    - OnDrop handler uploads files to `/api/documents/upload`.
+    - Upload button with file picker, API integration, and progress tracking.
+    - Full integration with storage and RAG pipeline (automatic ingestion and indexing).
+  - ✅ Status and chunks:
+    - Real-time document statuses (`processing`, `indexed`, `error`) from backend.
+    - Actual chunk counts from vector store.
+    - Reindex functionality that triggers re-ingestion.
 
 - `src/pages/admin/Analytics.tsx`
-  - ✅ Charts using Recharts:
-    - Bar chart for “Conversations” over last 7 days.
-    - Line chart for “Resolution Rate”.
-    - Top categories list with simple horizontal bars.
-  - ❌ All datasets (`conversationData`, `resolutionData`, `topCategories`) are hard-coded; there is **no real query history** or metrics pulled from a backend.
+  - ✅ Charts using Recharts with real data:
+    - Bar chart for "Conversations" over last 7/30 days from analytics API.
+    - Line chart for "Resolution Rate" from real metrics.
+    - Top categories and queries from database.
+    - Additional visualizations: heatmap, Sankey diagram, word cloud, sentiment analysis, performance metrics.
+  - ✅ All datasets powered by `/api/analytics/summary` and `/api/analytics/top-queries` endpoints.
 
 - `src/pages/admin/Settings.tsx`
   - ✅ UI for:
-    - Model selection (`gpt-4o`, `gpt-4o-mini`, `gpt-3.5-turbo`).
-    - Temperature slider, max tokens slider.
-    - Top-K results slider.
+    - Model selection (wired to backend).
+    - Temperature slider, max tokens slider, top-K results slider.
+    - Chunk size configuration (spec requirement).
     - Editable system prompt for RAG behavior.
-  - ❌ All state is **local React state** only; clicking “Save Changes” does not:
-    - Persist to any backend configuration.
-    - Affect `ChatWidget` behavior.
-    - Update any actual RAG pipeline because none exists.
+  - ✅ Full backend integration:
+    - Settings persisted via `/api/settings/rag` endpoints.
+    - Changes immediately affect `ChatWidget` behavior and RAG pipeline.
+    - Real-time validation and error handling.
 
 **Status:**  
-Visual/admin shell: **~60–70% (UI-only)**.  
-Actual admin functionality (docs ingestion, indexing, analytics, configuration persistence): **~5–10% (essentially unimplemented)**.
+Visual/admin shell: **~95% (fully functional)**.  
+Actual admin functionality (docs ingestion, indexing, analytics, configuration persistence): **~95% (fully implemented and operational)**.
 
 ---
 
@@ -166,23 +188,28 @@ Actual admin functionality (docs ingestion, indexing, analytics, configuration p
 
 **Current Implementation:**
 
-- ❌ **No backend folder**
-  - No `backend/`, `server/`, `api/` directory in repo root.
-  - No `fastapi`, `express`, or other backend dependencies in `package.json`.
-  - No `requirements.txt`, `pyproject.toml`, or Node backend `package.json` for an API server.
+- ✅ **Backend folder fully implemented**
+  - Complete `backend/` directory with FastAPI application.
+  - `backend/requirements.txt` with all dependencies (FastAPI, SQLAlchemy, ChromaDB, Sentence Transformers, etc.).
+  - Full project structure: `app/` (main, config, models, routers, services, schemas, rag), `scripts/`, `tests/`, `data/`, `storage/`.
 
-- ❌ **No RAG components**
-  - No document loaders, chunkers, embedding wrappers, vector store client, or retrieval logic.
-  - No prompt construction utilities.
-  - No query logging or conversation history models.
+- ✅ **RAG components fully implemented**
+  - Document loaders (`backend/app/rag/loaders.py`) for MD, HTML, TXT, PDF, DOCX.
+  - Chunking (`backend/app/rag/chunking.py`) with configurable size/overlap.
+  - Embedding wrappers (`backend/app/rag/embeddings.py`) - Sentence Transformers + OpenAI support.
+  - Vector store client (`backend/app/rag/vector_store.py`) - ChromaDB integration.
+  - Retrieval logic (`backend/app/rag/retrieval.py`) - hybrid search (semantic + BM25) with optional re-ranking.
+  - Prompt construction utilities (`backend/app/rag/retrieval.py`).
+  - Query logging and conversation history models (`backend/app/models/`).
 
-- ❌ **No HTTP integration**
-  - Frontend `ChatWidget` does not call `/api/chat` or any API at all.
-  - Admin pages do not call any document, analytics, or settings endpoints.
+- ✅ **Full HTTP integration**
+  - Frontend `ChatWidget` calls `/api/chat` with real RAG-powered responses.
+  - Admin pages fully integrated: Documents (`/api/documents`), Analytics (`/api/analytics`), Settings (`/api/settings`).
+  - All endpoints documented at `/api/docs` (Swagger UI).
 
 **Status:**  
-Backend/API: **0% implemented** in this repository.  
-RAG pipeline: **0% implemented**.
+Backend/API: **~100% implemented** in this repository.  
+RAG pipeline: **~100% implemented** (all components operational).
 
 ---
 
@@ -195,12 +222,22 @@ RAG pipeline: **0% implemented**.
 
 **Current Implementation:**
 
-- ❌ No database configuration or client code (SQL or NoSQL).
-- ❌ No vector DB integration.
-- ❌ No data folder (`data/`, `docs/knowledge-base/`, etc.) containing knowledge articles for a RAG index.
-- ❌ No ingestion/seed script.
+- ✅ Database configuration and client code:
+  - SQLite database with SQLAlchemy ORM (`backend/app/models/`).
+  - Full schema: documents, conversations, messages, settings, audit logs, team members, API keys.
+  - Async database operations with proper connection management.
+- ✅ Vector DB integration:
+  - ChromaDB integration (`backend/app/rag/vector_store.py`).
+  - Persistent vector storage in `backend/data/vector_db/`.
+  - Metadata mapping for document and chunk references.
+- ✅ Knowledge base data:
+  - `data/docs/` folder with 20+ AcmeDesk knowledge articles (MD, HTML, TXT formats).
+  - Documents cover: getting started, API integration, billing, security, SLA policies, troubleshooting, etc.
+- ✅ Ingestion/seed script:
+  - `backend/scripts/ingest_examples.py` for indexing knowledge base documents.
+  - Supports batch ingestion with progress tracking and error handling.
 
-**Status:** **0% implemented**.
+**Status:** **~100% implemented** (all storage components operational).
 
 ---
 
@@ -218,22 +255,24 @@ RAG pipeline: **0% implemented**.
 **Current Implementation:**
 
 - Root layout:
-  - Everything is in a **single Vite React app**:
-    - Root `package.json` describes a Vite/React/TypeScript SPA.
-    - `src/` contains React pages and components only.
-    - ⚠️ **Note:** Using Vite + React 18+ instead of Next.js (acceptable per spec: "Next.js 14+ (App Router) or React 18+").
-  - `backend/` directory exists with FastAPI skeleton (A1-A3 implemented).
-  - `docs/` currently contains:
-    - Freely-structured learning/strategy docs (Phase 1–3, IMPLEMENTATION_STATUS for a *different* project, Acme initial prompt).
-    - ❌ No `architecture.md`, `admin-guide.md`, `rag-eval.md` for THIS codebase.
-  - ❌ No `data/docs/` folder with knowledge base documents (spec requirement: 50-200 documents).
-  - ❌ No `.env.example` describing required environment variables.
+  - Monorepo structure with separate `frontend/` and `backend/` directories:
+    - `frontend/` contains Vite + React 18+ + TypeScript SPA (meets spec requirement).
+    - `backend/` contains complete FastAPI application with full RAG pipeline.
+    - `docs/` contains comprehensive execution-phase documentation.
+  - `backend/` directory with complete FastAPI implementation (all sections A-E implemented).
+  - `docs/` contains:
+    - Project-specific architecture documentation (`docs/architecture.md`).
+    - RAG evaluation documentation (`docs/RAG_EVALUATION_SUMMARY.md`, `docs/E-testing-and-quality/E1-rag-quality-checks.md`).
+    - Comprehensive implementation checklists (Sections A-F).
+    - Manual test checklists and quality documentation.
+  - ✅ `data/docs/` folder with knowledge base documents (20+ documents covering AcmeDesk features).
+  - ⚠️ No `.env.example` file (environment variables documented in README and `backend/app/config.py`).
 
 **Status:**  
-Frontend SPA structure: **OK for early UI prototyping** (Vite + React meets spec requirement).  
-Backend skeleton: **Present** (FastAPI, A1-A3 implemented).  
-Monorepo-style architecture & documentation expected from execution phase: **partially in place**.  
-Knowledge base data: **Not present** (spec requirement missing).
+Frontend SPA structure: **Complete** (Vite + React meets spec requirement).  
+Backend implementation: **Complete** (FastAPI with full RAG pipeline, all sections implemented).  
+Monorepo-style architecture & documentation: **Fully in place** (comprehensive docs structure).  
+Knowledge base data: **Present** (20+ documents; can be expanded to meet 50-200 spec requirement).
 
 ---
 
@@ -246,19 +285,27 @@ Knowledge base data: **Not present** (spec requirement missing).
 
 **Current Implementation:**
 
-- `vitest.config.ts`, `src/test/example.test.ts`, `src/test/setup.ts` exist (Lovable default).
-- ✅ Basic testing scaffolding:
+- ✅ Frontend testing:
+  - `vitest.config.ts`, test setup files, and component tests.
   - Vitest + React Testing Library + jsdom configured.
-- ❌ No domain-specific tests:
-  - No tests for chat widget behavior, message rendering, or error states.
-  - No tests for admin pages (Documents, Analytics, Settings).
-  - No backend tests (no backend exists).
-  - No RAG evaluation tests or utilities.
-- ❌ No manual test checklist in `docs/` tailored to AcmeDesk Assist.
+  - Tests for chat widget behavior, message rendering, and error states.
+  - Tests for admin pages (Documents, Analytics, Settings components).
+- ✅ Backend testing:
+  - Comprehensive test suite in `backend/tests/`:
+    - API endpoint tests (`test_api_health.py`, `test_api_chat.py`).
+    - RAG pipeline tests (`test_chunking.py`, `test_embeddings.py`, `test_vector_store.py`, `test_loaders.py`).
+    - Integration tests (`test_b3_integration.py`).
+- ✅ RAG evaluation:
+  - Evaluation script (`backend/scripts/evaluate_rag_quality.py`).
+  - Test question set (`backend/scripts/test_questions.json`).
+  - Comprehensive evaluation documentation.
+- ✅ Manual test checklists:
+  - `docs/E-testing-and-quality/E1-manual-test-checklist.md` with comprehensive test scenarios.
+  - RAG quality checks documentation.
 
 **Status:**  
-Test tooling: **present but unused**.  
-Meaningful tests & checklists: **0–5% of target**.
+Test tooling: **Fully configured and utilized**.  
+Meaningful tests & checklists: **~90% of target** (comprehensive coverage, remaining work is expanded test scenarios).
 
 ---
 
@@ -274,22 +321,33 @@ Meaningful tests & checklists: **0–5% of target**.
 
 **Current Implementation:**
 
-- `package.json` scripts:
-  - `"dev": "vite"`
-  - `"build": "vite build"`
-  - `"build:dev": "vite build --mode development"`
-  - `"preview": "vite preview"`
-  - `"test": "vitest run"`, `"test:watch": "vitest"`
-  - No scripts for backend or ingestion (since they do not exist).
+- Frontend `package.json` scripts:
+  - `"dev": "vite"` - Frontend development server.
+  - `"build": "vite build"` - Production build.
+  - `"test": "vitest run"`, `"test:watch": "vitest"` - Frontend tests.
+- Backend setup:
+  - `backend/requirements.txt` with all dependencies.
+  - Backend can be run with `uvicorn app.main:app --reload`.
+  - Ingestion script: `python scripts/ingest_examples.py`.
+  - Backend tests: `pytest` from `backend/` directory.
 - README:
-  - Generic Lovable/Vite instructions only (clone, `npm i`, `npm run dev`).
-  - ❌ No mention of a backend, RAG, or environment variables.
-- ❌ No Dockerfile, docker-compose, or cloud deploy config specific to this project.
-- ❌ No health endpoints or monitoring, since there is no backend service.
+  - Comprehensive project documentation (`README.md`):
+    - Full-stack architecture description.
+    - Backend and frontend setup instructions.
+    - RAG ingestion and evaluation guide.
+    - Environment variables documented.
+    - Testing instructions.
+- ⚠️ Deployment configuration:
+  - No Dockerfile or docker-compose (can be added for deployment).
+  - No cloud deploy config (can be added for Vercel/Render deployment).
+- ✅ Health endpoints:
+  - `/api/health`, `/api/health/ready`, `/api/health/live` fully implemented.
+  - Database and vector store connectivity checks.
 
 **Status:**  
-Frontend dev workflow: **OK for prototyping**.  
-Full execution-phase infra (multi-service dev, staging, prod, health checks): **essentially 0%**.
+Frontend dev workflow: **Complete and production-ready**.  
+Backend dev workflow: **Complete with health checks**.  
+Full execution-phase infra (multi-service dev, staging, prod): **~70%** (core functionality complete, deployment configs can be added).
 
 ---
 
@@ -305,15 +363,24 @@ Full execution-phase infra (multi-service dev, staging, prod, health checks): **
 **Current Implementation:**
 
 - README:
-  - Only Lovable boilerplate; no domain-specific description of AcmeDesk Assist, RAG, or admin features.
+  - Comprehensive project documentation (`README.md`):
+    - Full description of AcmeDesk Assist features.
+    - Architecture overview and project structure.
+    - Setup instructions for backend and frontend.
+    - RAG ingestion and evaluation guide.
+    - Testing instructions.
 - Docs:
-  - You have **rich planning/strategy docs** in `docs/freelancing/` and a comprehensive `IMPLEMENTATION_STATUS.md` for another project (DocuMind AI).
-  - ❌ No project-specific architecture description for this codebase.
-  - ❌ No RAG evaluation notes (because there is no RAG yet).
-- ❌ No screenshots or demo links referenced in this repo.
+  - **Rich execution-phase documentation** in `docs/`:
+    - `docs/architecture.md` - Project-specific architecture description.
+    - `docs/RAG_EVALUATION_SUMMARY.md` - RAG evaluation results and metrics.
+    - `docs/ACMEDESK_IMPLEMENTATION_STATUS.md` - Comprehensive implementation status (this document).
+    - Detailed checklists for all implementation areas (Sections A-F).
+    - Manual test checklists and quality documentation.
+- ⚠️ Screenshots and demo:
+  - No screenshots or demo links yet (can be added for portfolio presentation).
 
 **Status:**  
-Portfolio quality of THIS repo: **low**, despite strong planning documents.
+Portfolio quality of THIS repo: **High** - Comprehensive documentation, fully functional system, ready for portfolio presentation (screenshots/demo links can enhance further).
 
 ---
 
@@ -323,94 +390,92 @@ This table focuses on **technical capabilities the execution-phase docs expect**
 
 | Area | Expectation from Execution Phase | Status in `acmedesk-assist-main` |
 | --- | --- | --- |
-| Chat widget UI | Floating button, slide-up panel, messages, typing indicator | ✅ Implemented (frontend-only, mock responses) |
-| Chat widget features | Copy message, clear conversation, suggested questions, empty state | ❌ Not implemented (spec requirements) |
-| Chat → Backend wiring | `POST /api/chat` with session handling | ✅ Implemented (A3) |
-| Conversation APIs | `GET /api/conversations`, `DELETE /api/conversations/:id` | ❌ Not implemented (spec requirements) |
-| RAG pipeline | Ingestion, chunking, embeddings, vector DB, retrieval | ❌ Not implemented |
-| Hybrid search | Keyword + semantic search combination | ❌ Not implemented (spec requirement) |
-| Re-ranking | Re-rank retrieved chunks for better accuracy | ❌ Not implemented (spec requirement, optional) |
-| Grounded answers + citations | Answers from docs with source links | ❌ Only hardcoded `"Getting Started Guide", "FAQ"` strings |
-| Safe hallucination handling | "I'm not sure, escalate" behavior based on context | ❌ Mock-only; no real confidence or context checks |
-| Documents admin | Upload, list, status, chunk counts from backend | ⚠️ UI mock only (no API) |
-| RAG settings | Model, temperature, top-k, chunk size stored and used by backend | ⚠️ UI mock only (local state; chunk size missing) |
-| Analytics | Charts powered by real query, resolution, category data | ⚠️ UI mock only (hardcoded arrays) |
-| Analytics metrics | Total messages, response accuracy, user satisfaction, API costs | ❌ Not implemented (spec requirements) |
-| Conversation logging | Persisted in DB with history, performance metrics | ⚠️ Partially implemented (A3 has persistence, but no GET endpoint) |
-| Health endpoints | `/api/health` etc. | ✅ Implemented (A2) |
-| Ingestion/seed script | Command to index example docs | ❌ Not implemented |
-| Env configuration | `.env.example` + README instructions | ❌ Not implemented |
-| Test plan | Manual checklist for widget/admin/RAG | ❌ Not implemented |
-| Automated tests | Chunking logic, health endpoint, key flows | ❌ Not implemented (only generic example test) |
-| Multi-env setup | Dev/staging/prod with config | ❌ Not implemented |
+| Chat widget UI | Floating button, slide-up panel, messages, typing indicator | ✅ Implemented (fully functional with backend integration) |
+| Chat widget features | Copy message, clear conversation, suggested questions, empty state | ✅ Implemented (copy, clear conversation, suggested questions; empty state shows suggested questions) |
+| Chat → Backend wiring | `POST /api/chat` with session handling | ✅ Implemented (A3) - Full RAG-powered responses |
+| Conversation APIs | `GET /api/conversations`, `DELETE /api/conversations/:id` | ✅ Implemented (A3) - Full conversation history and deletion |
+| RAG pipeline | Ingestion, chunking, embeddings, vector DB, retrieval | ✅ Implemented (B1-B5) - Complete pipeline operational |
+| Hybrid search | Keyword + semantic search combination | ✅ Implemented (B4) - BM25 + semantic search with weighted combination |
+| Re-ranking | Re-rank retrieved chunks for better accuracy | ✅ Implemented (B4) - Optional cross-encoder re-ranking |
+| Grounded answers + citations | Answers from docs with source links | ✅ Implemented - Real document citations with metadata |
+| Safe hallucination handling | "I'm not sure, escalate" behavior based on context | ✅ Implemented - Context-aware responses with confidence handling |
+| Documents admin | Upload, list, status, chunk counts from backend | ✅ Implemented (A4, D3) - Full CRUD operations with real backend |
+| RAG settings | Model, temperature, top-k, chunk size stored and used by backend | ✅ Implemented (A5, D5) - All settings persisted and functional |
+| Analytics | Charts powered by real query, resolution, category data | ✅ Implemented (A5, D4) - Real-time analytics from database |
+| Analytics metrics | Total messages, response accuracy, user satisfaction, API costs | ✅ Implemented (A5) - All metrics tracked and displayed |
+| Conversation logging | Persisted in DB with history, performance metrics | ✅ Implemented (A3, C1) - Full conversation persistence with metadata |
+| Health endpoints | `/api/health` etc. | ✅ Implemented (A2) - Health, ready, and live endpoints |
+| Ingestion/seed script | Command to index example docs | ✅ Implemented (B6) - `scripts/ingest_examples.py` |
+| Env configuration | `.env.example` + README instructions | ⚠️ Partially implemented - Documented in README and config.py, no `.env.example` file |
+| Test plan | Manual checklist for widget/admin/RAG | ✅ Implemented (E1) - Comprehensive manual test checklists |
+| Automated tests | Chunking logic, health endpoint, key flows | ✅ Implemented (E2) - Backend and frontend test suites |
+| Multi-env setup | Dev/staging/prod with config | ⚠️ Partially implemented - Environment config exists, multi-env deployment not configured |
 
 ---
 
-## 🎯 Does the Current Project Fulfill the “Client” Requirements?
+## 🎯 Does the Current Project Fulfill the "Client" Requirements?
 
-Using the AcmeDesk “client” needs from the execution-phase docs and `acme-initial-prompt`:
+Using the AcmeDesk "client" needs from the execution-phase docs and `acme-initial-prompt`:
 
-- **Requirement:** “AI chatbot that answers questions using OUR knowledge base (not generic ChatGPT), with safe answers and source links.”  
-  - **Current:** Chatbot uses **hardcoded canned responses** and no knowledge base.  
-  - **Status:** ❌ Not fulfilled.
+- **Requirement:** "AI chatbot that answers questions using OUR knowledge base (not generic ChatGPT), with safe answers and source links."  
+  - **Current:** Chatbot uses **real RAG pipeline** with knowledge base documents, grounded answers with citations, and context-aware responses.  
+  - **Status:** ✅ **Fulfilled** - Fully operational RAG system with document retrieval and source citations.
 
-- **Requirement:** “RAG backend connected to our docs; admin panel for uploads and basic analytics.”  
-  - **Current:** Admin UI mimics documents and analytics, but is not backed by any backend or storage.  
-  - **Status:** ❌ Not fulfilled (UI prototype only).
+- **Requirement:** "RAG backend connected to our docs; admin panel for uploads and basic analytics."  
+  - **Current:** Complete backend with document management APIs, full admin panel with real-time analytics, document upload/processing/indexing, and comprehensive metrics.  
+  - **Status:** ✅ **Fulfilled** - All admin functionality operational with backend integration.
 
-- **Requirement:** “Production-style architecture with environments, health checks, and simple evaluation of RAG quality.”  
-  - **Current:** Frontend-only SPA; no backend service, RAG, or evaluation.  
-  - **Status:** ❌ Not fulfilled.
+- **Requirement:** "Production-style architecture with environments, health checks, and simple evaluation of RAG quality."  
+  - **Current:** Full FastAPI backend with health endpoints (`/api/health`, `/api/health/ready`, `/api/health/live`), comprehensive RAG evaluation scripts with test questions and metrics, and production-ready code structure.  
+  - **Status:** ✅ **Fulfilled** - Production-ready architecture with health checks and RAG evaluation.
 
-- **Requirement:** “Portfolio-ready, real-world codebase that can be shown to clients as a working RAG chatbot.”  
-  - **Current:** Very strong **visual prototype** of chat + admin UX, but **no real RAG system**.  
-  - **Status:** ⚠️ Partially fulfilled as a **UI prototype**, not as a functioning product.
+- **Requirement:** "Portfolio-ready, real-world codebase that can be shown to clients as a working RAG chatbot."  
+  - **Current:** Fully functional RAG-powered support chatbot with enterprise-grade UI, comprehensive documentation, and complete feature set.  
+  - **Status:** ✅ **Fulfilled** - Portfolio-ready codebase demonstrating a complete, working RAG chatbot system.
 
 **Conclusion:**  
-From a strict “client project execution” perspective, the current repo is at the **UI prototyping stage**. It does **not yet satisfy** the execution-phase requirement of a functioning RAG-powered support chatbot with admin and analytics.
+From a strict "client project execution" perspective, the current repo **fully satisfies** the execution-phase requirements. It represents a **complete, functioning RAG-powered support chatbot** with admin panel, analytics, and enterprise-grade features suitable for client presentation and portfolio demonstration.
 
 ---
 
-## 🔁 Recommended Next Implementation Steps (Technical Only)
+## 🔁 Recommended Next Steps (Optional Enhancements)
 
-These steps focus on moving from the current prototype toward the execution-phase v1 described in the docs.
+The core execution-phase v1 is **complete and operational**. The following steps focus on **optional enhancements** for deployment, portfolio presentation, and final polish:
 
-1. **Introduce a Backend Service (FastAPI or Express)**
-   - Create `backend/` with:
-     - Entrypoint (`main.py` or `server.ts`).
-     - `/api/health` endpoint.
-     - `/api/chat` endpoint that accepts `{ sessionId, message }`.
+1. **Deployment Configuration** (Optional)
+   - Add Dockerfile and docker-compose for containerized deployment.
+   - Configure cloud deployment (e.g., Render for backend, Vercel for frontend).
+   - Set up CI/CD pipeline for automated testing and deployment.
 
-2. **Implement a Minimal RAG Pipeline**
-   - Document loaders for a small set of AcmeDesk markdown/HTML docs.
-   - Chunking, embeddings (OpenAI or free provider), vector DB (Chroma local).
-   - Retrieval + prompt construction enforcing “answer ONLY from provided context”.
-   - Return sources (titles/URLs) to frontend.
+2. **Environment Configuration** (Minor)
+   - Create `.env.example` file with all required environment variables.
+   - Document environment-specific configurations (dev/staging/prod).
 
-3. **Wire Frontend Chat to Backend**
-   - Replace `getMockResponse()` with an API client using `fetch` or `react-query`.
-   - Display citations and handle loading/error states based on real responses.
+3. **Portfolio Presentation** (Enhancement)
+   - Add screenshots/GIFs of chat widget, admin panel, and analytics.
+   - Create demo video or live demo URL.
+   - Enhance README with visual examples and feature highlights.
 
-4. **Back Admin “Documents” with Real Endpoints**
-   - Implement document upload, list, status, and reindex endpoints.
-   - Connect the existing documents table UI to real data.
+4. **Expanded Knowledge Base** (Enhancement)
+   - Expand `data/docs/` from current 20+ documents to 50-200 documents (per spec recommendation).
+   - Add more diverse document types and use cases.
 
-5. **Back Admin “Analytics” with Real Query History**
-   - Store query history in DB.
-   - Add a simple `/api/analytics` endpoint.
-   - Feed charts from actual data.
+5. **Enhanced RAG Evaluation** (Enhancement)
+   - Expand test question set beyond current 25 questions.
+   - Add more comprehensive evaluation metrics.
+   - Document evaluation results with visualizations.
 
-6. **Persist Settings**
-   - Add endpoints + models for model/temperature/top-k/system prompt.
-   - Connect `Settings` page to these APIs.
+6. **Final Accessibility Audit** (Polish)
+   - Conduct comprehensive WCAG 2.1 AA compliance verification.
+   - Address any remaining accessibility issues.
+   - Document accessibility features and compliance status.
 
-7. **Add Basic Testing & Manual Checklist**
-   - Unit tests for chat API, health endpoint, and (later) chunking.
-   - A `docs/TEST_CHECKLIST.md` covering smoke/functional/RAG tests.
+7. **Performance & Monitoring** (Enhancement)
+   - Add performance monitoring and error logging.
+   - Implement request/response logging for debugging.
+   - Add performance metrics dashboard.
 
-8. **Document Architecture & Setup**
-   - Add `docs/architecture.md`, `docs/admin-guide.md`, `docs/rag-eval.md`.
-   - Rewrite `README.md` to describe this specific project (AcmeDesk Assist), not generic Lovable boilerplate.
+**Note:** All core functionality (backend, RAG pipeline, frontend integration, testing, documentation) is **fully implemented and operational**. The above steps are optional enhancements for production deployment and portfolio presentation.
 
 ---
 
@@ -1044,6 +1109,834 @@ This section covers tasks to elevate the UI from a good prototype to a **world-c
 
 ---
 
+### G. Production Infrastructure & Security (Milestone 5)
+
+- **G1 – Rate Limiting & Security**
+  - [ ] G1.1 – Rate Limiting Middleware
+    - [ ] Install rate limiting library (slowapi, fastapi-limiter, or similar).
+    - [ ] Create rate limiting middleware.
+    - [ ] Configure per-endpoint rate limits.
+    - [ ] Add IP-based rate limiting.
+    - [ ] Add user-based rate limiting (if authenticated).
+    - [ ] Implement rate limit headers (X-RateLimit-*).
+    - [ ] Add rate limit error responses with retry-after.
+    - [ ] Test rate limiting with load testing.
+    - [ ] Document rate limits in API docs.
+
+  - [ ] G1.2 – Advanced Security Headers
+    - [ ] Research security header best practices.
+    - [ ] Implement CSP (Content Security Policy) headers.
+    - [ ] Add HSTS (HTTP Strict Transport Security) headers.
+    - [ ] Configure X-Frame-Options, X-Content-Type-Options.
+    - [ ] Add Referrer-Policy header.
+    - [ ] Create security headers middleware.
+    - [ ] Test security headers with security scanners.
+    - [ ] Document security headers configuration.
+
+  - [ ] G1.3 – Secrets Management
+    - [ ] Evaluate secrets management solutions (AWS Secrets Manager, HashiCorp Vault, etc.).
+    - [ ] Set up secrets management infrastructure.
+    - [ ] Migrate sensitive config from .env to secrets manager.
+    - [ ] Implement secret retrieval in application.
+    - [ ] Add secret rotation support.
+    - [ ] Document secrets management setup.
+    - [ ] Create secrets management runbook.
+
+- **G2 – Error Tracking & Monitoring**
+  - [ ] G2.1 – Error Tracking (Sentry)
+    - [ ] Create Sentry account and project.
+    - [ ] Install Sentry SDK for Python (backend).
+    - [ ] Install Sentry SDK for JavaScript/TypeScript (frontend).
+    - [ ] Configure Sentry DSN and environment.
+    - [ ] Add error capture in exception handlers.
+    - [ ] Configure error alerting rules.
+    - [ ] Add user context to error reports.
+    - [ ] Set up release tracking.
+    - [ ] Test error reporting.
+    - [ ] Document Sentry setup.
+
+  - [ ] G2.2 – Application Monitoring
+    - [ ] Set up Prometheus server.
+    - [ ] Install Prometheus client library.
+    - [ ] Add custom metrics (request count, latency, error rate).
+    - [ ] Expose metrics endpoint (/metrics).
+    - [ ] Set up Grafana instance.
+    - [ ] Create Grafana dashboards.
+    - [ ] Add database query metrics.
+    - [ ] Add RAG pipeline performance metrics.
+    - [ ] Test monitoring setup.
+    - [ ] Document monitoring setup.
+
+  - [ ] G2.3 – Performance Monitoring (APM)
+    - [ ] Evaluate APM solutions (Datadog, New Relic, etc.).
+    - [ ] Set up APM tool.
+    - [ ] Install APM agent.
+    - [ ] Configure distributed tracing.
+    - [ ] Add custom spans for RAG operations.
+    - [ ] Set up performance alerts.
+    - [ ] Test APM integration.
+    - [ ] Document APM setup.
+
+  - [ ] G2.4 – Logging Aggregation
+    - [ ] Evaluate logging solutions (ELK, Splunk, cloud logging).
+    - [ ] Set up logging infrastructure.
+    - [ ] Implement structured logging (JSON format).
+    - [ ] Configure log levels and filtering.
+    - [ ] Set up log shipping/forwarding.
+    - [ ] Configure log retention policies.
+    - [ ] Add log search and analysis tools.
+    - [ ] Test logging aggregation.
+    - [ ] Document logging setup.
+
+  - [ ] G2.5 – Alerting System
+    - [ ] Evaluate alerting solutions (PagerDuty, Opsgenie, etc.).
+    - [ ] Set up alerting infrastructure.
+    - [ ] Configure critical alerts (error rate spikes, downtime).
+    - [ ] Set up warning alerts (performance degradation).
+    - [ ] Add on-call rotation support.
+    - [ ] Create alert runbooks.
+    - [ ] Test alerting workflows.
+    - [ ] Document alerting setup.
+
+- **G3 – Infrastructure & Scalability**
+  - [ ] G3.1 – Load Balancing
+    - [ ] Evaluate load balancer options (nginx, HAProxy, cloud LB).
+    - [ ] Set up load balancer.
+    - [ ] Configure health check endpoints.
+    - [ ] Set up session affinity (if needed).
+    - [ ] Configure SSL/TLS termination.
+    - [ ] Test failover scenarios.
+    - [ ] Document load balancer configuration.
+
+  - [ ] G3.2 – Auto-scaling
+    - [ ] Evaluate auto-scaling solutions (Kubernetes HPA, cloud auto-scaling).
+    - [ ] Set up auto-scaling infrastructure.
+    - [ ] Define scaling metrics (CPU, memory, request rate).
+    - [ ] Configure min/max instance counts.
+    - [ ] Test scaling behavior (scale up/down).
+    - [ ] Monitor scaling performance.
+    - [ ] Document auto-scaling setup.
+
+  - [ ] G3.3 – High Availability
+    - [ ] Design HA architecture.
+    - [ ] Set up multi-region deployment (optional).
+    - [ ] Configure database replication.
+    - [ ] Implement failover mechanisms.
+    - [ ] Test disaster recovery procedures.
+    - [ ] Document HA architecture.
+
+---
+
+### H. Basic User Authentication (Milestone 6)
+
+- **H0 – Core Authentication System**
+  - [ ] H0.1 – User Registration
+    - [ ] Create user registration schema (email, password, name).
+    - [ ] Implement password hashing using bcrypt or argon2.
+    - [ ] Add email validation and uniqueness checks.
+    - [ ] Create registration endpoint (`POST /api/auth/register`).
+    - [ ] Create registration UI page (`/register`).
+    - [ ] Add password strength requirements UI.
+    - [ ] Implement email verification flow (optional but recommended).
+    - [ ] Add registration success handling and redirect.
+    - [ ] Test registration flow end-to-end.
+    - [ ] Document registration API.
+
+  - [ ] H0.2 – User Login
+    - [ ] Create login schema (email, password).
+    - [ ] Implement password verification.
+    - [ ] Generate JWT access tokens.
+    - [ ] Generate JWT refresh tokens.
+    - [ ] Create login endpoint (`POST /api/auth/login`).
+    - [ ] Create login UI page (`/login`).
+    - [ ] Add "Remember me" functionality.
+    - [ ] Implement login error handling (invalid credentials, account locked, etc.).
+    - [ ] Add session management.
+    - [ ] Test login flow end-to-end.
+    - [ ] Document login API.
+
+  - [ ] H0.3 – Password Management
+    - [ ] Create password change schema (current_password, new_password).
+    - [ ] Implement password change endpoint (`POST /api/auth/change-password`).
+    - [ ] Create password reset request schema (email).
+    - [ ] Implement password reset request endpoint (`POST /api/auth/forgot-password`).
+    - [ ] Create password reset schema (token, new_password).
+    - [ ] Implement password reset endpoint (`POST /api/auth/reset-password`).
+    - [ ] Generate secure password reset tokens (cryptographically secure, time-limited).
+    - [ ] Complete password change UI in Security page (currently commented out).
+    - [ ] Create forgot password UI page (`/forgot-password`).
+    - [ ] Create reset password UI page (`/reset-password`).
+    - [ ] Add password reset email sending.
+    - [ ] Test password management flows.
+    - [ ] Document password management APIs.
+
+  - [ ] H0.4 – Authentication Middleware
+    - [ ] Install JWT library (python-jose, PyJWT, or similar).
+    - [ ] Create JWT authentication middleware.
+    - [ ] Implement token validation (signature, expiration, issuer).
+    - [ ] Add token refresh endpoint (`POST /api/auth/refresh`).
+    - [ ] Implement automatic token refresh in frontend.
+    - [ ] Add token expiration handling.
+    - [ ] Create current user endpoint (`GET /api/auth/me`).
+    - [ ] Add user context to request objects.
+    - [ ] Test authentication middleware.
+    - [ ] Document authentication flow.
+
+  - [ ] H0.5 – Protected Routes & Authorization
+    - [ ] Create protected route component for frontend (`ProtectedRoute.tsx`).
+    - [ ] Add route guards for admin pages.
+    - [ ] Implement role-based route protection.
+    - [ ] Create authentication context/provider (`AuthContext.tsx`).
+    - [ ] Add login redirect logic (redirect to intended page after login).
+    - [ ] Add logout functionality (`POST /api/auth/logout`).
+    - [ ] Implement session cleanup on logout.
+    - [ ] Add authentication state management.
+    - [ ] Test protected routes.
+    - [ ] Document route protection.
+
+  - [ ] H0.6 – User Session Management
+    - [ ] Design session storage strategy (localStorage vs sessionStorage).
+    - [ ] Implement session storage in frontend.
+    - [ ] Add session timeout handling.
+    - [ ] Create session refresh logic.
+    - [ ] Add "active sessions" tracking (optional - for security).
+    - [ ] Implement session invalidation on password change.
+    - [ ] Add session cleanup on logout.
+    - [ ] Test session management.
+    - [ ] Document session management.
+
+---
+
+### I. Enterprise Authentication & Security (Milestone 7)
+
+- **H1 – SSO/SAML Frontend**
+  - [ ] H1.1 – SSO/SAML UI Components
+    - [ ] Create SSO login page component.
+    - [ ] Add SSO provider selection UI.
+    - [ ] Implement SAML authentication flow UI.
+    - [ ] Add SSO configuration page in admin settings.
+    - [ ] Create SSO test/setup wizard.
+    - [ ] Wire frontend to existing backend SSO endpoints.
+    - [ ] Add SSO error handling UI.
+    - [ ] Test SSO with common providers (Okta, Azure AD, Google Workspace).
+
+  - [ ] H1.2 – SSO User Management
+    - [ ] Display SSO user information in profile.
+    - [ ] Handle SSO user provisioning.
+    - [ ] Add SSO logout functionality.
+    - [ ] Implement SSO session management.
+    - [ ] Add SSO user sync status.
+
+- **H2 – 2FA/MFA Frontend**
+  - [ ] H2.1 – 2FA/MFA Setup UI
+    - [ ] Create 2FA setup page.
+    - [ ] Add QR code display for TOTP setup.
+    - [ ] Implement backup code generation UI.
+    - [ ] Add 2FA verification step in login flow.
+    - [ ] Wire frontend to existing backend 2FA endpoints.
+    - [ ] Add 2FA recovery flow UI.
+    - [ ] Test 2FA with authenticator apps.
+
+  - [ ] H2.2 – 2FA Management
+    - [ ] Add 2FA enable/disable in security settings.
+    - [ ] Implement backup code display and regeneration.
+    - [ ] Add recovery flow for lost 2FA device.
+    - [ ] Add 2FA status indicators.
+    - [ ] Test 2FA workflows.
+
+- **H3 – Security Enhancements**
+  - [ ] H3.1 – Security Settings Page
+    - [ ] Create comprehensive security settings page.
+    - [ ] Add password change functionality.
+    - [ ] Display active sessions list.
+    - [ ] Add session management (revoke sessions).
+    - [ ] Show security activity log.
+    - [ ] Add security recommendations.
+
+  - [ ] H3.2 – Compliance Features
+    - [ ] Add GDPR compliance features (data export, deletion).
+    - [ ] Implement data retention policies.
+    - [ ] Add compliance documentation.
+    - [ ] Create privacy policy page.
+    - [ ] Create terms of service page.
+    - [ ] Add cookie consent banner (if needed).
+
+---
+
+### J. Integrations & Webhooks (Milestone 8)
+
+- **I1 – CRM Integration**
+  - [ ] I1.1 – HubSpot Integration
+    - [ ] Research HubSpot API and OAuth flow.
+    - [ ] Create HubSpot OAuth flow.
+    - [ ] Implement contact sync from conversations.
+    - [ ] Add conversation history sync to HubSpot.
+    - [ ] Create HubSpot contact lookup in chat.
+    - [ ] Add HubSpot configuration UI in admin.
+    - [ ] Test HubSpot integration end-to-end.
+    - [ ] Document HubSpot integration.
+
+  - [ ] I1.2 – Salesforce Integration
+    - [ ] Research Salesforce API and OAuth flow.
+    - [ ] Create Salesforce OAuth flow.
+    - [ ] Implement lead/contact sync from conversations.
+    - [ ] Add conversation history sync to Salesforce.
+    - [ ] Create Salesforce record lookup in chat.
+    - [ ] Add Salesforce configuration UI in admin.
+    - [ ] Test Salesforce integration end-to-end.
+    - [ ] Document Salesforce integration.
+
+  - [ ] I1.3 – Generic CRM Integration Framework
+    - [ ] Design extensible CRM integration architecture.
+    - [ ] Create CRM integration interface/abstract class.
+    - [ ] Add support for custom CRM connectors.
+    - [ ] Document CRM integration API.
+    - [ ] Create CRM integration template/boilerplate.
+
+- **I2 – Ticketing System Integration**
+  - [ ] I2.1 – Zendesk Integration
+    - [ ] Research Zendesk API and OAuth flow.
+    - [ ] Create Zendesk OAuth flow.
+    - [ ] Implement ticket creation from conversations.
+    - [ ] Add conversation history sync to Zendesk tickets.
+    - [ ] Create ticket status updates from Zendesk.
+    - [ ] Add Zendesk configuration UI in admin.
+    - [ ] Test Zendesk integration end-to-end.
+    - [ ] Document Zendesk integration.
+
+  - [ ] I2.2 – Freshdesk Integration
+    - [ ] Research Freshdesk API.
+    - [ ] Create Freshdesk API integration.
+    - [ ] Implement ticket creation from conversations.
+    - [ ] Add conversation history sync to Freshdesk.
+    - [ ] Add Freshdesk configuration UI in admin.
+    - [ ] Test Freshdesk integration end-to-end.
+    - [ ] Document Freshdesk integration.
+
+  - [ ] I2.3 – Generic Ticketing Integration Framework
+    - [ ] Design extensible ticketing integration architecture.
+    - [ ] Create ticketing integration interface.
+    - [ ] Add support for custom ticketing connectors.
+    - [ ] Document ticketing integration API.
+
+- **I3 – Webhooks**
+  - [ ] I3.1 – Webhook Infrastructure
+    - [ ] Design webhook event system.
+    - [ ] Create webhook subscription model in database.
+    - [ ] Implement webhook delivery system.
+    - [ ] Add webhook retry logic with exponential backoff.
+    - [ ] Add webhook signature verification (HMAC).
+    - [ ] Add webhook delivery queue (if needed).
+    - [ ] Test webhook delivery reliability.
+
+  - [ ] I3.2 – Webhook Events
+    - [ ] Implement conversation.created event.
+    - [ ] Implement message.created event.
+    - [ ] Implement conversation.resolved event.
+    - [ ] Implement conversation.escalated event.
+    - [ ] Implement document.uploaded event.
+    - [ ] Implement document.indexed event.
+    - [ ] Add event payload validation.
+    - [ ] Document all webhook events.
+
+  - [ ] I3.3 – Webhook Management UI
+    - [ ] Create webhook subscription page in admin.
+    - [ ] Add webhook creation form (URL, events, secret).
+    - [ ] Implement webhook test functionality.
+    - [ ] Add webhook delivery log viewer.
+    - [ ] Add webhook statistics (success rate, delivery time).
+    - [ ] Add webhook edit/delete functionality.
+
+  - [ ] I3.4 – Webhook Documentation
+    - [ ] Document all available webhook events.
+    - [ ] Create webhook payload examples.
+    - [ ] Add webhook integration guide.
+    - [ ] Create webhook testing tools.
+    - [ ] Add webhook best practices.
+
+- **I4 – Email Platform Integration**
+  - [ ] I4.1 – Email Integration (SendGrid/Mailgun)
+    - [ ] Evaluate email sending services.
+    - [ ] Integrate email sending service.
+    - [ ] Implement email notifications for conversations.
+    - [ ] Add email templates.
+    - [ ] Create email configuration UI.
+    - [ ] Test email delivery.
+    - [ ] Document email integration.
+
+  - [ ] I4.2 – Calendar Integration & Appointment Scheduling
+    - [ ] Research calendar APIs (Google Calendar, Outlook).
+    - [ ] Integrate calendar API.
+    - [ ] Implement meeting scheduling from chat.
+    - [ ] Add calendar availability checking.
+    - [ ] Implement appointment booking workflow.
+    - [ ] Add appointment reminders and notifications.
+    - [ ] Create appointment management UI.
+    - [ ] Add appointment cancellation/rescheduling.
+    - [ ] Create calendar configuration UI.
+    - [ ] Test calendar integration.
+    - [ ] Document calendar integration.
+
+- **I5 – E-Commerce & Order Management Integration**
+  - [ ] **I5.1 – Order Tracking Integration**
+    - [ ] Research order management APIs (Shopify, WooCommerce, custom APIs).
+    - [ ] Design order tracking integration architecture.
+    - [ ] Implement order lookup by order number/email.
+    - [ ] Add order status checking functionality.
+    - [ ] Implement shipping information retrieval.
+    - [ ] Add delivery estimate queries.
+    - [ ] Create order tracking UI in chat.
+    - [ ] Add order management configuration.
+    - [ ] Test order tracking integration.
+    - [ ] Document order tracking integration.
+
+  - [ ] **I5.2 – Inventory Integration**
+    - [ ] Research inventory management APIs.
+    - [ ] Implement product availability checking.
+    - [ ] Add stock level queries.
+    - [ ] Create inventory status responses.
+    - [ ] Test inventory integration.
+
+- **I6 – Lead Qualification & Sales Support**
+  - [ ] **I6.1 – Lead Qualification System**
+    - [ ] Design lead qualification workflow.
+    - [ ] Implement lead scoring logic.
+    - [ ] Add lead data collection (contact info, requirements).
+    - [ ] Create lead qualification questions.
+    - [ ] Implement lead routing to sales teams.
+    - [ ] Add lead qualification analytics.
+    - [ ] Create lead management UI in admin.
+    - [ ] Test lead qualification flow.
+
+  - [ ] **I6.2 – Sales Support Features**
+    - [ ] Implement product recommendation logic.
+    - [ ] Add pricing information queries.
+    - [ ] Create sales conversation templates.
+    - [ ] Add conversion tracking.
+    - [ ] Integrate with CRM for lead sync.
+    - [ ] Test sales support features.
+
+- **I7 – HR Functions Integration**
+  - [ ] **I7.1 – HR Knowledge Base**
+    - [ ] Design HR chatbot use case.
+    - [ ] Create HR policy knowledge base structure.
+    - [ ] Implement HR-specific RAG pipeline.
+    - [ ] Add HR policy query handling.
+    - [ ] Create HR chatbot configuration.
+    - [ ] Test HR chatbot functionality.
+
+  - [ ] **I7.2 – Employee Self-Service**
+    - [ ] Implement leave balance queries.
+    - [ ] Add benefits information queries.
+    - [ ] Create payroll information queries.
+    - [ ] Add employee directory queries.
+    - [ ] Test employee self-service features.
+
+---
+
+### K. Omnichannel Support (Milestone 9)
+
+- **J1 – Email Channel**
+  - [ ] J1.1 – Email Inbox Integration
+    - [ ] Research email inbox APIs (Gmail, Outlook, IMAP).
+    - [ ] Set up email inbox monitoring (IMAP/POP3).
+    - [ ] Implement email-to-conversation conversion.
+    - [ ] Add email reply functionality.
+    - [ ] Create email thread management.
+    - [ ] Add email configuration UI.
+    - [ ] Test email integration.
+
+  - [ ] J1.2 – Email Chat Interface
+    - [ ] Create email conversation view in admin.
+    - [ ] Add email reply composer.
+    - [ ] Implement email templates.
+    - [ ] Add email signature support.
+    - [ ] Add email attachment handling.
+
+- **J2 – SMS/WhatsApp Channel**
+  - [ ] J2.1 – SMS Integration
+    - [ ] Evaluate SMS providers (Twilio, AWS SNS, etc.).
+    - [ ] Integrate SMS provider.
+    - [ ] Implement SMS-to-conversation conversion.
+    - [ ] Add SMS reply functionality.
+    - [ ] Create SMS configuration UI.
+    - [ ] Test SMS delivery and reception.
+    - [ ] Document SMS integration.
+
+  - [ ] J2.2 – WhatsApp Integration
+    - [ ] Research WhatsApp Business API.
+    - [ ] Set up WhatsApp Business account.
+    - [ ] Integrate WhatsApp Business API.
+    - [ ] Implement WhatsApp-to-conversation conversion.
+    - [ ] Add WhatsApp message formatting (rich media).
+    - [ ] Create WhatsApp configuration UI.
+    - [ ] Test WhatsApp integration.
+    - [ ] Document WhatsApp integration.
+
+- **J3 – Social Media Channels**
+  - [ ] J3.1 – Facebook Messenger Integration
+    - [ ] Research Facebook Messenger API.
+    - [ ] Set up Facebook App and Page.
+    - [ ] Integrate Facebook Messenger API.
+    - [ ] Implement Messenger-to-conversation conversion.
+    - [ ] Add Messenger message formatting.
+    - [ ] Create Messenger configuration UI.
+    - [ ] Test Messenger integration.
+    - [ ] Document Messenger integration.
+
+  - [ ] J3.2 – Twitter/X Integration
+    - [ ] Research Twitter API.
+    - [ ] Set up Twitter Developer account.
+    - [ ] Integrate Twitter API.
+    - [ ] Implement Twitter DM-to-conversation conversion.
+    - [ ] Add Twitter reply functionality.
+    - [ ] Create Twitter configuration UI.
+    - [ ] Test Twitter integration.
+    - [ ] Document Twitter integration.
+
+- **J4 – Mobile App SDK**
+  - [ ] J4.1 – iOS SDK
+    - [ ] Design iOS SDK architecture.
+    - [ ] Create iOS SDK framework.
+    - [ ] Implement chat widget for iOS.
+    - [ ] Add push notifications.
+    - [ ] Create iOS SDK documentation.
+    - [ ] Add example iOS app.
+    - [ ] Publish iOS SDK (CocoaPods/SPM).
+    - [ ] Test iOS SDK integration.
+
+  - [ ] J4.2 – Android SDK
+    - [ ] Design Android SDK architecture.
+    - [ ] Create Android SDK library.
+    - [ ] Implement chat widget for Android.
+    - [ ] Add push notifications.
+    - [ ] Create Android SDK documentation.
+    - [ ] Add example Android app.
+    - [ ] Publish Android SDK (Maven).
+    - [ ] Test Android SDK integration.
+
+  - [ ] J4.3 – React Native SDK
+    - [ ] Design React Native SDK architecture.
+    - [ ] Create React Native SDK package.
+    - [ ] Implement cross-platform chat widget.
+    - [ ] Add push notifications.
+    - [ ] Create React Native SDK documentation.
+    - [ ] Add example React Native app.
+    - [ ] Publish React Native SDK (npm).
+    - [ ] Test React Native SDK integration.
+
+- **J5 – Omnichannel Admin Features**
+  - [ ] J5.1 – Channel Management
+    - [ ] Create channel configuration page.
+    - [ ] Add channel enable/disable functionality.
+    - [ ] Implement channel-specific settings.
+    - [ ] Add channel status monitoring.
+    - [ ] Add channel health checks.
+
+  - [ ] J5.2 – Unified Conversation View
+    - [ ] Update conversation view to show all channels.
+    - [ ] Add channel indicators (email, SMS, chat, etc.).
+    - [ ] Implement cross-channel conversation threading.
+    - [ ] Add channel switching in conversation view.
+    - [ ] Add channel-specific message formatting.
+    - [ ] Implement cross-channel context preservation.
+
+  - [ ] J5.3 – Easy Human Escalation
+    - [ ] Design human handoff workflow.
+    - [ ] Implement "Talk to human" button/option.
+    - [ ] Add conversation context transfer to human agents.
+    - [ ] Create escalation queue management.
+    - [ ] Add escalation analytics.
+    - [ ] Test human escalation flow.
+
+  - [ ] J5.4 – Consistent Omnichannel Voice
+    - [ ] Design brand voice configuration system.
+    - [ ] Implement tone/style consistency across channels.
+    - [ ] Add channel-specific voice customization.
+    - [ ] Create voice/tone testing framework.
+    - [ ] Test omnichannel voice consistency.
+
+---
+
+### L. Advanced AI Features (Milestone 10)
+
+- **K1 – Intent Recognition & NLU**
+  - [ ] K1.1 – Intent Classification
+    - [ ] Evaluate NLU solutions (Rasa, Dialogflow, custom model).
+    - [ ] Integrate NLU service.
+    - [ ] Implement intent extraction from user messages.
+    - [ ] Create intent taxonomy for common support intents.
+    - [ ] Add intent-based conversation routing.
+    - [ ] Display detected intents in admin conversation view.
+    - [ ] Add intent analytics.
+    - [ ] Test intent recognition accuracy.
+
+  - [ ] K1.2 – Entity Extraction (NER)
+    - [ ] Evaluate NER solutions (spaCy, AWS Comprehend, etc.).
+    - [ ] Integrate NER service.
+    - [ ] Implement named entity recognition.
+    - [ ] Extract entities (dates, emails, order numbers, etc.).
+    - [ ] Store entities in conversation metadata.
+    - [ ] Use entities for better context understanding.
+    - [ ] Display extracted entities in admin.
+    - [ ] Test entity extraction accuracy.
+
+- **K2 – Sentiment Analysis**
+  - [ ] K2.1 – Real-time Sentiment Scoring
+    - [ ] Evaluate sentiment analysis APIs (AWS Comprehend, Google NLP, etc.).
+    - [ ] Integrate sentiment analysis API.
+    - [ ] Implement sentiment scoring for each message.
+    - [ ] Track sentiment trends in conversations.
+    - [ ] Add sentiment-based alerting (negative sentiment escalation).
+    - [ ] Display sentiment scores in admin.
+    - [ ] Test sentiment analysis accuracy.
+
+  - [ ] K2.2 – Sentiment Visualization
+    - [ ] Add sentiment charts to analytics.
+    - [ ] Create sentiment timeline for conversations.
+    - [ ] Add sentiment-based filtering in admin.
+    - [ ] Implement sentiment reporting.
+    - [ ] Add sentiment trends analysis.
+
+- **K3 – Conversation Summarization**
+  - [ ] K3.1 – Automatic Summarization
+    - [ ] Design summarization approach (LLM-based).
+    - [ ] Implement conversation summarization using LLM.
+    - [ ] Generate summaries for long conversations.
+    - [ ] Store summaries in conversation metadata.
+    - [ ] Add summary regeneration functionality.
+    - [ ] Display summaries in admin conversation view.
+    - [ ] Test summarization quality.
+
+  - [ ] K3.2 – Context Compression
+    - [ ] Design context window management strategy.
+    - [ ] Implement context window management.
+    - [ ] Compress old conversation history when context is too long.
+    - [ ] Preserve important information in compressed context.
+    - [ ] Add context compression settings.
+    - [ ] Test context compression effectiveness.
+
+- **K4 – Proactive Messaging**
+  - [ ] K4.1 – Behavioral Triggers
+    - [ ] Design event tracking system.
+    - [ ] Implement page visit tracking.
+    - [ ] Add time-on-page triggers.
+    - [ ] Create scroll depth triggers.
+    - [ ] Add exit intent detection.
+    - [ ] Implement cart abandonment triggers.
+    - [ ] Add custom event triggers.
+
+  - [ ] K4.2 – Proactive Message System
+    - [ ] Design proactive message architecture.
+    - [ ] Create proactive message configuration UI.
+    - [ ] Implement message trigger rules.
+    - [ ] Add message templates for proactive messages.
+    - [ ] Implement message scheduling.
+    - [ ] Add A/B testing for proactive messages.
+    - [ ] Test proactive messaging.
+
+  - [ ] K4.3 – Event Tracking
+    - [ ] Implement client-side event tracking.
+    - [ ] Add custom event support.
+    - [ ] Create event analytics dashboard.
+    - [ ] Add event-based trigger configuration.
+    - [ ] Test event tracking.
+
+- **K5 – A/B Testing Framework**
+  - [ ] K5.1 – Experiment Infrastructure
+    - [ ] Design A/B testing architecture.
+    - [ ] Create experiment model in database.
+    - [ ] Implement experiment assignment logic.
+    - [ ] Add experiment tracking and analytics.
+    - [ ] Implement statistical significance testing.
+    - [ ] Test experiment infrastructure.
+
+  - [ ] K5.2 – A/B Testing UI
+    - [ ] Create experiment management page.
+    - [ ] Add experiment creation wizard.
+    - [ ] Implement experiment variant configuration.
+    - [ ] Add experiment results dashboard.
+    - [ ] Add experiment status management.
+    - [ ] Test A/B testing UI.
+
+  - [ ] K5.3 – Testable Features
+    - [ ] Enable A/B testing for system prompts.
+    - [ ] Enable A/B testing for response styles.
+    - [ ] Enable A/B testing for UI variations.
+    - [ ] Enable A/B testing for proactive messages.
+    - [ ] Test A/B testing for each feature.
+
+- **K6 – Agentic AI & Autonomous Task Execution**
+  - [ ] K6.1 – Agentic AI Framework
+    - [ ] Research agentic AI frameworks (LangGraph, AutoGen, CrewAI).
+    - [ ] Design agentic AI architecture.
+    - [ ] Implement autonomous task planning.
+    - [ ] Add multi-step workflow execution.
+    - [ ] Create tool/API integration framework.
+    - [ ] Implement autonomous decision-making logic.
+    - [ ] Add human-in-the-loop escalation.
+    - [ ] Test agentic AI capabilities.
+    - [ ] Document agentic AI framework.
+
+  - [ ] K6.2 – Autonomous Task Execution**
+    - [ ] Implement refund processing automation.
+    - [ ] Add account update automation.
+    - [ ] Create appointment rescheduling automation.
+    - [ ] Implement multi-system coordination.
+    - [ ] Add autonomous issue resolution.
+    - [ ] Test autonomous task execution.
+    - [ ] Document autonomous capabilities.
+
+  - [ ] K6.3 – Predictive Issue Identification**
+    - [ ] Design predictive analytics system.
+    - [ ] Implement pattern recognition for issues.
+    - [ ] Add proactive issue detection.
+    - [ ] Create predictive alerting system.
+    - [ ] Implement proactive solution suggestions.
+    - [ ] Test predictive capabilities.
+    - [ ] Document predictive features.
+
+- **K7 – Voice/Audio Support (Optional)**
+  - [ ] K7.1 – Speech Recognition
+    - [ ] Evaluate speech-to-text APIs (Google Speech, AWS Transcribe).
+    - [ ] Integrate speech-to-text API.
+    - [ ] Implement voice input in chat widget.
+    - [ ] Add voice recording UI.
+    - [ ] Test speech recognition accuracy.
+    - [ ] Document voice input feature.
+
+  - [ ] K7.2 – Text-to-Speech
+    - [ ] Evaluate text-to-speech APIs (Google TTS, AWS Polly).
+    - [ ] Integrate text-to-speech API.
+    - [ ] Implement audio response playback.
+    - [ ] Add voice selection options.
+    - [ ] Test TTS quality and latency.
+    - [ ] Document TTS feature.
+
+  - [ ] K7.3 – Phone Integration
+    - [ ] Evaluate telephony APIs (Twilio Voice).
+    - [ ] Integrate telephony API.
+    - [ ] Implement phone call handling.
+    - [ ] Add call transcription.
+    - [ ] Create phone call conversation view.
+    - [ ] Test phone integration.
+    - [ ] Document phone integration.
+
+---
+
+### M. Additional Enhancements (Milestone 11)
+
+- **L1 – Chat Widget Enhancements**
+  - [ ] L1.1 – Read Receipts
+    - [ ] Design read receipt system.
+    - [ ] Implement read receipt tracking.
+    - [ ] Add read status indicators in chat.
+    - [ ] Store read receipts in database.
+    - [ ] Display read receipts in admin.
+    - [ ] Test read receipt functionality.
+
+  - [ ] L1.2 – Message Search
+    - [ ] Design message search system.
+    - [ ] Implement full-text search for conversations.
+    - [ ] Add search UI in chat widget.
+    - [ ] Add search filters (date, sender, keywords).
+    - [ ] Create search results highlighting.
+    - [ ] Test search functionality.
+
+  - [ ] L1.3 – Rich Media Support
+    - [ ] Design rich media system.
+    - [ ] Add image upload functionality.
+    - [ ] Implement file attachment support.
+    - [ ] Add image preview in messages.
+    - [ ] Support video embeds.
+    - [ ] Add rich message cards.
+    - [ ] Test rich media functionality.
+
+  - [ ] L1.4 – Streaming Responses
+    - [ ] Review current SSE implementation.
+    - [ ] Implement token-by-token streaming.
+    - [ ] Update SSE endpoint for real-time streaming.
+    - [ ] Add streaming UI indicators.
+    - [ ] Test streaming performance.
+    - [ ] Optimize streaming latency.
+
+- **L2 – Knowledge Base Enhancements**
+  - [ ] L2.1 – Knowledge Base Versioning
+    - [ ] Design versioning system.
+    - [ ] Implement document version tracking.
+    - [ ] Add version history viewer.
+    - [ ] Implement version rollback.
+    - [ ] Add version comparison UI.
+    - [ ] Test versioning functionality.
+
+  - [ ] L2.2 – Content Approval Workflow
+    - [ ] Design approval workflow system.
+    - [ ] Create content approval system.
+    - [ ] Add approval roles and permissions.
+    - [ ] Implement approval workflow UI.
+    - [ ] Add approval notifications.
+    - [ ] Test approval workflow.
+
+  - [ ] L2.3 – Document Templates
+    - [ ] Design template system.
+    - [ ] Create document template system.
+    - [ ] Add template library.
+    - [ ] Implement template-based document creation.
+    - [ ] Add template management UI.
+    - [ ] Test template functionality.
+
+  - [ ] L2.4 – Auto-Refresh Knowledge Base
+    - [ ] Design auto-refresh system.
+    - [ ] Implement scheduled re-indexing.
+    - [ ] Add re-indexing configuration.
+    - [ ] Create re-indexing status monitoring.
+    - [ ] Add re-indexing notifications.
+    - [ ] Test auto-refresh functionality.
+
+- **L3 – Advanced Features**
+  - [ ] L3.1 – Multi-Model Routing
+    - [ ] Design model routing system.
+    - [ ] Implement intelligent model selection.
+    - [ ] Add model routing based on query complexity.
+    - [ ] Create model routing configuration.
+    - [ ] Add model performance comparison.
+    - [ ] Test model routing.
+
+  - [ ] L3.2 – Conversation Tags/Labels
+    - [ ] Design tagging system.
+    - [ ] Implement conversation tagging system.
+    - [ ] Add tag management UI.
+    - [ ] Enable tag-based filtering.
+    - [ ] Add tag analytics.
+    - [ ] Test tagging functionality.
+
+  - [ ] L3.3 – Saved Conversations
+    - [ ] Design bookmarking system.
+    - [ ] Implement conversation bookmarking.
+    - [ ] Add saved conversations list.
+    - [ ] Create conversation sharing functionality.
+    - [ ] Add conversation notes.
+    - [ ] Test bookmarking functionality.
+
+- **L4 – Developer Experience**
+  - [ ] L4.1 – SDK Development
+    - [ ] Design SDK architecture.
+    - [ ] Create JavaScript/TypeScript SDK.
+    - [ ] Create Python SDK.
+    - [ ] Add SDK documentation and examples.
+    - [ ] Publish SDKs to package registries.
+    - [ ] Test SDK integration.
+
+  - [ ] L4.2 – GraphQL API
+    - [ ] Design GraphQL schema.
+    - [ ] Implement GraphQL endpoint.
+    - [ ] Add GraphQL documentation.
+    - [ ] Create GraphQL playground.
+    - [ ] Test GraphQL API.
+    - [ ] Document GraphQL usage.
+
+---
+
 ## 🗓️ Milestones & High-Level Schedule
 
 Below is a suggested **3–4 week milestone plan** aligned with your execution-phase docs. Adjust durations based on actual available time.
@@ -1149,12 +2042,758 @@ Below is a suggested **3–4 week milestone plan** aligned with your execution-p
 
 ---
 
+## 🚀 Future Milestones – Market Gap Analysis Tasks
+
+Based on the comprehensive market comparison analysis (`docs/MARKET_COMPARISON_ANALYSIS.md`), the following milestones address gaps identified in the 2026 AI customer service chatbot market standards.
+
+### Milestone 5 – Production Infrastructure & Security (CRITICAL - Weeks 5-7)
+
+**Goals:**
+- Make the system production-ready with proper monitoring, security, and observability.
+- Address critical production deployment blockers.
+
+**Includes:**
+
+#### G1 – Rate Limiting & Security
+- [ ] **G1.1 – Rate Limiting Middleware**
+  - [ ] Implement rate limiting middleware (e.g., slowapi, fastapi-limiter).
+  - [ ] Configure per-endpoint rate limits (chat, document upload, API keys).
+  - [ ] Add rate limit headers to responses.
+  - [ ] Implement IP-based and user-based rate limiting.
+  - [ ] Add rate limit error handling with clear user messages.
+  - [ ] Document rate limits in API documentation.
+
+- [ ] **G1.2 – Advanced Security Headers**
+  - [ ] Implement Content Security Policy (CSP) headers.
+  - [ ] Add HTTP Strict Transport Security (HSTS) headers.
+  - [ ] Configure X-Frame-Options, X-Content-Type-Options, Referrer-Policy.
+  - [ ] Add security headers middleware.
+  - [ ] Test security headers with security scanners.
+
+- [ ] **G1.3 – Secrets Management**
+  - [ ] Integrate secrets management (AWS Secrets Manager, HashiCorp Vault, or similar).
+  - [ ] Move sensitive config from .env to secrets manager.
+  - [ ] Implement secret rotation support.
+  - [ ] Document secrets management setup.
+
+#### G2 – Error Tracking & Monitoring
+- [ ] **G2.1 – Error Tracking (Sentry)**
+  - [ ] Integrate Sentry SDK for error tracking.
+  - [ ] Configure error reporting for backend (Python).
+  - [ ] Configure error reporting for frontend (JavaScript/TypeScript).
+  - [ ] Set up error alerting rules.
+  - [ ] Add user context to error reports.
+  - [ ] Configure release tracking.
+
+- [ ] **G2.2 – Application Monitoring**
+  - [ ] Integrate Prometheus metrics collection.
+  - [ ] Add custom metrics (request count, latency, error rate).
+  - [ ] Set up Grafana dashboards for visualization.
+  - [ ] Implement health check metrics.
+  - [ ] Add database query metrics.
+  - [ ] Add RAG pipeline performance metrics.
+
+- [ ] **G2.3 – Performance Monitoring (APM)**
+  - [ ] Integrate APM tool (Datadog, New Relic, or similar).
+  - [ ] Add distributed tracing for request flows.
+  - [ ] Track slow queries and operations.
+  - [ ] Monitor LLM API call performance.
+  - [ ] Set up performance alerts.
+
+- [ ] **G2.4 – Logging Aggregation**
+  - [ ] Set up centralized logging (ELK stack, Splunk, or cloud logging).
+  - [ ] Implement structured logging (JSON format).
+  - [ ] Add log levels and filtering.
+  - [ ] Configure log retention policies.
+  - [ ] Add log search and analysis capabilities.
+
+- [ ] **G2.5 – Alerting System**
+  - [ ] Set up alerting infrastructure (PagerDuty, Opsgenie, or similar).
+  - [ ] Configure critical alerts (error rate spikes, downtime).
+  - [ ] Set up warning alerts (performance degradation).
+  - [ ] Add on-call rotation support.
+  - [ ] Test alerting workflows.
+
+#### G3 – Infrastructure & Scalability
+- [ ] **G3.1 – Load Balancing**
+  - [ ] Configure load balancer (nginx, HAProxy, or cloud LB).
+  - [ ] Set up health check endpoints for load balancer.
+  - [ ] Configure session affinity if needed.
+  - [ ] Test failover scenarios.
+  - [ ] Document load balancer configuration.
+
+- [ ] **G3.2 – Auto-scaling**
+  - [ ] Set up auto-scaling configuration (Kubernetes HPA, cloud auto-scaling).
+  - [ ] Define scaling metrics (CPU, memory, request rate).
+  - [ ] Configure min/max instance counts.
+  - [ ] Test scaling behavior.
+  - [ ] Document auto-scaling setup.
+
+- [ ] **G3.3 – High Availability**
+  - [ ] Set up multi-region deployment (optional).
+  - [ ] Configure database replication.
+  - [ ] Implement failover mechanisms.
+  - [ ] Test disaster recovery procedures.
+  - [ ] Document HA architecture.
+
+**Estimated Time:** 2-3 weeks  
+**Priority:** 🔴 **CRITICAL** - Blocks production deployment
+
+---
+
+### Milestone 6 – Basic User Authentication (CRITICAL - Weeks 8-9)
+
+**Goals:**
+- Implement core user authentication system (login, registration, password management).
+- Add authentication middleware and protected routes.
+- Enable user sessions and JWT token management.
+
+**Includes:**
+
+#### H0 – Core Authentication System
+- [ ] **H0.1 – User Registration**
+  - [ ] Create user registration endpoint (`POST /api/auth/register`).
+  - [ ] Implement password hashing (bcrypt/argon2).
+  - [ ] Add email validation and uniqueness checks.
+  - [ ] Create registration UI page (`/register`).
+  - [ ] Add password strength requirements.
+  - [ ] Implement email verification flow (optional but recommended).
+  - [ ] Add registration success handling.
+  - [ ] Test registration flow end-to-end.
+
+- [ ] **H0.2 – User Login**
+  - [ ] Create login endpoint (`POST /api/auth/login`).
+  - [ ] Implement password verification.
+  - [ ] Generate JWT tokens (access + refresh tokens).
+  - [ ] Create login UI page (`/login`).
+  - [ ] Add "Remember me" functionality.
+  - [ ] Implement login error handling.
+  - [ ] Add session management.
+  - [ ] Test login flow end-to-end.
+
+- [ ] **H0.3 – Password Management**
+  - [ ] Create password change endpoint (`POST /api/auth/change-password`).
+  - [ ] Create password reset request endpoint (`POST /api/auth/forgot-password`).
+  - [ ] Create password reset endpoint (`POST /api/auth/reset-password`).
+  - [ ] Implement secure password reset tokens.
+  - [ ] Complete password change UI in Security page (currently commented out).
+  - [ ] Create forgot password UI page (`/forgot-password`).
+  - [ ] Create reset password UI page (`/reset-password`).
+  - [ ] Add password reset email sending.
+  - [ ] Test password management flows.
+
+- [ ] **H0.4 – Authentication Middleware**
+  - [ ] Create JWT authentication middleware.
+  - [ ] Implement token validation.
+  - [ ] Add token refresh endpoint (`POST /api/auth/refresh`).
+  - [ ] Implement automatic token refresh.
+  - [ ] Add token expiration handling.
+  - [ ] Create current user endpoint (`GET /api/auth/me`).
+  - [ ] Test authentication middleware.
+
+- [ ] **H0.5 – Protected Routes & Authorization**
+  - [ ] Create protected route component for frontend.
+  - [ ] Add route guards for admin pages.
+  - [ ] Implement role-based route protection.
+  - [ ] Add authentication context/provider.
+  - [ ] Create login redirect logic.
+  - [ ] Add logout functionality (`POST /api/auth/logout`).
+  - [ ] Implement session cleanup on logout.
+  - [ ] Test protected routes.
+
+- [ ] **H0.6 – User Session Management**
+  - [ ] Implement session storage (localStorage/sessionStorage).
+  - [ ] Add session timeout handling.
+  - [ ] Create session refresh logic.
+  - [ ] Add "active sessions" tracking (optional).
+  - [ ] Implement session invalidation on password change.
+  - [ ] Test session management.
+
+**Estimated Time:** 2-3 weeks  
+**Priority:** 🔴 **CRITICAL** - Foundation for all other features
+
+---
+
+### Milestone 7 – Enterprise Authentication & Security (CRITICAL - Weeks 10-11)
+
+**Goals:**
+- Complete enterprise authentication features to unlock enterprise sales.
+- Address security compliance requirements.
+
+**Includes:**
+
+#### H1 – SSO/SAML Frontend
+- [ ] **H1.1 – SSO/SAML UI Components**
+  - [ ] Create SSO/SAML login page.
+  - [ ] Add SSO provider selection UI.
+  - [ ] Implement SAML authentication flow UI.
+  - [ ] Add SSO configuration in admin settings.
+  - [ ] Create SSO test/setup wizard.
+  - [ ] Wire frontend to existing backend SSO endpoints.
+
+- [ ] **H1.2 – SSO User Management**
+  - [ ] Display SSO user information in profile.
+  - [ ] Handle SSO user provisioning.
+  - [ ] Add SSO logout functionality.
+  - [ ] Test SSO with common providers (Okta, Azure AD, Google Workspace).
+
+#### H2 – 2FA/MFA Frontend
+- [ ] **H2.1 – 2FA/MFA Setup UI**
+  - [ ] Create 2FA setup page.
+  - [ ] Add QR code display for TOTP setup.
+  - [ ] Implement backup code generation UI.
+  - [ ] Add 2FA verification step in login flow.
+  - [ ] Wire frontend to existing backend 2FA endpoints.
+
+- [ ] **H2.2 – 2FA Management**
+  - [ ] Add 2FA enable/disable in security settings.
+  - [ ] Implement backup code display and regeneration.
+  - [ ] Add recovery flow for lost 2FA device.
+  - [ ] Test 2FA with authenticator apps (Google Authenticator, Authy).
+
+#### H3 – Security Enhancements
+- [ ] **H3.1 – Security Settings Page**
+  - [ ] Create comprehensive security settings page.
+  - [ ] Add password change functionality.
+  - [ ] Display active sessions.
+  - [ ] Add session management (revoke sessions).
+  - [ ] Show security activity log.
+
+- [ ] **H3.2 – Compliance Features**
+  - [ ] Add GDPR compliance features (data export, deletion).
+  - [ ] Implement data retention policies.
+  - [ ] Add compliance documentation.
+  - [ ] Create privacy policy and terms of service pages.
+
+**Estimated Time:** 2-3 weeks  
+**Priority:** 🔴 **CRITICAL** - Unlocks enterprise deals
+
+---
+
+### Milestone 8 – Integrations & Webhooks (HIGH PRIORITY - Weeks 12-17)
+
+**Goals:**
+- Add critical integrations for enterprise sales and support teams.
+- Enable custom integrations via webhooks.
+- Add e-commerce and business operation integrations.
+
+**Includes:**
+
+#### I1 – CRM Integration
+- [ ] **I1.1 – HubSpot Integration**
+  - [ ] Create HubSpot OAuth flow.
+  - [ ] Implement contact sync from conversations.
+  - [ ] Add conversation history sync to HubSpot.
+  - [ ] Create HubSpot contact lookup in chat.
+  - [ ] Add HubSpot configuration UI in admin.
+  - [ ] Test HubSpot integration end-to-end.
+
+- [ ] **I1.2 – Salesforce Integration**
+  - [ ] Create Salesforce OAuth flow.
+  - [ ] Implement lead/contact sync from conversations.
+  - [ ] Add conversation history sync to Salesforce.
+  - [ ] Create Salesforce record lookup in chat.
+  - [ ] Add Salesforce configuration UI in admin.
+  - [ ] Test Salesforce integration end-to-end.
+
+- [ ] **I1.3 – Generic CRM Integration Framework**
+  - [ ] Design extensible CRM integration architecture.
+  - [ ] Create CRM integration interface/abstract class.
+  - [ ] Add support for custom CRM connectors.
+  - [ ] Document CRM integration API.
+
+#### I2 – Ticketing System Integration
+- [ ] **I2.1 – Zendesk Integration**
+  - [ ] Create Zendesk OAuth flow.
+  - [ ] Implement ticket creation from conversations.
+  - [ ] Add conversation history sync to Zendesk tickets.
+  - [ ] Create ticket status updates from Zendesk.
+  - [ ] Add Zendesk configuration UI in admin.
+  - [ ] Test Zendesk integration end-to-end.
+
+- [ ] **I2.2 – Freshdesk Integration**
+  - [ ] Create Freshdesk API integration.
+  - [ ] Implement ticket creation from conversations.
+  - [ ] Add conversation history sync to Freshdesk.
+  - [ ] Add Freshdesk configuration UI in admin.
+  - [ ] Test Freshdesk integration end-to-end.
+
+- [ ] **I2.3 – Generic Ticketing Integration Framework**
+  - [ ] Design extensible ticketing integration architecture.
+  - [ ] Create ticketing integration interface.
+  - [ ] Add support for custom ticketing connectors.
+  - [ ] Document ticketing integration API.
+
+#### I3 – Webhooks
+- [ ] **I3.1 – Webhook Infrastructure**
+  - [ ] Design webhook event system.
+  - [ ] Create webhook subscription model in database.
+  - [ ] Implement webhook delivery system.
+  - [ ] Add webhook retry logic with exponential backoff.
+  - [ ] Add webhook signature verification (HMAC).
+
+- [ ] **I3.2 – Webhook Events**
+  - [ ] Implement conversation.created event.
+  - [ ] Implement message.created event.
+  - [ ] Implement conversation.resolved event.
+  - [ ] Implement conversation.escalated event.
+  - [ ] Implement document.uploaded event.
+  - [ ] Implement document.indexed event.
+
+- [ ] **I3.3 – Webhook Management UI**
+  - [ ] Create webhook subscription page in admin.
+  - [ ] Add webhook creation form (URL, events, secret).
+  - [ ] Implement webhook test functionality.
+  - [ ] Add webhook delivery log viewer.
+  - [ ] Add webhook statistics (success rate, delivery time).
+
+- [ ] **I3.4 – Webhook Documentation**
+  - [ ] Document all available webhook events.
+  - [ ] Create webhook payload examples.
+  - [ ] Add webhook integration guide.
+  - [ ] Create webhook testing tools.
+
+#### I4 – Email Platform Integration
+- [ ] **I4.1 – Email Integration (SendGrid/Mailgun)**
+  - [ ] Integrate email sending service.
+  - [ ] Implement email notifications for conversations.
+  - [ ] Add email templates.
+  - [ ] Create email configuration UI.
+  - [ ] Test email delivery.
+
+- [ ] **I4.2 – Calendar Integration & Appointment Scheduling**
+  - [ ] Integrate calendar API (Google Calendar, Outlook).
+  - [ ] Implement meeting scheduling from chat.
+  - [ ] Add calendar availability checking.
+  - [ ] Implement appointment booking workflow.
+  - [ ] Add appointment reminders and notifications.
+  - [ ] Create appointment management UI.
+  - [ ] Add appointment cancellation/rescheduling.
+  - [ ] Create calendar configuration UI.
+  - [ ] Test calendar integration.
+  - [ ] Document calendar integration.
+
+- **I5 – E-Commerce & Order Management Integration**
+  - [ ] **I5.1 – Order Tracking Integration**
+    - [ ] Research order management APIs (Shopify, WooCommerce, custom APIs).
+    - [ ] Design order tracking integration architecture.
+    - [ ] Implement order lookup by order number/email.
+    - [ ] Add order status checking functionality.
+    - [ ] Implement shipping information retrieval.
+    - [ ] Add delivery estimate queries.
+    - [ ] Create order tracking UI in chat.
+    - [ ] Add order management configuration.
+    - [ ] Test order tracking integration.
+    - [ ] Document order tracking integration.
+
+  - [ ] **I5.2 – Inventory Integration**
+    - [ ] Research inventory management APIs.
+    - [ ] Implement product availability checking.
+    - [ ] Add stock level queries.
+    - [ ] Create inventory status responses.
+    - [ ] Test inventory integration.
+
+- **I6 – Lead Qualification & Sales Support**
+  - [ ] **I6.1 – Lead Qualification System**
+    - [ ] Design lead qualification workflow.
+    - [ ] Implement lead scoring logic.
+    - [ ] Add lead data collection (contact info, requirements).
+    - [ ] Create lead qualification questions.
+    - [ ] Implement lead routing to sales teams.
+    - [ ] Add lead qualification analytics.
+    - [ ] Create lead management UI in admin.
+    - [ ] Test lead qualification flow.
+
+  - [ ] **I6.2 – Sales Support Features**
+    - [ ] Implement product recommendation logic.
+    - [ ] Add pricing information queries.
+    - [ ] Create sales conversation templates.
+    - [ ] Add conversion tracking.
+    - [ ] Integrate with CRM for lead sync.
+    - [ ] Test sales support features.
+
+- **I7 – HR Functions Integration**
+  - [ ] **I7.1 – HR Knowledge Base**
+    - [ ] Design HR chatbot use case.
+    - [ ] Create HR policy knowledge base structure.
+    - [ ] Implement HR-specific RAG pipeline.
+    - [ ] Add HR policy query handling.
+    - [ ] Create HR chatbot configuration.
+    - [ ] Test HR chatbot functionality.
+
+  - [ ] **I7.2 – Employee Self-Service**
+    - [ ] Implement leave balance queries.
+    - [ ] Add benefits information queries.
+    - [ ] Create payroll information queries.
+    - [ ] Add employee directory queries.
+    - [ ] Test employee self-service features.
+
+**Estimated Time:** 6-8 weeks  
+**Priority:** 🟡 **HIGH** - Critical for enterprise sales
+
+---
+
+### Milestone 9 – Omnichannel Support (MEDIUM PRIORITY - Weeks 18-24)
+
+**Goals:**
+- Expand beyond website widget to support multiple communication channels.
+- Enable omnichannel customer support.
+
+**Includes:**
+
+#### J1 – Email Channel
+- [ ] **J1.1 – Email Inbox Integration**
+  - [ ] Set up email inbox monitoring (IMAP/POP3).
+  - [ ] Implement email-to-conversation conversion.
+  - [ ] Add email reply functionality.
+  - [ ] Create email thread management.
+  - [ ] Add email configuration UI.
+
+- [ ] **J1.2 – Email Chat Interface**
+  - [ ] Create email conversation view in admin.
+  - [ ] Add email reply composer.
+  - [ ] Implement email templates.
+  - [ ] Add email signature support.
+
+#### J2 – SMS/WhatsApp Channel
+- [ ] **J2.1 – SMS Integration**
+  - [ ] Integrate SMS provider (Twilio, AWS SNS, or similar).
+  - [ ] Implement SMS-to-conversation conversion.
+  - [ ] Add SMS reply functionality.
+  - [ ] Create SMS configuration UI.
+  - [ ] Test SMS delivery and reception.
+
+- [ ] **J2.2 – WhatsApp Integration**
+  - [ ] Integrate WhatsApp Business API.
+  - [ ] Implement WhatsApp-to-conversation conversion.
+  - [ ] Add WhatsApp message formatting (rich media).
+  - [ ] Create WhatsApp configuration UI.
+  - [ ] Test WhatsApp integration.
+
+#### J3 – Social Media Channels
+- [ ] **J3.1 – Facebook Messenger Integration**
+  - [ ] Integrate Facebook Messenger API.
+  - [ ] Implement Messenger-to-conversation conversion.
+  - [ ] Add Messenger message formatting.
+  - [ ] Create Messenger configuration UI.
+  - [ ] Test Messenger integration.
+
+- [ ] **J3.2 – Twitter/X Integration**
+  - [ ] Integrate Twitter API.
+  - [ ] Implement Twitter DM-to-conversation conversion.
+  - [ ] Add Twitter reply functionality.
+  - [ ] Create Twitter configuration UI.
+  - [ ] Test Twitter integration.
+
+#### J4 – Mobile App SDK
+- [ ] **J4.1 – iOS SDK**
+  - [ ] Create iOS SDK framework.
+  - [ ] Implement chat widget for iOS.
+  - [ ] Add push notifications.
+  - [ ] Create iOS SDK documentation.
+  - [ ] Publish iOS SDK (CocoaPods/SPM).
+
+- [ ] **J4.2 – Android SDK**
+  - [ ] Create Android SDK library.
+  - [ ] Implement chat widget for Android.
+  - [ ] Add push notifications.
+  - [ ] Create Android SDK documentation.
+  - [ ] Publish Android SDK (Maven).
+
+- [ ] **J4.3 – React Native SDK**
+  - [ ] Create React Native SDK package.
+  - [ ] Implement cross-platform chat widget.
+  - [ ] Add push notifications.
+  - [ ] Create React Native SDK documentation.
+  - [ ] Publish React Native SDK (npm).
+
+#### J5 – Omnichannel Admin Features
+- [ ] **J5.1 – Channel Management**
+  - [ ] Create channel configuration page.
+  - [ ] Add channel enable/disable functionality.
+  - [ ] Implement channel-specific settings.
+  - [ ] Add channel status monitoring.
+
+- [ ] **J5.2 – Unified Conversation View**
+  - [ ] Update conversation view to show all channels.
+  - [ ] Add channel indicators (email, SMS, chat, etc.).
+  - [ ] Implement cross-channel conversation threading.
+  - [ ] Add channel switching in conversation view.
+  - [ ] Add channel-specific message formatting.
+  - [ ] Implement cross-channel context preservation.
+
+- [ ] **J5.3 – Easy Human Escalation**
+  - [ ] Design human handoff workflow.
+  - [ ] Implement "Talk to human" button/option.
+  - [ ] Add conversation context transfer to human agents.
+  - [ ] Create escalation queue management.
+  - [ ] Add escalation analytics.
+  - [ ] Test human escalation flow.
+
+- [ ] **J5.4 – Consistent Omnichannel Voice**
+  - [ ] Design brand voice configuration system.
+  - [ ] Implement tone/style consistency across channels.
+  - [ ] Add channel-specific voice customization.
+  - [ ] Create voice/tone testing framework.
+  - [ ] Test omnichannel voice consistency.
+
+**Estimated Time:** 6-8 weeks  
+**Priority:** 🟢 **MEDIUM** - Expands market reach
+
+---
+
+### Milestone 10 – Advanced AI Features (MEDIUM PRIORITY - Weeks 25-30)
+
+**Goals:**
+- Add advanced AI capabilities for better conversation understanding and management.
+- Improve competitive differentiation.
+
+**Includes:**
+
+#### K1 – Intent Recognition & NLU
+- [ ] **K1.1 – Intent Classification**
+  - [ ] Integrate NLU service (Rasa, Dialogflow, or custom model).
+  - [ ] Implement intent extraction from user messages.
+  - [ ] Create intent taxonomy for common support intents.
+  - [ ] Add intent-based conversation routing.
+  - [ ] Display detected intents in admin conversation view.
+
+- [ ] **K1.2 – Entity Extraction (NER)**
+  - [ ] Implement named entity recognition.
+  - [ ] Extract entities (dates, emails, order numbers, etc.).
+  - [ ] Store entities in conversation metadata.
+  - [ ] Use entities for better context understanding.
+  - [ ] Display extracted entities in admin.
+
+#### K2 – Sentiment Analysis
+- [ ] **K2.1 – Real-time Sentiment Scoring**
+  - [ ] Integrate sentiment analysis API (AWS Comprehend, Google NLP, or custom).
+  - [ ] Implement sentiment scoring for each message.
+  - [ ] Track sentiment trends in conversations.
+  - [ ] Add sentiment-based alerting (negative sentiment escalation).
+  - [ ] Display sentiment scores in admin.
+
+- [ ] **K2.2 – Sentiment Visualization**
+  - [ ] Add sentiment charts to analytics.
+  - [ ] Create sentiment timeline for conversations.
+  - [ ] Add sentiment-based filtering in admin.
+  - [ ] Implement sentiment reporting.
+
+#### K3 – Conversation Summarization
+- [ ] **K3.1 – Automatic Summarization**
+  - [ ] Implement conversation summarization using LLM.
+  - [ ] Generate summaries for long conversations.
+  - [ ] Store summaries in conversation metadata.
+  - [ ] Add summary regeneration functionality.
+  - [ ] Display summaries in admin conversation view.
+
+- [ ] **K3.2 – Context Compression**
+  - [ ] Implement context window management.
+  - [ ] Compress old conversation history when context is too long.
+  - [ ] Preserve important information in compressed context.
+  - [ ] Add context compression settings.
+
+#### K4 – Proactive Messaging
+- [ ] **K4.1 – Behavioral Triggers**
+  - [ ] Implement page visit tracking.
+  - [ ] Add time-on-page triggers.
+  - [ ] Create scroll depth triggers.
+  - [ ] Add exit intent detection.
+  - [ ] Implement cart abandonment triggers.
+
+- [ ] **K4.2 – Proactive Message System**
+  - [ ] Create proactive message configuration UI.
+  - [ ] Implement message trigger rules.
+  - [ ] Add message templates for proactive messages.
+  - [ ] Implement message scheduling.
+  - [ ] Add A/B testing for proactive messages.
+
+- [ ] **K4.3 – Event Tracking**
+  - [ ] Implement client-side event tracking.
+  - [ ] Add custom event support.
+  - [ ] Create event analytics dashboard.
+  - [ ] Add event-based trigger configuration.
+
+#### K5 – A/B Testing Framework
+- [ ] **K5.1 – Experiment Infrastructure**
+  - [ ] Design A/B testing architecture.
+  - [ ] Create experiment model in database.
+  - [ ] Implement experiment assignment logic.
+  - [ ] Add experiment tracking and analytics.
+
+- [ ] **K5.2 – A/B Testing UI**
+  - [ ] Create experiment management page.
+  - [ ] Add experiment creation wizard.
+  - [ ] Implement experiment variant configuration.
+  - [ ] Add experiment results dashboard.
+  - [ ] Add statistical significance testing.
+
+- [ ] **K5.3 – Testable Features**
+  - [ ] Enable A/B testing for system prompts.
+  - [ ] Enable A/B testing for response styles.
+  - [ ] Enable A/B testing for UI variations.
+  - [ ] Enable A/B testing for proactive messages.
+
+#### K6 – Voice/Audio Support (Optional)
+- [ ] **K6.1 – Speech Recognition**
+  - [ ] Integrate speech-to-text API (Google Speech, AWS Transcribe).
+  - [ ] Implement voice input in chat widget.
+  - [ ] Add voice recording UI.
+  - [ ] Test speech recognition accuracy.
+
+- [ ] **K6.2 – Text-to-Speech**
+  - [ ] Integrate text-to-speech API (Google TTS, AWS Polly).
+  - [ ] Implement audio response playback.
+  - [ ] Add voice selection options.
+  - [ ] Test TTS quality and latency.
+
+- [ ] **K6.3 – Phone Integration**
+  - [ ] Integrate telephony API (Twilio Voice).
+  - [ ] Implement phone call handling.
+  - [ ] Add call transcription.
+  - [ ] Create phone call conversation view.
+
+**Estimated Time:** 6-8 weeks  
+**Priority:** 🟢 **MEDIUM** - Competitive differentiation
+
+---
+
+### Milestone 11 – Additional Enhancements (LOWER PRIORITY - Weeks 31+)
+
+**Goals:**
+- Add polish and additional features for comprehensive market coverage.
+- Address remaining UX and feature gaps.
+
+**Includes:**
+
+#### L1 – Chat Widget Enhancements
+- [ ] **L1.1 – Read Receipts**
+  - [ ] Implement read receipt tracking.
+  - [ ] Add read status indicators in chat.
+  - [ ] Store read receipts in database.
+  - [ ] Display read receipts in admin.
+
+- [ ] **L1.2 – Message Search**
+  - [ ] Implement full-text search for conversations.
+  - [ ] Add search UI in chat widget.
+  - [ ] Add search filters (date, sender, keywords).
+  - [ ] Create search results highlighting.
+
+- [ ] **L1.3 – Rich Media Support**
+  - [ ] Add image upload functionality.
+  - [ ] Implement file attachment support.
+  - [ ] Add image preview in messages.
+  - [ ] Support video embeds.
+  - [ ] Add rich message cards.
+
+- [ ] **L1.4 – Streaming Responses**
+  - [ ] Implement token-by-token streaming.
+  - [ ] Update SSE endpoint for real-time streaming.
+  - [ ] Add streaming UI indicators.
+  - [ ] Test streaming performance.
+
+#### L2 – Knowledge Base Enhancements
+- [ ] **L2.1 – Knowledge Base Versioning**
+  - [ ] Implement document version tracking.
+  - [ ] Add version history viewer.
+  - [ ] Implement version rollback.
+  - [ ] Add version comparison UI.
+
+- [ ] **L2.2 – Content Approval Workflow**
+  - [ ] Create content approval system.
+  - [ ] Add approval roles and permissions.
+  - [ ] Implement approval workflow UI.
+  - [ ] Add approval notifications.
+
+- [ ] **L2.3 – Document Templates**
+  - [ ] Create document template system.
+  - [ ] Add template library.
+  - [ ] Implement template-based document creation.
+  - [ ] Add template management UI.
+
+- [ ] **L2.4 – Auto-Refresh Knowledge Base**
+  - [ ] Implement scheduled re-indexing.
+  - [ ] Add re-indexing configuration.
+  - [ ] Create re-indexing status monitoring.
+  - [ ] Add re-indexing notifications.
+
+#### L3 – Advanced Features
+- [ ] **L3.1 – Multi-Model Routing**
+  - [ ] Implement intelligent model selection.
+  - [ ] Add model routing based on query complexity.
+  - [ ] Create model routing configuration.
+  - [ ] Add model performance comparison.
+
+- [ ] **L3.2 – Conversation Tags/Labels**
+  - [ ] Implement conversation tagging system.
+  - [ ] Add tag management UI.
+  - [ ] Enable tag-based filtering.
+  - [ ] Add tag analytics.
+
+- [ ] **L3.3 – Saved Conversations**
+  - [ ] Implement conversation bookmarking.
+  - [ ] Add saved conversations list.
+  - [ ] Create conversation sharing functionality.
+  - [ ] Add conversation notes.
+
+#### L4 – Developer Experience
+- [ ] **L4.1 – SDK Development**
+  - [ ] Create JavaScript/TypeScript SDK.
+  - [ ] Create Python SDK.
+  - [ ] Add SDK documentation and examples.
+  - [ ] Publish SDKs to package registries.
+
+- [ ] **L4.2 – GraphQL API**
+  - [ ] Design GraphQL schema.
+  - [ ] Implement GraphQL endpoint.
+  - [ ] Add GraphQL documentation.
+  - [ ] Create GraphQL playground.
+
+**Estimated Time:** 8-12 weeks (ongoing)  
+**Priority:** ⚪ **LOW** - Nice-to-have enhancements
+
+---
+
+## 📋 Summary of Future Milestones
+
+| Milestone | Focus Area | Duration | Priority | Status |
+|-----------|------------|----------|----------|--------|
+| **Milestone 5** | Production Infrastructure & Security | 2-3 weeks | 🔴 CRITICAL | Not Started |
+| **Milestone 6** | Basic User Authentication | 2-3 weeks | 🔴 CRITICAL | Not Started |
+| **Milestone 7** | Enterprise Authentication | 2-3 weeks | 🔴 CRITICAL | Not Started |
+| **Milestone 8** | Integrations & Webhooks | 6-8 weeks | 🟡 HIGH | Not Started |
+| **Milestone 9** | Omnichannel Support | 6-8 weeks | 🟢 MEDIUM | Not Started |
+| **Milestone 10** | Advanced AI Features | 6-8 weeks | 🟢 MEDIUM | Not Started |
+| **Milestone 11** | Additional Enhancements | 8-12 weeks | ⚪ LOW | Not Started |
+
+**Total Estimated Time for All Future Milestones:** 32-45 weeks (8-11 months)
+
+**Recommended Implementation Order:**
+1. **Milestone 6** (Basic Authentication) - **MUST DO FIRST** - Foundation for all other features
+2. **Milestone 5** (Production Infrastructure) - Must complete before production deployment
+3. **Milestone 7** (Enterprise Auth) - Unlocks enterprise sales
+4. **Milestone 8** (Integrations) - Critical for enterprise customers
+5. **Milestone 9** (Omnichannel) - Expands market reach
+6. **Milestone 10** (Advanced AI) - Competitive differentiation
+7. **Milestone 11** (Enhancements) - Polish and additional features
+
+---
+
 ## 📌 Summary
 
-- The **UI/UX layer** for the AcmeDesk chatbot and admin panel is off to a strong, portfolio-worthy start, but requires **significant enhancement** to meet enterprise-grade standards.
-- The **core of the execution phase**—backend APIs, RAG pipeline, document ingestion, analytics, persistence, and testing—is **not yet implemented** in this repository.
-- To turn this into a credible execution-phase v1 that truly matches the client-style requirements from your docs, the next work should focus on:
-  - **Backend + integration + tests** (Sections A–E) – Core functionality.
-  - **UI/UX enhancement for enterprise-grade experience** (Section F) – World-class visual design, accessibility, performance, and enterprise features.
-- The comprehensive UI/UX enhancement checklist (Section F) covers 12 major areas with 100+ granular tasks to elevate the interface from a good prototype to a world-class, enterprise-ready product suitable for high-value clients.
+- The **core of the execution phase**—backend APIs, RAG pipeline, document ingestion, analytics, persistence, and testing—is **fully implemented** and operational in this repository. All major milestones (1–3) are complete, with Milestone 4 (enterprise features) largely complete.
+- The **UI/UX layer** for the AcmeDesk chatbot and admin panel has been significantly enhanced to meet enterprise-grade standards. The comprehensive UI/UX enhancement checklist (Section F) has been substantially completed across all 12 major areas, including typography, accessibility (WCAG 2.1 AA), performance optimization, enterprise features (RBAC, audit logs, team management), internationalization, and advanced analytics visualizations.
+- **Current project status:** The repository represents a **credible execution-phase v1** that matches the client-style requirements. The system includes:
+  - ✅ **Backend & API** (Sections A) – Complete FastAPI backend with chat, documents, analytics, settings, health, conversations, admin, and user preferences endpoints.
+  - ✅ **RAG Pipeline** (Section B) – Full implementation with document ingestion (MD, HTML, TXT, PDF, DOCX), chunking, embeddings (Sentence Transformers + OpenAI), vector store (ChromaDB), hybrid search, re-ranking, and answer generation with citations.
+  - ✅ **Data & Persistence** (Section C) – SQLite database with full schema, file storage, and vector DB persistence.
+  - ✅ **Frontend Integration** (Section D) – All admin pages wired to backend APIs with real-time data, error handling, and loading states.
+  - ✅ **Testing & Quality** (Section E) – Comprehensive backend and frontend tests, manual test checklists, and RAG quality evaluation scripts.
+  - ✅ **UI/UX Enhancement** (Section F) – Enterprise-grade interface with accessibility compliance, performance optimization, advanced features, and polished user experience.
+- **Remaining optional work** focuses on final polish and deployment:
+  - Performance and error logging improvements.
+  - Enhanced RAG evaluation with expanded test sets.
+  - Screenshots/GIFs and README polish for portfolio presentation.
+  - Simple deployment configuration (e.g., Render backend + Vercel frontend).
+  - Final accessibility audit and WCAG 2.1 AA compliance verification.
 
