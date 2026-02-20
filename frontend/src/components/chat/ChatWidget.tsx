@@ -50,6 +50,7 @@ export function ChatWidget() {
   
   // F2.4 - Mobile detection
   const isMobile = useIsMobile();
+  const prevIsMobileRef = useRef<boolean | undefined>(undefined);
   
   // F4.4 - Reduced motion support
   const { reduceMotion } = useAccessibility();
@@ -58,6 +59,19 @@ export function ChatWidget() {
   const swipeStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
   const swipeDistanceRef = useRef<number>(0);
   const [swipeOffset, setSwipeOffset] = useState(0);
+  
+  // Auto-close chat when switching from mobile to desktop (screen expansion)
+  useEffect(() => {
+    // Only act if we've had a previous mobile state (not initial render)
+    if (prevIsMobileRef.current !== undefined) {
+      // If switching from mobile to desktop while chat is open, close it
+      if (prevIsMobileRef.current === true && !isMobile && isOpen) {
+        setIsOpen(false);
+      }
+    }
+    // Update previous state
+    prevIsMobileRef.current = isMobile;
+  }, [isMobile, isOpen]);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" });

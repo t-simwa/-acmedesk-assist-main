@@ -8,8 +8,10 @@ import { Footer } from "@/components/Footer";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useIsTablet } from "@/hooks/use-tablet";
 import { useRole } from "@/hooks/useRole";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { UserMenu } from "./UserMenu";
 
 // Base navigation items available to all users - labels will be translated in component
 const baseNavItems = [
@@ -109,15 +111,7 @@ export function AdminLayout() {
       </nav>
 
       <div className="px-5 py-4 border-t border-border">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-[13px] font-medium text-muted-foreground">
-            SL
-          </div>
-          <div className="text-[13px]">
-            <div className="font-medium text-foreground">Sarah Lee</div>
-            <div className="text-muted-foreground text-[12px]">Support Lead</div>
-          </div>
-        </div>
+        <UserMenu />
       </div>
     </>
   );
@@ -178,6 +172,14 @@ export function AdminLayout() {
         id="admin-main-content" 
         className={`flex-1 overflow-auto flex flex-col ${isMobile ? "pt-14" : ""}`}
       >
+        {/* Desktop Header with User Menu */}
+        {!isMobile && (
+          <header className="border-b border-border bg-background">
+            <div className="max-w-6xl mx-auto px-4 md:px-8 h-14 flex items-center justify-end">
+              <UserMenu />
+            </div>
+          </header>
+        )}
         <div className={`flex-1 max-w-6xl mx-auto ${isTablet ? "px-4 md:px-6" : "px-4 md:px-8"} py-4 ${isTablet ? "md:py-6" : "md:py-8"}`}>
           <PageTransition>
             <Outlet />

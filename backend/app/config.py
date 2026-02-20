@@ -64,6 +64,13 @@ class Settings(BaseSettings):
     # Prompt configuration
     system_prompt: Optional[str] = None  # Custom system prompt (None = use default)
 
+    # Authentication & JWT configuration
+    jwt_secret_key: str = "your-secret-key-change-in-production"  # JWT secret key (MUST be changed in production)
+    jwt_algorithm: str = "HS256"  # JWT algorithm
+    jwt_access_token_expire_minutes: int = 30  # Access token expiration (30 minutes)
+    jwt_refresh_token_expire_days: int = 7  # Refresh token expiration (7 days)
+    jwt_remember_me_expire_days: int = 30  # Remember me token expiration (30 days)
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

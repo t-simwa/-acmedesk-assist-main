@@ -5,7 +5,7 @@ Document model for storing document metadata.
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import String, Integer, DateTime, Text
+from sqlalchemy import String, Integer, DateTime, Text, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base
@@ -17,6 +17,8 @@ class Document(Base):
     __tablename__ = "documents"
     
     id: Mapped[str] = mapped_column(String(36), primary_key=True)  # UUID as string
+    user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)  # User who owns this document
+    knowledge_base_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("knowledge_bases.id"), nullable=True, index=True)  # Knowledge base this document belongs to
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     type: Mapped[str] = mapped_column(String(50), nullable=False)  # markdown, html, text, unknown
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="processing")  # processing, indexed, error
@@ -32,6 +34,8 @@ class Document(Base):
         """Convert model to dictionary."""
         return {
             "id": self.id,
+            "user_id": self.user_id,
+            "knowledge_base_id": self.knowledge_base_id,
             "name": self.name,
             "type": self.type,
             "status": self.status,

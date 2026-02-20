@@ -9,8 +9,10 @@ Implements:
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
+from ..models.user import User
+from ..routers.auth import get_current_user
 from ..schemas.chat import (
     ConversationHistoryResponse,
     ConversationMessage,
@@ -34,6 +36,7 @@ async def get_conversations(
     session_id: str = Query(..., description="Session identifier"),
     limit: int = Query(50, ge=1, le=100, description="Maximum number of messages to retrieve"),
     offset: int = Query(0, ge=0, description="Number of messages to skip"),
+    current_user: User = Depends(get_current_user),
 ) -> ConversationHistoryResponse:
     """
     Retrieve conversation history for a session.
@@ -62,9 +65,9 @@ async def get_conversations(
     )
 
     try:
-        # Retrieve conversation history from database
+        # Retrieve conversation history from database (filtered by user_id)
         messages, total = await database.get_conversation_history(
-            session_id=session_id, limit=limit, offset=offset
+            session_id=session_id, limit=limit, offset=offset, user_id=current_user.id
         )
 
         # Convert dict messages to ConversationMessage models
@@ -115,7 +118,10 @@ async def get_conversations(
     response_model=DeleteConversationResponse,
     status_code=status.HTTP_200_OK,
 )
-async def delete_conversation(session_id: str) -> DeleteConversationResponse:
+async def delete_conversation(
+    session_id: str,
+    current_user: User = Depends(get_current_user)
+) -> DeleteConversationResponse:
     """
     Delete a conversation by session ID.
 
@@ -136,8 +142,8 @@ async def delete_conversation(session_id: str) -> DeleteConversationResponse:
     logger.info("Received delete conversation request: session_id=%s", session_id)
 
     try:
-        # Delete conversation from database
-        deleted = await database.delete_conversation(session_id=session_id)
+        # Delete conversation from database (filtered by user_id)
+        deleted = await database.delete_conversation(session_id=session_id, user_id=current_user.id)
 
         if deleted:
             response = DeleteConversationResponse(
@@ -174,7 +180,10 @@ async def delete_conversation(session_id: str) -> DeleteConversationResponse:
     response_model=MessageReactionResponse,
     status_code=status.HTTP_200_OK,
 )
-async def update_message_reaction(request: MessageReactionRequest) -> MessageReactionResponse:
+async def update_message_reaction(
+    request: MessageReactionRequest,
+    current_user: User = Depends(get_current_user)
+) -> MessageReactionResponse:
     """
     Update reaction for a message.
 
@@ -206,10 +215,11 @@ async def update_message_reaction(request: MessageReactionRequest) -> MessageRea
         )
 
     try:
-        # Update message reaction in database
+        # Update message reaction in database (filtered by user_id)
         updated = await database.update_message_reaction(
             message_id=request.message_id,
             reaction=request.reaction,
+            user_id=current_user.id,
         )
 
         if updated:
@@ -254,7 +264,10 @@ async def update_message_reaction(request: MessageReactionRequest) -> MessageRea
     response_model=MessageReactionResponse,
     status_code=status.HTTP_200_OK,
 )
-async def remove_message_reaction(message_id: str) -> MessageReactionResponse:
+async def remove_message_reaction(
+    message_id: str,
+    current_user: User = Depends(get_current_user)
+) -> MessageReactionResponse:
     """
     Remove reaction from a message.
 
@@ -270,10 +283,11 @@ async def remove_message_reaction(message_id: str) -> MessageReactionResponse:
     logger.info("Received remove message reaction request: message_id=%s", message_id)
 
     try:
-        # Remove message reaction from database
+        # Remove message reaction from database (filtered by user_id)
         updated = await database.update_message_reaction(
             message_id=message_id,
             reaction=None,
+            user_id=current_user.id,
         )
 
         if updated:

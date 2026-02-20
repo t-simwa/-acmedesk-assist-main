@@ -7,7 +7,7 @@ This module provides functions for:
 """
 
 import logging
-from typing import List
+from typing import List, Optional
 
 from ..config import get_settings
 from ..rag.embeddings import get_embedding_model
@@ -66,13 +66,14 @@ def _get_llm_generator():
     return _llm_generator
 
 
-async def retrieve_relevant_chunks(query: str, top_k: int = 5) -> List[SourceRef]:
+async def retrieve_relevant_chunks(query: str, top_k: int = 5, user_id: Optional[str] = None, active_kb_ids: Optional[List[str]] = None) -> List[SourceRef]:
     """
     Retrieve relevant document chunks for a given query.
 
     Args:
         query: The user's query string
         top_k: Number of top chunks to retrieve (default: 5)
+        user_id: Optional user ID to filter chunks by (only return chunks from user's documents)
 
     Returns:
         List of SourceRef objects containing relevant chunks
@@ -82,12 +83,20 @@ async def retrieve_relevant_chunks(query: str, top_k: int = 5) -> List[SourceRef
         embedding_model = _get_embedding_model()
         vector_store = _get_vector_store()
         
-        # Retrieve chunks
+        # Build filter metadata for user_id and knowledge_base_id if provided
+        # Note: We don't filter by user_id here because:
+        # 1. Default KB documents have user_id="system" and should be accessible to all users
+        # 2. We'll filter by knowledge_base_id which already ensures proper access control
+        # 3. User-specific documents will be filtered by knowledge_base_id (they belong to user's KBs)
+        
+        # Retrieve chunks (retrieve more if we need to filter by KB)
+        retrieve_top_k = top_k * 3 if active_kb_ids else top_k
         chunks = retrieve(
             query=query,
             embedding_model=embedding_model,
             vector_store=vector_store,
-            top_k=top_k,
+            top_k=retrieve_top_k,
+            filters=None,  # Don't filter by user_id - let KB filtering handle access control
             use_hybrid_search=settings.retrieval_use_hybrid_search,
             hybrid_weights=(
                 settings.retrieval_hybrid_semantic_weight,
@@ -96,6 +105,40 @@ async def retrieve_relevant_chunks(query: str, top_k: int = 5) -> List[SourceRef
             use_reranking=settings.retrieval_use_reranking,
             rerank_top_n=settings.retrieval_rerank_top_n
         )
+        
+        # Filter by active knowledge base IDs if provided
+        if active_kb_ids:
+            logger.info(f"Filtering chunks by active KB IDs: {active_kb_ids}, total chunks before filter: {len(chunks)}")
+            filtered_chunks = []
+            for chunk in chunks:
+                chunk_kb_id = chunk.get('metadata', {}).get('knowledge_base_id')
+                chunk_user_id = chunk.get('metadata', {}).get('user_id')
+                
+                # Include chunk if:
+                # 1. It belongs to an active knowledge base, OR
+                # 2. It's from default KB (user_id="system" or None) and default KB is active
+                if chunk_kb_id in active_kb_ids:
+                    # Additional check: if it's a user-specific KB, ensure user_id matches
+                    # (Default KB chunks have user_id="system" or None, so they pass this check)
+                    if chunk_user_id and chunk_user_id != "system" and chunk_user_id != user_id:
+                        # This chunk belongs to a different user's KB, skip it
+                        logger.debug(f"Skipping chunk from different user: chunk_user_id={chunk_user_id}, current_user_id={user_id}")
+                        continue
+                    filtered_chunks.append(chunk)
+                else:
+                    logger.debug(f"Chunk KB ID {chunk_kb_id} not in active KBs: {active_kb_ids}")
+            logger.info(f"Filtered to {len(filtered_chunks)} chunks after KB filtering")
+            chunks = filtered_chunks[:top_k]  # Limit to top_k after filtering
+        else:
+            # If no active KBs specified, filter by user_id to only show user's documents
+            if user_id:
+                filtered_chunks = []
+                for chunk in chunks:
+                    chunk_user_id = chunk.get('metadata', {}).get('user_id')
+                    # Include if it's the user's document or from default KB (system)
+                    if chunk_user_id == user_id or chunk_user_id == "system" or chunk_user_id is None:
+                        filtered_chunks.append(chunk)
+                chunks = filtered_chunks[:top_k]
         
         # Convert to SourceRef objects
         source_refs = []
@@ -243,7 +286,7 @@ Respond naturally and friendly. Keep it brief and welcoming. You can mention tha
         )
 
 
-async def process_chat_query(query: str, top_k: int = 5) -> tuple[str, List[SourceRef]]:
+async def process_chat_query(query: str, top_k: int = 5, user_id: Optional[str] = None, active_kb_ids: Optional[List[str]] = None) -> tuple[str, List[SourceRef]]:
     """
     Process a chat query through the RAG pipeline.
 
@@ -252,12 +295,13 @@ async def process_chat_query(query: str, top_k: int = 5) -> tuple[str, List[Sour
     Args:
         query: The user's query string
         top_k: Number of top chunks to retrieve (default: 5)
+        user_id: Optional user ID to filter chunks by (only return chunks from user's documents)
 
     Returns:
         Tuple of (answer, sources)
     """
-    # Retrieve relevant chunks
-    sources = await retrieve_relevant_chunks(query, top_k=top_k)
+    # Retrieve relevant chunks filtered by user_id and active knowledge bases
+    sources = await retrieve_relevant_chunks(query, top_k=top_k, user_id=user_id, active_kb_ids=active_kb_ids)
     
     # Generate answer
     answer = await generate_answer(query, sources)

@@ -46,10 +46,16 @@ def get_engine():
     global _engine
     if _engine is None:
         database_url = get_database_url()
+        # For SQLite, ensure we can use the connection from different threads
+        connect_args = {}
+        if "sqlite" in database_url:
+            connect_args["check_same_thread"] = False
         _engine = create_async_engine(
             database_url,
             echo=False,  # Set to True for SQL query logging
             future=True,
+            pool_pre_ping=True,  # Verify connections before using
+            connect_args=connect_args,
         )
     return _engine
 
@@ -88,6 +94,10 @@ async def init_db():
     
     This should be called once at application startup.
     """
+    # Force metadata refresh by clearing and re-importing models
+    Base.metadata.clear()
+    from . import conversation, document, message, user, knowledge_base  # noqa: F401
+    
     engine = get_engine()
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -96,7 +106,8 @@ async def init_db():
 
 async def close_db():
     """Close the database engine."""
-    global _engine
+    global _engine, _session_factory
     if _engine:
         await _engine.dispose()
         _engine = None
+    _session_factory = None

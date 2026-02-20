@@ -46,8 +46,9 @@ export function useUploadDocument() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: (file: File) => documentsApi.upload(file),
-    onMutate: async (file: File) => {
+    mutationFn: ({ file, knowledge_base_id }: { file: File; knowledge_base_id?: string }) =>
+      documentsApi.upload(file, knowledge_base_id),
+    onMutate: async ({ file }: { file: File; knowledge_base_id?: string }) => {
       // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: documentKeys.lists() });
 

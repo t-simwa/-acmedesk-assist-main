@@ -44,6 +44,7 @@ class DocumentMetadata(BaseModel):
     """
 
     id: str = Field(..., description="Unique document identifier")
+    knowledge_base_id: Optional[str] = Field(None, description="Knowledge base ID this document belongs to")
     name: str = Field(..., description="Document name/filename")
     type: str = Field(..., description="Document type (markdown, html, text)")
     status: str = Field(..., description="Processing status (processing, indexed, error)")

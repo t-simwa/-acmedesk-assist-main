@@ -23,8 +23,13 @@ import {
   FileIcon,
   FileCode,
   File,
+  Database,
+  Plus,
+  Settings,
+  ToggleLeft,
+  ToggleRight,
 } from "lucide-react";
-import { Document, ApiError } from "@/lib/api";
+import { Document, ApiError, documentsApi } from "@/lib/api";
 import {
   useDocuments,
   useUploadDocument,
@@ -32,6 +37,13 @@ import {
   useReindexDocument,
   useUpdateDocument,
 } from "@/hooks/useDocuments";
+import {
+  useKnowledgeBases,
+  useKnowledgeBasePreferences,
+  useCreateKnowledgeBase,
+  useUpdateKnowledgeBase,
+  useDeleteKnowledgeBase,
+} from "@/hooks/useKnowledgeBases";
 import { useDebounce } from "@/hooks/useDebounce";
 import {
   DropdownMenu,
@@ -361,6 +373,11 @@ export default function Documents() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
+  const [selectedKnowledgeBaseId, setSelectedKnowledgeBaseId] = useState<string | undefined>(undefined);
+  const [knowledgeBaseDialogOpen, setKnowledgeBaseDialogOpen] = useState(false);
+  const [createKBDialogOpen, setCreateKBDialogOpen] = useState(false);
+  const [newKBName, setNewKBName] = useState("");
+  const [newKBDescription, setNewKBDescription] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -374,6 +391,13 @@ export default function Documents() {
 
   const documents = documentsData?.documents || [];
   const error = queryError?.message || null;
+
+  // Knowledge Bases
+  const { knowledgeBases, loading: kbLoading, refetch: refetchKBs } = useKnowledgeBases();
+  const { preferences, updatePreferences, refetch: refetchPrefs } = useKnowledgeBasePreferences();
+  const { createKnowledgeBase, loading: creatingKB } = useCreateKnowledgeBase();
+  const { updateKnowledgeBase, loading: updatingKB } = useUpdateKnowledgeBase();
+  const { deleteKnowledgeBase, loading: deletingKB } = useDeleteKnowledgeBase();
 
   // Mutations
   const uploadMutation = useUploadDocument();
@@ -452,7 +476,7 @@ export default function Documents() {
         );
       }, 200);
 
-      await uploadMutation.mutateAsync(item.file);
+      await uploadMutation.mutateAsync({ file: item.file, knowledge_base_id: selectedKnowledgeBaseId });
 
       clearInterval(progressInterval);
       setUploadQueue((prev) =>
@@ -609,20 +633,11 @@ export default function Documents() {
 
   const handleEditSave = async (id: string) => {
     try {
-      await documentsApi.update(id, { name: editingName });
-      await fetchDocuments(search);
+      await updateMutation.mutateAsync({ id, updates: { name: editingName } });
       setEditingId(null);
       setEditingName("");
-      toast({
-        title: "Success",
-        description: "Document name updated",
-      });
     } catch (err) {
-      toast({
-        title: "Error",
-        description: "Failed to update document name",
-        variant: "destructive",
-      });
+      // Error handled by mutation
     }
   };
 
@@ -825,6 +840,294 @@ export default function Documents() {
           ))}
         </div>
       )}
+
+      {/* Knowledge Base Management Section */}
+      <div className="bg-card border border-border rounded-lg p-6 mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Database size={20} className="text-primary" />
+            <h2 className="text-lg font-semibold">Knowledge Bases</h2>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setKnowledgeBaseDialogOpen(true)}
+            className={isTablet ? "min-h-[44px]" : ""}
+          >
+            <Settings size={16} className="mr-2" />
+            Manage
+          </Button>
+        </div>
+
+        {/* Default KB Toggle */}
+        {kbLoading || (preferences === null && !error) ? (
+          <div className="flex items-center justify-center p-4">
+            <Loader2 size={16} className="animate-spin text-muted-foreground" />
+          </div>
+        ) : preferences ? (
+          <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg mb-3">
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <span className="font-medium">Default Knowledge Base</span>
+                <Badge variant="secondary">System</Badge>
+              </div>
+              <p className="text-sm text-muted-foreground mt-1">
+                Documentation from data/docs folder
+              </p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={async () => {
+                if (preferences) {
+                  await updatePreferences({
+                    ...preferences,
+                    use_default_kb: !preferences.use_default_kb,
+                  });
+                  refetchPrefs();
+                }
+              }}
+              className="flex items-center gap-2"
+            >
+              {preferences.use_default_kb ? (
+                <>
+                  <ToggleRight size={20} className="text-primary" />
+                  <span className="text-sm">Enabled</span>
+                </>
+              ) : (
+                <>
+                  <ToggleLeft size={20} className="text-muted-foreground" />
+                  <span className="text-sm">Disabled</span>
+                </>
+              )}
+            </Button>
+          </div>
+        ) : (
+          <div className="p-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-lg mb-3">
+            <p className="text-sm">Failed to load preferences. Please refresh the page.</p>
+          </div>
+        )}
+
+        {/* Custom Knowledge Bases */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium">Custom Knowledge Bases</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCreateKBDialogOpen(true)}
+              className={isTablet ? "min-h-[44px]" : ""}
+            >
+              <Plus size={16} className="mr-2" />
+              Create
+            </Button>
+          </div>
+          {kbLoading ? (
+            <div className="flex items-center justify-center p-4">
+              <Loader2 size={16} className="animate-spin text-muted-foreground" />
+            </div>
+          ) : knowledgeBases.filter((kb) => !kb.is_default).length === 0 ? (
+            <p className="text-sm text-muted-foreground p-3 bg-muted/30 rounded">
+              No custom knowledge bases. Create one to organize your documents.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {knowledgeBases
+                .filter((kb) => !kb.is_default)
+                .map((kb) => (
+                  <div
+                    key={kb.id}
+                    className="flex items-center justify-between p-3 bg-muted/30 rounded-lg"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{kb.name}</span>
+                        {kb.description && (
+                          <span className="text-xs text-muted-foreground">• {kb.description}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        checked={preferences?.active_kb_ids.includes(kb.id) || false}
+                        onCheckedChange={async (checked) => {
+                          if (preferences) {
+                            const newActiveIds = checked
+                              ? [...preferences.active_kb_ids, kb.id]
+                              : preferences.active_kb_ids.filter((id) => id !== kb.id);
+                            await updatePreferences({
+                              ...preferences,
+                              active_kb_ids: newActiveIds,
+                            });
+                            refetchPrefs();
+                          }
+                        }}
+                      />
+                      <span className="text-xs text-muted-foreground">
+                        {preferences?.active_kb_ids.includes(kb.id) ? "Active" : "Inactive"}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
+
+        {/* Knowledge Base Selection for Upload */}
+        <div className="mt-4 pt-4 border-t border-border">
+          <label className="text-sm font-medium mb-2 block">Upload to Knowledge Base</label>
+          <select
+            value={selectedKnowledgeBaseId || ""}
+            onChange={(e) => setSelectedKnowledgeBaseId(e.target.value || undefined)}
+            className="w-full px-3 py-2 border border-border rounded-md bg-background text-sm"
+          >
+            <option value="">Select a knowledge base (optional)</option>
+            {knowledgeBases
+              .filter((kb) => kb.is_active && (!kb.is_default || preferences?.use_default_kb))
+              .map((kb) => (
+                <option key={kb.id} value={kb.id}>
+                  {kb.name} {kb.is_default && "(Default)"}
+                </option>
+              ))}
+          </select>
+          <p className="text-xs text-muted-foreground mt-1">
+            Documents uploaded without a selection will not be assigned to any knowledge base.
+          </p>
+        </div>
+      </div>
+
+      {/* Knowledge Base Management Dialog */}
+      <Dialog open={knowledgeBaseDialogOpen} onOpenChange={setKnowledgeBaseDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Manage Knowledge Bases</DialogTitle>
+            <DialogDescription>
+              Create, edit, and manage your custom knowledge bases
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {knowledgeBases
+              .filter((kb) => !kb.is_default)
+              .map((kb) => (
+                <div key={kb.id} className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="flex-1">
+                    <div className="font-medium">{kb.name}</div>
+                    {kb.description && (
+                      <div className="text-sm text-muted-foreground mt-1">{kb.description}</div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          await updateKnowledgeBase(kb.id, { is_active: !kb.is_active });
+                          refetchKBs();
+                        } catch (err) {
+                          // Error handled by hook
+                        }
+                      }}
+                    >
+                      {kb.is_active ? "Deactivate" : "Activate"}
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={async () => {
+                        if (confirm(`Delete knowledge base "${kb.name}"?`)) {
+                          try {
+                            await deleteKnowledgeBase(kb.id);
+                            refetchKBs();
+                          } catch (err) {
+                            // Error handled by hook
+                          }
+                        }
+                      }}
+                    >
+                      <Trash2 size={14} />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Knowledge Base Dialog */}
+      <Dialog open={createKBDialogOpen} onOpenChange={setCreateKBDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Knowledge Base</DialogTitle>
+            <DialogDescription>
+              Create a new knowledge base to organize your documents
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Name</label>
+              <Input
+                value={newKBName}
+                onChange={(e) => setNewKBName(e.target.value)}
+                placeholder="My Knowledge Base"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">Description (optional)</label>
+              <Input
+                value={newKBDescription}
+                onChange={(e) => setNewKBDescription(e.target.value)}
+                placeholder="Description of this knowledge base"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setCreateKBDialogOpen(false);
+                  setNewKBName("");
+                  setNewKBDescription("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={async () => {
+                  if (!newKBName.trim()) {
+                    toast({
+                      title: "Error",
+                      description: "Name is required",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  try {
+                    await createKnowledgeBase({
+                      name: newKBName.trim(),
+                      description: newKBDescription.trim() || undefined,
+                    });
+                    setCreateKBDialogOpen(false);
+                    setNewKBName("");
+                    setNewKBDescription("");
+                    refetchKBs();
+                    // Auto-select the new KB
+                    const newKB = knowledgeBases.find((kb) => kb.name === newKBName.trim());
+                    if (newKB) {
+                      setSelectedKnowledgeBaseId(newKB.id);
+                    }
+                  } catch (err) {
+                    // Error handled by hook
+                  }
+                }}
+                disabled={creatingKB || !newKBName.trim()}
+              >
+                {creatingKB ? <Loader2 size={16} className="animate-spin mr-2" /> : null}
+                Create
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Drop zone */}
       <div

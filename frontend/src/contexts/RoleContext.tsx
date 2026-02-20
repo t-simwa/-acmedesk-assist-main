@@ -6,6 +6,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { adminApi, CurrentUser } from "@/lib/api";
+import { useAuth } from "./AuthContext";
 
 interface RoleContextType {
   user: CurrentUser | null;
@@ -62,11 +63,19 @@ const defaultContextValue: RoleContextType = {
 const RoleContext = createContext<RoleContextType>(defaultContextValue);
 
 export function RoleProvider({ children }: { children: ReactNode }) {
+  // AuthContext is always available since AuthProvider wraps RoleProvider in App.tsx
+  const { user: authUser, isAuthenticated } = useAuth();
   const [user, setUser] = useState<CurrentUser | null>(DEFAULT_ADMIN_USER);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchUser = async () => {
+    if (!isAuthenticated || !authUser) {
+      setUser(null);
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -75,8 +84,19 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error("Error fetching current user:", err);
       setError("Failed to load user information");
-      // Use default admin user for development/fallback
-      setUser(DEFAULT_ADMIN_USER);
+      // Fallback to auth user data if admin API fails
+      if (authUser) {
+        setUser({
+          id: authUser.user_id,
+          email: authUser.email,
+          name: authUser.name || undefined,
+          role: authUser.role as "admin" | "analyst" | "viewer",
+          is_active: authUser.is_active,
+          permissions: [], // Will be empty if admin API fails
+        });
+      } else {
+        setUser(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -84,7 +104,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     fetchUser();
-  }, []);
+  }, [isAuthenticated, authUser]);
 
   const hasPermission = (permission: string): boolean => {
     if (!user) return false;

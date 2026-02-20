@@ -80,6 +80,8 @@ class VectorStore:
         chunks: List,
         embeddings: List[List[float]],
         metadatas: Optional[List[Dict]] = None,
+        user_id: Optional[str] = None,
+        knowledge_base_id: Optional[str] = None,
     ) -> List[str]:
         """
         Add document chunks with embeddings to the vector store.
@@ -88,6 +90,7 @@ class VectorStore:
             chunks: List of Chunk objects from chunking module
             embeddings: List of embedding vectors (one per chunk)
             metadatas: Optional list of metadata dictionaries (if None, extracted from chunks)
+            user_id: Optional user ID to associate with all chunks
 
         Returns:
             List of vector IDs assigned to the chunks
@@ -123,6 +126,12 @@ class VectorStore:
                 "start_char": chunk.start_char,
                 "end_char": chunk.end_char,
             })
+            
+            # Add user_id and knowledge_base_id if provided
+            if user_id:
+                metadata["user_id"] = user_id
+            if knowledge_base_id:
+                metadata["knowledge_base_id"] = knowledge_base_id
 
             metadata_list.append(metadata)
 

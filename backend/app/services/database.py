@@ -26,6 +26,7 @@ from ..models.document import Document
 from ..models.message import Message
 from ..models.setting import Setting
 from ..models.user_preferences import UserPreferences
+from ..models.knowledge_base import KnowledgeBase, UserKnowledgeBasePreference
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,7 @@ async def save_conversation_turn(
     answer: str,
     sources_count: int,
     query_time_ms: float,
+    user_id: Optional[str] = None,
 ) -> Optional[str]:
     """
     Save a conversation turn to the database.
@@ -74,6 +76,7 @@ async def save_conversation_turn(
                 conversation_id = str(uuid.uuid4())
                 conversation = Conversation(
                     id=conversation_id,
+                    user_id=user_id or "anonymous",  # Use user_id if provided, otherwise "anonymous"
                     session_id=session_id,
                     started_at=datetime.utcnow(),
                     last_activity_at=datetime.utcnow(),
@@ -143,14 +146,15 @@ async def get_conversation_history(
     session_factory = get_session_factory()
     async with session_factory() as session:
         try:
-            # Find conversation by session_id
-            result = await session.execute(
-                select(Conversation).where(Conversation.session_id == session_id)
-            )
+            # Find conversation by session_id, optionally filtered by user_id
+            query = select(Conversation).where(Conversation.session_id == session_id)
+            if user_id:
+                query = query.where(Conversation.user_id == user_id)
+            result = await session.execute(query)
             conversation = result.scalar_one_or_none()
 
             if conversation is None:
-                logger.debug(f"No conversation history found for session_id={session_id}")
+                logger.debug(f"No conversation history found for session_id={session_id}, user_id={user_id}")
                 return [], 0
 
             # Get total count
@@ -183,13 +187,14 @@ async def get_conversation_history(
             raise
 
 
-async def update_message_reaction(message_id: str, reaction: Optional[str]) -> bool:
+async def update_message_reaction(message_id: str, reaction: Optional[str], user_id: Optional[str] = None) -> bool:
     """
-    Update reaction for a message.
+    Update reaction for a message, optionally filtered by user_id.
 
     Args:
         message_id: Message identifier
         reaction: Reaction type ("thumbs_up", "thumbs_down", or None to remove)
+        user_id: Optional user ID to ensure user can only update reactions on their own messages
 
     Returns:
         True if message was found and updated, False otherwise
@@ -197,14 +202,16 @@ async def update_message_reaction(message_id: str, reaction: Optional[str]) -> b
     session_factory = get_session_factory()
     async with session_factory() as session:
         try:
-            # Find message by ID
-            result = await session.execute(
-                select(Message).where(Message.id == message_id)
-            )
+            # Find message by ID, optionally filtered by user_id through conversation
+            query = select(Message).where(Message.id == message_id)
+            if user_id:
+                # Join with Conversation to filter by user_id
+                query = query.join(Conversation).where(Conversation.user_id == user_id)
+            result = await session.execute(query)
             message = result.scalar_one_or_none()
 
             if message is None:
-                logger.debug(f"No message found to update reaction: message_id={message_id}")
+                logger.debug(f"No message found to update reaction: message_id={message_id}, user_id={user_id}")
                 return False
 
             # Update metadata with reaction
@@ -229,12 +236,13 @@ async def update_message_reaction(message_id: str, reaction: Optional[str]) -> b
             raise
 
 
-async def delete_conversation(session_id: str) -> bool:
+async def delete_conversation(session_id: str, user_id: Optional[str] = None) -> bool:
     """
-    Delete a conversation by session ID.
+    Delete a conversation by session ID, optionally filtered by user_id.
 
     Args:
         session_id: Session identifier
+        user_id: Optional user ID to ensure user can only delete their own conversations
 
     Returns:
         True if conversation was deleted, False if it didn't exist
@@ -242,10 +250,11 @@ async def delete_conversation(session_id: str) -> bool:
     session_factory = get_session_factory()
     async with session_factory() as session:
         try:
-            # Find conversation by session_id
-            result = await session.execute(
-                select(Conversation).where(Conversation.session_id == session_id)
-            )
+            # Find conversation by session_id, optionally filtered by user_id
+            query = select(Conversation).where(Conversation.session_id == session_id)
+            if user_id:
+                query = query.where(Conversation.user_id == user_id)
+            result = await session.execute(query)
             conversation = result.scalar_one_or_none()
 
             if conversation is None:
@@ -289,6 +298,8 @@ async def create_document(
     file_path: str,
     file_size: int,
     status: str = "processing",
+    user_id: Optional[str] = None,
+    knowledge_base_id: Optional[str] = None,
 ) -> dict:
     """
     Create a new document metadata record.
@@ -309,6 +320,8 @@ async def create_document(
         try:
             document = Document(
                 id=doc_id,
+                user_id=user_id or "anonymous",  # Use user_id if provided, otherwise "anonymous"
+                knowledge_base_id=knowledge_base_id,
                 name=name,
                 type=doc_type,
                 status=status,
@@ -425,6 +438,7 @@ async def list_documents(
     search: Optional[str] = None,
     status: Optional[str] = None,
     doc_type: Optional[str] = None,
+    user_id: Optional[str] = None,
 ) -> tuple[List[dict], int]:
     """
     List documents with pagination, search, and filtering.
@@ -435,6 +449,7 @@ async def list_documents(
         search: Search term to filter by document name (case-insensitive)
         status: Filter by status (processing, indexed, error)
         doc_type: Filter by document type (markdown, html, text)
+        user_id: Optional user ID to filter by (required for user-specific queries)
 
     Returns:
         Tuple of (list of document metadata dictionaries, total count)
@@ -445,6 +460,10 @@ async def list_documents(
             # Build query with filters
             query = select(Document)
             conditions = []
+
+            # Always filter by user_id if provided
+            if user_id:
+                conditions.append(Document.user_id == user_id)
 
             if search:
                 conditions.append(func.lower(Document.name).contains(func.lower(search)))
@@ -600,12 +619,15 @@ async def update_rag_settings(settings_dict: Dict[str, Any]) -> Dict[str, Any]:
 
 # Analytics functions
 
-async def get_total_conversations() -> int:
-    """Get total number of conversations."""
+async def get_total_conversations(user_id: Optional[str] = None) -> int:
+    """Get total number of conversations, optionally filtered by user_id."""
     session_factory = get_session_factory()
     async with session_factory() as session:
         try:
-            result = await session.execute(select(func.count(Conversation.id)))
+            query = select(func.count(Conversation.id))
+            if user_id:
+                query = query.where(Conversation.user_id == user_id)
+            result = await session.execute(query)
             total = result.scalar() or 0
             return total
         except Exception as e:
@@ -613,12 +635,17 @@ async def get_total_conversations() -> int:
             raise
 
 
-async def get_total_messages() -> int:
-    """Get total number of messages."""
+async def get_total_messages(user_id: Optional[str] = None) -> int:
+    """Get total number of messages, optionally filtered by user_id."""
     session_factory = get_session_factory()
     async with session_factory() as session:
         try:
-            result = await session.execute(select(func.count(Message.id)))
+            # Join with Conversation to filter by user_id
+            if user_id:
+                query = select(func.count(Message.id)).join(Conversation).where(Conversation.user_id == user_id)
+            else:
+                query = select(func.count(Message.id))
+            result = await session.execute(query)
             total = result.scalar() or 0
             return total
         except Exception as e:
@@ -626,12 +653,13 @@ async def get_total_messages() -> int:
             raise
 
 
-async def get_conversations_by_day(days: int = 7) -> List[Dict[str, Any]]:
+async def get_conversations_by_day(days: int = 7, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
     """
-    Get conversation counts by day for the last N days.
+    Get conversation counts by day for the last N days, optionally filtered by user_id.
 
     Args:
         days: Number of days to look back (default: 7)
+        user_id: Optional user ID to filter by
 
     Returns:
         List of dictionaries with date and count
@@ -642,12 +670,12 @@ async def get_conversations_by_day(days: int = 7) -> List[Dict[str, Any]]:
             # Calculate start date
             start_date = datetime.utcnow() - timedelta(days=days)
             
-            # Query all conversations in the date range
-            result = await session.execute(
-                select(Conversation)
-                .where(Conversation.started_at >= start_date)
-            )
+            # Query conversations in the date range, optionally filtered by user_id
+            query = select(Conversation).where(Conversation.started_at >= start_date)
+            if user_id:
+                query = query.where(Conversation.user_id == user_id)
             
+            result = await session.execute(query)
             conversations = result.scalars().all()
             
             # Group by date in Python
@@ -672,9 +700,9 @@ async def get_conversations_by_day(days: int = 7) -> List[Dict[str, Any]]:
             raise
 
 
-async def get_resolution_rate() -> Dict[str, Any]:
+async def get_resolution_rate(user_id: Optional[str] = None) -> Dict[str, Any]:
     """
-    Get resolution rate metrics (resolved via bot vs escalated).
+    Get resolution rate metrics (resolved via bot vs escalated), optionally filtered by user_id.
 
     Note: For now, we assume a conversation is "resolved" if it has at least one
     assistant message with positive feedback (thumbs_up). "Escalated" conversations
@@ -684,29 +712,40 @@ async def get_resolution_rate() -> Dict[str, Any]:
     session_factory = get_session_factory()
     async with session_factory() as session:
         try:
-            # Get total conversations
-            total_result = await session.execute(select(func.count(Conversation.id)))
+            # Get total conversations, optionally filtered by user_id
+            total_query = select(func.count(Conversation.id))
+            if user_id:
+                total_query = total_query.where(Conversation.user_id == user_id)
+            total_result = await session.execute(total_query)
             total_conversations = total_result.scalar() or 0
 
             # Count conversations with positive feedback (thumbs_up)
             # This is a simplified approach - we count messages with thumbs_up reaction
-            resolved_result = await session.execute(
+            resolved_query = (
                 select(func.count(func.distinct(Message.conversation_id)))
+                .join(Conversation)
                 .where(
                     Message.role == "assistant",
                     Message.message_metadata.contains({"reaction": "thumbs_up"})
                 )
             )
+            if user_id:
+                resolved_query = resolved_query.where(Conversation.user_id == user_id)
+            resolved_result = await session.execute(resolved_query)
             resolved_via_bot = resolved_result.scalar() or 0
 
             # Count conversations with negative feedback (thumbs_down) as escalated
-            escalated_result = await session.execute(
+            escalated_query = (
                 select(func.count(func.distinct(Message.conversation_id)))
+                .join(Conversation)
                 .where(
                     Message.role == "assistant",
                     Message.message_metadata.contains({"reaction": "thumbs_down"})
                 )
             )
+            if user_id:
+                escalated_query = escalated_query.where(Conversation.user_id == user_id)
+            escalated_result = await session.execute(escalated_query)
             escalated = escalated_result.scalar() or 0
 
             # Calculate percentage
@@ -724,21 +763,25 @@ async def get_resolution_rate() -> Dict[str, Any]:
             raise
 
 
-async def get_response_accuracy_metrics() -> Dict[str, Any]:
+async def get_response_accuracy_metrics(user_id: Optional[str] = None) -> Dict[str, Any]:
     """
-    Get response accuracy metrics (average query time, average sources count).
+    Get response accuracy metrics (average query time, average sources count), optionally filtered by user_id.
     """
     session_factory = get_session_factory()
     async with session_factory() as session:
         try:
-            # Get all assistant messages with metadata
-            result = await session.execute(
+            # Get all assistant messages with metadata, optionally filtered by user_id
+            query = (
                 select(Message)
+                .join(Conversation)
                 .where(
                     Message.role == "assistant",
                     Message.message_metadata.isnot(None)
                 )
             )
+            if user_id:
+                query = query.where(Conversation.user_id == user_id)
+            result = await session.execute(query)
             messages = result.scalars().all()
 
             # Calculate averages in Python
@@ -771,9 +814,9 @@ async def get_response_accuracy_metrics() -> Dict[str, Any]:
             raise
 
 
-async def get_top_question_categories(limit: int = 5) -> List[Dict[str, Any]]:
+async def get_top_question_categories(limit: int = 5, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
     """
-    Get top question categories.
+    Get top question categories, optionally filtered by user_id.
 
     Note: This is a simplified implementation. In a real system, you would
     categorize questions using NLP or predefined categories. For now, we'll
@@ -783,37 +826,46 @@ async def get_top_question_categories(limit: int = 5) -> List[Dict[str, Any]]:
     # 1. Extract categories from message content using NLP
     # 2. Or use predefined categories based on keywords
     # 3. Or use a classification model
+    # 4. Filter by user_id if provided
     
     # For now, return empty list as categories need to be determined
     # based on actual question analysis
     return []
 
 
-async def get_user_satisfaction_metrics() -> Dict[str, Any]:
+async def get_user_satisfaction_metrics(user_id: Optional[str] = None) -> Dict[str, Any]:
     """
-    Get user satisfaction metrics from thumbs up/down feedback.
+    Get user satisfaction metrics from thumbs up/down feedback, optionally filtered by user_id.
     """
     session_factory = get_session_factory()
     async with session_factory() as session:
         try:
-            # Count thumbs up
-            thumbs_up_result = await session.execute(
+            # Count thumbs up, optionally filtered by user_id
+            thumbs_up_query = (
                 select(func.count(Message.id))
+                .join(Conversation)
                 .where(
                     Message.role == "assistant",
                     Message.message_metadata.contains({"reaction": "thumbs_up"})
                 )
             )
+            if user_id:
+                thumbs_up_query = thumbs_up_query.where(Conversation.user_id == user_id)
+            thumbs_up_result = await session.execute(thumbs_up_query)
             thumbs_up = thumbs_up_result.scalar() or 0
 
-            # Count thumbs down
-            thumbs_down_result = await session.execute(
+            # Count thumbs down, optionally filtered by user_id
+            thumbs_down_query = (
                 select(func.count(Message.id))
+                .join(Conversation)
                 .where(
                     Message.role == "assistant",
                     Message.message_metadata.contains({"reaction": "thumbs_down"})
                 )
             )
+            if user_id:
+                thumbs_down_query = thumbs_down_query.where(Conversation.user_id == user_id)
+            thumbs_down_result = await session.execute(thumbs_down_query)
             thumbs_down = thumbs_down_result.scalar() or 0
 
             total_feedback = thumbs_up + thumbs_down
@@ -831,9 +883,9 @@ async def get_user_satisfaction_metrics() -> Dict[str, Any]:
             raise
 
 
-async def get_api_usage_metrics() -> Dict[str, Any]:
+async def get_api_usage_metrics(user_id: Optional[str] = None) -> Dict[str, Any]:
     """
-    Get API usage and cost tracking metrics.
+    Get API usage and cost tracking metrics, optionally filtered by user_id.
 
     Note: This is a simplified implementation. In a real system, you would
     track API calls and token usage from the LLM service. For now, we'll
@@ -842,11 +894,15 @@ async def get_api_usage_metrics() -> Dict[str, Any]:
     session_factory = get_session_factory()
     async with session_factory() as session:
         try:
-            # Count total assistant messages (each represents an API call)
-            total_requests_result = await session.execute(
+            # Count total assistant messages (each represents an API call), optionally filtered by user_id
+            query = (
                 select(func.count(Message.id))
+                .join(Conversation)
                 .where(Message.role == "assistant")
             )
+            if user_id:
+                query = query.where(Conversation.user_id == user_id)
+            total_requests_result = await session.execute(query)
             total_requests = total_requests_result.scalar() or 0
 
             # Estimate tokens (simplified - in real system, track actual tokens)
@@ -870,12 +926,13 @@ async def get_api_usage_metrics() -> Dict[str, Any]:
             raise
 
 
-async def get_top_queries(limit: int = 10) -> tuple[List[Dict[str, Any]], int]:
+async def get_top_queries(limit: int = 10, user_id: Optional[str] = None) -> tuple[List[Dict[str, Any]], int]:
     """
-    Get top queries with statistics.
+    Get top queries with statistics, optionally filtered by user_id.
 
     Args:
         limit: Maximum number of queries to return
+        user_id: Optional user ID to filter by
 
     Returns:
         Tuple of (list of top queries, total unique queries count)
@@ -883,24 +940,31 @@ async def get_top_queries(limit: int = 10) -> tuple[List[Dict[str, Any]], int]:
     session_factory = get_session_factory()
     async with session_factory() as session:
         try:
-            # Get all user messages grouped by content
-            result = await session.execute(
+            # Get all user messages grouped by content, optionally filtered by user_id
+            query = (
                 select(
                     Message.content.label("query"),
                     func.count(Message.id).label("count")
                 )
+                .join(Conversation)
                 .where(Message.role == "user")
-                .group_by(Message.content)
-                .order_by(func.count(Message.id).desc())
-                .limit(limit)
             )
+            if user_id:
+                query = query.where(Conversation.user_id == user_id)
+            query = query.group_by(Message.content).order_by(func.count(Message.id).desc()).limit(limit)
+            
+            result = await session.execute(query)
             rows = result.all()
 
-            # Get total unique queries
-            total_result = await session.execute(
+            # Get total unique queries, optionally filtered by user_id
+            total_query = (
                 select(func.count(func.distinct(Message.content)))
+                .join(Conversation)
                 .where(Message.role == "user")
             )
+            if user_id:
+                total_query = total_query.where(Conversation.user_id == user_id)
+            total_result = await session.execute(total_query)
             total = total_result.scalar() or 0
 
             # For each query, count resolved instances
@@ -909,11 +973,15 @@ async def get_top_queries(limit: int = 10) -> tuple[List[Dict[str, Any]], int]:
                 query_text = row.query
                 count = row.count or 0
 
-                # Find all user messages with this query
-                user_messages_result = await session.execute(
+                # Find all user messages with this query, optionally filtered by user_id
+                user_messages_query = (
                     select(Message)
+                    .join(Conversation)
                     .where(Message.role == "user", Message.content == query_text)
                 )
+                if user_id:
+                    user_messages_query = user_messages_query.where(Conversation.user_id == user_id)
+                user_messages_result = await session.execute(user_messages_query)
                 user_messages = user_messages_result.scalars().all()
 
                 # For each user message, check if the next assistant message has thumbs_up
@@ -1104,3 +1172,318 @@ async def delete_user_avatar(user_id: str = DEFAULT_USER_ID) -> bool:
             await session.rollback()
             logger.error(f"Error deleting user avatar: {e}", exc_info=True)
             raise
+
+
+# Knowledge Base management functions
+
+async def create_knowledge_base(
+    name: str,
+    user_id: str,
+    description: Optional[str] = None,
+) -> dict:
+    """
+    Create a new knowledge base.
+
+    Args:
+        name: Knowledge base name
+        user_id: User ID who owns this knowledge base
+        description: Optional description
+
+    Returns:
+        Knowledge base metadata dictionary
+    """
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        try:
+            kb_id = str(uuid.uuid4())
+            knowledge_base = KnowledgeBase(
+                id=kb_id,
+                user_id=user_id,
+                name=name,
+                description=description,
+                is_default=False,
+                is_active=True,
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow(),
+            )
+
+            session.add(knowledge_base)
+            await session.commit()
+            await session.refresh(knowledge_base)
+
+            logger.info(f"Created knowledge base: id={kb_id}, name={name}, user_id={user_id}")
+
+            return knowledge_base.to_dict()
+
+        except Exception as e:
+            await session.rollback()
+            logger.error(f"Error creating knowledge base: {e}", exc_info=True)
+            raise
+
+
+async def get_knowledge_base(kb_id: str) -> Optional[dict]:
+    """
+    Get knowledge base by ID.
+
+    Args:
+        kb_id: Knowledge base identifier
+
+    Returns:
+        Knowledge base metadata dictionary if found, None otherwise
+    """
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        try:
+            result = await session.execute(select(KnowledgeBase).where(KnowledgeBase.id == kb_id))
+            kb = result.scalar_one_or_none()
+
+            if kb:
+                return kb.to_dict()
+            return None
+
+        except Exception as e:
+            logger.error(f"Error getting knowledge base: {e}", exc_info=True)
+            raise
+
+
+async def list_knowledge_bases(user_id: Optional[str] = None) -> List[dict]:
+    """
+    List knowledge bases, optionally filtered by user_id.
+
+    Args:
+        user_id: Optional user ID to filter by (None returns all including default)
+
+    Returns:
+        List of knowledge base metadata dictionaries
+    """
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        try:
+            query = select(KnowledgeBase)
+            
+            if user_id:
+                # Return default KB + user's custom KBs
+                query = query.where(
+                    (KnowledgeBase.is_default == True) | (KnowledgeBase.user_id == user_id)
+                )
+            else:
+                # Return all KBs
+                pass
+            
+            query = query.order_by(KnowledgeBase.is_default.desc(), KnowledgeBase.created_at.desc())
+            result = await session.execute(query)
+            kbs = result.scalars().all()
+
+            return [kb.to_dict() for kb in kbs]
+
+        except Exception as e:
+            logger.error(f"Error listing knowledge bases: {e}", exc_info=True)
+            raise
+
+
+async def update_knowledge_base(
+    kb_id: str,
+    name: Optional[str] = None,
+    description: Optional[str] = None,
+    is_active: Optional[bool] = None,
+) -> Optional[dict]:
+    """
+    Update knowledge base.
+
+    Args:
+        kb_id: Knowledge base identifier
+        name: Optional new name
+        description: Optional new description
+        is_active: Optional new active status
+
+    Returns:
+        Updated knowledge base metadata dictionary if found, None otherwise
+    """
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        try:
+            result = await session.execute(select(KnowledgeBase).where(KnowledgeBase.id == kb_id))
+            kb = result.scalar_one_or_none()
+
+            if kb is None:
+                return None
+
+            if name is not None:
+                kb.name = name
+            if description is not None:
+                kb.description = description
+            if is_active is not None:
+                kb.is_active = is_active
+            
+            kb.updated_at = datetime.utcnow()
+            await session.commit()
+            await session.refresh(kb)
+
+            logger.info(f"Updated knowledge base: id={kb_id}")
+
+            return kb.to_dict()
+
+        except Exception as e:
+            await session.rollback()
+            logger.error(f"Error updating knowledge base: {e}", exc_info=True)
+            raise
+
+
+async def delete_knowledge_base(kb_id: str, user_id: str) -> bool:
+    """
+    Delete a knowledge base (only if user owns it and it's not default).
+
+    Args:
+        kb_id: Knowledge base identifier
+        user_id: User ID to verify ownership
+
+    Returns:
+        True if deleted, False if not found or not allowed
+    """
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        try:
+            result = await session.execute(
+                select(KnowledgeBase).where(
+                    KnowledgeBase.id == kb_id,
+                    KnowledgeBase.user_id == user_id,
+                    KnowledgeBase.is_default == False
+                )
+            )
+            kb = result.scalar_one_or_none()
+
+            if kb is None:
+                return False
+
+            await session.delete(kb)
+            await session.commit()
+
+            logger.info(f"Deleted knowledge base: id={kb_id}, user_id={user_id}")
+
+            return True
+
+        except Exception as e:
+            await session.rollback()
+            logger.error(f"Error deleting knowledge base: {e}", exc_info=True)
+            raise
+
+
+async def get_user_knowledge_base_preferences(user_id: str) -> dict:
+    """
+    Get user knowledge base preferences, creating default if not exists.
+
+    Args:
+        user_id: User identifier
+
+    Returns:
+        User knowledge base preferences dictionary
+    """
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        try:
+            result = await session.execute(
+                select(UserKnowledgeBasePreference).where(UserKnowledgeBasePreference.user_id == user_id)
+            )
+            prefs = result.scalar_one_or_none()
+
+            if prefs is None:
+                # Create default preferences
+                prefs_id = str(uuid.uuid4())
+                prefs = UserKnowledgeBasePreference(
+                    id=prefs_id,
+                    user_id=user_id,
+                    use_default_kb=True,
+                    active_kb_ids="[]",
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow(),
+                )
+                session.add(prefs)
+                await session.commit()
+                await session.refresh(prefs)
+
+            return prefs.to_dict()
+
+        except Exception as e:
+            await session.rollback()
+            logger.error(f"Error getting user KB preferences: {e}", exc_info=True)
+            raise
+
+
+async def update_user_knowledge_base_preferences(
+    user_id: str,
+    use_default_kb: bool,
+    active_kb_ids: List[str],
+) -> dict:
+    """
+    Update user knowledge base preferences.
+
+    Args:
+        user_id: User identifier
+        use_default_kb: Whether to use default knowledge base
+        active_kb_ids: List of active knowledge base IDs
+
+    Returns:
+        Updated preferences dictionary
+    """
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        try:
+            result = await session.execute(
+                select(UserKnowledgeBasePreference).where(UserKnowledgeBasePreference.user_id == user_id)
+            )
+            prefs = result.scalar_one_or_none()
+
+            if prefs is None:
+                # Create preferences
+                prefs_id = str(uuid.uuid4())
+                prefs = UserKnowledgeBasePreference(
+                    id=prefs_id,
+                    user_id=user_id,
+                    use_default_kb=use_default_kb,
+                    active_kb_ids=json.dumps(active_kb_ids),
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow(),
+                )
+                session.add(prefs)
+            else:
+                prefs.use_default_kb = use_default_kb
+                prefs.active_kb_ids = json.dumps(active_kb_ids)
+                prefs.updated_at = datetime.utcnow()
+
+            await session.commit()
+            await session.refresh(prefs)
+
+            logger.info(f"Updated user KB preferences: user_id={user_id}")
+
+            return prefs.to_dict()
+
+        except Exception as e:
+            await session.rollback()
+            logger.error(f"Error updating user KB preferences: {e}", exc_info=True)
+            raise
+
+
+async def get_active_knowledge_base_ids(user_id: str) -> List[str]:
+    """
+    Get list of active knowledge base IDs for a user (for RAG filtering).
+
+    Args:
+        user_id: User identifier
+
+    Returns:
+        List of active knowledge base IDs
+    """
+    prefs = await get_user_knowledge_base_preferences(user_id)
+    active_ids = []
+    
+    # Add default KB if enabled
+    if prefs["use_default_kb"]:
+        # Get default KB ID
+        default_kb = await get_knowledge_base("00000000-0000-0000-0000-000000000001")
+        if default_kb:
+            active_ids.append(default_kb["id"])
+    
+    # Add user's selected custom KBs
+    active_ids.extend(prefs["active_kb_ids"])
+    
+    return active_ids

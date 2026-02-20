@@ -6,13 +6,17 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AccessibilityProvider } from "@/contexts/AccessibilityContext";
+import { AuthProvider } from "@/contexts/AuthContext";
 import { RoleProvider } from "@/contexts/RoleContext";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { PageTransition } from "@/components/PageTransition";
 import { ChatWidget } from "@/components/chat/ChatWidget";
 import { queryClient } from "@/lib/queryClient";
 import { ErrorBoundary } from "@/components/error/ErrorBoundary";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
 import { AdminLayout } from "./components/admin/AdminLayout";
 import { DashboardSkeleton } from "./components/admin/skeletons/DashboardSkeleton";
 import { DocumentsSkeleton } from "./components/admin/skeletons/DocumentsSkeleton";
@@ -39,8 +43,9 @@ const App = () => (
   <ErrorBoundary>
     <ThemeProvider>
       <AccessibilityProvider>
-        <RoleProvider>
-          <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <RoleProvider>
+            <QueryClientProvider client={queryClient}>
           <TooltipProvider>
           {/* Global ARIA live region for notifications and announcements */}
           <div id="aria-live-region" aria-live="polite" aria-atomic="true" className="sr-only" />
@@ -56,7 +61,30 @@ const App = () => (
                   </PageTransition>
                 }
               />
-              <Route path="/admin" element={<AdminLayout />}>
+              <Route
+                path="/login"
+                element={
+                  <PageTransition>
+                    <Login />
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="/register"
+                element={
+                  <PageTransition>
+                    <Register />
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="/admin"
+                element={
+                  <ProtectedRoute>
+                    <AdminLayout />
+                  </ProtectedRoute>
+                }
+              >
                 <Route
                   index
                   element={
@@ -193,6 +221,7 @@ const App = () => (
           </TooltipProvider>
         </QueryClientProvider>
         </RoleProvider>
+        </AuthProvider>
       </AccessibilityProvider>
     </ThemeProvider>
   </ErrorBoundary>

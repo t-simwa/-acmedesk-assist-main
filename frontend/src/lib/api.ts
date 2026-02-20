@@ -2,6 +2,7 @@
  * API Client Layer for AcmeDesk Assist
  * 
  * Provides a generic apiClient using fetch and specific API functions for:
+ * - Auth API
  * - Chat API
  * - Documents API
  * - Analytics API
@@ -256,7 +257,8 @@ function isRetryableError(error: ApiError, retryOn: number[]): boolean {
  */
 async function apiClient<T>(
   endpoint: string,
-  options: ApiClientOptions = {}
+  options: ApiClientOptions = {},
+  retryCount: number = 0
 ): Promise<T> {
   const {
     params,
@@ -294,10 +296,16 @@ async function apiClient<T>(
   for (let attempt = 0; attempt <= effectiveRetries; attempt++) {
     // Set default headers
     // Don't set Content-Type for FormData - let browser set it with boundary
-    const headers: HeadersInit = {
+    const headers: Record<string, string> = {
       ...(isFormData ? {} : { "Content-Type": "application/json" }),
-      ...fetchOptions.headers,
+      ...(fetchOptions.headers as Record<string, string> || {}),
     };
+    
+    // Add Authorization header if token is available and not already set
+    const accessToken = localStorage.getItem("access_token");
+    if (accessToken && !headers["Authorization"]) {
+      headers["Authorization"] = `Bearer ${accessToken}`;
+    }
 
     // Create abort controller for timeout and cancellation
     const controller = new AbortController();
@@ -333,6 +341,29 @@ async function apiClient<T>(
       }
 
       const data = await response.json();
+
+      // Handle 401 Unauthorized - try to refresh token (only for JSON responses, avoid infinite loop)
+      if (response.status === 401 && accessToken && endpoint !== "/api/auth/refresh" && retryCount === 0) {
+        try {
+          // Attempt to refresh token
+          const refreshToken = localStorage.getItem("refresh_token");
+          if (refreshToken) {
+            const refreshResponse = await authApi.refreshToken();
+            // Retry original request with new token (recursive call with retryCount = 1)
+            return apiClient<T>(endpoint, {
+              ...options,
+              headers: {
+                ...options.headers,
+                Authorization: `Bearer ${refreshResponse.access_token}`,
+              },
+            }, 1);
+          }
+        } catch (refreshError) {
+          // Refresh failed, clear tokens and let error propagate
+          authApi.logout();
+          // Fall through to error handling
+        }
+      }
 
       if (!response.ok) {
         // Extract error message from FastAPI response format
@@ -508,6 +539,157 @@ export function cancelAllRequests(): void {
 // Chat API
 // ============================================================================
 
+// ============================================================================
+// Auth API Types
+// ============================================================================
+
+export interface TokenResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  expires_in: number;
+}
+
+export interface RegisterRequest {
+  email: string;
+  password: string;
+  name?: string;
+}
+
+export interface RegisterResponse {
+  message: string;
+  user_id: string;
+  email: string;
+  tokens: TokenResponse;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+  remember_me?: boolean;
+}
+
+export interface LoginResponse {
+  message: string;
+  user_id: string;
+  email: string;
+  name?: string;
+  role: string;
+  tokens: TokenResponse;
+}
+
+export interface RefreshTokenRequest {
+  refresh_token: string;
+}
+
+export interface UserInfoResponse {
+  user_id: string;
+  email: string;
+  name?: string;
+  role: string;
+  is_active: boolean;
+}
+
+// ============================================================================
+// Auth API
+// ============================================================================
+
+export const authApi = {
+  /**
+   * Register a new user account
+   */
+  async register(payload: RegisterRequest): Promise<RegisterResponse> {
+    const response = await apiClient<RegisterResponse>("/api/auth/register", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    
+    // Store tokens in localStorage
+    if (response.tokens) {
+      localStorage.setItem("access_token", response.tokens.access_token);
+      localStorage.setItem("refresh_token", response.tokens.refresh_token);
+    }
+    
+    return response;
+  },
+
+  /**
+   * Login with email and password
+   */
+  async login(payload: LoginRequest): Promise<LoginResponse> {
+    const response = await apiClient<LoginResponse>("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    
+    // Store tokens in localStorage
+    if (response.tokens) {
+      localStorage.setItem("access_token", response.tokens.access_token);
+      localStorage.setItem("refresh_token", response.tokens.refresh_token);
+    }
+    
+    return response;
+  },
+
+  /**
+   * Get current user information
+   */
+  async getCurrentUser(): Promise<UserInfoResponse> {
+    return apiClient<UserInfoResponse>("/api/auth/me", {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+      },
+    });
+  },
+
+  /**
+   * Logout (clear tokens)
+   */
+  logout(): void {
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+  },
+
+  /**
+   * Check if user is authenticated
+   */
+  isAuthenticated(): boolean {
+    return !!localStorage.getItem("access_token");
+  },
+
+  /**
+   * Get access token
+   */
+  getAccessToken(): string | null {
+    return localStorage.getItem("access_token");
+  },
+
+  /**
+   * Refresh access token using refresh token
+   */
+  async refreshToken(): Promise<TokenResponse> {
+    const refreshToken = localStorage.getItem("refresh_token");
+    if (!refreshToken) {
+      throw new Error("No refresh token available");
+    }
+
+    const response = await apiClient<TokenResponse>("/api/auth/refresh", {
+      method: "POST",
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+
+    // Update stored tokens
+    localStorage.setItem("access_token", response.access_token);
+    localStorage.setItem("refresh_token", response.refresh_token);
+
+    return response;
+  },
+};
+
+// ============================================================================
+// Chat API
+// ============================================================================
+
 export const chatApi = {
   /**
    * Send a chat message and get a response
@@ -543,9 +725,12 @@ export const documentsApi = {
   /**
    * Upload a document
    */
-  async upload(file: File): Promise<DocumentUploadResponse> {
+  async upload(file: File, knowledge_base_id?: string): Promise<DocumentUploadResponse> {
     const formData = new FormData();
     formData.append("file", file);
+    if (knowledge_base_id) {
+      formData.append("knowledge_base_id", knowledge_base_id);
+    }
 
     return apiClient<DocumentUploadResponse>("/api/documents/upload", {
       method: "POST",
@@ -611,6 +796,112 @@ export const analyticsApi = {
   async getTopQueries(limit: number = 10): Promise<TopQueriesResponse> {
     return apiClient<TopQueriesResponse>("/api/analytics/top-queries", {
       params: { limit },
+    });
+  },
+};
+
+// ============================================================================
+// Knowledge Bases API
+// ============================================================================
+
+export interface KnowledgeBase {
+  id: string;
+  user_id?: string;
+  name: string;
+  description?: string;
+  is_default: boolean;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface KnowledgeBaseListResponse {
+  knowledge_bases: KnowledgeBase[];
+  total: number;
+}
+
+export interface KnowledgeBaseResponse {
+  knowledge_base: KnowledgeBase;
+}
+
+export interface CreateKnowledgeBaseRequest {
+  name: string;
+  description?: string;
+}
+
+export interface UpdateKnowledgeBaseRequest {
+  name?: string;
+  description?: string;
+  is_active?: boolean;
+}
+
+export interface UserKnowledgeBasePreferences {
+  use_default_kb: boolean;
+  active_kb_ids: string[];
+}
+
+export interface KnowledgeBasePreferencesResponse {
+  preferences: UserKnowledgeBasePreferences;
+}
+
+export const knowledgeBasesApi = {
+  /**
+   * List all knowledge bases
+   */
+  async list(): Promise<KnowledgeBaseListResponse> {
+    return apiClient<KnowledgeBaseListResponse>("/api/knowledge-bases");
+  },
+
+  /**
+   * Create a knowledge base
+   */
+  async create(request: CreateKnowledgeBaseRequest): Promise<KnowledgeBaseResponse> {
+    return apiClient<KnowledgeBaseResponse>("/api/knowledge-bases", {
+      method: "POST",
+      body: JSON.stringify(request),
+    });
+  },
+
+  /**
+   * Get knowledge base by ID
+   */
+  async get(id: string): Promise<KnowledgeBaseResponse> {
+    return apiClient<KnowledgeBaseResponse>(`/api/knowledge-bases/${id}`);
+  },
+
+  /**
+   * Update knowledge base
+   */
+  async update(id: string, request: UpdateKnowledgeBaseRequest): Promise<KnowledgeBaseResponse> {
+    return apiClient<KnowledgeBaseResponse>(`/api/knowledge-bases/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(request),
+    });
+  },
+
+  /**
+   * Delete knowledge base
+   */
+  async delete(id: string): Promise<{ message: string }> {
+    return apiClient<{ message: string }>(`/api/knowledge-bases/${id}`, {
+      method: "DELETE",
+    });
+  },
+
+  /**
+   * Get user knowledge base preferences
+   */
+  async getPreferences(): Promise<KnowledgeBasePreferencesResponse> {
+    return apiClient<KnowledgeBasePreferencesResponse>("/api/knowledge-bases/preferences");
+  },
+
+  /**
+   * Update user knowledge base preferences
+   */
+  async updatePreferences(preferences: UserKnowledgeBasePreferences): Promise<KnowledgeBasePreferencesResponse> {
+    return apiClient<KnowledgeBasePreferencesResponse>("/api/knowledge-bases/preferences", {
+      method: "PUT",
+      body: JSON.stringify(preferences),
     });
   },
 };

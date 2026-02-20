@@ -12,10 +12,12 @@ import time
 from datetime import datetime
 from typing import AsyncGenerator
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 
 from ..schemas.chat import ChatRequest, ChatResponse, ChatMetadata
+from ..models.user import User
+from ..routers.auth import get_current_user
 from ..services import database, rag
 
 logger = logging.getLogger(__name__)
@@ -24,7 +26,10 @@ router = APIRouter(prefix="/api/chat", tags=["chat"])
 
 
 @router.post("", response_model=ChatResponse, status_code=status.HTTP_200_OK)
-async def chat(request: ChatRequest) -> ChatResponse:
+async def chat(
+    request: ChatRequest,
+    current_user: User = Depends(get_current_user)
+) -> ChatResponse:
     """
     Process a chat message and return an answer with sources.
 
@@ -55,9 +60,16 @@ async def chat(request: ChatRequest) -> ChatResponse:
     start_time = time.time()
 
     try:
-        # Call RAG pipeline to get answer + sources
-        # This uses placeholder functions that will be replaced in Section B
-        answer, sources = await rag.process_chat_query(query=request.message, top_k=5)
+        # Get active knowledge base IDs for the user
+        active_kb_ids = await database.get_active_knowledge_base_ids(current_user.id)
+        
+        # Call RAG pipeline to get answer + sources (filtered by user_id and active KBs)
+        answer, sources = await rag.process_chat_query(
+            query=request.message, 
+            top_k=5, 
+            user_id=current_user.id,
+            active_kb_ids=active_kb_ids
+        )
 
         # Calculate query processing time
         query_time_ms = (time.time() - start_time) * 1000
@@ -70,6 +82,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
             answer=answer,
             sources_count=len(sources),
             query_time_ms=query_time_ms,
+            user_id=current_user.id,
         )
 
         # Build metadata
@@ -117,7 +130,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
 
 
 async def _sse_chat_stream_generator(
-    request: ChatRequest, http_request: Request
+    request: ChatRequest, http_request: Request, user_id: str
 ) -> AsyncGenerator[bytes, None]:
     """
     Internal helper to stream a chat response as SSE events.
@@ -143,8 +156,16 @@ async def _sse_chat_stream_generator(
     yield start_event.encode("utf-8")
 
     try:
-        # Call the same RAG pipeline used by the non-streaming endpoint
-        answer, sources = await rag.process_chat_query(query=request.message, top_k=5)
+        # Get active knowledge base IDs for the user
+        active_kb_ids = await database.get_active_knowledge_base_ids(user_id)
+        
+        # Call the same RAG pipeline used by the non-streaming endpoint (filtered by user_id and active KBs)
+        answer, sources = await rag.process_chat_query(
+            query=request.message, 
+            top_k=5, 
+            user_id=user_id,
+            active_kb_ids=active_kb_ids
+        )
         query_time_ms = (time.time() - start_time) * 1000
 
         # Persist conversation turn (same as non-streaming endpoint)
@@ -154,6 +175,7 @@ async def _sse_chat_stream_generator(
             answer=answer,
             sources_count=len(sources),
             query_time_ms=query_time_ms,
+            user_id=user_id,
         )
 
         metadata = ChatMetadata(
@@ -200,7 +222,11 @@ async def _sse_chat_stream_generator(
     response_class=StreamingResponse,
     status_code=status.HTTP_200_OK,
 )
-async def chat_stream(request: ChatRequest, http_request: Request) -> StreamingResponse:
+async def chat_stream(
+    request: ChatRequest,
+    http_request: Request,
+    current_user: User = Depends(get_current_user)
+) -> StreamingResponse:
     """
     Stream a chat response using Server-Sent Events (SSE).
 
@@ -215,5 +241,5 @@ async def chat_stream(request: ChatRequest, http_request: Request) -> StreamingR
     Once LLM streaming is implemented, this endpoint can be updated to send
     partial tokens/chunks as they are generated.
     """
-    generator = _sse_chat_stream_generator(request=request, http_request=http_request)
+    generator = _sse_chat_stream_generator(request=request, http_request=http_request, user_id=current_user.id)
     return StreamingResponse(generator, media_type="text/event-stream")

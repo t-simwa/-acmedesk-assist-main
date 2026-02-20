@@ -9,8 +9,10 @@ Implements:
 import logging
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
+from ..models.user import User
+from ..routers.auth import get_current_user
 from ..schemas.analytics import (
     AnalyticsSummaryResponse,
     APIUsageMetrics,
@@ -28,7 +30,8 @@ router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
 @router.get("/summary", response_model=AnalyticsSummaryResponse, status_code=status.HTTP_200_OK)
 async def get_analytics_summary(
-    days: int = Query(7, ge=1, le=30, description="Number of days to include in conversation counts")
+    days: int = Query(7, ge=1, le=30, description="Number of days to include in conversation counts"),
+    current_user: User = Depends(get_current_user),
 ) -> AnalyticsSummaryResponse:
     """
     Get analytics summary.
@@ -53,15 +56,16 @@ async def get_analytics_summary(
         HTTPException: If there's an error retrieving analytics
     """
     try:
-        # Get all metrics in parallel (if possible) or sequentially
-        total_conversations = await database.get_total_conversations()
-        total_messages = await database.get_total_messages()
-        conversations_by_day = await database.get_conversations_by_day(days=days)
-        resolution_rate = await database.get_resolution_rate()
-        response_accuracy = await database.get_response_accuracy_metrics()
-        top_categories = await database.get_top_question_categories(limit=5)
-        api_usage = await database.get_api_usage_metrics()
-        user_satisfaction = await database.get_user_satisfaction_metrics()
+        # Get all metrics in parallel (if possible) or sequentially, filtered by user_id
+        user_id = current_user.id
+        total_conversations = await database.get_total_conversations(user_id=user_id)
+        total_messages = await database.get_total_messages(user_id=user_id)
+        conversations_by_day = await database.get_conversations_by_day(days=days, user_id=user_id)
+        resolution_rate = await database.get_resolution_rate(user_id=user_id)
+        response_accuracy = await database.get_response_accuracy_metrics(user_id=user_id)
+        top_categories = await database.get_top_question_categories(limit=5, user_id=user_id)
+        api_usage = await database.get_api_usage_metrics(user_id=user_id)
+        user_satisfaction = await database.get_user_satisfaction_metrics(user_id=user_id)
 
         # Format conversations by day
         formatted_conversations_by_day = [
@@ -109,7 +113,8 @@ async def get_analytics_summary(
 
 @router.get("/top-queries", response_model=TopQueriesResponse, status_code=status.HTTP_200_OK)
 async def get_top_queries(
-    limit: int = Query(10, ge=1, le=100, description="Maximum number of queries to return")
+    limit: int = Query(10, ge=1, le=100, description="Maximum number of queries to return"),
+    current_user: User = Depends(get_current_user),
 ) -> TopQueriesResponse:
     """
     Get top queries with statistics.
@@ -130,7 +135,7 @@ async def get_top_queries(
         HTTPException: If there's an error retrieving top queries
     """
     try:
-        queries, total = await database.get_top_queries(limit=limit)
+        queries, total = await database.get_top_queries(limit=limit, user_id=current_user.id)
 
         # Format queries
         formatted_queries = [

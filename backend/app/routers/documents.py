@@ -13,9 +13,11 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 
 from ..config import get_chunking_config, settings
+from ..models.user import User
+from ..routers.auth import get_current_user
 from ..rag.chunking import chunk_text
 from ..rag.embeddings import EmbeddingModel
 from ..rag.ingestion import ingest_document
@@ -80,13 +82,14 @@ def get_document_type(filename: str) -> str:
         return "unknown"
 
 
-async def index_document(doc_id: str, file_path: Path) -> tuple[int, Optional[str]]:
+async def index_document(doc_id: str, file_path: Path, user_id: Optional[str] = None, knowledge_base_id: Optional[str] = None) -> tuple[int, Optional[str]]:
     """
     Index a document: ingest, chunk, embed, and store in vector DB.
 
     Args:
         doc_id: Document identifier
         file_path: Path to the document file
+        user_id: Optional user ID to associate with the document
 
     Returns:
         Tuple of (chunk_count, error_message)
@@ -116,9 +119,9 @@ async def index_document(doc_id: str, file_path: Path) -> tuple[int, Optional[st
         texts = [chunk.text for chunk in chunks]
         embeddings = embedding_model.embed_batch(texts)
 
-        # Store in vector DB
+        # Store in vector DB with user_id and knowledge_base_id
         vector_store = get_vector_store()
-        vector_store.add_documents(chunks, embeddings)
+        vector_store.add_documents(chunks, embeddings, user_id=user_id, knowledge_base_id=knowledge_base_id)
 
         # Update document status
         chunk_count = len(chunks)
@@ -136,7 +139,11 @@ async def index_document(doc_id: str, file_path: Path) -> tuple[int, Optional[st
 
 
 @router.post("/upload", response_model=DocumentUploadResponse, status_code=status.HTTP_201_CREATED)
-async def upload_document(file: UploadFile = File(...)) -> DocumentUploadResponse:
+async def upload_document(
+    file: UploadFile = File(...),
+    knowledge_base_id: Optional[str] = None,
+    current_user: User = Depends(get_current_user)
+) -> DocumentUploadResponse:
     """
     Upload a document file.
 
@@ -176,6 +183,21 @@ async def upload_document(file: UploadFile = File(...)) -> DocumentUploadRespons
         # Get file size
         file_size = storage.get_file_size(file_path)
 
+        # Validate knowledge_base_id if provided
+        if knowledge_base_id:
+            kb = await database.get_knowledge_base(knowledge_base_id)
+            if not kb:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Knowledge base not found: {knowledge_base_id}",
+                )
+            # Check access: user can only upload to their own KBs or default KB
+            if not kb.get("is_default") and kb.get("user_id") != current_user.id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You don't have access to this knowledge base",
+                )
+
         # Create document metadata record with status "processing"
         document = await database.create_document(
             doc_id=doc_id,
@@ -184,10 +206,12 @@ async def upload_document(file: UploadFile = File(...)) -> DocumentUploadRespons
             file_path=str(file_path),
             file_size=file_size,
             status="processing",
+            user_id=current_user.id,
+            knowledge_base_id=knowledge_base_id,
         )
 
-        # Index document synchronously
-        chunk_count, error_message = await index_document(doc_id, file_path)
+        # Index document synchronously with user_id and knowledge_base_id
+        chunk_count, error_message = await index_document(doc_id, file_path, user_id=current_user.id, knowledge_base_id=knowledge_base_id)
 
         # Get updated document
         document = await database.get_document(doc_id)
@@ -218,6 +242,7 @@ async def list_documents(
     search: Optional[str] = Query(None, description="Search term to filter by document name"),
     status: Optional[str] = Query(None, description="Filter by status (processing, indexed, error)"),
     type: Optional[str] = Query(None, alias="type", description="Filter by document type (markdown, html, text, pdf, docx)"),
+    current_user: User = Depends(get_current_user),
 ) -> DocumentListResponse:
     """
     List documents with pagination, search, and filtering.
@@ -238,6 +263,7 @@ async def list_documents(
         search=search,
         status=status,
         doc_type=type,
+        user_id=current_user.id,
     )
 
     return DocumentListResponse(
@@ -249,7 +275,10 @@ async def list_documents(
 
 
 @router.get("/{doc_id}", response_model=DocumentDetailResponse, status_code=status.HTTP_200_OK)
-async def get_document(doc_id: str) -> DocumentDetailResponse:
+async def get_document(
+    doc_id: str,
+    current_user: User = Depends(get_current_user)
+) -> DocumentDetailResponse:
     """
     Get document details by ID.
 
@@ -257,22 +286,33 @@ async def get_document(doc_id: str) -> DocumentDetailResponse:
 
     Args:
         doc_id: Document identifier
+        current_user: Current authenticated user
 
     Returns:
         DocumentDetailResponse with document metadata
 
     Raises:
-        HTTPException: If document is not found
+        HTTPException: If document is not found or user doesn't have access
     """
     document = await database.get_document(doc_id)
     if not document:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Document not found: {doc_id}")
+    
+    # Check if document belongs to current user
+    if document.get("user_id") != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have access to this document"
+        )
 
     return DocumentDetailResponse(document=DocumentMetadata(**document))
 
 
 @router.post("/{doc_id}/reindex", response_model=ReindexResponse, status_code=status.HTTP_200_OK)
-async def reindex_document(doc_id: str) -> ReindexResponse:
+async def reindex_document(
+    doc_id: str,
+    current_user: User = Depends(get_current_user)
+) -> ReindexResponse:
     """
     Re-index a document.
 
@@ -280,17 +320,25 @@ async def reindex_document(doc_id: str) -> ReindexResponse:
 
     Args:
         doc_id: Document identifier
+        current_user: Current authenticated user
 
     Returns:
         ReindexResponse with new status and message
 
     Raises:
-        HTTPException: If document is not found
+        HTTPException: If document is not found or user doesn't have access
     """
     # Get document
     document = await database.get_document(doc_id)
     if not document:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Document not found: {doc_id}")
+    
+    # Check if document belongs to current user
+    if document.get("user_id") != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have access to this document"
+        )
 
     # Get file path
     file_path = Path(document["file_path"])
@@ -311,8 +359,9 @@ async def reindex_document(doc_id: str) -> ReindexResponse:
     except Exception as e:
         logger.warning(f"Error deleting existing chunks for doc_id={doc_id}: {e}")
 
-    # Re-index document
-    chunk_count, error_message = await index_document(doc_id, file_path)
+    # Re-index document with user_id and knowledge_base_id
+    doc_kb_id = document.get("knowledge_base_id")
+    chunk_count, error_message = await index_document(doc_id, file_path, user_id=current_user.id, knowledge_base_id=doc_kb_id)
 
     # Get updated document
     document = await database.get_document(doc_id)
@@ -332,7 +381,10 @@ async def reindex_document(doc_id: str) -> ReindexResponse:
 
 
 @router.delete("/{doc_id}", response_model=DeleteDocumentResponse, status_code=status.HTTP_200_OK)
-async def delete_document(doc_id: str) -> DeleteDocumentResponse:
+async def delete_document(
+    doc_id: str,
+    current_user: User = Depends(get_current_user)
+) -> DeleteDocumentResponse:
     """
     Delete a document.
 
@@ -351,6 +403,13 @@ async def delete_document(doc_id: str) -> DeleteDocumentResponse:
     document = await database.get_document(doc_id)
     if not document:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Document not found: {doc_id}")
+    
+    # Check if document belongs to current user
+    if document.get("user_id") != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have access to this document"
+        )
 
     try:
         # Delete vectors from vector store

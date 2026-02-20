@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { userPreferencesApi, UserPreferences, ApiError } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle, Loader2, Save, Upload, X, User, Mail, Bell, Globe, Clock } from "lucide-react";
@@ -52,6 +53,7 @@ const TIMEZONES = [
 ];
 
 export default function Profile() {
+  const { user: authUser, refreshUser } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -74,10 +76,18 @@ export default function Profile() {
       try {
         setLoading(true);
         setError(null);
+        
+        // Use auth user data as initial values
+        if (authUser) {
+          setName(authUser.name || "");
+          setEmail(authUser.email || "");
+        }
+        
         const prefs = await userPreferencesApi.getPreferences();
         
-        setName(prefs.name || "");
-        setEmail(prefs.email || "");
+        // Override with preferences if available
+        if (prefs.name) setName(prefs.name);
+        if (prefs.email) setEmail(prefs.email);
         setAvatarUrl(prefs.avatar_url);
         setNotificationsEmail(prefs.notifications.email);
         setNotificationsInApp(prefs.notifications.in_app);

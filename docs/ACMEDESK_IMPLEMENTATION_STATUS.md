@@ -62,6 +62,17 @@ Frontend: ~95% | Backend & RAG: ~100% | Admin functionality: ~95% | Testing: ~90
 - ✅ Tooltip clipping issues resolved with Portal wrapper and overflow adjustments
 - ✅ All chat components updated to use consistent Satoshi font
 
+**Recent Updates (Authentication & Data Isolation - February 2026):**
+- ✅ User Registration and Login implemented (H0.1, H0.2) with JWT tokens, password hashing, and secure authentication
+- ✅ Authentication middleware and protected routes implemented (H0.4, H0.5) with automatic token refresh
+- ✅ User session management implemented (H0.6) with localStorage and automatic token refresh
+- ✅ Data isolation implemented - each user now sees only their own documents, conversations, and analytics data
+- ✅ UserMenu component added to landing page header (after Features) when authenticated
+- ✅ Theme toggle moved into UserMenu dropdown when authenticated
+- ✅ Login/Registration redirects to home page (`/`) instead of `/admin`
+- ✅ Mobile menu redesigned with all options listed directly and user avatar at bottom
+- ✅ Chat widget responsive behavior fixed - automatically switches back to desktop view on screen expansion
+
 ---
 
 ## 🔧 Target vs Current – Major Areas
@@ -1230,30 +1241,30 @@ This section covers tasks to elevate the UI from a good prototype to a **world-c
 ### H. Basic User Authentication (Milestone 6)
 
 - **H0 – Core Authentication System**
-  - [ ] H0.1 – User Registration
-    - [ ] Create user registration schema (email, password, name).
-    - [ ] Implement password hashing using bcrypt or argon2.
-    - [ ] Add email validation and uniqueness checks.
-    - [ ] Create registration endpoint (`POST /api/auth/register`).
-    - [ ] Create registration UI page (`/register`).
-    - [ ] Add password strength requirements UI.
-    - [ ] Implement email verification flow (optional but recommended).
-    - [ ] Add registration success handling and redirect.
-    - [ ] Test registration flow end-to-end.
-    - [ ] Document registration API.
+  - [x] H0.1 – User Registration ✅ **COMPLETE**
+    - [x] Create user registration schema (email, password, name).
+    - [x] Implement password hashing using bcrypt or argon2.
+    - [x] Add email validation and uniqueness checks.
+    - [x] Create registration endpoint (`POST /api/auth/register`).
+    - [x] Create registration UI page (`/register`).
+    - [x] Add password strength requirements UI.
+    - [ ] Implement email verification flow (optional but recommended) - Deferred to future enhancement.
+    - [x] Add registration success handling and redirect.
+    - [x] Test registration flow end-to-end.
+    - [x] Document registration API.
 
-  - [ ] H0.2 – User Login
-    - [ ] Create login schema (email, password).
-    - [ ] Implement password verification.
-    - [ ] Generate JWT access tokens.
-    - [ ] Generate JWT refresh tokens.
-    - [ ] Create login endpoint (`POST /api/auth/login`).
-    - [ ] Create login UI page (`/login`).
-    - [ ] Add "Remember me" functionality.
-    - [ ] Implement login error handling (invalid credentials, account locked, etc.).
-    - [ ] Add session management.
-    - [ ] Test login flow end-to-end.
-    - [ ] Document login API.
+  - [x] H0.2 – User Login ✅ **COMPLETE**
+    - [x] Create login schema (email, password).
+    - [x] Implement password verification.
+    - [x] Generate JWT access tokens.
+    - [x] Generate JWT refresh tokens.
+    - [x] Create login endpoint (`POST /api/auth/login`).
+    - [x] Create login UI page (`/login`).
+    - [x] Add "Remember me" functionality.
+    - [x] Implement login error handling (invalid credentials, account locked, etc.).
+    - [x] Add session management.
+    - [x] Test login flow end-to-end.
+    - [x] Document login API.
 
   - [ ] H0.3 – Password Management
     - [ ] Create password change schema (current_password, new_password).
@@ -1270,44 +1281,44 @@ This section covers tasks to elevate the UI from a good prototype to a **world-c
     - [ ] Test password management flows.
     - [ ] Document password management APIs.
 
-  - [ ] H0.4 – Authentication Middleware
-    - [ ] Install JWT library (python-jose, PyJWT, or similar).
-    - [ ] Create JWT authentication middleware.
-    - [ ] Implement token validation (signature, expiration, issuer).
-    - [ ] Add token refresh endpoint (`POST /api/auth/refresh`).
-    - [ ] Implement automatic token refresh in frontend.
-    - [ ] Add token expiration handling.
-    - [ ] Create current user endpoint (`GET /api/auth/me`).
-    - [ ] Add user context to request objects.
-    - [ ] Test authentication middleware.
-    - [ ] Document authentication flow.
+  - [x] H0.4 – Authentication Middleware ✅ **COMPLETE**
+    - [x] Install JWT library (python-jose, PyJWT, or similar).
+    - [x] Create JWT authentication middleware (`get_current_user` dependency).
+    - [x] Implement token validation (signature, expiration, issuer).
+    - [x] Add token refresh endpoint (`POST /api/auth/refresh`).
+    - [x] Implement automatic token refresh in frontend (apiClient with retry logic).
+    - [x] Add token expiration handling.
+    - [x] Create current user endpoint (`GET /api/auth/me`).
+    - [x] Add user context to request objects (via `Depends(get_current_user)`).
+    - [x] Test authentication middleware.
+    - [x] Document authentication flow.
 
-  - [ ] H0.5 – Protected Routes & Authorization
-    - [ ] Create protected route component for frontend (`ProtectedRoute.tsx`).
-    - [ ] Add route guards for admin pages.
-    - [ ] Implement role-based route protection.
-    - [ ] Create authentication context/provider (`AuthContext.tsx`).
-    - [ ] Add login redirect logic (redirect to intended page after login).
-    - [ ] Add logout functionality (`POST /api/auth/logout`).
-    - [ ] Implement session cleanup on logout.
-    - [ ] Add authentication state management.
-    - [ ] Test protected routes.
-    - [ ] Document route protection.
+  - [x] H0.5 – Protected Routes & Authorization ✅ **COMPLETE**
+    - [x] Create protected route component for frontend (`ProtectedRoute.tsx`).
+    - [x] Add route guards for admin pages.
+    - [x] Implement role-based route protection (integrated with existing RoleContext).
+    - [x] Create authentication context/provider (`AuthContext.tsx`).
+    - [x] Add login redirect logic (redirects to `/` home page after login/registration).
+    - [x] Add logout functionality (clears tokens from localStorage).
+    - [x] Implement session cleanup on logout.
+    - [x] Add authentication state management (global AuthContext with user state).
+    - [x] Test protected routes.
+    - [x] Document route protection.
 
-  - [ ] H0.6 – User Session Management
-    - [ ] Design session storage strategy (localStorage vs sessionStorage).
-    - [ ] Implement session storage in frontend.
-    - [ ] Add session timeout handling.
-    - [ ] Create session refresh logic.
-    - [ ] Add "active sessions" tracking (optional - for security).
-    - [ ] Implement session invalidation on password change.
-    - [ ] Add session cleanup on logout.
-    - [ ] Test session management.
-    - [ ] Document session management.
+  - [x] H0.6 – User Session Management ✅ **COMPLETE**
+    - [x] Design session storage strategy (localStorage for tokens).
+    - [x] Implement session storage in frontend (localStorage for access_token and refresh_token).
+    - [x] Add session timeout handling (automatic token refresh on 401).
+    - [x] Create session refresh logic (automatic refresh in apiClient).
+    - [ ] Add "active sessions" tracking (optional - for security) - Deferred to future enhancement.
+    - [ ] Implement session invalidation on password change - Deferred to H0.3.
+    - [x] Add session cleanup on logout.
+    - [x] Test session management.
+    - [x] Document session management.
 
 ---
 
-### I. Enterprise Authentication & Security (Milestone 7)
+### H. Enterprise Authentication & Security (Milestone 7)
 
 - **H1 – SSO/SAML Frontend**
   - [ ] H1.1 – SSO/SAML UI Components
@@ -1363,7 +1374,7 @@ This section covers tasks to elevate the UI from a good prototype to a **world-c
 
 ---
 
-### J. Integrations & Webhooks (Milestone 8)
+### I. Integrations & Webhooks (Milestone 8)
 
 - **I1 – CRM Integration**
   - [ ] I1.1 – HubSpot Integration
@@ -1534,7 +1545,7 @@ This section covers tasks to elevate the UI from a good prototype to a **world-c
 
 ---
 
-### K. Omnichannel Support (Milestone 9)
+### J. Omnichannel Support (Milestone 9)
 
 - **J1 – Email Channel**
   - [ ] J1.1 – Email Inbox Integration
@@ -1658,7 +1669,7 @@ This section covers tasks to elevate the UI from a good prototype to a **world-c
 
 ---
 
-### L. Advanced AI Features (Milestone 10)
+### K. Advanced AI Features (Milestone 10)
 
 - **K1 – Intent Recognition & NLU**
   - [ ] K1.1 – Intent Classification
@@ -1824,7 +1835,7 @@ This section covers tasks to elevate the UI from a good prototype to a **world-c
 
 ---
 
-### M. Additional Enhancements (Milestone 11)
+### L. Additional Enhancements (Milestone 11)
 
 - **L1 – Chat Widget Enhancements**
   - [ ] L1.1 – Read Receipts
@@ -2151,25 +2162,25 @@ Based on the comprehensive market comparison analysis (`docs/MARKET_COMPARISON_A
 **Includes:**
 
 #### H0 – Core Authentication System
-- [ ] **H0.1 – User Registration**
-  - [ ] Create user registration endpoint (`POST /api/auth/register`).
-  - [ ] Implement password hashing (bcrypt/argon2).
-  - [ ] Add email validation and uniqueness checks.
-  - [ ] Create registration UI page (`/register`).
-  - [ ] Add password strength requirements.
-  - [ ] Implement email verification flow (optional but recommended).
-  - [ ] Add registration success handling.
-  - [ ] Test registration flow end-to-end.
+- [x] **H0.1 – User Registration** ✅ **COMPLETE**
+  - [x] Create user registration endpoint (`POST /api/auth/register`).
+  - [x] Implement password hashing (bcrypt).
+  - [x] Add email validation and uniqueness checks.
+  - [x] Create registration UI page (`/register`).
+  - [x] Add password strength requirements.
+  - [ ] Implement email verification flow (optional but recommended) - Deferred to future enhancement.
+  - [x] Add registration success handling (redirects to `/` home page).
+  - [x] Test registration flow end-to-end.
 
-- [ ] **H0.2 – User Login**
-  - [ ] Create login endpoint (`POST /api/auth/login`).
-  - [ ] Implement password verification.
-  - [ ] Generate JWT tokens (access + refresh tokens).
-  - [ ] Create login UI page (`/login`).
-  - [ ] Add "Remember me" functionality.
-  - [ ] Implement login error handling.
-  - [ ] Add session management.
-  - [ ] Test login flow end-to-end.
+- [x] **H0.2 – User Login** ✅ **COMPLETE**
+  - [x] Create login endpoint (`POST /api/auth/login`).
+  - [x] Implement password verification.
+  - [x] Generate JWT tokens (access + refresh tokens).
+  - [x] Create login UI page (`/login`).
+  - [x] Add "Remember me" functionality.
+  - [x] Implement login error handling.
+  - [x] Add session management.
+  - [x] Test login flow end-to-end.
 
 - [ ] **H0.3 – Password Management**
   - [ ] Create password change endpoint (`POST /api/auth/change-password`).
@@ -2182,32 +2193,32 @@ Based on the comprehensive market comparison analysis (`docs/MARKET_COMPARISON_A
   - [ ] Add password reset email sending.
   - [ ] Test password management flows.
 
-- [ ] **H0.4 – Authentication Middleware**
-  - [ ] Create JWT authentication middleware.
-  - [ ] Implement token validation.
-  - [ ] Add token refresh endpoint (`POST /api/auth/refresh`).
-  - [ ] Implement automatic token refresh.
-  - [ ] Add token expiration handling.
-  - [ ] Create current user endpoint (`GET /api/auth/me`).
-  - [ ] Test authentication middleware.
+- [x] **H0.4 – Authentication Middleware** ✅ **COMPLETE**
+  - [x] Create JWT authentication middleware (`get_current_user` dependency).
+  - [x] Implement token validation (signature, expiration, type).
+  - [x] Add token refresh endpoint (`POST /api/auth/refresh`).
+  - [x] Implement automatic token refresh in frontend.
+  - [x] Add token expiration handling (automatic refresh on 401).
+  - [x] Create current user endpoint (`GET /api/auth/me`).
+  - [x] Test authentication middleware.
 
-- [ ] **H0.5 – Protected Routes & Authorization**
-  - [ ] Create protected route component for frontend.
-  - [ ] Add route guards for admin pages.
-  - [ ] Implement role-based route protection.
-  - [ ] Add authentication context/provider.
-  - [ ] Create login redirect logic.
-  - [ ] Add logout functionality (`POST /api/auth/logout`).
-  - [ ] Implement session cleanup on logout.
-  - [ ] Test protected routes.
+- [x] **H0.5 – Protected Routes & Authorization** ✅ **COMPLETE**
+  - [x] Create protected route component for frontend (`ProtectedRoute.tsx`).
+  - [x] Add route guards for admin pages (all `/admin/*` routes protected).
+  - [x] Implement role-based route protection (integrated with RoleContext).
+  - [x] Add authentication context/provider (`AuthContext.tsx`).
+  - [x] Create login redirect logic (redirects to `/` home page).
+  - [x] Add logout functionality (clears tokens, redirects to home).
+  - [x] Implement session cleanup on logout.
+  - [x] Test protected routes.
 
-- [ ] **H0.6 – User Session Management**
-  - [ ] Implement session storage (localStorage/sessionStorage).
-  - [ ] Add session timeout handling.
-  - [ ] Create session refresh logic.
-  - [ ] Add "active sessions" tracking (optional).
-  - [ ] Implement session invalidation on password change.
-  - [ ] Test session management.
+- [x] **H0.6 – User Session Management** ✅ **COMPLETE**
+  - [x] Implement session storage (localStorage for tokens).
+  - [x] Add session timeout handling (automatic token refresh).
+  - [x] Create session refresh logic (automatic refresh in apiClient).
+  - [ ] Add "active sessions" tracking (optional) - Deferred to future enhancement.
+  - [ ] Implement session invalidation on password change - Deferred to H0.3.
+  - [x] Test session management.
 
 **Estimated Time:** 2-3 weeks  
 **Priority:** 🔴 **CRITICAL** - Foundation for all other features
@@ -2759,7 +2770,7 @@ Based on the comprehensive market comparison analysis (`docs/MARKET_COMPARISON_A
 | Milestone | Focus Area | Duration | Priority | Status |
 |-----------|------------|----------|----------|--------|
 | **Milestone 5** | Production Infrastructure & Security | 2-3 weeks | 🔴 CRITICAL | Not Started |
-| **Milestone 6** | Basic User Authentication | 2-3 weeks | 🔴 CRITICAL | Not Started |
+| **Milestone 6** | Basic User Authentication | 2-3 weeks | 🔴 CRITICAL | **In Progress** (H0.1, H0.2, H0.4, H0.5, H0.6 Complete; H0.3 Pending) |
 | **Milestone 7** | Enterprise Authentication | 2-3 weeks | 🔴 CRITICAL | Not Started |
 | **Milestone 8** | Integrations & Webhooks | 6-8 weeks | 🟡 HIGH | Not Started |
 | **Milestone 9** | Omnichannel Support | 6-8 weeks | 🟢 MEDIUM | Not Started |

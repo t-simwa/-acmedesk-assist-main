@@ -17,6 +17,7 @@ class Conversation(Base):
     __tablename__ = "conversations"
     
     id: Mapped[str] = mapped_column(String(36), primary_key=True)  # UUID as string
+    user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)  # User who owns this conversation
     session_id: Mapped[str] = mapped_column(String(36), nullable=False, unique=True, index=True)
     started_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     last_activity_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -25,6 +26,7 @@ class Conversation(Base):
         """Convert model to dictionary."""
         return {
             "id": self.id,
+            "user_id": self.user_id,
             "session_id": self.session_id,
             "started_at": self.started_at.isoformat() + "Z" if self.started_at else None,
             "last_activity_at": self.last_activity_at.isoformat() + "Z" if self.last_activity_at else None,
