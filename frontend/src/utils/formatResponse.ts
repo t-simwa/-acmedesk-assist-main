@@ -89,7 +89,68 @@ function formatHeaders(text: string): string {
 
   formatted = processedLines.join('\n');
 
+  // Fix split headings (e.g., "# Heading\n\nk" -> "# Headingk")
+  formatted = fixSplitHeadings(formatted);
+
   return formatted;
+}
+
+/**
+ * Fixes headings that have been split across lines
+ * Example: "# Getting Started with AcmeDes\n\nk" -> "# Getting Started with AcmeDesk"
+ */
+function fixSplitHeadings(text: string): string {
+  const lines = text.split('\n');
+  const fixedLines: string[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i].trim();
+    
+    // Check if this is a heading line (markdown header)
+    const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
+    
+    if (headingMatch) {
+      const headingLevel = headingMatch[1];
+      const headingText = headingMatch[2];
+      
+      // Look ahead for potential fragment lines
+      let j = i + 1;
+      // Skip empty lines
+      while (j < lines.length && !lines[j].trim()) {
+        j++;
+      }
+      
+      // Check if next non-empty line is a fragment
+      if (j < lines.length) {
+        const nextLine = lines[j].trim();
+        
+        // Fragment detection: short (1-5 chars), no spaces, alphanumeric
+        const isFragment = (
+          nextLine.length <= 5 &&
+          !nextLine.includes(' ') &&
+          /^[a-zA-Z0-9]+$/.test(nextLine) &&
+          !nextLine.startsWith('#') &&
+          !nextLine.startsWith('-') &&
+          !nextLine.startsWith('*') &&
+          !/^\d+\./.test(nextLine)
+        );
+        
+        if (isFragment) {
+          // Merge the fragment with the heading
+          const mergedHeading = `${headingLevel} ${headingText}${nextLine}`;
+          fixedLines.push(mergedHeading);
+          i = j + 1; // Skip both the heading line and the fragment line
+          continue;
+        }
+      }
+    }
+    
+    fixedLines.push(lines[i]);
+    i++;
+  }
+
+  return fixedLines.join('\n');
 }
 
 /**
@@ -131,39 +192,71 @@ function formatNumberedLists(text: string): string {
  * Formats bullet lists to ensure each item is on its own line
  */
 function formatBulletLists(text: string): string {
-  // Handle bullet points that might be on the same line
-  // Pattern: "• item • item" or "- item - item"
+  // Normalize all bullet types to use "-" for consistency first
+  let formatted = text.replace(/^(\s*)[•*](\s+)/gm, '$1-$2');
+
+  // CRITICAL FIX: Handle cases where multiple bullet points are on same line
+  // Pattern examples: "- item [1]- item [2]" or "- item [1] - item [2]" or "- item- item"
+  
+  // First, fix cases where citation ends and new bullet starts: "]- " or "] - "
+  formatted = formatted.replace(/(\])\s*(?=-\s+)/g, '$1\n');
+  
+  // Fix cases where citation ends and new bold bullet starts: "]- **" or "] - **"
+  formatted = formatted.replace(/(\])\s*(?=-\s*\*\*)/g, '$1\n');
+  
+  // Fix cases where item ends (no citation) and new bullet starts: "text- " (but be careful not to break "text - text")
+  // Look for pattern: word or punctuation, then "- " followed by capital letter or **
+  formatted = formatted.replace(/([^\n])\s*(?=-\s+[A-Z**])/g, '$1\n');
+  
+  // Now handle bullet points that might be on the same line
   const bulletPatterns = [
     /(•\s+[^\n•]+?)(?=\s+•\s+)/g,  // • item • item
     /(-\s+[^\n-]+?)(?=\s+-\s+)/g,  // - item - item
     /(\*\s+[^\n*]+?)(?=\s+\*\s+)/g, // * item * item
   ];
 
-  let formatted = text;
   bulletPatterns.forEach(pattern => {
     formatted = formatted.replace(pattern, (match) => match.trim() + '\n');
   });
-
-  // Normalize all bullet types to use "-" for consistency
-  formatted = formatted.replace(/^(\s*)[•*](\s+)/gm, '$1-$2');
 
   // Ensure each bullet item is on its own line
   const lines = formatted.split('\n');
   const processedLines: string[] = [];
 
-  lines.forEach(line => {
-    // Check if line contains multiple bullet items
-    const bulletMatch = line.match(/^(\s*)(-\s+[^\n-]+?)(?=\s+-\s+)/);
-    if (bulletMatch) {
-      // Split at each bullet point
-      const parts = line.split(/(?=^\s*-\s+)/m);
-      parts.forEach(part => {
-        if (part.trim()) {
-          processedLines.push(part.trim());
+  lines.forEach((line, lineIndex) => {
+    // Count bullet points on this line
+    const bulletMatches = line.match(/-\s+/g);
+    if (bulletMatches && bulletMatches.length > 1) {
+      // Multiple bullets on same line - split them
+      // Find all positions where "- " appears
+      const positions: number[] = [];
+      let searchIndex = 0;
+      while ((searchIndex = line.indexOf('- ', searchIndex)) !== -1) {
+        positions.push(searchIndex);
+        searchIndex += 2;
+      }
+      
+      // Split at each bullet point (except first)
+      for (let i = 0; i < positions.length; i++) {
+        const start = positions[i];
+        const end = i < positions.length - 1 ? positions[i + 1] : line.length;
+        const item = line.substring(start, end).trim();
+        if (item) {
+          processedLines.push(item);
         }
-      });
+      }
     } else {
-      processedLines.push(line);
+      // Check for pattern like "- item [1]- item [2]" (no space between citation and next bullet)
+      const patternMatch = line.match(/^(\s*)(-\s+[^\n]+?\[[^\]]+\])\s*(?=-\s+)/);
+      if (patternMatch) {
+        // Split at the second bullet
+        const firstPart = line.substring(0, line.indexOf('- ', patternMatch[0].length)).trim();
+        const secondPart = line.substring(line.indexOf('- ', patternMatch[0].length)).trim();
+        if (firstPart) processedLines.push(firstPart);
+        if (secondPart) processedLines.push(secondPart);
+      } else {
+        processedLines.push(line);
+      }
     }
   });
 
@@ -208,6 +301,99 @@ function formatCitations(text: string): string {
   formatted = formatted.replace(/\[Citation:\s*(\d+)\]/gi, '[$1]');
   formatted = formatted.replace(/\[citation\s+(\d+)\]/gi, '[$1]');
   formatted = formatted.replace(/\[chunk\s+(\d+)\]/gi, '[$1]');
+  
+  // Step 1.5: STRICT PASS - Remove ANY citation that contains NaN, undefined, or null
+  // This must happen FIRST - even if a citation has valid numbers like [1, 2, NaN], remove the entire citation
+  // This is more aggressive than trying to clean individual values
+  formatted = formatted.replace(/\[[^\]]*\bNaN\b[^\]]*\]/gi, '');
+  formatted = formatted.replace(/\[[^\]]*\bundefined\b[^\]]*\]/gi, '');
+  formatted = formatted.replace(/\[[^\]]*\bnull\b[^\]]*\]/gi, '');
+  
+  // Step 1.6: Clean citations to remove invalid numbers (out of range, non-numeric)
+  // Use more conservative limit (20 instead of 100) as safety net
+  // Backend should have already cleaned with actual max_chunks, but this is a fallback
+  const MAX_CITATION_LIMIT = 20; // Conservative limit - most RAG systems use 5-10 chunks
+  
+  formatted = formatted.replace(/\[([^\]]+)\]/g, (match, content) => {
+    // Check if this looks like a citation (contains numbers)
+    if (!/\d/.test(content)) {
+      return match; // Not a citation, leave it
+    }
+    
+    // Double-check: if content still contains NaN/undefined after initial removal, skip it
+    if (/\bNaN\b|\bundefined\b|\bnull\b/i.test(content)) {
+      return ''; // Remove citation entirely if it contains invalid values
+    }
+    
+    // Split by comma and process each number
+    const numbers: number[] = [];
+    for (const numStr of content.split(',')) {
+      const trimmed = numStr.trim();
+      // Skip empty strings
+      if (!trimmed) {
+        continue;
+      }
+      // Must be a pure integer (no letters, no decimals, no special chars)
+      if (!/^\d+$/.test(trimmed)) {
+        continue;
+      }
+      const num = parseInt(trimmed, 10);
+      // Only keep valid numbers (1 to MAX_CITATION_LIMIT)
+      // Using conservative limit since we don't know actual max_chunks on frontend
+      if (num >= 1 && num <= MAX_CITATION_LIMIT) {
+        numbers.push(num);
+      }
+    }
+    
+    if (numbers.length === 0) {
+      return ''; // Remove citation if no valid numbers
+    }
+    
+    // Remove duplicates and sort
+    const uniqueNumbers = Array.from(new Set(numbers)).sort((a, b) => a - b);
+    if (uniqueNumbers.length === 1) {
+      return `[${uniqueNumbers[0]}]`;
+    } else {
+      return `[${uniqueNumbers.join(', ')}]`;
+    }
+  });
+  
+  // Step 1.7: Final validation pass - Re-validate all citations one more time
+  // This catches any edge cases where cleaning might have missed something
+  formatted = formatted.replace(/\[([^\]]+)\]/g, (match, content) => {
+    if (!/\d/.test(content)) {
+      return match;
+    }
+    // Check again for invalid values
+    if (/\bNaN\b|\bundefined\b|\bnull\b/i.test(content)) {
+      return '';
+    }
+    // Validate numbers again
+    const numbers: number[] = [];
+    for (const numStr of content.split(',')) {
+      const trimmed = numStr.trim();
+      if (!trimmed || !/^\d+$/.test(trimmed)) {
+        continue;
+      }
+      const num = parseInt(trimmed, 10);
+      if (num >= 1 && num <= MAX_CITATION_LIMIT) {
+        numbers.push(num);
+      }
+    }
+    if (numbers.length === 0) {
+      return '';
+    }
+    const uniqueNumbers = Array.from(new Set(numbers)).sort((a, b) => a - b);
+    return uniqueNumbers.length === 1 
+      ? `[${uniqueNumbers[0]}]` 
+      : `[${uniqueNumbers.join(', ')}]`;
+  });
+  
+  // Step 1.8: Final safety pass - Remove any citations that still contain invalid values
+  // This is a last resort to catch anything that slipped through
+  formatted = formatted.replace(/\[[^\]]*\bNaN\b[^\]]*\]/gi, '');
+  formatted = formatted.replace(/\[[^\]]*\bundefined\b[^\]]*\]/gi, '');
+  formatted = formatted.replace(/\[[^\]]*\bnull\b[^\]]*\]/gi, '');
 
   // Step 2: Normalize multiple citations: [1, 2] or [1,2] or [1,2,3] -> [1, 2, 3] (consistent spacing)
   formatted = formatted.replace(/\[(\d+)\s*,\s*(\d+)(?:\s*,\s*(\d+))?(?:\s*,\s*(\d+))?(?:\s*,\s*(\d+))?\s*\]/g, (match, ...nums) => {

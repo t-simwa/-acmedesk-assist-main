@@ -256,9 +256,40 @@ export function ChatWidget() {
       });
 
       // Format the answer first (normalizes citations and structure)
-      const formattedAnswer = formatResponse(response.answer);
+      let formattedAnswer = formatResponse(response.answer);
       
-      // Extract citations from formatted answer
+      // CRITICAL: Final validation - remove any citations with NaN or invalid values
+      // This is a last resort to ensure no invalid citations make it to display
+      formattedAnswer = formattedAnswer.replace(/\[[^\]]*\bNaN\b[^\]]*\]/gi, '');
+      formattedAnswer = formattedAnswer.replace(/\[[^\]]*\bundefined\b[^\]]*\]/gi, '');
+      formattedAnswer = formattedAnswer.replace(/\[[^\]]*\bnull\b[^\]]*\]/gi, '');
+      
+      // Clean up any citations with out-of-range numbers (based on actual sources count)
+      const maxValidCitation = response.sources.length;
+      if (maxValidCitation > 0) {
+        formattedAnswer = formattedAnswer.replace(/\[([^\]]+)\]/g, (match, content) => {
+          // Skip if contains invalid values
+          if (/\bNaN\b|\bundefined\b|\bnull\b/i.test(content)) {
+            return '';
+          }
+          // Extract numbers and validate
+          const numbers = content.match(/\d+/g) || [];
+          const validNumbers: number[] = [];
+          for (const numStr of numbers) {
+            const num = parseInt(numStr, 10);
+            if (!isNaN(num) && num >= 1 && num <= maxValidCitation && num <= 50) {
+              validNumbers.push(num);
+            }
+          }
+          if (validNumbers.length === 0) {
+            return ''; // Remove citation if no valid numbers
+          }
+          const uniqueNumbers = Array.from(new Set(validNumbers)).sort((a, b) => a - b);
+          return `[${uniqueNumbers.join(', ')}]`;
+        });
+      }
+      
+      // Extract citations from cleaned formatted answer
       const citationPattern = /\[(\d+)\]/g;
       const citations = new Set<number>();
       let match;

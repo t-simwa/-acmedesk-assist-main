@@ -56,16 +56,16 @@ export default {
         'description-mobile': ['1rem', { lineHeight: '1.5', letterSpacing: '0', fontWeight: '500' }], // 16px
         
         // Chat bubbles - responsive with Satoshi Regular (400)
-        // Desktop: 16px | Tablet: 16px | Mobile: 15px
+        // Desktop: 14px | Tablet: 14px | Mobile: 13px
         'chat': [
-          '1rem', // 16px desktop/tablet
+          '0.875rem', // 14px desktop/tablet (reduced from 16px)
           {
             lineHeight: '1.5',
             letterSpacing: '0',
             fontWeight: '400',
           },
         ],
-        'chat-mobile': ['0.9375rem', { lineHeight: '1.4', letterSpacing: '0', fontWeight: '400' }], // 15px
+        'chat-mobile': ['0.8125rem', { lineHeight: '1.4', letterSpacing: '0', fontWeight: '400' }], // 13px (reduced from 15px)
         
         // Technical data (citations/tables) - responsive with Geist Mono
         // Desktop: 14px | Tablet: 13px | Mobile: 12px

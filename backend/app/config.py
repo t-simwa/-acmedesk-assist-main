@@ -47,7 +47,7 @@ class Settings(BaseSettings):
     # LLM configuration
     llm_model: str = "gpt-3.5-turbo"  # LLM model (supports OpenAI, Ollama, etc. via LiteLLM)
     # For Ollama Cloud: use "ollama/gpt-oss:120b-cloud" (recommended) or "ollama/llama3.1" or "ollama/llama3" or "ollama/mistral"
-    llm_temperature: float = 0.7  # Sampling temperature (0.0 to 2.0)
+    llm_temperature: float = 0.2  # Sampling temperature (0.0 to 2.0) - Lowered for consistent formatting (was 0.7)
     llm_max_tokens: int = 1000  # Maximum tokens to generate
     llm_base_url: Optional[str] = None  # Base URL for LLM API
     # For Ollama Cloud: use "https://api.ollama.com" or your Ollama Cloud endpoint

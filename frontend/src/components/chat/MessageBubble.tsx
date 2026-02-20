@@ -33,35 +33,73 @@ export interface ChatMessage {
  * This avoids AST manipulation issues
  */
 function processCitationsInText(text: string, sources?: SourceInfo[]): string {
-  // First normalize citation formats
-  let normalized = text.replace(/\[Chunk\s+(\d+)\]/gi, '[$1]');
+  // CRITICAL: First, aggressively remove ANY citation containing NaN, undefined, null, or invalid values
+  // This must happen BEFORE any other processing to prevent invalid citations from showing
+  let normalized = text;
+  
+  // Remove citations with invalid values (NaN, undefined, null) - remove entire citation
+  normalized = normalized.replace(/\[[^\]]*\bNaN\b[^\]]*\]/gi, '');
+  normalized = normalized.replace(/\[[^\]]*\bundefined\b[^\]]*\]/gi, '');
+  normalized = normalized.replace(/\[[^\]]*\bnull\b[^\]]*\]/gi, '');
+  
+  // Normalize citation formats
+  normalized = normalized.replace(/\[Chunk\s+(\d+)\]/gi, '[$1]');
   normalized = normalized.replace(/\[Citation:\s*(\d+)\]/gi, '[$1]');
   normalized = normalized.replace(/\[citation\s+(\d+)\]/gi, '[$1]');
   normalized = normalized.replace(/\[chunk\s+(\d+)\]/gi, '[$1]');
   
-  // Replace citations with HTML that react-markdown will render
-  const citationPattern = /\[(\d+(?:\s*,\s*\d+)*)\]/g;
+  // Now process valid citations - match citations that may contain multiple numbers
+  // Pattern: [1], [1, 2], [1, 2, 3], etc. - but NOT [NaN] or [1, NaN]
+  const citationPattern = /\[([^\]]+)\]/g;
   
-  return normalized.replace(citationPattern, (match, nums) => {
-    const citationNumbers = nums.split(',').map((n: string) => parseInt(n.trim())).filter((n: number) => !isNaN(n));
-    
-    if (citationNumbers.length === 0) {
-      return match; // Return original if no valid numbers
+  return normalized.replace(citationPattern, (match, content) => {
+    // Skip if content contains invalid values (double-check after initial removal)
+    if (/\bNaN\b|\bundefined\b|\bnull\b/i.test(content)) {
+      return ''; // Remove citation entirely
     }
     
-    const allSourcesExist = citationNumbers.every((num: number) => 
+    // Extract all numbers from the citation
+    const numberMatches = content.match(/\d+/g);
+    if (!numberMatches || numberMatches.length === 0) {
+      return ''; // No valid numbers, remove citation
+    }
+    
+    // Parse and validate numbers
+    const citationNumbers: number[] = [];
+    const maxValidCitation = sources ? Math.max(...sources.map(s => s.index), 0) : 20; // Use max source index or 20 as limit
+    
+    for (const numStr of numberMatches) {
+      const num = parseInt(numStr, 10);
+      // Only keep valid numbers (1 to maxValidCitation)
+      // Also filter out obviously invalid large numbers (> 50 is suspicious)
+      if (!isNaN(num) && num >= 1 && num <= Math.min(maxValidCitation, 50)) {
+        citationNumbers.push(num);
+      }
+    }
+    
+    if (citationNumbers.length === 0) {
+      return ''; // No valid numbers, remove citation
+    }
+    
+    // Remove duplicates and sort
+    const uniqueNumbers = Array.from(new Set(citationNumbers)).sort((a, b) => a - b);
+    const numsString = uniqueNumbers.join(', ');
+    
+    // Check if all citations exist in sources
+    const allSourcesExist = uniqueNumbers.every((num: number) => 
       sources?.some(s => s.index === num)
     );
     
-    if (allSourcesExist && sources && citationNumbers.length > 0) {
-      const citationLinks = citationNumbers.map((num: number) => {
-        return `<a href="#source-${num}" class="citation-link text-primary hover:text-primary/80 font-medium underline decoration-dotted underline-offset-2 transition-colors cursor-pointer" data-citation="${num}" title="View source ${num}">${num}</a>`;
+    if (allSourcesExist && sources && uniqueNumbers.length > 0) {
+      const citationLinks = uniqueNumbers.map((num: number) => {
+        return `<a href="#source-${num}" class="citation-link text-primary hover:text-primary/80 font-normal underline decoration-dotted underline-offset-2 transition-colors cursor-pointer font-chat text-xs" data-citation="${num}" title="View source ${num}">${num}</a>`;
       }).join(', ');
       
-      return `<sup class="text-technical leading-none align-baseline">[${citationLinks}]</sup>`;
+      return `<sup class="font-chat text-xs leading-none align-baseline">[${citationLinks}]</sup>`;
     }
     
-    return `<sup class="text-technical text-primary font-medium leading-none align-baseline">[${nums}]</sup>`;
+    // If sources don't match, still show the cleaned citation (without links)
+    return `<sup class="font-chat text-xs text-primary font-normal leading-none align-baseline">[${numsString}]</sup>`;
   });
 }
 
@@ -84,7 +122,7 @@ function createMarkdownComponents(sources?: SourceInfo[], isUser: boolean = fals
       </h1>
     ),
     h2: ({ children, ...props }) => (
-      <h2 className={`text-base font-semibold mt-3 mb-2 ${chatFontClass} ${textColorClasses}`} {...props}>
+      <h2 className={`text-sm font-normal mt-3 mb-2 ${chatFontClass} ${textColorClasses}`} {...props}>
         {children}
       </h2>
     ),
@@ -373,7 +411,7 @@ export const MessageBubble = memo(function MessageBubble({ message, onRetry, onR
             if (!hasNoInfo && !hasMinimalContent) {
               return (
                 <div className="mt-3 pt-3 border-t border-border/50">
-                  <div className="text-technical font-medium text-muted-foreground mb-1.5">
+                  <div className="font-chat text-xs font-normal text-muted-foreground mb-1.5">
                     Sources:
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -382,7 +420,7 @@ export const MessageBubble = memo(function MessageBubble({ message, onRetry, onR
                         key={source.index}
                         id={`source-${source.index}`}
                         href={`#source-${source.index}`}
-                        className="source-badge inline-flex items-center gap-1.5 px-2.5 py-1.5 text-technical font-medium text-primary bg-primary/10 hover:bg-primary/20 hover:text-primary border border-primary/20 rounded-md transition-all duration-200 hover:scale-105 hover:shadow-sm active:scale-100 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-1"
+                        className="source-badge inline-flex items-center gap-1.5 px-2.5 py-1.5 font-chat text-xs font-normal text-primary bg-primary/10 hover:bg-primary/20 hover:text-primary border border-primary/20 rounded-md transition-all duration-200 hover:scale-105 hover:shadow-sm active:scale-100 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-1"
                         data-source={source.index}
                         aria-label={`Source ${source.index}: ${source.title}`}
                         onClick={(e) => {
@@ -403,7 +441,7 @@ export const MessageBubble = memo(function MessageBubble({ message, onRetry, onR
                           }
                         }}
                       >
-                        <span className="font-semibold text-primary">[{source.index}]</span>
+                        <span className="font-normal text-primary">[{source.index}]</span>
                         <span className="truncate max-w-[120px]">{source.title}</span>
                       </a>
                     ))}

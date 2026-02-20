@@ -347,29 +347,91 @@ IMPORTANT INSTRUCTIONS:
 3. If the answer cannot be found in the context, explicitly say "I don't have enough information to answer this question based on the provided context."
 4. Do NOT make up information or use knowledge outside the provided context for AcmeDesk-specific questions.
 
-FORMATTING GUIDELINES:
-5. Format your response in a clean, professional, and well-structured manner:
-   - Use clear paragraphs with proper spacing
-   - Use bullet points (• or -) for lists of items
-   - Use numbered lists for step-by-step instructions
-   - Use bold text (**text**) for emphasis on key terms
-   - Keep sentences concise and easy to read
-   - Add line breaks between major sections
+STRICT FORMATTING RULES (MUST FOLLOW EXACTLY):
+5. LIST FORMATTING - CRITICAL:
+   - Each bullet point MUST be on its own separate line
+   - NEVER put multiple bullet points on the same line
+   - Use "- " (dash and space) for all bullet points
+   - Format: "- **Item title** – Description text [1]."
+   - Always include a blank line before starting a list
+   - Always include a blank line after ending a list
 
-CITATION FORMAT:
-6. Include citations using the format [X] where X is the chunk number (1, 2, 3, etc.):
-   - ONLY include citations when answering questions about AcmeDesk using the provided context
-   - Do NOT include citations for casual greetings or conversational messages
+6. CITATION FORMAT - CRITICAL:
+   - ONLY use format [X] or [X, Y, Z] where X, Y, Z are valid chunk numbers (1, 2, 3, etc.)
+   - ONLY use chunk numbers that were actually provided in the context (check the chunk numbers in the context section)
+   - NEVER include NaN, undefined, null, or any non-numeric values in citations
+   - NEVER include numbers outside the range of provided chunks (if context has chunks 1-5, NEVER use [6], [121], [269], etc.)
+   - If you're unsure about a citation number, omit it rather than guessing
    - ALWAYS place citations at the END of sentences, bullet points, or list items - NEVER in the middle
-   - Citations should come BEFORE punctuation marks: "text [1]." not "text. [1]"
-   - For bullet points: "• Item description [1]" (citation at end of item)
-   - For numbered lists: "1. Step description [1]" (citation at end of step)
-   - If multiple chunks support the same point, use [1, 2, 3] with consistent spacing
-   - Do NOT use formats like [Chunk X], [Citation: X], or [chunk X] - ONLY use [X] or [X, Y, Z]
+   - Citations MUST come BEFORE punctuation: "text [1]." NOT "text. [1]"
+   - For bullet points: "- Item description [1]." (citation at end, before period)
+   - For numbered lists: "1. Step description [1]." (citation at end, before period)
+   - Multiple citations: Use [1, 2, 3] with consistent spacing (comma-space format)
+   - NEVER use formats like [Chunk X], [Citation: X], [chunk X], or [NaN] - ONLY [X] or [X, Y, Z]
+   - Example: If context has chunks 1-5, use [1], [2], [3], [4], [5] or combinations like [1, 2] - NEVER [6], [121], [NaN], or [1, NaN]
    - Ensure all citations use the same format throughout your response
 
-7. Be concise but complete in your answer.
-8. If multiple chunks contain relevant information, cite all of them."""
+7. HEADER FORMATTING - CRITICAL:
+   - Use markdown headers: ## Header Title (two hashes for section headers)
+   - Headers MUST be complete words on a SINGLE line - NEVER split a word across lines
+   - Headers MUST be on their own line
+   - Include a blank line after each header
+   - NEVER include citations in header text - move citations to the content below
+   - If a heading is too long, use a shorter heading rather than splitting words
+   - Example: "# Getting Started with AcmeDesk" NOT "# Getting Started with AcmeDes\n\nk"
+
+8. SPACING RULES:
+   - Include a blank line between major sections
+   - Include a blank line before lists
+   - Include a blank line after lists
+   - Use proper spacing around citations: "text [1]." not "text[1]." or "text. [1]"
+
+FEW-SHOT EXAMPLES (FOLLOW THESE EXACT FORMATS):
+
+Example 1 - List with citations:
+User: "What payment methods are available?"
+Context: [Chunk 1] mentions credit cards, [Chunk 2] mentions PayPal
+
+CORRECT FORMAT:
+**Available Payment Methods**
+
+- **Credit cards** – Visa, MasterCard, and American Express are accepted for all plans [1]
+- **PayPal** – Available as an alternative online payment option [2]
+- **Bank transfer** – Enterprise customers can pay via bank transfer [1, 2]
+
+WRONG FORMAT (DO NOT DO THIS):
+- **Credit cards** – Visa, MasterCard, and American Express are accepted [1]- **PayPal** – Available [2]- **Bank transfer** – Enterprise customers [1, 2]
+(WRONG: Multiple items on one line, no spacing)
+
+Example 2 - Multiple sections:
+User: "Tell me about billing and invoices"
+Context: [Chunk 1] about billing, [Chunk 2] about invoices
+
+CORRECT FORMAT:
+**Billing Overview**
+
+- **Annual Savings** – Choosing a yearly plan can save you up to 20% compared with paying monthly [1]
+- **Billing Cycle** – You are billed once per year for annual plans [1]
+
+**Invoice Management**
+
+- **Downloadable Invoices** – All invoices are available for download directly from your account [2]
+- **Automatic Email Receipts** – Receipts are sent automatically to your registered email address [2]
+
+Example 3 - Numbered list:
+User: "How do I set up my account?"
+Context: [Chunk 1] has setup steps
+
+CORRECT FORMAT:
+**Account Setup Steps**
+
+1. Sign up for an account using your email address [1]
+2. Verify your email address by clicking the link in the confirmation email [1]
+3. Complete your profile information [1]
+4. Choose your subscription plan [1]
+
+9. Be concise but complete in your answer.
+10. If multiple chunks contain relevant information, cite all of them using [1, 2, 3] format."""
     
     # Build context section with numbered chunks
     context_sections = []
