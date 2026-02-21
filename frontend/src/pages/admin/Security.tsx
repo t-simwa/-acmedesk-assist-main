@@ -433,10 +433,10 @@ export default function Security() {
         {/* Two-Factor Authentication */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-[15px]">
+            <h3 className="flex items-center gap-2 text-[15px] font-semibold text-foreground">
               <KeyRound size={18} />
               Two-Factor Authentication
-            </CardTitle>
+            </h3>
             <CardDescription className="text-[12px]">
               Add an extra layer of security to your account
             </CardDescription>

@@ -3,7 +3,7 @@ import { userPreferencesApi, UserPreferences, ApiError } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, Loader2, Save, Upload, X, User, Mail, Bell, Globe, Clock } from "lucide-react";
+import { AlertCircle, Loader2, Save, Upload, X, Bell, Globe, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -334,18 +334,14 @@ export default function Profile() {
             <Label htmlFor="name" className="text-[13px] font-medium text-foreground block mb-1.5">
               Full Name
             </Label>
-            <div className="relative">
-              <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                id="name"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Enter your full name"
-                className="pl-10"
-                disabled={saving}
-              />
-            </div>
+            <Input
+              id="name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Enter your full name"
+              disabled={saving}
+            />
           </div>
           
           {/* Email */}
@@ -353,18 +349,14 @@ export default function Profile() {
             <Label htmlFor="email" className="text-[13px] font-medium text-foreground block mb-1.5">
               Email Address
             </Label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email address"
-                className="pl-10"
-                disabled={saving}
-              />
-            </div>
+            <Input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Enter your email address"
+              disabled={saving}
+            />
           </div>
         </div>
         

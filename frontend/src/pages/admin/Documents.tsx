@@ -28,6 +28,10 @@ import {
   Settings,
   ToggleLeft,
   ToggleRight,
+  Filter,
+  FilterX,
+  ChevronRight,
+  ChevronLeft,
 } from "lucide-react";
 import { Document, ApiError, documentsApi } from "@/lib/api";
 import {
@@ -88,11 +92,25 @@ import { NetworkErrorState } from "@/components/error/NetworkErrorState";
 import { ConfirmationDialog } from "@/components/feedback/ConfirmationDialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useIsTablet } from "@/hooks/use-tablet";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useCountUp } from "@/hooks/useCountUp";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 const statusConfig = {
-  indexed: { icon: CheckCircle2, label: "Indexed", className: "text-primary" },
-  processing: { icon: Clock, label: "Processing", className: "text-muted-foreground" },
-  error: { icon: AlertCircle, label: "Error", className: "text-destructive" },
+  indexed: { icon: CheckCircle2, label: "Indexed", className: "text-green-600 dark:text-green-500", bgColor: "bg-green-50 dark:bg-green-950/20", borderColor: "border-green-200 dark:border-green-800" },
+  processing: { icon: Clock, label: "Processing", className: "text-amber-600 dark:text-amber-500", bgColor: "bg-amber-50 dark:bg-amber-950/20", borderColor: "border-amber-200 dark:border-amber-800" },
+  error: { icon: AlertCircle, label: "Error", className: "text-red-600 dark:text-red-500", bgColor: "bg-red-50 dark:bg-red-950/20", borderColor: "border-red-200 dark:border-red-800" },
 };
 
 type SortField = "name" | "type" | "status" | "chunk_count" | "updated_at";
@@ -291,10 +309,13 @@ function MobileDocumentCard({
                   <Badge variant="outline" className="text-[12px] uppercase">
                     {doc.type}
                   </Badge>
-                  <div className="flex items-center gap-1.5">
-                    <StatusIcon size={14} className={status.className} aria-hidden="true" />
-                    <span className={`text-[13px] ${status.className}`}>{status.label}</span>
-                  </div>
+                  <Badge
+                    variant="outline"
+                    className={`${status.className} ${status.bgColor} ${status.borderColor} border text-[12px] font-medium`}
+                  >
+                    <StatusIcon size={12} className="mr-1" aria-hidden="true" />
+                    {status.label}
+                  </Badge>
                 </div>
                 <div className="flex items-center gap-3 mt-2 text-[12px] text-muted-foreground">
                   {doc.chunk_count !== null && doc.chunk_count !== undefined && (
@@ -378,6 +399,9 @@ export default function Documents() {
   const [createKBDialogOpen, setCreateKBDialogOpen] = useState(false);
   const [newKBName, setNewKBName] = useState("");
   const [newKBDescription, setNewKBDescription] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [typeFilter, setTypeFilter] = useState<string | null>(null);
+  const [kbSectionOpen, setKbSectionOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -680,8 +704,33 @@ export default function Documents() {
     }
   };
 
+  // Calculate stats
+  const stats = useMemo(() => {
+    const total = documents.length;
+    const indexed = documents.filter((d) => d.status === "indexed").length;
+    const processing = documents.filter((d) => d.status === "processing").length;
+    const error = documents.filter((d) => d.status === "error").length;
+    return { total, indexed, processing, error };
+  }, [documents]);
+
+  // Animated stats
+  const totalCount = useCountUp(stats.total, 800, 0, "");
+  const indexedCount = useCountUp(stats.indexed, 800, 0, "");
+  const processingCount = useCountUp(stats.processing, 800, 0, "");
+  const errorCount = useCountUp(stats.error, 800, 0, "");
+
   const filtered = useMemo(() => {
     let result = documents.filter((d) => d.name.toLowerCase().includes(search.toLowerCase()));
+
+    // Apply status filter
+    if (statusFilter && statusFilter !== "all") {
+      result = result.filter((d) => d.status === statusFilter);
+    }
+
+    // Apply type filter
+    if (typeFilter && typeFilter !== "all") {
+      result = result.filter((d) => d.type.toLowerCase() === typeFilter.toLowerCase());
+    }
 
     result.sort((a, b) => {
       let aVal: any = a[sortField];
@@ -698,7 +747,13 @@ export default function Documents() {
     });
 
     return result;
-  }, [documents, search, sortField, sortDirection]);
+  }, [documents, search, sortField, sortDirection, statusFilter, typeFilter]);
+
+  const hasActiveFilters = statusFilter !== null && statusFilter !== "all" || (typeFilter !== null && typeFilter !== "all");
+  const clearFilters = () => {
+    setStatusFilter(null);
+    setTypeFilter(null);
+  };
 
   const SortIcon = ({ field }: { field: SortField }) => {
     if (sortField !== field) return <ChevronsUpDown size={14} className="text-muted-foreground" />;
@@ -710,40 +765,16 @@ export default function Documents() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Documents</h1>
-          <p className="text-[14px] text-muted-foreground mt-1" id="documents-description">
+          <p className="text-sm text-muted-foreground mt-1" id="documents-description">
             Manage knowledge base documents for the chatbot
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {selectedRows.size > 0 && (
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">
-                {selectedRows.size} selected
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleBulkReindex}
-                disabled={Array.from(selectedRows).some((id) => reindexing.has(id))}
-              >
-                <RefreshCw size={14} className="mr-2" />
-                Reindex
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleBulkDeleteClick}
-                className="text-destructive hover:text-destructive"
-              >
-                <Trash2 size={14} className="mr-2" />
-                Delete
-              </Button>
-            </div>
-          )}
           <Button 
             onClick={handleUploadClick} 
             disabled={uploadQueue.some((u) => u.status === "uploading")}
@@ -764,102 +795,327 @@ export default function Documents() {
         </div>
       </div>
 
+      {/* Quick Stats Cards */}
+      <div className={`grid grid-cols-1 ${isTablet ? "sm:grid-cols-2" : "sm:grid-cols-2 lg:grid-cols-4"} gap-4`}>
+        <div className="bg-background rounded-xl border border-border/40 p-6 hover:border-border/60 transition-all duration-200 hover:shadow-sm">
+          {loading ? (
+            <Skeleton className="h-8 w-20 mb-2" />
+          ) : (
+            <div className="text-2xl font-semibold text-foreground tracking-tight mb-2">
+              {totalCount}
+            </div>
+          )}
+          <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
+            Total Documents
+          </div>
+        </div>
+        <div className="bg-background rounded-xl border border-border/40 p-6 hover:border-border/60 transition-all duration-200 hover:shadow-sm">
+          {loading ? (
+            <Skeleton className="h-8 w-20 mb-2" />
+          ) : (
+            <div className="text-2xl font-semibold text-green-600 dark:text-green-500 tracking-tight mb-2">
+              {indexedCount}
+            </div>
+          )}
+          <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
+            Indexed
+          </div>
+        </div>
+        <div className="bg-background rounded-xl border border-border/40 p-6 hover:border-border/60 transition-all duration-200 hover:shadow-sm">
+          {loading ? (
+            <Skeleton className="h-8 w-20 mb-2" />
+          ) : (
+            <div className="text-2xl font-semibold text-amber-600 dark:text-amber-500 tracking-tight mb-2">
+              {processingCount}
+            </div>
+          )}
+          <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
+            Processing
+          </div>
+        </div>
+        <div className="bg-background rounded-xl border border-border/40 p-6 hover:border-border/60 transition-all duration-200 hover:shadow-sm">
+          {loading ? (
+            <Skeleton className="h-8 w-20 mb-2" />
+          ) : (
+            <div className="text-2xl font-semibold text-red-600 dark:text-red-500 tracking-tight mb-2">
+              {errorCount}
+            </div>
+          )}
+          <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
+            Errors
+          </div>
+        </div>
+      </div>
+
       {error && (
-        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg text-[14px] flex items-center gap-2">
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg text-sm flex items-center gap-2">
           <AlertCircle size={16} aria-hidden="true" />
           {error}
         </div>
       )}
 
-      {/* Upload Queue */}
-      {uploadQueue.length > 0 && (
-        <div className="space-y-2">
-          <h3 className="text-sm font-medium">Upload Queue</h3>
-          {uploadQueue.map((item) => (
-            <div
-              key={item.id}
-              className="bg-background border border-border rounded-lg p-4 space-y-2"
+      {/* Search and Filters */}
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+        <div className="flex-1 w-full sm:max-w-sm">
+          <Input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search documents…"
+            className={isTablet ? "h-11 text-base" : ""}
+            aria-label="Search documents"
+            aria-describedby="documents-description"
+          />
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Select value={statusFilter || "all"} onValueChange={(v) => setStatusFilter(v === "all" ? null : v)}>
+            <SelectTrigger className={`w-[140px] ${isTablet ? "min-h-[44px]" : ""}`}>
+              <SelectValue placeholder="All Statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="indexed">Indexed</SelectItem>
+              <SelectItem value="processing">Processing</SelectItem>
+              <SelectItem value="error">Error</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={typeFilter || "all"} onValueChange={(v) => setTypeFilter(v === "all" ? null : v)}>
+            <SelectTrigger className={`w-[140px] ${isTablet ? "min-h-[44px]" : ""}`}>
+              <SelectValue placeholder="All Types" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="pdf">PDF</SelectItem>
+              <SelectItem value="docx">DOCX</SelectItem>
+              <SelectItem value="md">Markdown</SelectItem>
+              <SelectItem value="html">HTML</SelectItem>
+              <SelectItem value="txt">Text</SelectItem>
+            </SelectContent>
+          </Select>
+          {hasActiveFilters && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={clearFilters}
+              className={isTablet ? "min-h-[44px]" : ""}
             >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <FileText size={16} className="text-muted-foreground flex-shrink-0" />
-                  <span className="text-sm font-medium truncate">{item.file.name}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {formatFileSize(item.file.size)}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  {item.status === "uploading" && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => pauseUpload(item.id)}
-                      className="h-8"
-                    >
-                      <Pause size={14} />
-                    </Button>
-                  )}
-                  {item.status === "paused" && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => resumeUpload(item.id)}
-                      className="h-8"
-                    >
-                      <Play size={14} />
-                    </Button>
-                  )}
-                  {item.status !== "completed" && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => cancelUpload(item.id)}
-                      className="h-8 text-destructive"
-                    >
-                      <X size={14} />
-                    </Button>
-                  )}
-                </div>
-              </div>
-              {item.status === "uploading" && (
-                <Progress value={item.progress} className="h-2" />
-              )}
-              {item.status === "completed" && (
-                <div className="flex items-center gap-2 text-sm text-primary">
-                  <CheckCircle2 size={14} />
-                  <span>Upload complete</span>
-                </div>
-              )}
-              {item.status === "error" && (
-                <div className="flex items-center gap-2 text-sm text-destructive">
-                  <AlertCircle size={14} />
-                  <span>{item.error || "Upload failed"}</span>
-                </div>
-              )}
-            </div>
-          ))}
+              <FilterX size={14} className="mr-2" />
+              Clear
+            </Button>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className={isTablet ? "min-h-[44px]" : ""}>
+                <Eye size={14} className="mr-2" />
+                Columns
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {Object.entries(columnVisibility).map(([key, visible]) => (
+                <DropdownMenuCheckboxItem
+                  key={key}
+                  checked={visible}
+                  onCheckedChange={(checked) =>
+                    setColumnVisibility((prev) => ({ ...prev, [key]: checked }))
+                  }
+                >
+                  {key === "name" && "Name"}
+                  {key === "type" && "Type"}
+                  {key === "status" && "Status"}
+                  {key === "chunks" && "Chunks"}
+                  {key === "updated" && "Updated"}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      {/* Filter Chips */}
+      {hasActiveFilters && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm text-muted-foreground">Active filters:</span>
+          {statusFilter && statusFilter !== "all" && (
+            <Badge variant="secondary" className="gap-1">
+              Status: {statusConfig[statusFilter as keyof typeof statusConfig]?.label || statusFilter}
+              <button
+                onClick={() => setStatusFilter(null)}
+                className="ml-1 hover:bg-muted rounded-full p-0.5"
+                aria-label="Remove status filter"
+              >
+                <X size={12} />
+              </button>
+            </Badge>
+          )}
+          {typeFilter && typeFilter !== "all" && (
+            <Badge variant="secondary" className="gap-1">
+              Type: {typeFilter.toUpperCase()}
+              <button
+                onClick={() => setTypeFilter(null)}
+                className="ml-1 hover:bg-muted rounded-full p-0.5"
+                aria-label="Remove type filter"
+              >
+                <X size={12} />
+              </button>
+            </Badge>
+          )}
         </div>
       )}
 
-      {/* Knowledge Base Management Section */}
-      <div className="bg-card border border-border rounded-lg p-6 mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Database size={20} className="text-primary" />
-            <h2 className="text-lg font-semibold">Knowledge Bases</h2>
+      {/* Enhanced Upload Drop Zone */}
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={handleDrop}
+        onClick={handleUploadClick}
+        role="button"
+        tabIndex={0}
+        aria-label="Drop zone for document uploads. Click or drag files here to upload."
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            handleUploadClick();
+          }
+        }}
+        className={`relative border-2 border-dashed rounded-xl p-12 text-center transition-all duration-200 cursor-pointer focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 min-h-[200px] flex flex-col items-center justify-center ${
+          dragOver
+            ? "border-primary bg-primary/5 scale-[1.02] shadow-lg"
+            : "border-border hover:border-primary/50 hover:bg-muted/30"
+        }`}
+      >
+        <div className={`absolute inset-0 rounded-xl transition-opacity duration-200 ${
+          dragOver ? "bg-primary/5 opacity-100" : "opacity-0"
+        }`} />
+        <div className="relative z-10">
+          <div className={`mb-4 transition-transform duration-200 ${dragOver ? "scale-110" : ""}`}>
+            <FileText size={48} className={`mx-auto ${dragOver ? "text-primary" : "text-muted-foreground"}`} aria-hidden="true" />
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setKnowledgeBaseDialogOpen(true)}
-            className={isTablet ? "min-h-[44px]" : ""}
-          >
-            <Settings size={16} className="mr-2" />
-            Manage
-          </Button>
+          <p className="text-base font-medium text-foreground mb-1">
+            Drag and drop files here
+          </p>
+          <p className="text-sm text-muted-foreground mb-2">
+            or click to browse
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Supports .md, .txt, .html, .pdf, .docx — Max 10MB per file
+          </p>
         </div>
+      </div>
 
-        {/* Default KB Toggle */}
+      {/* Upload Queue */}
+      {uploadQueue.length > 0 && (
+        <div className="space-y-3 bg-muted/30 rounded-lg p-4 border border-border">
+          <h3 className="text-sm font-semibold flex items-center gap-2">
+            <Upload size={16} />
+            Upload Queue ({uploadQueue.length})
+          </h3>
+          <div className="space-y-2">
+            {uploadQueue.map((item) => (
+              <div
+                key={item.id}
+                className="bg-background border border-border rounded-lg p-4 space-y-3 transition-all hover:shadow-sm"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <FileText size={18} className="text-muted-foreground flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-medium truncate block">{item.file.name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {formatFileSize(item.file.size)}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {item.status === "uploading" && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => pauseUpload(item.id)}
+                        className="h-8 w-8 p-0"
+                        aria-label="Pause upload"
+                      >
+                        <Pause size={14} />
+                      </Button>
+                    )}
+                    {item.status === "paused" && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => resumeUpload(item.id)}
+                        className="h-8 w-8 p-0"
+                        aria-label="Resume upload"
+                      >
+                        <Play size={14} />
+                      </Button>
+                    )}
+                    {item.status !== "completed" && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => cancelUpload(item.id)}
+                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                        aria-label="Cancel upload"
+                      >
+                        <X size={14} />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                {item.status === "uploading" && (
+                  <div className="space-y-1">
+                    <Progress value={item.progress} className="h-2" />
+                    <span className="text-xs text-muted-foreground">{item.progress}%</span>
+                  </div>
+                )}
+                {item.status === "completed" && (
+                  <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-500">
+                    <CheckCircle2 size={16} />
+                    <span>Upload complete</span>
+                  </div>
+                )}
+                {item.status === "error" && (
+                  <div className="flex items-center gap-2 text-sm text-destructive">
+                    <AlertCircle size={16} />
+                    <span>{item.error || "Upload failed"}</span>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Knowledge Base Management Section - Collapsible */}
+      <Collapsible open={kbSectionOpen} onOpenChange={setKbSectionOpen}>
+        <div className="bg-card border border-border rounded-lg">
+          <CollapsibleTrigger asChild>
+            <button className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors rounded-lg">
+              <div className="flex items-center gap-2">
+                <Database size={18} className="text-primary" />
+                <h3 className="text-[15px] font-semibold text-foreground">Knowledge Bases</h3>
+              </div>
+              <ChevronRight className={`h-5 w-5 text-muted-foreground transition-transform duration-200 ${kbSectionOpen ? "rotate-90" : ""}`} />
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="px-4 pb-4 space-y-4">
+            <div className="flex items-center justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setKnowledgeBaseDialogOpen(true)}
+                className={isTablet ? "min-h-[44px]" : ""}
+              >
+                <Settings size={16} className="mr-2" />
+                Manage
+              </Button>
+            </div>
+
+            {/* Default KB Toggle */}
         {kbLoading || (preferences === null && !error) ? (
           <div className="flex items-center justify-center p-4">
             <Loader2 size={16} className="animate-spin text-muted-foreground" />
@@ -973,28 +1229,34 @@ export default function Documents() {
           )}
         </div>
 
-        {/* Knowledge Base Selection for Upload */}
-        <div className="mt-4 pt-4 border-t border-border">
-          <label className="text-sm font-medium mb-2 block">Upload to Knowledge Base</label>
-          <select
-            value={selectedKnowledgeBaseId || ""}
-            onChange={(e) => setSelectedKnowledgeBaseId(e.target.value || undefined)}
-            className="w-full px-3 py-2 border border-border rounded-md bg-background text-sm"
-          >
-            <option value="">Select a knowledge base (optional)</option>
-            {knowledgeBases
-              .filter((kb) => kb.is_active && (!kb.is_default || preferences?.use_default_kb))
-              .map((kb) => (
-                <option key={kb.id} value={kb.id}>
-                  {kb.name} {kb.is_default && "(Default)"}
-                </option>
-              ))}
-          </select>
-          <p className="text-xs text-muted-foreground mt-1">
-            Documents uploaded without a selection will not be assigned to any knowledge base.
-          </p>
+            {/* Knowledge Base Selection for Upload */}
+            <div className="pt-4 border-t border-border">
+              <label className="text-sm font-medium mb-2 block">Upload to Knowledge Base</label>
+              <Select
+                value={selectedKnowledgeBaseId || "none"}
+                onValueChange={(value) => setSelectedKnowledgeBaseId(value === "none" ? undefined : value)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select a knowledge base (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None (unassigned)</SelectItem>
+                  {knowledgeBases
+                    .filter((kb) => kb.is_active && (!kb.is_default || preferences?.use_default_kb))
+                    .map((kb) => (
+                      <SelectItem key={kb.id} value={kb.id}>
+                        {kb.name} {kb.is_default && "(Default)"}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-2">
+                Documents uploaded without a selection will not be assigned to any knowledge base.
+              </p>
+            </div>
+          </CollapsibleContent>
         </div>
-      </div>
+      </Collapsible>
 
       {/* Knowledge Base Management Dialog */}
       <Dialog open={knowledgeBaseDialogOpen} onOpenChange={setKnowledgeBaseDialogOpen}>
@@ -1129,83 +1391,46 @@ export default function Documents() {
         </DialogContent>
       </Dialog>
 
-      {/* Drop zone */}
-      <div
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragOver(true);
-        }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={handleDrop}
-        onClick={handleUploadClick}
-        role="button"
-        tabIndex={0}
-        aria-label="Drop zone for document uploads. Click or drag files here to upload."
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            handleUploadClick();
-          }
-        }}
-        className={`border-2 border-dashed rounded-xl p-8 text-center mb-6 transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 ${
-          dragOver
-            ? "border-primary bg-accent"
-            : "border-border hover:border-primary/50"
-        }`}
-      >
-        <FileText size={24} className="mx-auto text-muted-foreground mb-2" aria-hidden="true" />
-        <p className="text-[14px] text-muted-foreground">
-          Drag and drop files here, or click Upload
-        </p>
-        <p className="text-[12px] text-muted-foreground mt-1">
-          Supports .md, .txt, .html, .pdf, .docx — Max 10MB per file
-        </p>
-      </div>
 
-      {/* Search and Table Controls */}
-      <div className={`flex items-center justify-between gap-4 ${isTablet ? "flex-col sm:flex-row" : ""}`}>
-        <div className={`relative flex-1 ${isTablet ? "w-full sm:max-w-sm" : "max-w-sm"}`}>
-          <Input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search documents…"
-            className={isTablet ? "h-11 text-[16px]" : ""}
-            aria-label="Search documents"
-            aria-describedby="documents-description"
-          />
-        </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className={isTablet ? "min-h-[44px]" : ""}>
-              <Eye size={14} className="mr-2" />
-              Columns
+      {/* Bulk Action Floating Bar */}
+      {selectedRows.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 bg-background border border-border rounded-lg shadow-lg p-4 flex items-center gap-4 animate-in slide-in-from-bottom-5">
+          <span className="text-sm font-medium">
+            {selectedRows.size} document{selectedRows.size > 1 ? "s" : ""} selected
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBulkReindex}
+              disabled={Array.from(selectedRows).some((id) => reindexing.has(id))}
+            >
+              <RefreshCw size={14} className="mr-2" />
+              Reindex
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {Object.entries(columnVisibility).map(([key, visible]) => (
-              <DropdownMenuCheckboxItem
-                key={key}
-                checked={visible}
-                onCheckedChange={(checked) =>
-                  setColumnVisibility((prev) => ({ ...prev, [key]: checked }))
-                }
-              >
-                {key === "name" && "Name"}
-                {key === "type" && "Type"}
-                {key === "status" && "Status"}
-                {key === "chunks" && "Chunks"}
-                {key === "updated" && "Updated"}
-              </DropdownMenuCheckboxItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBulkDeleteClick}
+              className="text-destructive hover:text-destructive"
+            >
+              <Trash2 size={14} className="mr-2" />
+              Delete
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedRows(new Set())}
+              className="ml-2"
+            >
+              <X size={14} />
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Table */}
-      <div className="bg-background rounded-xl border border-border shadow-soft-sm overflow-hidden">
+      <div className="bg-background rounded-xl border border-border shadow-sm overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 size={24} className="animate-spin text-muted-foreground" />
@@ -1361,7 +1586,9 @@ export default function Documents() {
                 return (
                   <TableRow
                     key={doc.id}
-                    className={isSelected ? "bg-muted" : ""}
+                    className={`transition-colors hover:bg-muted/50 ${
+                      isSelected ? "bg-primary/5 border-l-2 border-l-primary" : ""
+                    }`}
                     data-state={isSelected ? "selected" : undefined}
                   >
                     <TableCell>
@@ -1423,10 +1650,13 @@ export default function Documents() {
                     )}
                     {columnVisibility.status && (
                       <TableCell>
-                        <div className="flex items-center gap-1.5">
-                          <StatusIcon size={14} className={status.className} />
-                          <span className={`text-[13px] ${status.className}`}>{status.label}</span>
-                        </div>
+                        <Badge
+                          variant="outline"
+                          className={`${status.className} ${status.bgColor} ${status.borderColor} border font-medium`}
+                        >
+                          <StatusIcon size={12} className="mr-1.5" />
+                          {status.label}
+                        </Badge>
                       </TableCell>
                     )}
                     {columnVisibility.chunks && (
