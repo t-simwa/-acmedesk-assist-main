@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { authApi } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle, Loader2, Save, Lock, Shield, KeyRound, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -90,11 +91,8 @@ export default function Security() {
       setSaving(true);
       setError(null);
 
-      // TODO: Replace with actual API call when backend endpoint is available
-      // await securityApi.changePassword({ currentPassword, newPassword });
-      
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Call the actual API
+      await authApi.changePassword({ currentPassword, newPassword });
 
       toast({
         title: "Password changed",

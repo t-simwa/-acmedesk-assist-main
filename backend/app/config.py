@@ -70,6 +70,15 @@ class Settings(BaseSettings):
     jwt_access_token_expire_minutes: int = 30  # Access token expiration (30 minutes)
     jwt_refresh_token_expire_days: int = 7  # Refresh token expiration (7 days)
     jwt_remember_me_expire_days: int = 30  # Remember me token expiration (30 days)
+    
+    # Email/SMTP configuration
+    smtp_host: str = "localhost"  # SMTP server host
+    smtp_port: int = 587  # SMTP server port
+    smtp_username: Optional[str] = None  # SMTP username (if required)
+    smtp_password: Optional[str] = None  # SMTP password (if required)
+    smtp_use_tls: bool = True  # Use TLS for SMTP
+    smtp_from_email: str = "noreply@acmedesk.com"  # From email address
+    smtp_from_name: str = "AcmeDesk Assist"  # From name
 
     class Config:
         env_file = ".env"

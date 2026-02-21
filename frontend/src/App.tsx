@@ -17,6 +17,8 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import { AdminLayout } from "./components/admin/AdminLayout";
 import { DashboardSkeleton } from "./components/admin/skeletons/DashboardSkeleton";
 import { DocumentsSkeleton } from "./components/admin/skeletons/DocumentsSkeleton";
@@ -74,6 +76,22 @@ const App = () => (
                 element={
                   <PageTransition>
                     <Register />
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="/forgot-password"
+                element={
+                  <PageTransition>
+                    <ForgotPassword />
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="/reset-password"
+                element={
+                  <PageTransition>
+                    <ResetPassword />
                   </PageTransition>
                 }
               />

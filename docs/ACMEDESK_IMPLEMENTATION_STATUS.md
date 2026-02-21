@@ -2182,16 +2182,16 @@ Based on the comprehensive market comparison analysis (`docs/MARKET_COMPARISON_A
   - [x] Add session management.
   - [x] Test login flow end-to-end.
 
-- [ ] **H0.3 – Password Management**
-  - [ ] Create password change endpoint (`POST /api/auth/change-password`).
-  - [ ] Create password reset request endpoint (`POST /api/auth/forgot-password`).
-  - [ ] Create password reset endpoint (`POST /api/auth/reset-password`).
-  - [ ] Implement secure password reset tokens.
-  - [ ] Complete password change UI in Security page (currently commented out).
-  - [ ] Create forgot password UI page (`/forgot-password`).
-  - [ ] Create reset password UI page (`/reset-password`).
-  - [ ] Add password reset email sending.
-  - [ ] Test password management flows.
+- [x] **H0.3 – Password Management** ✅ **COMPLETE**
+  - [x] Create password change endpoint (`POST /api/auth/change-password`).
+  - [x] Create password reset request endpoint (`POST /api/auth/forgot-password`).
+  - [x] Create password reset endpoint (`POST /api/auth/reset-password`).
+  - [x] Implement secure password reset tokens.
+  - [x] Complete password change UI in Security page (currently commented out).
+  - [x] Create forgot password UI page (`/forgot-password`).
+  - [x] Create reset password UI page (`/reset-password`).
+  - [x] Add password reset email sending.
+  - [x] Test password management flows.
 
 - [x] **H0.4 – Authentication Middleware** ✅ **COMPLETE**
   - [x] Create JWT authentication middleware (`get_current_user` dependency).

@@ -140,3 +140,113 @@ class UserInfoResponse(BaseModel):
     name: Optional[str] = Field(None, description="Name of the user")
     role: str = Field(..., description="Role of the user")
     is_active: bool = Field(..., description="Whether the user account is active")
+
+
+class ChangePasswordRequest(BaseModel):
+    """
+    Request model for changing password.
+
+    Attributes:
+        current_password: User's current password
+        new_password: User's new password (must meet strength requirements)
+    """
+
+    current_password: str = Field(..., description="User's current password")
+    new_password: str = Field(..., min_length=8, description="User's new password (minimum 8 characters)")
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_password_strength(cls, v: str) -> str:
+        """
+        Validate password strength requirements:
+        - Minimum 8 characters
+        - At least one uppercase letter
+        - At least one lowercase letter
+        - At least one number
+        """
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters long")
+        if not re.search(r"[A-Z]", v):
+            raise ValueError("Password must contain at least one uppercase letter")
+        if not re.search(r"[a-z]", v):
+            raise ValueError("Password must contain at least one lowercase letter")
+        if not re.search(r"\d", v):
+            raise ValueError("Password must contain at least one number")
+        return v
+
+
+class ChangePasswordResponse(BaseModel):
+    """
+    Response model for password change.
+
+    Attributes:
+        message: Success message
+    """
+
+    message: str = Field(..., description="Success message")
+
+
+class ForgotPasswordRequest(BaseModel):
+    """
+    Request model for forgot password.
+
+    Attributes:
+        email: User's email address
+    """
+
+    email: EmailStr = Field(..., description="User's email address")
+
+
+class ForgotPasswordResponse(BaseModel):
+    """
+    Response model for forgot password.
+
+    Attributes:
+        message: Success message
+    """
+
+    message: str = Field(..., description="Success message")
+
+
+class ResetPasswordRequest(BaseModel):
+    """
+    Request model for resetting password.
+
+    Attributes:
+        token: Password reset token from email
+        new_password: User's new password (must meet strength requirements)
+    """
+
+    token: str = Field(..., description="Password reset token from email")
+    new_password: str = Field(..., min_length=8, description="User's new password (minimum 8 characters)")
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_password_strength(cls, v: str) -> str:
+        """
+        Validate password strength requirements:
+        - Minimum 8 characters
+        - At least one uppercase letter
+        - At least one lowercase letter
+        - At least one number
+        """
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters long")
+        if not re.search(r"[A-Z]", v):
+            raise ValueError("Password must contain at least one uppercase letter")
+        if not re.search(r"[a-z]", v):
+            raise ValueError("Password must contain at least one lowercase letter")
+        if not re.search(r"\d", v):
+            raise ValueError("Password must contain at least one number")
+        return v
+
+
+class ResetPasswordResponse(BaseModel):
+    """
+    Response model for password reset.
+
+    Attributes:
+        message: Success message
+    """
+
+    message: str = Field(..., description="Success message")

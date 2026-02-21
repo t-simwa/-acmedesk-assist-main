@@ -643,6 +643,47 @@ export const authApi = {
   },
 
   /**
+   * Change password (requires authentication)
+   */
+  async changePassword(payload: { currentPassword: string; newPassword: string }): Promise<{ message: string }> {
+    return apiClient<{ message: string }>("/api/auth/change-password", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+      },
+      body: JSON.stringify({
+        current_password: payload.currentPassword,
+        new_password: payload.newPassword,
+      }),
+    });
+  },
+
+  /**
+   * Request password reset (forgot password)
+   */
+  async forgotPassword(payload: { email: string }): Promise<{ message: string }> {
+    return apiClient<{ message: string }>("/api/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({
+        email: payload.email,
+      }),
+    });
+  },
+
+  /**
+   * Reset password using token from email
+   */
+  async resetPassword(payload: { token: string; newPassword: string }): Promise<{ message: string }> {
+    return apiClient<{ message: string }>("/api/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({
+        token: payload.token,
+        new_password: payload.newPassword,
+      }),
+    });
+  },
+
+  /**
    * Logout (clear tokens)
    */
   logout(): void {
