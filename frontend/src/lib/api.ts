@@ -157,6 +157,46 @@ export interface RAGSettingsValidationResponse {
 }
 
 // ============================================================================
+// Email Channel Types
+// ============================================================================
+
+export interface EmailThreadSummary {
+  id: string;
+  role: string;
+  content: string;
+  timestamp?: string;
+  metadata?: {
+    from?: string;
+    to?: string;
+    message_count?: number;
+  };
+}
+
+export interface EmailThreadListResponse {
+  threads: EmailThreadSummary[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface EmailMessageMetadata {
+  id: string;
+  role: string;
+  content: string;
+  timestamp?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface EmailThreadMessagesResponse {
+  thread_id: string;
+  messages: EmailMessageMetadata[];
+}
+
+export interface EmailReplyResponse {
+  message: EmailMessageMetadata;
+}
+
+// ============================================================================
 // API Client Configuration
 // ============================================================================
 
@@ -977,6 +1017,47 @@ export const settingsApi = {
     return apiClient<RAGSettingsValidationResponse>("/api/settings/rag/validate", {
       method: "POST",
       body: JSON.stringify(payload),
+    });
+  },
+};
+
+// ============================================================================
+// Email Channel API
+// ============================================================================
+
+export const emailApi = {
+  /**
+   * Trigger an email inbox sync.
+   */
+  async syncInbox(): Promise<{ imported: number }> {
+    return apiClient<{ imported: number }>("/api/email/sync", {
+      method: "POST",
+    });
+  },
+
+  /**
+   * List email threads.
+   */
+  async listThreads(limit = 50, offset = 0): Promise<EmailThreadListResponse> {
+    return apiClient<EmailThreadListResponse>("/api/email/threads", {
+      params: { limit, offset },
+    });
+  },
+
+  /**
+   * Get messages for a specific email thread.
+   */
+  async getThreadMessages(threadId: string): Promise<EmailThreadMessagesResponse> {
+    return apiClient<EmailThreadMessagesResponse>(`/api/email/threads/${threadId}`);
+  },
+
+  /**
+   * Send a reply for an email thread.
+   */
+  async replyToThread(threadId: string, body: string): Promise<EmailReplyResponse> {
+    return apiClient<EmailReplyResponse>(`/api/email/threads/${threadId}/reply`, {
+      method: "POST",
+      body: JSON.stringify({ body }),
     });
   },
 };

@@ -67,6 +67,7 @@
   "navigation": {
     "dashboard": "Dashboard",
     "documents": "Documents",
+    "inbox": "受信トレイ",
     "analytics": "Analytics",
     "settings": "Settings",
     "security": "Security",

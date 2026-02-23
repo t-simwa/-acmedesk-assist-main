@@ -845,46 +845,42 @@ export default function Settings() {
 
   if (loading) {
     return (
-      <div className="max-w-2xl space-y-8">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-semibold text-foreground">Settings</h1>
-          <p className="text-[14px] text-muted-foreground mt-1">
-            Configure the RAG pipeline and model parameters
-          </p>
-        </div>
-        <div className="space-y-6">
-          <Skeleton className="h-64 w-full" />
-          <Skeleton className="h-48 w-full" />
-          <Skeleton className="h-32 w-full" />
+      <div className="flex flex-col w-full min-w-0 max-w-2xl">
+        <header className="mb-6 sm:mb-8">
+          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">Settings</h1>
+          <p className="mt-1.5 text-[13px] sm:text-sm text-muted-foreground">Configure the RAG pipeline and model parameters</p>
+        </header>
+        <div className="space-y-4">
+          <Skeleton className="h-48 w-full rounded-2xl" />
+          <Skeleton className="h-40 w-full rounded-2xl" />
+          <Skeleton className="h-36 w-full rounded-2xl" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-2xl space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
-        <p className="text-[14px] text-muted-foreground mt-1">
-          Configure the RAG pipeline and model parameters
-        </p>
-      </div>
+    <div className="flex flex-col w-full min-w-0 max-w-2xl">
+      <header className="mb-6 sm:mb-8">
+        <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">Settings</h1>
+        <p className="mt-1.5 text-[13px] sm:text-sm text-muted-foreground">Configure the RAG pipeline and model parameters</p>
+      </header>
 
       {error && (
-        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg text-[14px] flex items-center gap-2">
-          <AlertCircle size={16} />
-          {error}
+        <div className="flex items-center gap-2 rounded-xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-[13px] text-destructive mb-6">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>{error}</span>
         </div>
       )}
 
       {validationResult && (
-        <div className={`px-4 py-3 rounded-lg text-[14px] flex items-start gap-2 ${
-          validationResult.valid 
-            ? "bg-green-500/10 border border-green-500/20 text-green-600 dark:text-green-400" 
-            : "bg-destructive/10 border border-destructive/20 text-destructive"
+        <div className={`flex items-start gap-2 rounded-xl border px-4 py-3 text-[13px] mb-6 ${
+          validationResult.valid
+            ? "border-green-500/20 bg-green-500/10 text-green-600 dark:text-green-400"
+            : "border-destructive/20 bg-destructive/10 text-destructive"
         }`}>
-          {validationResult.valid ? <CheckCircle2 size={16} className="mt-0.5" /> : <AlertCircle size={16} className="mt-0.5" />}
-          <div className="flex-1">
+          {validationResult.valid ? <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" /> : <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />}
+          <div className="flex-1 min-w-0">
             <p className="font-medium mb-1">
               {validationResult.valid ? "Settings are valid" : "Validation failed"}
             </p>
@@ -909,27 +905,34 @@ export default function Settings() {
         </div>
       )}
 
-      <div className="space-y-6">
+      <div className="space-y-5 sm:space-y-6">
         {/* Settings Presets */}
-        <div className="bg-background rounded-xl border border-border p-6 shadow-soft-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <h3 className="text-[15px] font-semibold text-foreground">Settings Presets</h3>
-              <HelpIcon
-                content="Quick configuration presets for common use cases. Conservative: precise, focused answers. Balanced: good mix of precision and creativity. Aggressive: creative, varied responses with more context."
-                side="right"
-              />
+        <div className="rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5 lg:p-6 space-y-4">
+          <div className="flex items-start justify-between gap-3 sm:gap-4">
+            <div>
+              <h2 className="text-[13px] font-medium uppercase tracking-wider text-muted-foreground">
+                Settings presets
+              </h2>
+              <p className="text-[12px] text-muted-foreground/80 mt-0.5">
+                Quickly choose conservative, balanced, or aggressive behavior
+              </p>
             </div>
-            <span className="text-[12px] text-muted-foreground">
+            <span className="text-[12px] text-muted-foreground mt-0.5">
               Current: <span className="font-medium capitalize">{currentPreset}</span>
             </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <HelpIcon
+              content="Quick configuration presets for common use cases. Conservative: precise, focused answers. Balanced: good mix of precision and creativity. Aggressive: creative, varied responses with more context."
+              side="right"
+            />
           </div>
           <div className="grid grid-cols-3 gap-2">
             {(["conservative", "balanced", "aggressive"] as SettingsPreset[]).map((preset) => (
               <button
                 key={preset}
                 onClick={() => handleApplyPreset(preset)}
-                className={`px-3 py-2 rounded-lg text-[13px] font-medium transition-colors ${
+                className={`px-3 py-2 rounded-xl text-[13px] font-medium transition-colors ${
                   currentPreset === preset
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted text-foreground hover:bg-muted/80"
@@ -944,9 +947,16 @@ export default function Settings() {
           </HelpText>
         </div>
 
-        {/* Model Configuration */}
-        <div className="bg-background rounded-xl border border-border p-6 shadow-soft-sm space-y-5">
-          <h3 className="text-[15px] font-semibold text-foreground">Model Configuration</h3>
+        {/* Model configuration */}
+        <div className="rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5 lg:p-6 space-y-5">
+          <div>
+            <h2 className="text-[13px] font-medium uppercase tracking-wider text-muted-foreground">
+              Model configuration
+            </h2>
+            <p className="text-[12px] text-muted-foreground/80 mt-0.5">
+              Control the underlying model and response behavior
+            </p>
+          </div>
 
           <div>
             <label htmlFor="model-display" className="text-[13px] font-medium text-foreground block mb-1.5">Model</label>
@@ -1047,9 +1057,16 @@ export default function Settings() {
           </div>
         </div>
 
-        {/* Retrieval Settings */}
-        <div className="bg-background rounded-xl border border-border p-6 shadow-soft-sm space-y-5">
-          <h3 className="text-[15px] font-semibold text-foreground">Retrieval Settings</h3>
+        {/* Retrieval settings */}
+        <div className="rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5 lg:p-6 space-y-5">
+          <div>
+            <h2 className="text-[13px] font-medium uppercase tracking-wider text-muted-foreground">
+              Retrieval settings
+            </h2>
+            <p className="text-[12px] text-muted-foreground/80 mt-0.5">
+              Tune how many document chunks are retrieved for each answer
+            </p>
+          </div>
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
@@ -1091,13 +1108,21 @@ export default function Settings() {
           </div>
         </div>
 
-        {/* Chunking Strategy Configuration */}
-        <div className="bg-background rounded-xl border border-border p-6 shadow-soft-sm space-y-5">
-          <div className="flex items-center gap-1.5">
-            <h3 className="text-[15px] font-semibold text-foreground">Chunking Strategy</h3>
+        {/* Chunking strategy */}
+        <div className="rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5 lg:p-6 space-y-5">
+          <div className="flex items-start justify-between gap-3 sm:gap-4">
+            <div>
+              <h2 className="text-[13px] font-medium uppercase tracking-wider text-muted-foreground">
+                Chunking strategy
+              </h2>
+              <p className="text-[12px] text-muted-foreground/80 mt-0.5">
+                Configure how documents are split into chunks for retrieval
+              </p>
+            </div>
             <HelpIcon
               content="Method for splitting documents into chunks. Recursive: intelligently splits on paragraphs and sentences. Fixed: splits at exact character counts. Semantic: splits based on meaning and context."
               side="right"
+              className="mt-0.5"
             />
           </div>
 
@@ -1193,9 +1218,16 @@ export default function Settings() {
           </div>
         </div>
 
-        {/* Embedding Model Selection */}
-        <div className="bg-background rounded-xl border border-border p-6 shadow-soft-sm space-y-5">
-          <h3 className="text-[15px] font-semibold text-foreground">Embedding Model</h3>
+        {/* Embedding model */}
+        <div className="rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5 lg:p-6 space-y-5">
+          <div>
+            <h2 className="text-[13px] font-medium uppercase tracking-wider text-muted-foreground">
+              Embedding model
+            </h2>
+            <p className="text-[12px] text-muted-foreground/80 mt-0.5">
+              Choose how documents are converted into vectors for search
+            </p>
+          </div>
 
           <div>
             <div className="flex items-center gap-1.5 mb-1.5">
@@ -1223,24 +1255,30 @@ export default function Settings() {
           </div>
         </div>
 
-        {/* System Prompt with Templates */}
-        <div className="bg-background rounded-xl border border-border p-6 shadow-soft-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <h3 className="text-[15px] font-semibold text-foreground">System Prompt</h3>
-              <HelpIcon
-                content="Instructions prepended to every conversation to guide the AI's behavior. Use this to set tone, enforce answer style, and specify what to do when information isn't available in the knowledge base."
-                side="right"
-              />
+        {/* System prompt with templates */}
+        <div className="rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5 lg:p-6 space-y-4">
+          <div className="flex items-start justify-between gap-3 sm:gap-4">
+            <div>
+              <h2 className="text-[13px] font-medium uppercase tracking-wider text-muted-foreground">
+                System prompt
+              </h2>
+              <p className="text-[12px] text-muted-foreground/80 mt-0.5">
+                Define global instructions that guide the assistant&apos;s tone and behavior
+              </p>
             </div>
-            <button
+            <HelpIcon
+              content="Instructions prepended to every conversation to guide the AI's behavior. Use this to set tone, enforce answer style, and specify what to do when information isn't available in the knowledge base."
+              side="right"
+              className="mt-0.5"
+            />
+          </div>
+          <button
               onClick={() => setShowPromptTemplates(!showPromptTemplates)}
               className="text-[13px] text-muted-foreground hover:text-foreground flex items-center gap-1"
             >
               Templates
               <ChevronDown size={14} className={showPromptTemplates ? "rotate-180" : ""} />
             </button>
-          </div>
 
           {showPromptTemplates && (
             <div className="bg-muted/50 rounded-lg p-4 space-y-3 border border-border">
@@ -1303,11 +1341,15 @@ export default function Settings() {
           </HelpText>
         </div>
 
-        {/* White-Labeling & Branding */}
-        <div className="bg-background rounded-xl border border-border p-6 shadow-soft-sm space-y-6">
+        {/* White-labeling & branding */}
+        <div className="rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5 lg:p-6 space-y-6">
           <div>
-            <h3 className="text-[15px] font-semibold text-foreground mb-1">White-Labeling & Branding</h3>
-            <p className="text-[12px] text-muted-foreground">Customize your brand identity across the application</p>
+            <h2 className="text-[13px] font-medium uppercase tracking-wider text-muted-foreground">
+              White-labeling &amp; branding
+            </h2>
+            <p className="text-[12px] text-muted-foreground/80 mt-0.5">
+              Align the assistant and widget with your company&apos;s brand
+            </p>
           </div>
 
           {/* Logo Upload */}
@@ -1533,9 +1575,16 @@ export default function Settings() {
           </div>
         </div>
 
-        {/* Branding & Appearance */}
-        <div className="bg-background rounded-xl border border-border p-6 shadow-soft-sm space-y-5">
-          <h3 className="text-[15px] font-semibold text-foreground">Branding & Appearance</h3>
+        {/* Branding & appearance */}
+        <div className="rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5 lg:p-6 space-y-5">
+          <div>
+            <h2 className="text-[13px] font-medium uppercase tracking-wider text-muted-foreground">
+              Branding &amp; appearance
+            </h2>
+            <p className="text-[12px] text-muted-foreground/80 mt-0.5">
+              Control global colors used across the app and widget
+            </p>
+          </div>
 
           <div>
             <label htmlFor="brand-color-picker" className="text-[13px] font-medium text-foreground block mb-1.5">
@@ -1582,7 +1631,7 @@ export default function Settings() {
         </div>
 
         {/* Language Settings */}
-        <div className="bg-background rounded-xl border border-border p-6 shadow-soft-sm space-y-5">
+        <div className="rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5 lg:p-6 space-y-5">
           <div className="flex items-start gap-2">
             <div>
               <h3 className="text-[15px] font-semibold text-foreground flex items-center gap-2">
@@ -1634,50 +1683,34 @@ export default function Settings() {
         <AccessibilitySettings />
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-3">
-          <button 
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <button
             onClick={handleTestSettings}
             disabled={testing || Object.keys(fieldErrors).length > 0}
-            className="px-4 py-2.5 bg-muted text-foreground rounded-lg text-[14px] font-medium hover:bg-muted/80 transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="order-2 sm:order-1 px-4 py-2.5 min-h-[44px] sm:min-h-[40px] bg-muted text-foreground rounded-xl text-[13px] sm:text-[14px] font-medium hover:bg-muted/80 transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             aria-label="Test settings without saving"
           >
-            {testing ? (
-              <>
-                <Loader2 size={16} className="animate-spin" />
-                Testing...
-              </>
-            ) : (
-              <>
-                <TestTube size={16} />
-                Test Settings
-              </>
-            )}
+            {testing ? <Loader2 size={16} className="animate-spin shrink-0" /> : <TestTube size={16} className="shrink-0" />}
+            {testing ? "Testing…" : "Test Settings"}
           </button>
-          <button 
+          <button
             onClick={handleResetToDefaults}
-            className="px-4 py-2.5 text-muted-foreground hover:text-foreground border border-border rounded-lg text-[14px] font-medium hover:bg-muted transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 flex items-center gap-2"
+            className="order-3 sm:order-2 px-4 py-2.5 min-h-[44px] sm:min-h-[40px] text-muted-foreground hover:text-foreground border border-border rounded-xl text-[13px] sm:text-[14px] font-medium hover:bg-muted transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 flex items-center justify-center gap-2"
             aria-label="Reset all settings to defaults"
           >
-            <RotateCcw size={16} />
+            <RotateCcw size={16} className="shrink-0" />
             Reset to Defaults
           </button>
-          <button 
+          <button
             onClick={handleSaveChanges}
             disabled={saving || Object.keys(fieldErrors).length > 0}
-            className="flex-1 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-[14px] font-medium hover:opacity-90 transition-opacity focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 relative"
+            className="order-1 sm:order-3 flex-1 w-full sm:w-auto px-5 py-2.5 min-h-[44px] sm:min-h-[40px] bg-primary text-primary-foreground rounded-xl text-[13px] sm:text-[14px] font-medium hover:opacity-90 transition-opacity focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 relative"
             aria-label="Save all settings changes"
           >
-            {saving ? (
-              <>
-                <Loader2 size={16} className="animate-spin" />
-                Saving... {saveProgress > 0 && `${saveProgress}%`}
-              </>
-            ) : (
-              <>
-                <Save size={16} />
-                Save Changes
-              </>
-            )}
+            {saving ? <Loader2 size={16} className="animate-spin shrink-0" /> : <Save size={16} className="shrink-0" />}
+            {saving
+              ? `Saving… ${saveProgress > 0 ? saveProgress + "%" : ""}`
+              : "Save Changes"}
           </button>
           {saving && saveProgress > 0 && (
             <div className="absolute bottom-0 left-0 right-0 h-1 bg-muted">

@@ -1,6 +1,10 @@
 import * as React from "react";
 
-const MOBILE_BREAKPOINT = 768;
+/**
+ * Breakpoint below which the app uses "mobile" layout (e.g. admin drawer instead of sidebar).
+ * 1024px = Tailwind lg; so half-screen or narrow windows get responsive layout.
+ */
+const MOBILE_BREAKPOINT = 1024;
 
 export function useIsMobile() {
   const [isMobile, setIsMobile] = React.useState<boolean | undefined>(undefined);

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Outlet, Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, FileText, BarChart3, Settings, User, Menu, X, Users, FileTextIcon, KeyRound, Shield, HelpCircle } from "lucide-react";
+import { LayoutDashboard, FileText, BarChart3, Settings, User, Menu, X, Users, FileTextIcon, KeyRound, Shield, HelpCircle, Inbox } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { PageTransition } from "@/components/PageTransition";
 import { Logo } from "@/components/Branding/Logo";
@@ -17,6 +17,7 @@ import { UserMenu } from "./UserMenu";
 const baseNavItems = [
   { labelKey: "navigation.dashboard", path: "/admin", icon: LayoutDashboard, permission: "analytics:read" },
   { labelKey: "navigation.documents", path: "/admin/documents", icon: FileText, permission: "documents:read" },
+  { labelKey: "navigation.inbox", path: "/admin/inbox", icon: Inbox, permission: null },
   { labelKey: "navigation.analytics", path: "/admin/analytics", icon: BarChart3, permission: "analytics:read" },
   { labelKey: "navigation.settings", path: "/admin/settings", icon: Settings, permission: "settings:read" },
   { labelKey: "navigation.security", path: "/admin/security", icon: Shield, permission: null },
@@ -125,7 +126,10 @@ export function AdminLayout() {
       
       {/* Desktop & Tablet Sidebar */}
       {!isMobile && (
-        <aside className={`hidden md:flex border-r border-border bg-background flex-col ${isTablet ? "w-56" : "w-60"}`} aria-label="Admin navigation">
+        <aside
+          className={`hidden md:flex border-r border-border bg-background flex-col ${isTablet ? "w-56" : "w-60"}`}
+          aria-label="Admin navigation"
+        >
           <SidebarContent />
         </aside>
       )}
@@ -168,8 +172,8 @@ export function AdminLayout() {
       )}
 
       {/* Main content */}
-      <main 
-        id="admin-main-content" 
+      <main
+        id="admin-main-content"
         className={`flex-1 overflow-auto flex flex-col ${isMobile ? "pt-14" : ""}`}
       >
         {/* Desktop Header with User Menu */}
@@ -180,7 +184,11 @@ export function AdminLayout() {
             </div>
           </header>
         )}
-        <div className={`flex-1 max-w-6xl mx-auto ${isTablet ? "px-4 md:px-6" : "px-4 md:px-8"} py-4 ${isTablet ? "md:py-6" : "md:py-8"}`}>
+        <div
+          className={`flex-1 max-w-6xl mx-auto ${isTablet ? "px-4 md:px-6" : "px-4 md:px-8"} py-4 ${
+            isTablet ? "md:py-6" : "md:py-8"
+          }`}
+        >
           <PageTransition>
             <Outlet />
           </PageTransition>

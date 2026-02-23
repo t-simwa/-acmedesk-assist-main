@@ -130,7 +130,10 @@ async def save_conversation_turn(
 
 
 async def get_conversation_history(
-    session_id: str, limit: int = 50, offset: int = 0
+    session_id: str,
+    limit: int = 50,
+    offset: int = 0,
+    user_id: Optional[str] = None,
 ) -> tuple[List[dict], int]:
     """
     Retrieve conversation history for a session.

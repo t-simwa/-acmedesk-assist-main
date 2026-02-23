@@ -36,15 +36,16 @@ function DraggableItem({ id, children }: DraggableItemProps) {
   );
 
   return (
-    <div ref={setNodeRef} style={style} className="relative">
+    <div ref={setNodeRef} style={style} className="relative min-w-0">
       <div
         {...attributes}
         {...listeners}
-        className="absolute left-0 top-0 h-full w-6 flex items-center justify-center cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground transition-colors z-10"
+        className="absolute left-0 top-0 h-full w-8 sm:w-7 flex items-center justify-center cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground transition-colors z-10 touch-none"
+        aria-hidden
       >
         <GripVertical className="h-4 w-4" />
       </div>
-      <div className="pl-6">{children}</div>
+      <div className="pl-8 sm:pl-7 min-w-0">{children}</div>
     </div>
   );
 }
@@ -81,7 +82,7 @@ export function DraggableDashboard({ items, onReorder }: DraggableDashboardProps
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
       <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
-        <div className="space-y-6">
+        <div className="space-y-5 sm:space-y-6 min-w-0">
           {items.map((item) => (
             <DraggableItem key={item.id} id={item.id}>
               {item.component}

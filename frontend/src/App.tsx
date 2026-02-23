@@ -38,6 +38,8 @@ const TeamManagement = lazy(() => import("./pages/admin/TeamManagement"));
 const AuditLogs = lazy(() => import("./pages/admin/AuditLogs"));
 const APIKeys = lazy(() => import("./pages/admin/APIKeys"));
 const HelpCenter = lazy(() => import("./pages/admin/HelpCenter"));
+const EmailChannel = lazy(() => import("./pages/admin/EmailChannel"));
+const Inbox = lazy(() => import("./pages/admin/Inbox"));
 const Privacy = lazy(() => import("./pages/Privacy"));
 const Terms = lazy(() => import("./pages/Terms"));
 
@@ -53,7 +55,12 @@ const App = () => (
           <div id="aria-live-region" aria-live="polite" aria-atomic="true" className="sr-only" />
           <Toaster />
           <Sonner />
-          <BrowserRouter>
+          <BrowserRouter
+            future={{
+              v7_startTransition: true,
+              v7_relativeSplatPath: true,
+            }}
+          >
             <Routes>
               <Route
                 path="/"
@@ -129,6 +136,26 @@ const App = () => (
                     <PageTransition>
                       <Suspense fallback={<AnalyticsSkeleton />}>
                         <Analytics />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="inbox"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <Inbox />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="email"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <EmailChannel />
                       </Suspense>
                     </PageTransition>
                   }

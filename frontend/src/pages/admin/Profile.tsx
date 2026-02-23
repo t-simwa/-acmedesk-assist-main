@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { userPreferencesApi, UserPreferences, ApiError } from "@/lib/api";
+import { userPreferencesApi, ApiError } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -10,8 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { cn } from "@/lib/utils";
 
-// Common languages (ISO 639-1 codes)
 const LANGUAGES = [
   { code: "en", name: "English" },
   { code: "es", name: "Spanish" },
@@ -27,7 +27,6 @@ const LANGUAGES = [
   { code: "hi", name: "Hindi" },
 ];
 
-// Common timezones (IANA timezone identifiers)
 const TIMEZONES = [
   { value: "UTC", label: "UTC (Coordinated Universal Time)" },
   { value: "America/New_York", label: "Eastern Time (US & Canada)" },
@@ -53,14 +52,13 @@ const TIMEZONES = [
 ];
 
 export default function Profile() {
-  const { user: authUser, refreshUser } = useAuth();
+  const { user: authUser } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
-  
-  // Form state
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -69,23 +67,17 @@ export default function Profile() {
   const [notificationsPush, setNotificationsPush] = useState(false);
   const [language, setLanguage] = useState("en");
   const [timezone, setTimezone] = useState("UTC");
-  
-  // Load preferences on mount
+
   useEffect(() => {
     const fetchPreferences = async () => {
       try {
         setLoading(true);
         setError(null);
-        
-        // Use auth user data as initial values
         if (authUser) {
           setName(authUser.name || "");
           setEmail(authUser.email || "");
         }
-        
         const prefs = await userPreferencesApi.getPreferences();
-        
-        // Override with preferences if available
         if (prefs.name) setName(prefs.name);
         if (prefs.email) setEmail(prefs.email);
         setAvatarUrl(prefs.avatar_url);
@@ -96,404 +88,324 @@ export default function Profile() {
         setTimezone(prefs.timezone || "UTC");
       } catch (err) {
         const apiError = err as ApiError;
-        const errorMessage = apiError?.message || "Failed to load preferences";
-        setError(typeof errorMessage === "string" ? errorMessage : String(errorMessage));
-        console.error("Error fetching preferences:", err);
+        setError(apiError?.message || "Failed to load preferences");
       } finally {
         setLoading(false);
       }
     };
-    
     fetchPreferences();
-  }, []);
-  
-  // Handle avatar upload
+  }, [authUser]);
+
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
-    // Validate file type
     if (!file.type.startsWith("image/")) {
-      toast({
-        title: "Invalid file type",
-        description: "Please upload an image file (PNG, JPG, GIF, WebP)",
-        variant: "destructive",
-      });
+      toast({ title: "Invalid file type", description: "Please upload an image (PNG, JPG, GIF, WebP)", variant: "destructive" });
       return;
     }
-    
-    // Validate file size (2MB max)
     if (file.size > 2 * 1024 * 1024) {
-      toast({
-        title: "File too large",
-        description: "Avatar file must be less than 2MB",
-        variant: "destructive",
-      });
+      toast({ title: "File too large", description: "Avatar must be under 2MB", variant: "destructive" });
       return;
     }
-    
     try {
       setSaving(true);
       const response = await userPreferencesApi.uploadAvatar(file);
       setAvatarUrl(response.avatar_url);
-      toast({
-        title: "Avatar uploaded",
-        description: "Your avatar has been uploaded successfully",
-        variant: "success",
-      });
+      toast({ title: "Avatar uploaded", variant: "success" });
     } catch (err) {
       const apiError = err as ApiError;
-      const errorMessage = apiError?.message || "Failed to upload avatar";
-      toast({
-        title: "Upload failed",
-        description: errorMessage,
-        variant: "destructive",
-      });
-      console.error("Error uploading avatar:", err);
+      toast({ title: "Upload failed", description: apiError?.message || "Failed to upload", variant: "destructive" });
     } finally {
       setSaving(false);
-      // Reset input
-      if (avatarInputRef.current) {
-        avatarInputRef.current.value = "";
-      }
+      if (avatarInputRef.current) avatarInputRef.current.value = "";
     }
   };
-  
-  // Handle avatar removal
+
   const handleAvatarRemove = async () => {
     try {
       setSaving(true);
       await userPreferencesApi.deleteAvatar();
       setAvatarUrl(null);
-      toast({
-        title: "Avatar removed",
-        description: "Your avatar has been removed",
-        variant: "success",
-      });
+      toast({ title: "Avatar removed", variant: "success" });
     } catch (err) {
       const apiError = err as ApiError;
-      const errorMessage = apiError?.message || "Failed to remove avatar";
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive",
-      });
-      console.error("Error removing avatar:", err);
+      toast({ title: "Error", description: apiError?.message || "Failed to remove", variant: "destructive" });
     } finally {
       setSaving(false);
     }
   };
-  
-  // Handle save preferences
+
   const handleSavePreferences = async () => {
     try {
       setSaving(true);
       setError(null);
-      
       await userPreferencesApi.updatePreferences({
         name: name.trim() || undefined,
         email: email.trim() || undefined,
-        notifications: {
-          email: notificationsEmail,
-          in_app: notificationsInApp,
-          push: notificationsPush,
-        },
-        language: language,
-        timezone: timezone,
+        notifications: { email: notificationsEmail, in_app: notificationsInApp, push: notificationsPush },
+        language,
+        timezone,
       });
-      
-      toast({
-        title: "Preferences saved",
-        description: "Your preferences have been updated successfully",
-        variant: "success",
-      });
+      toast({ title: "Preferences saved", variant: "success" });
     } catch (err) {
       const apiError = err as ApiError;
-      const errorMessage = apiError?.message || "Failed to save preferences";
-      setError(typeof errorMessage === "string" ? errorMessage : String(errorMessage));
-      toast({
-        title: "Error saving preferences",
-        description: errorMessage,
-        variant: "destructive",
-      });
-      console.error("Error saving preferences:", err);
+      setError(apiError?.message || "Failed to save");
+      toast({ title: "Error saving", description: apiError?.message, variant: "destructive" });
     } finally {
       setSaving(false);
     }
   };
-  
-  // Get user initials for avatar fallback
-  const getUserInitials = (): string => {
-    if (name) {
-      const parts = name.trim().split(" ");
-      if (parts.length >= 2) {
-        return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
-      }
+
+  const getInitials = (): string => {
+    if (name?.trim()) {
+      const parts = name.trim().split(/\s+/);
+      if (parts.length >= 2) return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
       return name[0].toUpperCase();
     }
-    if (email) {
-      return email[0].toUpperCase();
-    }
+    if (email) return email[0].toUpperCase();
     return "U";
   };
-  
+
   if (loading) {
     return (
-      <div className="max-w-2xl space-y-8">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-semibold text-foreground">Profile</h1>
-          <p className="text-[14px] text-muted-foreground mt-1">
-            Manage your profile and preferences
-          </p>
-        </div>
-        <div className="space-y-6">
-          <Skeleton className="h-64 w-full" />
-          <Skeleton className="h-48 w-full" />
-          <Skeleton className="h-32 w-full" />
+      <div className="flex flex-col w-full min-w-0 max-w-2xl">
+        <header className="mb-6 sm:mb-8">
+          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">Profile</h1>
+          <p className="mt-1.5 text-[13px] sm:text-sm text-muted-foreground">Manage your profile and preferences</p>
+        </header>
+        <div className="space-y-5 sm:space-y-6">
+          <Skeleton className="h-64 w-full rounded-2xl" />
+          <Skeleton className="h-52 w-full rounded-2xl" />
+          <Skeleton className="h-56 w-full rounded-2xl" />
         </div>
       </div>
     );
   }
-  
+
   return (
-    <div className="max-w-2xl space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground">Profile</h1>
-        <p className="text-[14px] text-muted-foreground mt-1">
-          Manage your profile and preferences
-        </p>
-      </div>
-      
+    <div className="flex flex-col w-full min-w-0 max-w-2xl">
+      <header className="mb-6 sm:mb-8">
+        <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">Profile</h1>
+        <p className="mt-1.5 text-[13px] sm:text-sm text-muted-foreground">Manage your profile and preferences</p>
+      </header>
+
       {error && (
-        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg text-[14px] flex items-center gap-2">
-          <AlertCircle size={16} />
-          {error}
+        <div
+          className={cn(
+            "flex items-center gap-2 rounded-xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-[13px] text-destructive mb-6"
+          )}
+        >
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>{error}</span>
         </div>
       )}
-      
-      <div className="space-y-6">
-        {/* Profile Information */}
-        <div className="bg-background rounded-xl border border-border p-6 shadow-soft-sm space-y-6">
+
+      <div className="space-y-5 sm:space-y-6">
+        {/* Profile information */}
+        <section
+          className={cn(
+            "rounded-2xl border border-border/50 bg-muted/10 overflow-hidden",
+            "p-4 sm:p-5 lg:p-6 space-y-5 sm:space-y-6"
+          )}
+        >
           <div>
-            <h3 className="text-[15px] font-semibold text-foreground mb-1">Profile Information</h3>
-            <p className="text-[12px] text-muted-foreground">Update your personal information</p>
+            <h2 className="text-[13px] font-medium uppercase tracking-wider text-muted-foreground">
+              Profile information
+            </h2>
+            <p className="text-[12px] text-muted-foreground/80 mt-0.5">Update your name, email, and photo</p>
           </div>
-          
-          {/* Avatar Upload */}
-          <div>
-            <Label className="text-[13px] font-medium text-foreground block mb-3">
-              Profile Picture
-            </Label>
-            <div className="flex items-start gap-4">
-              <Avatar className="w-20 h-20">
-                <AvatarImage src={avatarUrl || undefined} alt={name || "User"} />
-                <AvatarFallback className="text-lg font-medium bg-primary text-primary-foreground">
-                  {getUserInitials()}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 space-y-2">
-                <div className="flex items-center gap-2">
-                  <input
-                    ref={avatarInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleAvatarUpload}
-                    className="hidden"
-                    id="avatar-upload"
-                    disabled={saving}
-                  />
-                  <label
-                    htmlFor="avatar-upload"
-                    className="px-3 py-2 bg-primary text-primary-foreground rounded-lg text-[13px] font-medium hover:opacity-90 transition-opacity cursor-pointer focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Upload size={14} />
-                    {avatarUrl ? "Change Avatar" : "Upload Avatar"}
-                  </label>
-                  {avatarUrl && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleAvatarRemove}
-                      disabled={saving}
-                      className="text-[13px]"
-                    >
-                      <X size={14} className="mr-2" />
-                      Remove
-                    </Button>
+
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+            <Avatar className="h-20 w-20 shrink-0 rounded-2xl border-2 border-border/50">
+              <AvatarImage src={avatarUrl || undefined} alt={name || "User"} />
+              <AvatarFallback className="rounded-2xl text-lg font-medium bg-primary/10 text-primary">
+                {getInitials()}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0 space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarUpload}
+                  className="hidden"
+                  id="avatar-upload"
+                  disabled={saving}
+                />
+                <Label
+                  htmlFor="avatar-upload"
+                  className={cn(
+                    "inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-medium cursor-pointer",
+                    "bg-primary text-primary-foreground hover:opacity-90 transition-opacity",
+                    "focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2",
+                    "disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] sm:min-h-[40px]"
                   )}
-                </div>
-                <p className="text-[12px] text-muted-foreground">
-                  Upload a profile picture (PNG, JPG, GIF, WebP). Max size: 2MB. Recommended: 200x200px or larger.
-                </p>
+                >
+                  <Upload className="h-4 w-4" />
+                  {avatarUrl ? "Change photo" : "Upload photo"}
+                </Label>
+                {avatarUrl && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAvatarRemove}
+                    disabled={saving}
+                    className="rounded-xl min-h-[44px] sm:min-h-[40px]"
+                  >
+                    <X className="h-4 w-4 sm:mr-1.5" />
+                    <span className="hidden sm:inline">Remove</span>
+                  </Button>
+                )}
               </div>
+              <p className="text-[12px] text-muted-foreground">
+                PNG, JPG, GIF or WebP. Max 2MB. Recommended 200×200px or larger.
+              </p>
             </div>
           </div>
-          
-          {/* Name */}
-          <div>
-            <Label htmlFor="name" className="text-[13px] font-medium text-foreground block mb-1.5">
-              Full Name
-            </Label>
-            <Input
-              id="name"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Enter your full name"
-              disabled={saving}
-            />
+
+          <div className="grid gap-4 sm:grid-cols-1">
+            <div className="space-y-2">
+              <Label htmlFor="profile-name" className="text-[13px] font-medium text-foreground">
+                Full name
+              </Label>
+              <Input
+                id="profile-name"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Your name"
+                disabled={saving}
+                className="rounded-xl"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="profile-email" className="text-[13px] font-medium text-foreground">
+                Email
+              </Label>
+              <Input
+                id="profile-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                disabled={saving}
+                className="rounded-xl"
+              />
+            </div>
           </div>
-          
-          {/* Email */}
-          <div>
-            <Label htmlFor="email" className="text-[13px] font-medium text-foreground block mb-1.5">
-              Email Address
-            </Label>
-            <Input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter your email address"
-              disabled={saving}
-            />
+        </section>
+
+        {/* Notifications */}
+        <section
+          className={cn(
+            "rounded-2xl border border-border/50 bg-muted/10 overflow-hidden",
+            "p-4 sm:p-5 lg:p-6 space-y-5"
+          )}
+        >
+          <div className="flex items-center gap-2">
+            <Bell className="h-4 w-4 text-muted-foreground" />
+            <div>
+              <h2 className="text-[13px] font-medium uppercase tracking-wider text-muted-foreground">
+                Notifications
+              </h2>
+              <p className="text-[12px] text-muted-foreground/80 mt-0.5">How you receive notifications</p>
+            </div>
           </div>
-        </div>
-        
-        {/* Notification Preferences */}
-        <div className="bg-background rounded-xl border border-border p-6 shadow-soft-sm space-y-5">
-          <div>
-            <h3 className="text-[15px] font-semibold text-foreground mb-1 flex items-center gap-2">
-              <Bell size={16} />
-              Notification Preferences
-            </h3>
-            <p className="text-[12px] text-muted-foreground">Choose how you want to receive notifications</p>
-          </div>
-          
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="notifications-email" className="text-[13px] font-medium text-foreground">
-                  Email Notifications
-                </Label>
-                <p className="text-[12px] text-muted-foreground">
-                  Receive notifications via email
-                </p>
+            {[
+              { id: "notif-email", label: "Email", desc: "Receive notifications via email", value: notificationsEmail, set: setNotificationsEmail },
+              { id: "notif-in-app", label: "In-app", desc: "Show notifications in the app", value: notificationsInApp, set: setNotificationsInApp },
+              { id: "notif-push", label: "Push", desc: "Browser push (requires permission)", value: notificationsPush, set: setNotificationsPush },
+            ].map(({ id, label, desc, value, set }) => (
+              <div
+                key={id}
+                className="flex items-center justify-between gap-4 py-2 border-b border-border/30 last:border-0 last:pb-0 first:pt-0"
+              >
+                <div className="min-w-0">
+                  <Label htmlFor={id} className="text-[13px] font-medium text-foreground cursor-pointer">
+                    {label}
+                  </Label>
+                  <p className="text-[12px] text-muted-foreground mt-0.5">{desc}</p>
+                </div>
+                <Switch id={id} checked={value} onCheckedChange={set} disabled={saving} className="shrink-0" />
               </div>
-              <Switch
-                id="notifications-email"
-                checked={notificationsEmail}
-                onCheckedChange={setNotificationsEmail}
-                disabled={saving}
-              />
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="notifications-in-app" className="text-[13px] font-medium text-foreground">
-                  In-App Notifications
-                </Label>
-                <p className="text-[12px] text-muted-foreground">
-                  Show notifications within the application
-                </p>
-              </div>
-              <Switch
-                id="notifications-in-app"
-                checked={notificationsInApp}
-                onCheckedChange={setNotificationsInApp}
-                disabled={saving}
-              />
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="notifications-push" className="text-[13px] font-medium text-foreground">
-                  Push Notifications
-                </Label>
-                <p className="text-[12px] text-muted-foreground">
-                  Receive browser push notifications (requires permission)
-                </p>
-              </div>
-              <Switch
-                id="notifications-push"
-                checked={notificationsPush}
-                onCheckedChange={setNotificationsPush}
-                disabled={saving}
-              />
-            </div>
+            ))}
           </div>
-        </div>
-        
-        {/* Language & Timezone */}
-        <div className="bg-background rounded-xl border border-border p-6 shadow-soft-sm space-y-5">
+        </section>
+
+        {/* Localization */}
+        <section
+          className={cn(
+            "rounded-2xl border border-border/50 bg-muted/10 overflow-hidden",
+            "p-4 sm:p-5 lg:p-6 space-y-5"
+          )}
+        >
           <div>
-            <h3 className="text-[15px] font-semibold text-foreground mb-1">Localization</h3>
-            <p className="text-[12px] text-muted-foreground">Set your language and timezone preferences</p>
+            <h2 className="text-[13px] font-medium uppercase tracking-wider text-muted-foreground">
+              Language & timezone
+            </h2>
+            <p className="text-[12px] text-muted-foreground/80 mt-0.5">For dates and interface language</p>
           </div>
-          
-          {/* Language */}
-          <div>
-            <Label htmlFor="language" className="text-[13px] font-medium text-foreground block mb-1.5 flex items-center gap-2">
-              <Globe size={14} />
-              Language
-            </Label>
-            <Select value={language} onValueChange={setLanguage} disabled={saving}>
-              <SelectTrigger id="language" className="w-full">
-                <SelectValue placeholder="Select a language" />
-              </SelectTrigger>
-              <SelectContent>
-                {LANGUAGES.map((lang) => (
-                  <SelectItem key={lang.code} value={lang.code}>
-                    {lang.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-[12px] text-muted-foreground mt-1.5">
-              Select your preferred language (i18n support coming soon)
-            </p>
+          <div className="grid gap-4 sm:grid-cols-1">
+            <div className="space-y-2">
+              <Label htmlFor="profile-language" className="text-[13px] font-medium text-foreground flex items-center gap-2">
+                <Globe className="h-3.5 w-3.5" />
+                Language
+              </Label>
+              <Select value={language} onValueChange={setLanguage} disabled={saving}>
+                <SelectTrigger id="profile-language" className="rounded-xl w-full">
+                  <SelectValue placeholder="Select language" />
+                </SelectTrigger>
+                <SelectContent>
+                  {LANGUAGES.map((lang) => (
+                    <SelectItem key={lang.code} value={lang.code}>
+                      {lang.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="profile-timezone" className="text-[13px] font-medium text-foreground flex items-center gap-2">
+                <Clock className="h-3.5 w-3.5" />
+                Timezone
+              </Label>
+              <Select value={timezone} onValueChange={setTimezone} disabled={saving}>
+                <SelectTrigger id="profile-timezone" className="rounded-xl w-full">
+                  <SelectValue placeholder="Select timezone" />
+                </SelectTrigger>
+                <SelectContent>
+                  {TIMEZONES.map((tz) => (
+                    <SelectItem key={tz.value} value={tz.value}>
+                      {tz.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          
-          {/* Timezone */}
-          <div>
-            <Label htmlFor="timezone" className="text-[13px] font-medium text-foreground block mb-1.5 flex items-center gap-2">
-              <Clock size={14} />
-              Timezone
-            </Label>
-            <Select value={timezone} onValueChange={setTimezone} disabled={saving}>
-              <SelectTrigger id="timezone" className="w-full">
-                <SelectValue placeholder="Select a timezone" />
-              </SelectTrigger>
-              <SelectContent>
-                {TIMEZONES.map((tz) => (
-                  <SelectItem key={tz.value} value={tz.value}>
-                    {tz.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-[12px] text-muted-foreground mt-1.5">
-              Select your timezone for accurate timestamps
-            </p>
-          </div>
-        </div>
-        
-        {/* Save Button */}
-        <div className="flex justify-end">
+        </section>
+
+        <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-2">
           <Button
             onClick={handleSavePreferences}
             disabled={saving}
-            className="px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-[14px] font-medium hover:opacity-90 transition-opacity focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className={cn(
+              "w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-xl",
+              "flex items-center justify-center gap-2"
+            )}
           >
             {saving ? (
               <>
-                <Loader2 size={16} className="animate-spin" />
-                Saving...
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Saving…
               </>
             ) : (
               <>
-                <Save size={16} />
-                Save Preferences
+                <Save className="h-4 w-4" />
+                Save preferences
               </>
             )}
           </Button>

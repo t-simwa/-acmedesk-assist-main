@@ -79,8 +79,8 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps<any, any>) => {
     const total = data.conversations ? payload.reduce((sum, p) => sum + (p.value as number), 0) : 0;
     const percentage = data.conversations && total > 0 ? ((data.conversations / total) * 100).toFixed(1) : null;
 
-    return (
-      <div className="bg-background border border-border rounded-lg shadow-lg p-3">
+  return (
+    <div className="bg-background border border-border/50 rounded-xl shadow-lg p-3">
         <p className="text-sm font-medium mb-2">{label}</p>
         {payload.map((entry, index) => (
           <div key={index} className="text-sm">
@@ -440,57 +440,58 @@ export default function Analytics() {
   const hasActiveFilters = filteredDate !== null || filteredCategory !== null;
 
   return (
-    <div className="space-y-6 sm:space-y-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-2">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-semibold text-foreground">Analytics</h1>
-            <p className="text-[13px] sm:text-[14px] text-muted-foreground mt-1">
-              Chatbot usage and performance metrics
-            </p>
+    <div className="flex flex-col w-full min-w-0">
+      <header className="mb-6 sm:mb-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+          <div className="flex items-start gap-2 min-w-0">
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">Analytics</h1>
+              <p className="mt-1.5 text-[13px] sm:text-sm text-muted-foreground max-w-xl">
+                Chatbot usage and performance metrics
+              </p>
+            </div>
+            <HelpIcon
+              content="View detailed analytics about your chatbot's performance. Track conversations over time, resolution rates, top questions, and more. Use date range filters to analyze specific periods. Export data as CSV, Excel, or PDF."
+              side="right"
+              className="mt-1 shrink-0"
+            />
           </div>
-          <HelpIcon
-            content="View detailed analytics about your chatbot's performance. Track conversations over time, resolution rates, top questions, and more. Use date range filters to analyze specific periods. Export data as CSV, Excel, or PDF."
-            side="right"
-            className="mt-1"
-          />
-        </div>
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
-          <div className="w-full sm:w-auto">
-            <DateRangePicker dateRange={dateRange} onDateRangeChange={setDateRange} />
-          </div>
-          {hasActiveFilters && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={clearFilters} 
-              className={`gap-2 w-full sm:w-auto ${isTablet ? "min-h-[44px]" : "min-h-[44px] sm:min-h-0"}`}
-            >
-              <FilterX className="h-4 w-4" />
-              <span className="text-[13px] sm:text-sm">Clear Filters</span>
-            </Button>
-          )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsPolling(!isPolling)}
-            className={`gap-2 w-full sm:w-auto ${isTablet ? "min-h-[44px]" : "min-h-[44px] sm:min-h-0"}`}
-          >
-            <RefreshCw className={`h-4 w-4 ${isPolling ? "animate-spin" : ""}`} />
-            <span className="text-[13px] sm:text-sm hidden sm:inline">
-              {isPolling ? "Auto-refresh ON" : "Auto-refresh OFF"}
-            </span>
-            <span className="text-[13px] sm:text-sm sm:hidden">
-              {isPolling ? "ON" : "OFF"}
-            </span>
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className={`gap-2 w-full sm:w-auto ${isTablet ? "min-h-[44px]" : "min-h-[44px] sm:min-h-0"}`}>
-                <Download className="h-3 w-3" />
-                <span className="text-[13px] sm:text-sm">Export</span>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 shrink-0">
+            <div className="w-full sm:w-auto min-w-0">
+              <DateRangePicker dateRange={dateRange} onDateRangeChange={setDateRange} />
+            </div>
+            {hasActiveFilters && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={clearFilters}
+                className="gap-2 w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-xl"
+              >
+                <FilterX className="h-4 w-4 shrink-0" />
+                <span className="text-[13px] sm:text-sm">Clear filters</span>
               </Button>
-            </DropdownMenuTrigger>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsPolling(!isPolling)}
+              className="gap-2 w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-xl"
+            >
+              <RefreshCw className={"h-4 w-4 shrink-0 " + (isPolling ? "animate-spin" : "")} />
+              <span className="text-[13px] sm:text-sm hidden sm:inline">
+                {isPolling ? "Auto-refresh ON" : "Auto-refresh OFF"}
+              </span>
+              <span className="text-[13px] sm:text-sm sm:hidden">
+                {isPolling ? "ON" : "OFF"}
+              </span>
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2 w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-xl">
+                  <Download className="h-4 w-4 shrink-0" />
+                  <span className="text-[13px] sm:text-sm">Export</span>
+                </Button>
+              </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-[200px]">
               <DropdownMenuItem onClick={handleExportCSV} className="min-h-[44px]">
                 <FileSpreadsheet className="h-4 w-4 mr-2" />
@@ -507,25 +508,24 @@ export default function Analytics() {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-      </div>
+        </div>
+      </header>
 
       {queryError && (
-        <NetworkErrorState
-          error={queryError as ApiError}
-          onRetry={() => {
-            refetchAnalytics();
-          }}
-          variant="inline"
-        />
+        <div className="mb-6">
+          <NetworkErrorState
+            error={queryError as ApiError}
+            onRetry={() => refetchAnalytics()}
+            variant="inline"
+          />
+        </div>
       )}
 
       {hasActiveFilters && (
-        <div className="bg-muted/50 border border-border px-4 py-2 rounded-lg text-sm">
+        <div className="rounded-xl border border-border/50 bg-muted/10 px-4 py-3 text-[13px] mb-6">
           <span className="text-muted-foreground">Active filters: </span>
           {filteredDate && (
-            <span className="font-medium">
-              Date: {format(new Date(filteredDate), "MMM dd, yyyy")}
-            </span>
+            <span className="font-medium">Date: {format(new Date(filteredDate), "MMM dd, yyyy")}</span>
           )}
           {filteredCategory && (
             <span className="font-medium ml-2">Category: {filteredCategory}</span>
@@ -533,21 +533,21 @@ export default function Analytics() {
         </div>
       )}
 
-      <div className={`grid grid-cols-1 ${isTablet ? "" : "lg:grid-cols-2"} gap-4 ${isTablet ? "md:gap-5" : "sm:gap-6"} mb-6`}>
+      <div className={"grid grid-cols-1 " + (isTablet ? "" : "lg:grid-cols-2") + " gap-4 " + (isTablet ? "md:gap-5" : "sm:gap-6") + " mb-6"}>
         {/* Conversations chart */}
-        <section className="bg-background rounded-xl border border-border p-4 sm:p-6 shadow-soft-sm" aria-labelledby="conversations-chart-heading">
+        <section className="rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5 lg:p-6" aria-labelledby="conversations-chart-heading">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-4">
-            <div>
-              <h3 id="conversations-chart-heading" className="text-[14px] sm:text-[15px] font-semibold text-foreground mb-1">
+            <div className="min-w-0">
+              <h2 id="conversations-chart-heading" className="text-[13px] font-medium uppercase tracking-wider text-muted-foreground">
                 Conversations
-              </h3>
-              <p className="text-[12px] sm:text-[13px] text-muted-foreground">{getDateRangeLabel()}</p>
+              </h2>
+              <p className="text-[12px] text-muted-foreground/80 mt-0.5">{getDateRangeLabel()}</p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 shrink-0">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-2 min-h-[44px] sm:min-h-0">
-                    <Download className="h-3 w-3" />
+                  <Button variant="outline" size="sm" className="gap-2 min-h-[44px] sm:min-h-[40px] rounded-xl">
+                    <Download className="h-4 w-4 shrink-0" />
                     <span className="text-[13px] sm:text-sm">Export</span>
                   </Button>
                 </DropdownMenuTrigger>
@@ -656,19 +656,19 @@ export default function Analytics() {
         </section>
 
         {/* Resolution rate chart */}
-        <section className="bg-background rounded-xl border border-border p-4 sm:p-6 shadow-soft-sm" aria-labelledby="resolution-chart-heading">
+        <section className="rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5 lg:p-6" aria-labelledby="resolution-chart-heading">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-4">
-            <div>
-              <h3 id="resolution-chart-heading" className="text-[14px] sm:text-[15px] font-semibold text-foreground mb-1">
-                Resolution Rate
-              </h3>
-              <p className="text-[12px] sm:text-[13px] text-muted-foreground">{getDateRangeLabel()}</p>
+            <div className="min-w-0">
+              <h2 id="resolution-chart-heading" className="text-[13px] font-medium uppercase tracking-wider text-muted-foreground">
+                Resolution rate
+              </h2>
+              <p className="text-[12px] text-muted-foreground/80 mt-0.5">{getDateRangeLabel()}</p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 shrink-0">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-2 min-h-[44px] sm:min-h-0">
-                    <Download className="h-3 w-3" />
+                  <Button variant="outline" size="sm" className="gap-2 min-h-[44px] sm:min-h-[40px] rounded-xl">
+                    <Download className="h-4 w-4 shrink-0" />
                     <span className="text-[13px] sm:text-sm">Export</span>
                   </Button>
                 </DropdownMenuTrigger>
@@ -782,12 +782,12 @@ export default function Analytics() {
       <div className="grid grid-cols-1 gap-4 sm:gap-6 mb-6">
         {/* Heatmap */}
         <section
-          className="bg-background rounded-xl border border-border p-4 sm:p-6 shadow-soft-sm"
+          className="rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5 lg:p-6"
           aria-labelledby="heatmap-section-heading"
         >
-          <h3 id="heatmap-section-heading" className="sr-only">
+          <h2 id="heatmap-section-heading" className="sr-only">
             Conversation Activity Heatmap
-          </h3>
+          </h2>
           <HeatmapChart
             data={heatmapData}
             title="Conversation Activity Heatmap (by Hour/Day)"
@@ -795,14 +795,14 @@ export default function Analytics() {
         </section>
 
         {/* Sankey and Word Cloud in a row */}
-        <div className={`grid grid-cols-1 ${isTablet ? "" : "lg:grid-cols-2"} gap-4 ${isTablet ? "md:gap-5" : "sm:gap-6"}`}>
+        <div className={"grid grid-cols-1 " + (isTablet ? "" : "lg:grid-cols-2") + " gap-4 " + (isTablet ? "md:gap-5" : "sm:gap-6")}>
           <section
-            className="bg-background rounded-xl border border-border p-4 sm:p-6 shadow-soft-sm"
+            className="rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5 lg:p-6"
             aria-labelledby="sankey-section-heading"
           >
-            <h3 id="sankey-section-heading" className="sr-only">
+            <h2 id="sankey-section-heading" className="sr-only">
               Conversation Flow Diagram
-            </h3>
+            </h2>
             <SankeyDiagram
               nodes={sankeyData.nodes}
               links={sankeyData.links}
@@ -810,12 +810,12 @@ export default function Analytics() {
             />
           </section>
           <section
-            className="bg-background rounded-xl border border-border p-4 sm:p-6 shadow-soft-sm"
+            className="rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5 lg:p-6"
             aria-labelledby="wordcloud-section-heading"
           >
-            <h3 id="wordcloud-section-heading" className="sr-only">
+            <h2 id="wordcloud-section-heading" className="sr-only">
               Word Cloud Visualization
-            </h3>
+            </h2>
             <WordCloud words={wordCloudData} title="Most Common Question Keywords" />
           </section>
         </div>
@@ -824,20 +824,22 @@ export default function Analytics() {
       {/* Advanced Analytics Views - F8.2 */}
       <div className="space-y-4 sm:space-y-6 mb-6">
         <div>
-          <h2 className="text-lg sm:text-xl font-semibold text-foreground mb-2">Advanced Analytics Views</h2>
-          <p className="text-[13px] sm:text-[14px] text-muted-foreground">
-            Detailed insights into conversation patterns, user journeys, and performance metrics
+          <h2 className="text-[13px] font-medium uppercase tracking-wider text-muted-foreground">
+            Advanced analytics views
+          </h2>
+          <p className="text-[12px] text-muted-foreground/80 mt-0.5">
+            Conversation patterns, user journeys, and performance metrics
           </p>
         </div>
 
         {/* Performance Metrics Dashboard */}
         <section
-          className="bg-background rounded-xl border border-border p-4 sm:p-6 shadow-soft-sm"
+          className="rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5 lg:p-6"
           aria-labelledby="performance-metrics-heading"
         >
-          <h3 id="performance-metrics-heading" className="sr-only">
+          <h2 id="performance-metrics-heading" className="sr-only">
             Performance Metrics Dashboard
-          </h3>
+          </h2>
           <PerformanceMetrics
             data={{
               response_accuracy: summary?.response_accuracy,
@@ -848,14 +850,14 @@ export default function Analytics() {
         </section>
 
         {/* Conversation Timeline and User Journey in a row */}
-        <div className={`grid grid-cols-1 ${isTablet ? "" : "lg:grid-cols-2"} gap-4 ${isTablet ? "md:gap-5" : "sm:gap-6"}`}>
+        <div className={"grid grid-cols-1 " + (isTablet ? "" : "lg:grid-cols-2") + " gap-4 " + (isTablet ? "md:gap-5" : "sm:gap-6")}>
           <section
-            className="bg-background rounded-xl border border-border p-4 sm:p-6 shadow-soft-sm"
+            className="rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5 lg:p-6"
             aria-labelledby="timeline-heading"
           >
-            <h3 id="timeline-heading" className="sr-only">
+            <h2 id="timeline-heading" className="sr-only">
               Conversation Timeline
-            </h3>
+            </h2>
             <ConversationTimeline
               data={conversationData.map((item) => ({
                 date: item.date || item.day,
@@ -866,12 +868,12 @@ export default function Analytics() {
           </section>
 
           <section
-            className="bg-background rounded-xl border border-border p-4 sm:p-6 shadow-soft-sm"
+            className="rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5 lg:p-6"
             aria-labelledby="user-journey-heading"
           >
-            <h3 id="user-journey-heading" className="sr-only">
+            <h2 id="user-journey-heading" className="sr-only">
               User Journey Visualization
-            </h3>
+            </h2>
             <UserJourney
               data={[
                 {
@@ -908,12 +910,12 @@ export default function Analytics() {
 
         {/* Sentiment Analysis */}
         <section
-          className="bg-background rounded-xl border border-border p-6 shadow-soft-sm"
+          className="rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5 lg:p-6"
           aria-labelledby="sentiment-heading"
         >
-          <h3 id="sentiment-heading" className="sr-only">
+          <h2 id="sentiment-heading" className="sr-only">
             Sentiment Analysis
-          </h3>
+          </h2>
           <SentimentAnalysis
             data={
               summary?.user_satisfaction
@@ -934,13 +936,14 @@ export default function Analytics() {
       </div>
 
       {/* Top Categories */}
-      <section className="bg-background rounded-xl border border-border shadow-soft-sm" aria-labelledby="top-categories-heading">
-        <div className="px-6 py-4 border-b border-border">
-          <h3 id="top-categories-heading" className="text-[15px] font-semibold text-foreground">
-            Top Question Categories
-          </h3>
+      <section className="rounded-2xl border border-border/50 bg-muted/10 overflow-hidden" aria-labelledby="top-categories-heading">
+        <div className="px-4 sm:px-5 lg:px-6 py-4 border-b border-border/50">
+          <h2 id="top-categories-heading" className="text-[13px] font-medium uppercase tracking-wider text-muted-foreground">
+            Top question categories
+          </h2>
+          <p className="text-[12px] text-muted-foreground/80 mt-0.5">Most common question topics in the selected period</p>
         </div>
-        <div className="p-6 space-y-4">
+        <div className="p-4 sm:p-5 lg:p-6 space-y-4">
           {loading ? (
             <div className="space-y-4">
               {[1, 2, 3, 4, 5].map((i) => (
@@ -986,12 +989,13 @@ export default function Analytics() {
 
       {/* Drill-down Dialog */}
       <Dialog open={drillDownOpen} onOpenChange={setDrillDownOpen}>
-        <DialogContent>
+        <DialogContent className="rounded-2xl p-4 sm:p-6">
           <DialogHeader>
-            <DialogTitle>Date Details</DialogTitle>
-            <DialogDescription>
-              Detailed information for{" "}
-              {drillDownData?.date ? format(new Date(drillDownData.date), "MMMM dd, yyyy") : "selected date"}
+            <DialogTitle className="text-lg">Date details</DialogTitle>
+            <DialogDescription className="text-[13px]">
+              {drillDownData?.date
+                ? "Details for " + format(new Date(drillDownData.date), "MMMM dd, yyyy")
+                : "Details for selected date"}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">

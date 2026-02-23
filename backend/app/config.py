@@ -80,6 +80,16 @@ class Settings(BaseSettings):
     smtp_from_email: str = "noreply@acmedesk.com"  # From email address
     smtp_from_name: str = "AcmeDesk Assist"  # From name
 
+    # Email inbox (IMAP/POP3) configuration
+    email_channel_enabled: bool = False  # Master toggle for email channel
+    email_imap_host: Optional[str] = None  # IMAP server host
+    email_imap_port: int = 993  # IMAP server port (usually 993 for SSL)
+    email_imap_username: Optional[str] = None  # IMAP username (usually full email)
+    email_imap_password: Optional[str] = None  # IMAP password or app password
+    email_imap_use_ssl: bool = True  # Use SSL for IMAP
+    email_imap_mailbox: str = "INBOX"  # Mailbox folder to monitor
+
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

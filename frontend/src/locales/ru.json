@@ -67,6 +67,7 @@
   "navigation": {
     "dashboard": "Dashboard",
     "documents": "Documents",
+    "inbox": "Входящие",
     "analytics": "Analytics",
     "settings": "Settings",
     "security": "Security",

@@ -15,7 +15,19 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .models.base import close_db, init_db
-from .routers import analytics, auth, chat, conversations, documents, health, settings as settings_router, user_preferences, admin, knowledge_bases
+from .routers import (
+    admin,
+    analytics,
+    auth,
+    chat,
+    conversations,
+    documents,
+    email,
+    health,
+    knowledge_bases,
+    settings as settings_router,
+    user_preferences,
+)
 
 
 @asynccontextmanager
@@ -75,6 +87,7 @@ app.include_router(analytics.router)
 app.include_router(user_preferences.router)
 app.include_router(admin.router)
 app.include_router(knowledge_bases.router)
+app.include_router(email.router)
 
 
 @app.get("/")

@@ -2,13 +2,11 @@ import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { authApi } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, Loader2, Save, Lock, Shield, KeyRound, Eye, EyeOff } from "lucide-react";
+import { AlertCircle, Loader2, Save, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator";
 import { SSLSecureIndicator } from "@/components/security/SSLSecureIndicator";
 import { DataEncryptionIndicator } from "@/components/security/DataEncryptionIndicator";
 
@@ -237,84 +235,67 @@ export default function Security() {
 
   if (loading) {
     return (
-      <div className="max-w-2xl space-y-8">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-semibold text-foreground">Security Settings</h1>
-          <p className="text-[14px] text-muted-foreground mt-1">
-            Manage your account security and authentication
-          </p>
-        </div>
-        <div className="space-y-6">
-          <Skeleton className="h-64 w-full" />
-          <Skeleton className="h-48 w-full" />
+      <div className="flex flex-col w-full min-w-0 max-w-2xl">
+        <header className="mb-6 sm:mb-8">
+          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">Security</h1>
+          <p className="mt-1.5 text-[13px] sm:text-sm text-muted-foreground">Manage your account security and authentication</p>
+        </header>
+        <div className="space-y-4">
+          <Skeleton className="h-40 w-full rounded-2xl" />
+          <Skeleton className="h-64 w-full rounded-2xl" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-2xl space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground">Security Settings</h1>
-        <p className="text-[14px] text-muted-foreground mt-1">
-          Manage your account security and authentication
-        </p>
-      </div>
+    <div className="flex flex-col w-full min-w-0 max-w-2xl">
+      <header className="mb-6 sm:mb-8">
+        <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">Security</h1>
+        <p className="mt-1.5 text-[13px] sm:text-sm text-muted-foreground">Manage your account security and authentication</p>
+      </header>
 
       {error && (
-        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg text-[14px] flex items-center gap-2">
-          <AlertCircle size={16} />
-          {error}
+        <div className="flex items-center gap-2 rounded-xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-[13px] text-destructive mb-6">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>{error}</span>
         </div>
       )}
 
-      <div className="space-y-6">
+      <div className="space-y-5 sm:space-y-6">
         {/* Connection Security Status */}
-        <Card>
-          <CardHeader>
-            <h3 className="flex items-center gap-2 text-[15px] font-semibold text-foreground">
-              <Shield size={18} />
+        <section className="rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5 lg:p-6 space-y-4">
+          <div>
+            <h2 className="text-[13px] font-medium uppercase tracking-wider text-muted-foreground">
               Connection Security
-            </h3>
-            <CardDescription className="text-[12px]">
-              Current security status of your connection
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <Label className="text-[13px] font-medium">SSL/TLS Status</Label>
-                <p className="text-[12px] text-muted-foreground mt-0.5">
-                  Secure connection indicator
-                </p>
-              </div>
-              <SSLSecureIndicator variant="badge" />
+            </h2>
+            <p className="text-[12px] text-muted-foreground/80 mt-0.5">Current security status of your connection</p>
+          </div>
+          <div className="flex items-center justify-between py-2">
+            <div>
+              <Label className="text-[13px] font-medium">SSL/TLS Status</Label>
+              <p className="text-[12px] text-muted-foreground mt-0.5">Secure connection indicator</p>
             </div>
-            <Separator />
-            <div className="flex items-center justify-between">
-              <div>
-                <Label className="text-[13px] font-medium">Data Encryption</Label>
-                <p className="text-[12px] text-muted-foreground mt-0.5">
-                  Data encryption status
-                </p>
-              </div>
-              <DataEncryptionIndicator variant="badge" />
+            <SSLSecureIndicator variant="badge" />
+          </div>
+          <div className="border-t border-border/50" />
+          <div className="flex items-center justify-between pt-2">
+            <div>
+              <Label className="text-[13px] font-medium">Data Encryption</Label>
+              <p className="text-[12px] text-muted-foreground mt-0.5">Data encryption status</p>
             </div>
-          </CardContent>
-        </Card>
+            <DataEncryptionIndicator variant="badge" />
+          </div>
+        </section>
 
         {/* Password Change */}
-        <Card>
-          <CardHeader>
-            <h3 className="flex items-center gap-2 text-[15px] font-semibold text-foreground">
-              <Lock size={18} />
+        <section className="rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5 lg:p-6 space-y-4">
+          <div>
+            <h2 className="text-[13px] font-medium uppercase tracking-wider text-muted-foreground">
               Change Password
-            </h3>
-            <CardDescription className="text-[12px]">
-              Update your account password
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+            </h2>
+            <p className="text-[12px] text-muted-foreground/80 mt-0.5">Update your account password</p>
+          </div>
             <div>
               <Label htmlFor="current-password" className="text-[13px] font-medium block mb-1.5">
                 Current Password
@@ -326,7 +307,7 @@ export default function Security() {
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
                   placeholder="Enter current password"
-                  className={passwordErrors.currentPassword ? "border-destructive" : ""}
+                  className={`rounded-xl ${passwordErrors.currentPassword ? "border-destructive" : ""}`}
                   disabled={saving}
                 />
                 <Button
@@ -356,7 +337,7 @@ export default function Security() {
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="Enter new password"
-                  className={passwordErrors.newPassword ? "border-destructive" : ""}
+                  className={`rounded-xl ${passwordErrors.newPassword ? "border-destructive" : ""}`}
                   disabled={saving}
                 />
                 <Button
@@ -389,7 +370,7 @@ export default function Security() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Confirm new password"
-                  className={passwordErrors.confirmPassword ? "border-destructive" : ""}
+                  className={`rounded-xl ${passwordErrors.confirmPassword ? "border-destructive" : ""}`}
                   disabled={saving}
                 />
                 <Button
@@ -411,35 +392,21 @@ export default function Security() {
             <Button
               onClick={handlePasswordChange}
               disabled={saving || !currentPassword || !newPassword || !confirmPassword}
-              className="w-full sm:w-auto"
+              className="w-full sm:w-auto rounded-xl min-h-[44px] sm:min-h-[40px] gap-2"
             >
-              {saving ? (
-                <>
-                  <Loader2 size={16} className="animate-spin mr-2" />
-                  Changing Password...
-                </>
-              ) : (
-                <>
-                  <Save size={16} className="mr-2" />
-                  Change Password
-                </>
-              )}
+              {saving ? <Loader2 className="h-4 w-4 animate-spin shrink-0" /> : <Save className="h-4 w-4 shrink-0" />}
+              {saving ? "Changing password…" : "Change password"}
             </Button>
-          </CardContent>
-        </Card>
+        </section>
 
         {/* Two-Factor Authentication */}
-        <Card>
-          <CardHeader>
-            <h3 className="flex items-center gap-2 text-[15px] font-semibold text-foreground">
-              <KeyRound size={18} />
+        <section className="rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5 lg:p-6 space-y-4">
+          <div>
+            <h2 className="text-[13px] font-medium uppercase tracking-wider text-muted-foreground">
               Two-Factor Authentication
-            </h3>
-            <CardDescription className="text-[12px]">
-              Add an extra layer of security to your account
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+            </h2>
+            <p className="text-[12px] text-muted-foreground/80 mt-0.5">Add an extra layer of security to your account</p>
+          </div>
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <Label htmlFor="2fa-toggle" className="text-[13px] font-medium">
@@ -464,7 +431,7 @@ export default function Security() {
             </div>
 
             {twoFactorQRCode && !twoFactorEnabled && (
-              <div className="space-y-4 pt-4 border-t border-border">
+              <div className="space-y-4 pt-4 border-t border-border/50">
                 <div>
                   <Label className="text-[13px] font-medium block mb-2">
                     Scan QR Code
@@ -472,7 +439,7 @@ export default function Security() {
                   <p className="text-[12px] text-muted-foreground mb-3">
                     Use your authenticator app (Google Authenticator, Authy, etc.) to scan this QR code:
                   </p>
-                  <div className="flex justify-center p-4 bg-muted rounded-lg">
+                  <div className="flex justify-center p-4 bg-muted/50 rounded-xl">
                     <img
                       src={twoFactorQRCode}
                       alt="2FA QR Code"
@@ -489,7 +456,7 @@ export default function Security() {
                     <p className="text-[12px] text-muted-foreground mb-2">
                       If you can't scan the QR code, enter this code manually:
                     </p>
-                    <div className="p-3 bg-muted rounded-lg font-mono text-[13px] text-center">
+                    <div className="p-3 bg-muted/50 rounded-xl font-mono text-[13px] text-center">
                       {twoFactorSetupCode}
                     </div>
                   </div>
@@ -506,7 +473,7 @@ export default function Security() {
                     onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                     placeholder="Enter 6-digit code"
                     maxLength={6}
-                    className="text-center text-lg tracking-widest"
+                    className="rounded-xl text-center text-lg tracking-widest"
                     disabled={twoFactorLoading}
                   />
                   <p className="text-[12px] text-muted-foreground mt-1.5">
@@ -517,27 +484,21 @@ export default function Security() {
                 <Button
                   onClick={handle2FAVerification}
                   disabled={twoFactorLoading || verificationCode.length !== 6}
-                  className="w-full"
+                  className="w-full sm:w-auto rounded-xl min-h-[44px] sm:min-h-[40px] gap-2"
                 >
-                  {twoFactorLoading ? (
-                    <>
-                      <Loader2 size={16} className="animate-spin mr-2" />
-                      Verifying...
-                    </>
-                  ) : (
-                    "Verify and Enable 2FA"
-                  )}
+                  {twoFactorLoading ? <Loader2 className="h-4 w-4 animate-spin shrink-0" /> : null}
+                  {twoFactorLoading ? "Verifying…" : "Verify and enable 2FA"}
                 </Button>
 
                 {twoFactorBackupCodes.length > 0 && (
-                  <div className="pt-4 border-t border-border">
+                  <div className="pt-4 border-t border-border/50">
                     <Label className="text-[13px] font-medium block mb-2">
                       Backup Codes
                     </Label>
                     <p className="text-[12px] text-muted-foreground mb-3">
                       Save these backup codes in a safe place. You can use them to access your account if you lose your authenticator device:
                     </p>
-                    <div className="p-3 bg-muted rounded-lg space-y-1">
+                    <div className="p-3 bg-muted/50 rounded-xl space-y-1">
                       {twoFactorBackupCodes.map((code, index) => (
                         <div key={index} className="font-mono text-[12px] text-center">
                           {code}
@@ -550,21 +511,20 @@ export default function Security() {
             )}
 
             {twoFactorEnabled && (
-              <div className="pt-4 border-t border-border">
-                <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg">
+              <div className="pt-4 border-t border-border/50">
+                <div className="flex items-center justify-between p-3 bg-green-500/10 border border-green-500/20 rounded-xl">
                   <div>
                     <p className="text-[13px] font-medium text-green-700 dark:text-green-400">
                       2FA is enabled
                     </p>
-                    <p className="text-[12px] text-green-600 dark:text-green-500 mt-0.5">
+                    <p className="text-[12px] text-green-700 dark:text-green-400 mt-0.5">
                       Your account is protected with two-factor authentication
                     </p>
                   </div>
                 </div>
               </div>
             )}
-          </CardContent>
-        </Card>
+        </section>
       </div>
     </div>
   );

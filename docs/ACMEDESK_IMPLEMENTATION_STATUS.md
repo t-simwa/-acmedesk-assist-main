@@ -1547,22 +1547,24 @@ This section covers tasks to elevate the UI from a good prototype to a **world-c
 
 ### J. Omnichannel Support (Milestone 9)
 
-- **J1 – Email Channel**
-  - [ ] J1.1 – Email Inbox Integration
-    - [ ] Research email inbox APIs (Gmail, Outlook, IMAP).
-    - [ ] Set up email inbox monitoring (IMAP/POP3).
-    - [ ] Implement email-to-conversation conversion.
-    - [ ] Add email reply functionality.
-    - [ ] Create email thread management.
-    - [ ] Add email configuration UI.
-    - [ ] Test email integration.
+**Admin UX – Single Inbox entry (implemented):** All omnichannel conversations are accessed from one place in the admin panel. The sidebar has a single **Inbox** entry (path: `/admin/inbox`) that opens a single page with **channel tabs** (Email, SMS, WhatsApp, Messenger, Twitter/X). Email is implemented; other channels show placeholders until J2/J3 are built. Future channel integrations (J2, J3) must **integrate into this Inbox page** as new tabs or filters, not as separate top-level nav items. J5.1 (Channel Management) and J5.2 (Unified Conversation View) will extend this same page (e.g. channel config, “All” view with channel badges, cross-channel threading). Direct link `/admin/email` remains available for deep-linking to the email experience.
 
-  - [ ] J1.2 – Email Chat Interface
-    - [ ] Create email conversation view in admin.
-    - [ ] Add email reply composer.
-    - [ ] Implement email templates.
-    - [ ] Add email signature support.
-    - [ ] Add email attachment handling.
+- **J1 – Email Channel**
+  - [x] J1.1 – Email Inbox Integration
+    - [x] Research email inbox APIs (Gmail, Outlook, IMAP).
+    - [x] Set up email inbox monitoring (IMAP/POP3).
+    - [x] Implement email-to-conversation conversion.
+    - [x] Add email reply functionality.
+    - [x] Create email thread management.
+    - [x] Add email configuration UI.
+    - [x] Test email integration.
+
+  - [x] J1.2 – Email Chat Interface
+    - [x] Create email conversation view in admin.
+    - [x] Add email reply composer.
+    - [x] Implement email templates.
+    - [x] Add email signature support.
+    - [x] Add email attachment handling.
 
 - **J2 – SMS/WhatsApp Channel**
   - [ ] J2.1 – SMS Integration
@@ -1638,17 +1640,17 @@ This section covers tasks to elevate the UI from a good prototype to a **world-c
 
 - **J5 – Omnichannel Admin Features**
   - [ ] J5.1 – Channel Management
-    - [ ] Create channel configuration page.
+    - [ ] Create channel configuration page (within or linked from the Inbox page; see “Admin UX – Single Inbox entry” above).
     - [ ] Add channel enable/disable functionality.
     - [ ] Implement channel-specific settings.
     - [ ] Add channel status monitoring.
     - [ ] Add channel health checks.
 
   - [ ] J5.2 – Unified Conversation View
-    - [ ] Update conversation view to show all channels.
-    - [ ] Add channel indicators (email, SMS, chat, etc.).
+    - [ ] Build on the existing Inbox page (`/admin/inbox`): add an “All” view and/or unified list alongside the current channel tabs.
+    - [ ] Update conversation view to show all channels in one list with channel indicators (email, SMS, chat, etc.).
     - [ ] Implement cross-channel conversation threading.
-    - [ ] Add channel switching in conversation view.
+    - [ ] Add channel switching in conversation view (tabs/filters already in place; extend with channel-specific formatting and context).
     - [ ] Add channel-specific message formatting.
     - [ ] Implement cross-channel context preservation.
 
@@ -2450,21 +2452,23 @@ Based on the comprehensive market comparison analysis (`docs/MARKET_COMPARISON_A
 - Expand beyond website widget to support multiple communication channels.
 - Enable omnichannel customer support.
 
+**Admin UX (implemented):** Single **Inbox** entry in the admin sidebar → one page at `/admin/inbox` with channel tabs (Email, SMS, WhatsApp, Messenger, Twitter/X). New channels (J2, J3) integrate as tabs on this page; J5.2 Unified Conversation View will extend it (e.g. “All” view, channel badges). See full J section for details.
+
 **Includes:**
 
 #### J1 – Email Channel
-- [ ] **J1.1 – Email Inbox Integration**
-  - [ ] Set up email inbox monitoring (IMAP/POP3).
-  - [ ] Implement email-to-conversation conversion.
-  - [ ] Add email reply functionality.
-  - [ ] Create email thread management.
-  - [ ] Add email configuration UI.
+- [x] **J1.1 – Email Inbox Integration**
+  - [x] Set up email inbox monitoring (IMAP/POP3).
+  - [x] Implement email-to-conversation conversion.
+  - [x] Add email reply functionality.
+  - [x] Create email thread management.
+  - [x] Add email configuration UI.
 
-- [ ] **J1.2 – Email Chat Interface**
-  - [ ] Create email conversation view in admin.
-  - [ ] Add email reply composer.
-  - [ ] Implement email templates.
-  - [ ] Add email signature support.
+- [x] **J1.2 – Email Chat Interface**
+  - [x] Create email conversation view in admin.
+  - [x] Add email reply composer.
+  - [x] Implement email templates.
+  - [x] Add email signature support.
 
 #### J2 – SMS/WhatsApp Channel
 - [ ] **J2.1 – SMS Integration**
@@ -2520,17 +2524,16 @@ Based on the comprehensive market comparison analysis (`docs/MARKET_COMPARISON_A
 
 #### J5 – Omnichannel Admin Features
 - [ ] **J5.1 – Channel Management**
-  - [ ] Create channel configuration page.
+  - [ ] Create channel configuration page (within or linked from the Inbox page; see “Admin UX – Single Inbox entry” in the full J section).
   - [ ] Add channel enable/disable functionality.
   - [ ] Implement channel-specific settings.
   - [ ] Add channel status monitoring.
 
 - [ ] **J5.2 – Unified Conversation View**
-  - [ ] Update conversation view to show all channels.
-  - [ ] Add channel indicators (email, SMS, chat, etc.).
+  - [ ] Build on the existing Inbox page (`/admin/inbox`): add “All” view and/or unified list alongside current channel tabs.
+  - [ ] Update conversation view to show all channels with channel indicators (email, SMS, chat, etc.).
   - [ ] Implement cross-channel conversation threading.
-  - [ ] Add channel switching in conversation view.
-  - [ ] Add channel-specific message formatting.
+  - [ ] Add channel switching and channel-specific message formatting in conversation view.
   - [ ] Implement cross-channel context preservation.
 
 - [ ] **J5.3 – Easy Human Escalation**

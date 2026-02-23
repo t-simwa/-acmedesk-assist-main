@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { RefreshCw, BarChart3 } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DraggableDashboard } from "@/components/admin/DraggableDashboard";
 import { ApiError } from "@/lib/api";
@@ -7,11 +7,9 @@ import { useAnalyticsSummary, useTopQueries } from "@/hooks/useAnalytics";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCountUp } from "@/hooks/useCountUp";
 import { NetworkErrorState } from "@/components/error/NetworkErrorState";
-import { EmptyState } from "@/components/error/EmptyState";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { useIsTablet } from "@/hooks/use-tablet";
 import { HelpIcon } from "@/components/help/HelpIcon";
 import { OnboardingTour, TourStep } from "@/components/help/OnboardingTour";
+import { cn } from "@/lib/utils";
 
 interface DashboardStat {
   label: string;
@@ -36,13 +34,12 @@ export default function Dashboard() {
   const [isPolling, setIsPolling] = useState(true);
   const [widgetOrder, setWidgetOrder] = useState<string[]>(["stats", "queries"]);
 
-  // Use React Query for dashboard data with automatic caching and refetching
   const {
     data: summary,
     isLoading: summaryLoading,
     error: summaryError,
     refetch: refetchSummary,
-  } = useAnalyticsSummary(1); // Today's data
+  } = useAnalyticsSummary(1);
 
   const {
     data: topQueriesResponse,
@@ -54,47 +51,27 @@ export default function Dashboard() {
   const loading = summaryLoading || queriesLoading;
   const hasError = summaryError || queriesError;
 
-  // Extract raw numeric values for counting animations
   const conversationsValue = summary?.conversations_by_day[summary.conversations_by_day.length - 1]?.count || 0;
   const documentsValue = summary?.total_conversations || 0;
   const resolutionValue = summary?.resolution_rate?.percentage || 0;
   const usersValue = summary?.total_messages || 0;
 
-  // Animated counting values
   const conversationsCount = useCountUp(conversationsValue, 1000, 0, "");
   const documentsCount = useCountUp(documentsValue, 1000, 0, "");
   const resolutionCount = useCountUp(resolutionValue, 1000, 1, "%");
   const usersCount = useCountUp(usersValue, 1000, 0, "");
 
-  // Update stats when data changes
   useEffect(() => {
     if (summary) {
       setStats([
-        {
-          label: "Conversations Today",
-          value: conversationsCount,
-          id: "stats",
-        },
-        {
-          label: "Documents Indexed",
-          value: documentsCount,
-          id: "documents",
-        },
-        {
-          label: "Resolution Rate",
-          value: resolutionCount,
-          id: "resolution",
-        },
-        {
-          label: "Active Users",
-          value: usersCount,
-          id: "users",
-        },
+        { label: "Conversations Today", value: conversationsCount, id: "stats" },
+        { label: "Documents Indexed", value: documentsCount, id: "documents" },
+        { label: "Resolution Rate", value: resolutionCount, id: "resolution" },
+        { label: "Active Users", value: usersCount, id: "users" },
       ]);
     }
   }, [summary, conversationsCount, documentsCount, resolutionCount, usersCount]);
 
-  // Update queries when data changes
   useEffect(() => {
     if (topQueriesResponse) {
       setRecentQueries(
@@ -107,50 +84,55 @@ export default function Dashboard() {
     }
   }, [topQueriesResponse]);
 
-  const handleReorder = (newOrder: string[]) => {
+  const handleReorder = useCallback((newOrder: string[]) => {
     setWidgetOrder(newOrder);
-    // In a real app, you'd save this to localStorage or backend
     localStorage.setItem("dashboard-widget-order", JSON.stringify(newOrder));
-  };
+  }, []);
 
-  // Load saved widget order on mount
   useEffect(() => {
     const savedOrder = localStorage.getItem("dashboard-widget-order");
     if (savedOrder) {
       try {
         setWidgetOrder(JSON.parse(savedOrder));
-      } catch (e) {
-        console.error("Error loading widget order:", e);
+      } catch {
+        // ignore
       }
     }
   }, []);
 
-  const isMobile = useIsMobile();
-  const isTablet = useIsTablet();
-  
   const statsWidget = (
-    <div className={`grid grid-cols-1 ${isTablet ? "sm:grid-cols-2" : "sm:grid-cols-2 lg:grid-cols-4"} gap-3 ${isTablet ? "sm:gap-4 md:gap-5" : "sm:gap-4 md:gap-6"}`}>
+    <div
+      className={cn(
+        "grid gap-3 sm:gap-4",
+        "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4",
+        "min-w-0"
+      )}
+    >
       {stats.map((stat) => (
         <div
-          key={stat.label}
-          className="bg-background rounded-xl border border-border/40 p-4 sm:p-6 md:p-8 hover:border-border/60 transition-all duration-200"
+          key={stat.id}
+          className={cn(
+            "rounded-2xl border border-border/50 bg-muted/20 p-4 sm:p-5",
+            "transition-colors hover:border-border/70 hover:bg-muted/30",
+            "min-w-0"
+          )}
           role="region"
           aria-label={stat.label}
         >
           {loading ? (
-            <Skeleton className="h-7 sm:h-8 w-20 mb-2 sm:mb-3" />
+            <Skeleton className="h-8 w-16 sm:h-9 sm:w-20 mb-2" />
           ) : (
-            <div
-              className="text-xl sm:text-2xl md:text-3xl font-semibold text-foreground tracking-tight mb-2 sm:mb-3 leading-none"
+            <p
+              className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground leading-none mb-1.5"
               aria-live="polite"
               aria-atomic="true"
             >
               {stat.value}
-            </div>
+            </p>
           )}
-          <div className="text-[11px] sm:text-xs text-muted-foreground font-medium uppercase tracking-[0.05em]">
+          <p className="text-[11px] sm:text-xs font-medium uppercase tracking-wider text-muted-foreground">
             {stat.label}
-          </div>
+          </p>
         </div>
       ))}
     </div>
@@ -158,62 +140,80 @@ export default function Dashboard() {
 
   const queriesWidget = (
     <section
-      className="bg-background rounded-xl border border-border shadow-soft-sm"
+      className={cn(
+        "rounded-2xl border border-border/50 bg-muted/10 overflow-hidden",
+        "min-w-0"
+      )}
       aria-labelledby="top-questions-heading"
     >
-      <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-border flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
-          <h2 id="top-questions-heading" className="text-[14px] sm:text-[15px] font-semibold text-foreground">
-            Top Questions Today
+      <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3.5 sm:py-4 border-b border-border/50">
+        <div className="flex items-center gap-2 min-w-0">
+          <h2
+            id="top-questions-heading"
+            className="text-[13px] font-medium uppercase tracking-wider text-muted-foreground"
+          >
+            Top questions today
           </h2>
           <HelpIcon
-            content="Most frequently asked questions from today. Questions marked 'Resolved' were answered by the bot. 'Escalated' questions required human intervention."
+            content="Most frequently asked questions from today. 'Resolved' = answered by the bot; 'Escalated' = needed human help."
             side="right"
           />
         </div>
         <Button
           variant="ghost"
-          size="sm"
+          size="icon"
+          className="shrink-0 h-9 w-9 sm:h-8 sm:w-8"
           onClick={() => {
             refetchSummary();
             refetchQueries();
           }}
-          className={`gap-2 ${isTablet ? "min-h-[44px] min-w-[44px]" : "min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0"}`}
-          aria-label="Refresh queries"
+          aria-label="Refresh"
         >
-          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+          <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
         </Button>
       </div>
-      <div className="divide-y divide-border">
+      <div className="divide-y divide-border/50">
         {loading ? (
-          <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
+          <div className="p-4 sm:p-5 space-y-3">
             {[1, 2, 3, 4, 5].map((i) => (
-              <Skeleton key={i} className="h-14 sm:h-12 w-full" />
+              <Skeleton key={i} className="h-14 sm:h-12 rounded-lg" />
             ))}
           </div>
         ) : recentQueries.length === 0 ? (
-          <div className="p-4 sm:p-6 text-center text-sm text-muted-foreground">No queries available</div>
+          <div className="px-4 sm:px-5 py-8 sm:py-10 text-center">
+            <p className="text-[13px] text-muted-foreground">No queries yet</p>
+            <p className="text-[12px] text-muted-foreground/80 mt-1">Activity will appear here</p>
+          </div>
         ) : (
-          recentQueries.map((q, i) => (
-            <div key={i} className="flex flex-col gap-3 px-4 sm:px-6 py-4 sm:py-3.5">
-              <div className="flex items-start gap-3 flex-1 min-w-0">
-                <span className="text-[13px] text-muted-foreground w-5 flex-shrink-0 mt-0.5">{i + 1}</span>
-                <span className="text-[14px] sm:text-[14px] text-foreground break-words flex-1">{q.question}</span>
-              </div>
-              <div className="flex items-center gap-3 sm:gap-4 flex-shrink-0 pl-8">
-                <span className="text-[13px] text-muted-foreground whitespace-nowrap">{q.count} asks</span>
-                <span
-                  className={`text-[12px] px-2.5 py-1 rounded-full font-medium whitespace-nowrap ${
-                    q.answered
-                      ? "bg-accent text-accent-foreground"
-                      : "bg-destructive/10 text-destructive"
-                  }`}
-                >
-                  {q.answered ? "Resolved" : "Escalated"}
-                </span>
-              </div>
-            </div>
-          ))
+          <ul className="divide-y divide-border/50">
+            {recentQueries.map((q, i) => (
+              <li key={i} className="px-4 sm:px-5 py-3.5 sm:py-4 min-h-[56px] sm:min-h-0 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                <div className="flex gap-3 min-w-0 flex-1">
+                  <span className="text-[12px] text-muted-foreground shrink-0 w-5 tabular-nums">
+                    {i + 1}
+                  </span>
+                  <p className="text-[13px] sm:text-sm text-foreground break-words line-clamp-2 sm:line-clamp-1">
+                    {q.question}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 sm:gap-3 pl-8 sm:pl-0 shrink-0">
+                  <span className="text-[12px] text-muted-foreground whitespace-nowrap">
+                    {q.count} ask{q.count === 1 ? "" : "s"}
+                  </span>
+                  <span
+                    className={cn(
+                      "text-[11px] font-medium uppercase tracking-wider px-2.5 py-1 rounded-full whitespace-nowrap",
+                      q.answered
+                        ? "bg-primary/10 text-primary"
+                        : "bg-destructive/10 text-destructive"
+                    )}
+                  >
+                    {q.answered ? "Resolved" : "Escalated"}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
     </section>
@@ -226,20 +226,17 @@ export default function Dashboard() {
 
   const orderedWidgets = widgetOrder
     .map((id) => widgetMap[id])
-    .filter((widget) => widget !== undefined);
+    .filter((w): w is { id: string; component: JSX.Element } => w !== undefined);
 
-  // Show error state if both queries failed
   if (hasError && !loading && !summary && !topQueriesResponse) {
     return (
-      <div className="space-y-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
-            <p className="text-[14px] text-muted-foreground mt-1">
-              Overview of your support chatbot performance
-            </p>
-          </div>
-        </div>
+      <div className="flex flex-col w-full min-w-0">
+        <header className="mb-6 sm:mb-8">
+          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">Dashboard</h1>
+          <p className="mt-1.5 text-[13px] sm:text-sm text-muted-foreground max-w-xl">
+            Overview of your support chatbot performance
+          </p>
+        </header>
         <NetworkErrorState
           error={(summaryError || queriesError) as ApiError}
           onRetry={() => {
@@ -272,48 +269,50 @@ export default function Dashboard() {
       id: "top-questions",
       target: "#top-questions-heading",
       title: "Top Questions",
-      content: "See the most frequently asked questions. Questions marked 'Resolved' were answered by the bot, while 'Escalated' ones needed human help.",
+      content: "See the most frequently asked questions. 'Resolved' = answered by the bot; 'Escalated' = needed human help.",
       position: "bottom",
     },
   ];
 
   return (
-    <div className="space-y-6 sm:space-y-8">
+    <div className="flex flex-col w-full min-w-0">
       <OnboardingTour
         steps={tourSteps}
-        onComplete={() => {
-          // Tour completed
-        }}
-        onSkip={() => {
-          // Tour skipped
-        }}
+        onComplete={() => {}}
+        onSkip={() => {}}
       />
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-start gap-2">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-semibold text-foreground">Dashboard</h1>
-            <p className="text-[13px] sm:text-[14px] text-muted-foreground mt-1">
-              Overview of your support chatbot performance
+      <header className="mb-6 sm:mb-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">Dashboard</h1>
+            <p className="mt-1.5 text-[13px] sm:text-sm text-muted-foreground max-w-xl">
+              Support chatbot performance at a glance
             </p>
           </div>
-          <HelpIcon
-            content="The dashboard shows key metrics about your chatbot's performance. View conversations, documents, resolution rates, and top questions. You can drag widgets to reorder them."
-            side="right"
-            className="mt-1"
-          />
+          <div className="flex items-center gap-2">
+            <HelpIcon
+              content="Key metrics and top questions. Drag widgets to reorder. Toggle auto-refresh below."
+              side="left"
+              className="shrink-0"
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsPolling(!isPolling)}
+              className={cn(
+                "gap-2 shrink-0",
+                "min-h-[44px] sm:min-h-9",
+                "w-full sm:w-auto"
+              )}
+            >
+              <RefreshCw className={cn("h-4 w-4 shrink-0", isPolling && "animate-spin")} />
+              <span className="text-[13px] sm:text-sm truncate">
+                {isPolling ? "Auto-refresh on" : "Auto-refresh off"}
+              </span>
+            </Button>
+          </div>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setIsPolling(!isPolling)}
-          className="gap-2 w-full sm:w-auto min-h-[44px] sm:min-h-0"
-        >
-          <RefreshCw className={`h-4 w-4 ${isPolling ? "animate-spin" : ""}`} />
-          <span className="text-[13px] sm:text-sm">
-            {isPolling ? "Auto-refresh ON" : "Auto-refresh OFF"}
-          </span>
-        </Button>
-      </div>
+      </header>
 
       <DraggableDashboard items={orderedWidgets} onReorder={handleReorder} />
     </div>

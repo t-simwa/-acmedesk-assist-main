@@ -67,6 +67,7 @@
   "navigation": {
     "dashboard": "Panel",
     "documents": "Documentos",
+    "inbox": "Bandeja de entrada",
     "analytics": "Analíticas",
     "settings": "Configuración",
     "security": "Seguridad",

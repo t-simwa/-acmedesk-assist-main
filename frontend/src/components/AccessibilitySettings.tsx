@@ -8,7 +8,7 @@ export function AccessibilitySettings() {
   const { highContrast, setHighContrast, fontSize, setFontSize, reduceMotion, setReduceMotion } = useAccessibility();
 
   return (
-    <div className="bg-background rounded-xl border border-border p-6 shadow-soft-sm space-y-6">
+    <div className="rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5 lg:p-6 space-y-6">
       <div className="flex items-center gap-2">
         <Contrast className="h-5 w-5 text-primary" aria-hidden="true" />
         <h3 className="text-[15px] font-semibold text-foreground">Accessibility Settings</h3>

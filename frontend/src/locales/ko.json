@@ -67,6 +67,7 @@
   "navigation": {
     "dashboard": "Dashboard",
     "documents": "Documents",
+    "inbox": "받편지함",
     "analytics": "Analytics",
     "settings": "Settings",
     "security": "Security",

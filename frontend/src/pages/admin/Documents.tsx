@@ -281,7 +281,7 @@ function MobileDocumentCard({
 
       {/* Card Content */}
       <div
-        className={`relative bg-background border border-border rounded-lg p-4 transition-transform duration-200 ${
+        className={`relative bg-background border border-border/50 rounded-2xl p-4 transition-transform duration-200 ${
           isSelected ? "ring-2 ring-primary" : ""
         }`}
         style={{ transform: `translateX(${swipeOffset}px)` }}
@@ -765,22 +765,21 @@ export default function Documents() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Documents</h1>
-          <p className="text-sm text-muted-foreground mt-1" id="documents-description">
+    <div className="flex flex-col w-full min-w-0 space-y-6">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">Documents</h1>
+          <p className="mt-1.5 text-[13px] sm:text-sm text-muted-foreground max-w-xl" id="documents-description">
             Manage knowledge base documents for the chatbot
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button 
-            onClick={handleUploadClick} 
+        <div className="flex items-center gap-2 shrink-0">
+          <Button
+            onClick={handleUploadClick}
             disabled={uploadQueue.some((u) => u.status === "uploading")}
-            className={isTablet ? "min-h-[44px]" : ""}
+            className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-xl gap-2"
           >
-            <Upload size={16} className="mr-2" />
+            <Upload className="h-4 w-4 shrink-0" />
             Upload
           </Button>
           <input
@@ -793,83 +792,51 @@ export default function Documents() {
             aria-label="Upload document files"
           />
         </div>
-      </div>
+      </header>
 
       {/* Quick Stats Cards */}
       <div className={`grid grid-cols-1 ${isTablet ? "sm:grid-cols-2" : "sm:grid-cols-2 lg:grid-cols-4"} gap-4`}>
-        <div className="bg-background rounded-xl border border-border/40 p-6 hover:border-border/60 transition-all duration-200 hover:shadow-sm">
-          {loading ? (
-            <Skeleton className="h-8 w-20 mb-2" />
-          ) : (
-            <div className="text-2xl font-semibold text-foreground tracking-tight mb-2">
-              {totalCount}
-            </div>
-          )}
-          <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
-            Total Documents
-          </div>
+        <div className="rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5 transition-colors hover:border-border/70">
+          {loading ? <Skeleton className="h-8 w-20 mb-2 rounded-lg" /> : <div className="text-xl sm:text-2xl font-semibold text-foreground tracking-tight mb-2">{totalCount}</div>}
+          <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Total Documents</div>
         </div>
-        <div className="bg-background rounded-xl border border-border/40 p-6 hover:border-border/60 transition-all duration-200 hover:shadow-sm">
-          {loading ? (
-            <Skeleton className="h-8 w-20 mb-2" />
-          ) : (
-            <div className="text-2xl font-semibold text-green-600 dark:text-green-500 tracking-tight mb-2">
-              {indexedCount}
-            </div>
-          )}
-          <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
-            Indexed
-          </div>
+        <div className="rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5 transition-colors hover:border-border/70">
+          {loading ? <Skeleton className="h-8 w-20 mb-2 rounded-lg" /> : <div className="text-xl sm:text-2xl font-semibold text-green-600 dark:text-green-500 tracking-tight mb-2">{indexedCount}</div>}
+          <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Indexed</div>
         </div>
-        <div className="bg-background rounded-xl border border-border/40 p-6 hover:border-border/60 transition-all duration-200 hover:shadow-sm">
-          {loading ? (
-            <Skeleton className="h-8 w-20 mb-2" />
-          ) : (
-            <div className="text-2xl font-semibold text-amber-600 dark:text-amber-500 tracking-tight mb-2">
-              {processingCount}
-            </div>
-          )}
-          <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
-            Processing
-          </div>
+        <div className="rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5 transition-colors hover:border-border/70">
+          {loading ? <Skeleton className="h-8 w-20 mb-2 rounded-lg" /> : <div className="text-xl sm:text-2xl font-semibold text-amber-600 dark:text-amber-500 tracking-tight mb-2">{processingCount}</div>}
+          <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Processing</div>
         </div>
-        <div className="bg-background rounded-xl border border-border/40 p-6 hover:border-border/60 transition-all duration-200 hover:shadow-sm">
-          {loading ? (
-            <Skeleton className="h-8 w-20 mb-2" />
-          ) : (
-            <div className="text-2xl font-semibold text-red-600 dark:text-red-500 tracking-tight mb-2">
-              {errorCount}
-            </div>
-          )}
-          <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
-            Errors
-          </div>
+        <div className="rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5 transition-colors hover:border-border/70">
+          {loading ? <Skeleton className="h-8 w-20 mb-2 rounded-lg" /> : <div className="text-xl sm:text-2xl font-semibold text-red-600 dark:text-red-500 tracking-tight mb-2">{errorCount}</div>}
+          <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Errors</div>
         </div>
       </div>
 
       {error && (
-        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg text-sm flex items-center gap-2">
-          <AlertCircle size={16} aria-hidden="true" />
+        <div className="flex items-center gap-2 rounded-xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-[13px] text-destructive">
+          <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
           {error}
         </div>
       )}
 
       {/* Search and Filters */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-        <div className="flex-1 w-full sm:max-w-sm">
+        <div className="flex-1 w-full min-w-0 sm:max-w-sm">
           <Input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search documents…"
-            className={isTablet ? "h-11 text-base" : ""}
+            className={`rounded-xl ${isTablet ? "min-h-[44px] text-base" : ""}`}
             aria-label="Search documents"
             aria-describedby="documents-description"
           />
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <Select value={statusFilter || "all"} onValueChange={(v) => setStatusFilter(v === "all" ? null : v)}>
-            <SelectTrigger className={`w-[140px] ${isTablet ? "min-h-[44px]" : ""}`}>
+            <SelectTrigger className={`w-[140px] rounded-xl ${isTablet ? "min-h-[44px]" : ""}`}>
               <SelectValue placeholder="All Statuses" />
             </SelectTrigger>
             <SelectContent>
@@ -880,7 +847,7 @@ export default function Documents() {
             </SelectContent>
           </Select>
           <Select value={typeFilter || "all"} onValueChange={(v) => setTypeFilter(v === "all" ? null : v)}>
-            <SelectTrigger className={`w-[140px] ${isTablet ? "min-h-[44px]" : ""}`}>
+            <SelectTrigger className={`w-[140px] rounded-xl ${isTablet ? "min-h-[44px]" : ""}`}>
               <SelectValue placeholder="All Types" />
             </SelectTrigger>
             <SelectContent>
@@ -893,19 +860,14 @@ export default function Documents() {
             </SelectContent>
           </Select>
           {hasActiveFilters && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={clearFilters}
-              className={isTablet ? "min-h-[44px]" : ""}
-            >
+            <Button variant="outline" size="sm" onClick={clearFilters} className={`rounded-xl ${isTablet ? "min-h-[44px]" : ""}`}>
               <FilterX size={14} className="mr-2" />
               Clear
             </Button>
           )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className={isTablet ? "min-h-[44px]" : ""}>
+              <Button variant="outline" size="sm" className={`rounded-xl ${isTablet ? "min-h-[44px]" : ""}`}>
                 <Eye size={14} className="mr-2" />
                 Columns
               </Button>
@@ -982,10 +944,10 @@ export default function Documents() {
             handleUploadClick();
           }
         }}
-        className={`relative border-2 border-dashed rounded-xl p-12 text-center transition-all duration-200 cursor-pointer focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 min-h-[200px] flex flex-col items-center justify-center ${
+        className={`relative border-2 border-dashed rounded-2xl p-8 sm:p-12 text-center transition-all duration-200 cursor-pointer focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 min-h-[180px] sm:min-h-[200px] flex flex-col items-center justify-center ${
           dragOver
             ? "border-primary bg-primary/5 scale-[1.02] shadow-lg"
-            : "border-border hover:border-primary/50 hover:bg-muted/30"
+            : "border-border/60 hover:border-primary/50 hover:bg-muted/20"
         }`}
       >
         <div className={`absolute inset-0 rounded-xl transition-opacity duration-200 ${
@@ -1009,16 +971,16 @@ export default function Documents() {
 
       {/* Upload Queue */}
       {uploadQueue.length > 0 && (
-        <div className="space-y-3 bg-muted/30 rounded-lg p-4 border border-border">
-          <h3 className="text-sm font-semibold flex items-center gap-2">
-            <Upload size={16} />
-            Upload Queue ({uploadQueue.length})
+        <div className="space-y-3 rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5">
+          <h3 className="text-[13px] font-semibold flex items-center gap-2">
+            <Upload size={16} className="shrink-0" />
+            Upload queue ({uploadQueue.length})
           </h3>
           <div className="space-y-2">
             {uploadQueue.map((item) => (
               <div
                 key={item.id}
-                className="bg-background border border-border rounded-lg p-4 space-y-3 transition-all hover:shadow-sm"
+                className="rounded-xl border border-border/50 bg-background p-4 space-y-3 transition-colors hover:border-border/70"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -1092,9 +1054,9 @@ export default function Documents() {
 
       {/* Knowledge Base Management Section - Collapsible */}
       <Collapsible open={kbSectionOpen} onOpenChange={setKbSectionOpen}>
-        <div className="bg-card border border-border rounded-lg">
+        <div className="rounded-2xl border border-border/50 bg-muted/10 overflow-hidden">
           <CollapsibleTrigger asChild>
-            <button className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors rounded-lg">
+            <button className="w-full flex items-center justify-between p-4 sm:p-5 hover:bg-muted/30 transition-colors rounded-2xl">
               <div className="flex items-center gap-2">
                 <Database size={18} className="text-primary" />
                 <h3 className="text-[15px] font-semibold text-foreground">Knowledge Bases</h3>
@@ -1108,7 +1070,7 @@ export default function Documents() {
                 variant="outline"
                 size="sm"
                 onClick={() => setKnowledgeBaseDialogOpen(true)}
-                className={isTablet ? "min-h-[44px]" : ""}
+                className={`rounded-xl ${isTablet ? "min-h-[44px]" : ""}`}
               >
                 <Settings size={16} className="mr-2" />
                 Manage
@@ -1172,7 +1134,7 @@ export default function Documents() {
               variant="outline"
               size="sm"
               onClick={() => setCreateKBDialogOpen(true)}
-              className={isTablet ? "min-h-[44px]" : ""}
+              className={`rounded-xl ${isTablet ? "min-h-[44px]" : ""}`}
             >
               <Plus size={16} className="mr-2" />
               Create
@@ -1260,7 +1222,7 @@ export default function Documents() {
 
       {/* Knowledge Base Management Dialog */}
       <Dialog open={knowledgeBaseDialogOpen} onOpenChange={setKnowledgeBaseDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto rounded-2xl p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Manage Knowledge Bases</DialogTitle>
             <DialogDescription>
@@ -1271,7 +1233,7 @@ export default function Documents() {
             {knowledgeBases
               .filter((kb) => !kb.is_default)
               .map((kb) => (
-                <div key={kb.id} className="flex items-center justify-between p-4 border rounded-lg">
+                <div key={kb.id} className="flex items-center justify-between p-4 rounded-xl border border-border/50 bg-muted/5">
                   <div className="flex-1">
                     <div className="font-medium">{kb.name}</div>
                     {kb.description && (
@@ -1318,38 +1280,27 @@ export default function Documents() {
 
       {/* Create Knowledge Base Dialog */}
       <Dialog open={createKBDialogOpen} onOpenChange={setCreateKBDialogOpen}>
-        <DialogContent>
+        <DialogContent className="rounded-2xl p-4 sm:p-6">
           <DialogHeader>
-            <DialogTitle>Create Knowledge Base</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-lg">Create knowledge base</DialogTitle>
+            <DialogDescription className="text-[13px]">
               Create a new knowledge base to organize your documents
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">Name</label>
-              <Input
-                value={newKBName}
-                onChange={(e) => setNewKBName(e.target.value)}
-                placeholder="My Knowledge Base"
-              />
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-[13px] font-medium block">Name</label>
+              <Input value={newKBName} onChange={(e) => setNewKBName(e.target.value)} placeholder="My Knowledge Base" className="rounded-xl" />
             </div>
-            <div>
-              <label className="text-sm font-medium mb-2 block">Description (optional)</label>
-              <Input
-                value={newKBDescription}
-                onChange={(e) => setNewKBDescription(e.target.value)}
-                placeholder="Description of this knowledge base"
-              />
+            <div className="space-y-2">
+              <label className="text-[13px] font-medium block">Description (optional)</label>
+              <Input value={newKBDescription} onChange={(e) => setNewKBDescription(e.target.value)} placeholder="Description of this knowledge base" className="rounded-xl" />
             </div>
-            <div className="flex justify-end gap-2">
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-2">
               <Button
                 variant="outline"
-                onClick={() => {
-                  setCreateKBDialogOpen(false);
-                  setNewKBName("");
-                  setNewKBDescription("");
-                }}
+                onClick={() => { setCreateKBDialogOpen(false); setNewKBName(""); setNewKBDescription(""); }}
+                className="rounded-xl w-full sm:w-auto min-h-[44px] sm:min-h-[40px]"
               >
                 Cancel
               </Button>
@@ -1382,8 +1333,9 @@ export default function Documents() {
                   }
                 }}
                 disabled={creatingKB || !newKBName.trim()}
+                className="rounded-xl w-full sm:w-auto min-h-[44px] sm:min-h-[40px] gap-2"
               >
-                {creatingKB ? <Loader2 size={16} className="animate-spin mr-2" /> : null}
+                {creatingKB ? <Loader2 size={16} className="animate-spin shrink-0" /> : null}
                 Create
               </Button>
             </div>
@@ -1394,35 +1346,20 @@ export default function Documents() {
 
       {/* Bulk Action Floating Bar */}
       {selectedRows.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 bg-background border border-border rounded-lg shadow-lg p-4 flex items-center gap-4 animate-in slide-in-from-bottom-5">
-          <span className="text-sm font-medium">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-2xl border border-border/50 bg-background shadow-lg p-4 flex flex-col sm:flex-row items-center gap-3 animate-in slide-in-from-bottom-5 w-[calc(100%-2rem)] max-w-md">
+          <span className="text-[13px] font-medium">
             {selectedRows.size} document{selectedRows.size > 1 ? "s" : ""} selected
           </span>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleBulkReindex}
-              disabled={Array.from(selectedRows).some((id) => reindexing.has(id))}
-            >
-              <RefreshCw size={14} className="mr-2" />
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+            <Button variant="outline" size="sm" onClick={handleBulkReindex} disabled={Array.from(selectedRows).some((id) => reindexing.has(id))} className="rounded-xl gap-2">
+              <RefreshCw size={14} />
               Reindex
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleBulkDeleteClick}
-              className="text-destructive hover:text-destructive"
-            >
-              <Trash2 size={14} className="mr-2" />
+            <Button variant="outline" size="sm" onClick={handleBulkDeleteClick} className="rounded-xl gap-2 text-destructive hover:text-destructive">
+              <Trash2 size={14} />
               Delete
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSelectedRows(new Set())}
-              className="ml-2"
-            >
+            <Button variant="ghost" size="sm" onClick={() => setSelectedRows(new Set())} className="rounded-xl" aria-label="Clear selection">
               <X size={14} />
             </Button>
           </div>
@@ -1430,7 +1367,7 @@ export default function Documents() {
       )}
 
       {/* Table */}
-      <div className="bg-background rounded-xl border border-border shadow-sm overflow-hidden">
+      <div className="rounded-2xl border border-border/50 bg-muted/10 overflow-hidden min-w-0">
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 size={24} className="animate-spin text-muted-foreground" />
@@ -1732,7 +1669,7 @@ export default function Documents() {
 
       {/* Document Preview Sheet */}
       <Sheet open={previewOpen} onOpenChange={setPreviewOpen}>
-        <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
+        <SheetContent className="w-full sm:max-w-2xl overflow-y-auto rounded-l-2xl sm:rounded-l-2xl">
           <SheetHeader>
             <SheetTitle>{previewDocument?.name}</SheetTitle>
             <SheetDescription>
@@ -1783,7 +1720,7 @@ export default function Documents() {
                 </div>
               </div>
               {previewDocument.error_message && (
-                <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg text-sm flex items-start gap-2">
+                <div className="rounded-xl border border-destructive/20 bg-destructive/10 text-destructive px-4 py-3 text-[13px] flex items-start gap-2">
                   <AlertCircle size={16} className="flex-shrink-0 mt-0.5" aria-hidden="true" />
                   <div>
                     <p className="font-medium">Error:</p>
@@ -1793,7 +1730,7 @@ export default function Documents() {
               )}
               <div>
                 <p className="text-sm font-medium text-muted-foreground mb-2">Document Statistics</p>
-                <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                <div className="rounded-xl bg-muted/20 border border-border/50 p-4 space-y-2">
                   <div className="flex justify-between">
                     <span className="text-sm text-muted-foreground">Total Chunks:</span>
                     <span className="text-sm font-medium">{previewDocument.chunk_count || 0}</span>
