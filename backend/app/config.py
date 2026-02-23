@@ -89,6 +89,18 @@ class Settings(BaseSettings):
     email_imap_use_ssl: bool = True  # Use SSL for IMAP
     email_imap_mailbox: str = "INBOX"  # Mailbox folder to monitor
 
+    # SMS channel configuration (J2.1)
+    sms_channel_enabled: bool = False  # Master toggle for SMS channel
+    sms_default_from_number: Optional[str] = None  # Default sender number (e.g. +15551234567)
+    sms_outbound_webhook_url: Optional[str] = None  # Optional HTTP endpoint to call for outbound SMS delivery
+    sms_outbound_webhook_token: Optional[str] = None  # Optional token/secret for outbound webhook auth
+
+    # WhatsApp channel configuration (J2.2)
+    whatsapp_channel_enabled: bool = False  # Master toggle for WhatsApp channel
+    whatsapp_default_from_number: Optional[str] = None  # Default business number or phone for WhatsApp
+    whatsapp_outbound_webhook_url: Optional[str] = None  # Optional HTTP endpoint to call for outbound WhatsApp delivery
+    whatsapp_outbound_webhook_token: Optional[str] = None  # Optional token/secret for outbound webhook auth
+
 
     class Config:
         env_file = ".env"

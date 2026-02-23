@@ -1,12 +1,14 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Mail, MessageSquare, MessageCircle, Facebook, Twitter } from "lucide-react";
 import EmailChannel from "./EmailChannel";
+import SmsChannel from "./SmsChannel";
+import WhatsAppChannel from "./WhatsAppChannel";
 import { cn } from "@/lib/utils";
 
 const CHANNELS = [
   { id: "email", label: "Email", icon: Mail, component: EmailChannel },
-  { id: "sms", label: "SMS", icon: MessageSquare, component: null },
-  { id: "whatsapp", label: "WhatsApp", icon: MessageCircle, component: null },
+  { id: "sms", label: "SMS", icon: MessageSquare, component: SmsChannel },
+  { id: "whatsapp", label: "WhatsApp", icon: MessageCircle, component: WhatsAppChannel },
   { id: "messenger", label: "Messenger", icon: Facebook, component: null },
   { id: "twitter", label: "Twitter / X", icon: Twitter, component: null },
 ] as const;

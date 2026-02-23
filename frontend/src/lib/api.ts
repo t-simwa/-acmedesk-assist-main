@@ -197,6 +197,62 @@ export interface EmailReplyResponse {
 }
 
 // ============================================================================
+// SMS Channel Types (J2.1)
+// ============================================================================
+
+export interface SmsMessageMetadata {
+  id: string;
+  role: string;
+  content: string;
+  timestamp?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface SmsThreadListResponse {
+  threads: SmsMessageMetadata[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface SmsThreadMessagesResponse {
+  thread_id: string;
+  messages: SmsMessageMetadata[];
+}
+
+export interface SmsReplyResponse {
+  message: SmsMessageMetadata;
+}
+
+// ============================================================================
+// WhatsApp Channel Types (J2.2)
+// ============================================================================
+
+export interface WhatsAppMessageMetadata {
+  id: string;
+  role: string;
+  content: string;
+  timestamp?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface WhatsAppThreadListResponse {
+  threads: WhatsAppMessageMetadata[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface WhatsAppThreadMessagesResponse {
+  thread_id: string;
+  messages: WhatsAppMessageMetadata[];
+}
+
+export interface WhatsAppReplyResponse {
+  message: WhatsAppMessageMetadata;
+}
+
+// ============================================================================
 // API Client Configuration
 // ============================================================================
 
@@ -1056,6 +1112,102 @@ export const emailApi = {
    */
   async replyToThread(threadId: string, body: string): Promise<EmailReplyResponse> {
     return apiClient<EmailReplyResponse>(`/api/email/threads/${threadId}/reply`, {
+      method: "POST",
+      body: JSON.stringify({ body }),
+    });
+  },
+};
+
+// ============================================================================
+// SMS Channel API (J2.1)
+// ============================================================================
+
+export const smsApi = {
+  /**
+   * Create a mock inbound SMS message for testing.
+   */
+  async createTestInbound(): Promise<SmsMessageMetadata> {
+    const payload = {
+      from_number: "+15555550100",
+      to_number: import.meta.env.VITE_SMS_DEFAULT_TO_NUMBER || "+15555550999",
+      body: "Test SMS message from customer.",
+    };
+    const response = await apiClient<SmsMessageMetadata>("/api/sms/inbound-test", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    return response;
+  },
+
+  /**
+   * List SMS threads.
+   */
+  async listThreads(limit = 50, offset = 0): Promise<SmsThreadListResponse> {
+    return apiClient<SmsThreadListResponse>("/api/sms/threads", {
+      params: { limit, offset },
+    });
+  },
+
+  /**
+   * Get messages for a specific SMS thread.
+   */
+  async getThreadMessages(threadId: string): Promise<SmsThreadMessagesResponse> {
+    return apiClient<SmsThreadMessagesResponse>(`/api/sms/threads/${threadId}`);
+  },
+
+  /**
+   * Send a reply for an SMS thread.
+   */
+  async replyToThread(threadId: string, body: string): Promise<SmsReplyResponse> {
+    return apiClient<SmsReplyResponse>(`/api/sms/threads/${threadId}/reply`, {
+      method: "POST",
+      body: JSON.stringify({ body }),
+    });
+  },
+};
+
+// ============================================================================
+// WhatsApp Channel API (J2.2)
+// ============================================================================
+
+export const whatsappApi = {
+  /**
+   * Create a mock inbound WhatsApp message for testing.
+   */
+  async createTestInbound(): Promise<WhatsAppMessageMetadata> {
+    const payload = {
+      wa_id: "+15555550111",
+      business_number: import.meta.env.VITE_WHATSAPP_DEFAULT_BUSINESS_NUMBER || "+15555550998",
+      body: "Test WhatsApp message from customer.",
+    };
+    const response = await apiClient<WhatsAppMessageMetadata>("/api/whatsapp/inbound-test", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    return response;
+  },
+
+  /**
+   * List WhatsApp threads.
+   */
+  async listThreads(limit = 50, offset = 0): Promise<WhatsAppThreadListResponse> {
+    return apiClient<WhatsAppThreadListResponse>("/api/whatsapp/threads", {
+      params: { limit, offset },
+    });
+  },
+
+  /**
+   * Get messages for a specific WhatsApp thread.
+   */
+  async getThreadMessages(threadId: string): Promise<WhatsAppThreadMessagesResponse> {
+    return apiClient<WhatsAppThreadMessagesResponse>(`/api/whatsapp/threads/${threadId}`);
+  },
+
+  /**
+   * Send a reply for a WhatsApp thread.
+   */
+  async replyToThread(threadId: string, body: string): Promise<WhatsAppReplyResponse> {
+    return apiClient<WhatsAppReplyResponse>(`/api/whatsapp/threads/${threadId}/reply`, {
       method: "POST",
       body: JSON.stringify({ body }),
     });
