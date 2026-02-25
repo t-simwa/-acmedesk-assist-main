@@ -1,16 +1,18 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Mail, MessageSquare, MessageCircle, Facebook, Twitter } from "lucide-react";
+import { Mail, MessageSquare, MessageCircle, Facebook, Send } from "lucide-react";
 import EmailChannel from "./EmailChannel";
 import SmsChannel from "./SmsChannel";
 import WhatsAppChannel from "./WhatsAppChannel";
+import MessengerChannel from "./MessengerChannel";
+import TwitterChannel from "./TwitterChannel";
 import { cn } from "@/lib/utils";
 
 const CHANNELS = [
   { id: "email", label: "Email", icon: Mail, component: EmailChannel },
   { id: "sms", label: "SMS", icon: MessageSquare, component: SmsChannel },
   { id: "whatsapp", label: "WhatsApp", icon: MessageCircle, component: WhatsAppChannel },
-  { id: "messenger", label: "Messenger", icon: Facebook, component: null },
-  { id: "twitter", label: "Twitter / X", icon: Twitter, component: null },
+  { id: "messenger", label: "Messenger", icon: Facebook, component: MessengerChannel },
+  { id: "twitter", label: "Twitter / X", icon: Send, component: TwitterChannel },
 ] as const;
 
 function PlaceholderChannel({ channelLabel, icon: Icon }: { channelLabel: string; icon: React.ElementType }) {

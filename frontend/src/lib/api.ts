@@ -253,6 +253,62 @@ export interface WhatsAppReplyResponse {
 }
 
 // ============================================================================
+// Facebook Messenger Channel Types (J3.1)
+// ============================================================================
+
+export interface MessengerMessageMetadata {
+  id: string;
+  role: string;
+  content: string;
+  timestamp?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface MessengerThreadListResponse {
+  threads: MessengerMessageMetadata[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface MessengerThreadMessagesResponse {
+  thread_id: string;
+  messages: MessengerMessageMetadata[];
+}
+
+export interface MessengerReplyResponse {
+  message: MessengerMessageMetadata;
+}
+
+// ============================================================================
+// Twitter/X Channel Types (J3.2)
+// ============================================================================
+
+export interface TwitterMessageMetadata {
+  id: string;
+  role: string;
+  content: string;
+  timestamp?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface TwitterThreadListResponse {
+  threads: TwitterMessageMetadata[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface TwitterThreadMessagesResponse {
+  thread_id: string;
+  messages: TwitterMessageMetadata[];
+}
+
+export interface TwitterReplyResponse {
+  message: TwitterMessageMetadata;
+}
+
+// ============================================================================
 // API Client Configuration
 // ============================================================================
 
@@ -1208,6 +1264,102 @@ export const whatsappApi = {
    */
   async replyToThread(threadId: string, body: string): Promise<WhatsAppReplyResponse> {
     return apiClient<WhatsAppReplyResponse>(`/api/whatsapp/threads/${threadId}/reply`, {
+      method: "POST",
+      body: JSON.stringify({ body }),
+    });
+  },
+};
+
+// ============================================================================
+// Facebook Messenger Channel API (J3.1)
+// ============================================================================
+
+export const messengerApi = {
+  /**
+   * Create a mock inbound Messenger message for testing.
+   */
+  async createTestInbound(): Promise<MessengerMessageMetadata> {
+    const payload = {
+      sender_id: "123456789",
+      page_id: import.meta.env.VITE_MESSENGER_PAGE_ID || "987654321",
+      body: "Test Messenger message from customer.",
+    };
+    const response = await apiClient<MessengerMessageMetadata>("/api/messenger/inbound-test", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    return response;
+  },
+
+  /**
+   * List Messenger threads.
+   */
+  async listThreads(limit = 50, offset = 0): Promise<MessengerThreadListResponse> {
+    return apiClient<MessengerThreadListResponse>("/api/messenger/threads", {
+      params: { limit, offset },
+    });
+  },
+
+  /**
+   * Get messages for a specific Messenger thread.
+   */
+  async getThreadMessages(threadId: string): Promise<MessengerThreadMessagesResponse> {
+    return apiClient<MessengerThreadMessagesResponse>(`/api/messenger/threads/${threadId}`);
+  },
+
+  /**
+   * Send a reply for a Messenger thread.
+   */
+  async replyToThread(threadId: string, body: string): Promise<MessengerReplyResponse> {
+    return apiClient<MessengerReplyResponse>(`/api/messenger/threads/${threadId}/reply`, {
+      method: "POST",
+      body: JSON.stringify({ body }),
+    });
+  },
+};
+
+// ============================================================================
+// Twitter/X Channel API (J3.2)
+// ============================================================================
+
+export const twitterApi = {
+  /**
+   * Create a mock inbound Twitter DM for testing.
+   */
+  async createTestInbound(): Promise<TwitterMessageMetadata> {
+    const payload = {
+      sender_id: "twitter_user_123",
+      account_id: import.meta.env.VITE_TWITTER_ACCOUNT_ID || "twitter_business_account",
+      body: "Test Twitter DM from customer.",
+    };
+    const response = await apiClient<TwitterMessageMetadata>("/api/twitter/inbound-test", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    return response;
+  },
+
+  /**
+   * List Twitter DM threads.
+   */
+  async listThreads(limit = 50, offset = 0): Promise<TwitterThreadListResponse> {
+    return apiClient<TwitterThreadListResponse>("/api/twitter/threads", {
+      params: { limit, offset },
+    });
+  },
+
+  /**
+   * Get messages for a specific Twitter DM thread.
+   */
+  async getThreadMessages(threadId: string): Promise<TwitterThreadMessagesResponse> {
+    return apiClient<TwitterThreadMessagesResponse>(`/api/twitter/threads/${threadId}`);
+  },
+
+  /**
+   * Send a reply for a Twitter DM thread.
+   */
+  async replyToThread(threadId: string, body: string): Promise<TwitterReplyResponse> {
+    return apiClient<TwitterReplyResponse>(`/api/twitter/threads/${threadId}/reply`, {
       method: "POST",
       body: JSON.stringify({ body }),
     });

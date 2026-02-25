@@ -101,6 +101,18 @@ class Settings(BaseSettings):
     whatsapp_outbound_webhook_url: Optional[str] = None  # Optional HTTP endpoint to call for outbound WhatsApp delivery
     whatsapp_outbound_webhook_token: Optional[str] = None  # Optional token/secret for outbound webhook auth
 
+    # Facebook Messenger channel configuration (J3.1)
+    messenger_channel_enabled: bool = False  # Master toggle for Facebook Messenger channel
+    messenger_page_id: Optional[str] = None  # Facebook Page ID for Messenger
+    messenger_outbound_webhook_url: Optional[str] = None  # Optional HTTP endpoint to call for outbound Messenger delivery
+    messenger_outbound_webhook_token: Optional[str] = None  # Optional token/secret for outbound webhook auth
+
+    # Twitter/X channel configuration (J3.2)
+    twitter_channel_enabled: bool = False  # Master toggle for Twitter/X channel
+    twitter_account_id: Optional[str] = None  # Twitter account ID / handle
+    twitter_outbound_webhook_url: Optional[str] = None  # Optional HTTP endpoint to call for outbound Twitter DM delivery
+    twitter_outbound_webhook_token: Optional[str] = None  # Optional token/secret for outbound webhook auth
+
 
     class Config:
         env_file = ".env"

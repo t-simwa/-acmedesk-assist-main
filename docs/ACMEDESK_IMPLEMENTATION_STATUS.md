@@ -1587,25 +1587,25 @@ This section covers tasks to elevate the UI from a good prototype to a **world-c
     - [x] Document WhatsApp integration (see `docs/J-omnichannel-support/J2-sms-whatsapp-channel.md`).
 
 - **J3 – Social Media Channels**
-  - [ ] J3.1 – Facebook Messenger Integration
-    - [ ] Research Facebook Messenger API.
-    - [ ] Set up Facebook App and Page.
-    - [ ] Integrate Facebook Messenger API.
-    - [ ] Implement Messenger-to-conversation conversion.
-    - [ ] Add Messenger message formatting.
-    - [ ] Create Messenger configuration UI.
-    - [ ] Test Messenger integration.
-    - [ ] Document Messenger integration.
+  - [x] J3.1 – Facebook Messenger Integration
+    - [x] Research Facebook Messenger API.
+    - [x] Set up Facebook App and Page.
+    - [x] Integrate Facebook Messenger API.
+    - [x] Implement Messenger-to-conversation conversion.
+    - [x] Add Messenger message formatting.
+    - [x] Create Messenger configuration UI.
+    - [x] Test Messenger integration.
+    - [x] Document Messenger integration.
 
-  - [ ] J3.2 – Twitter/X Integration
-    - [ ] Research Twitter API.
-    - [ ] Set up Twitter Developer account.
-    - [ ] Integrate Twitter API.
-    - [ ] Implement Twitter DM-to-conversation conversion.
-    - [ ] Add Twitter reply functionality.
-    - [ ] Create Twitter configuration UI.
-    - [ ] Test Twitter integration.
-    - [ ] Document Twitter integration.
+  - [x] J3.2 – Twitter/X Integration
+    - [x] Research Twitter API.
+    - [x] Set up Twitter Developer account.
+    - [x] Integrate Twitter API.
+    - [x] Implement Twitter DM-to-conversation conversion.
+    - [x] Add Twitter reply functionality.
+    - [x] Create Twitter configuration UI.
+    - [x] Test Twitter integration.
+    - [x] Document Twitter integration.
 
 - **J4 – Mobile App SDK**
   - [ ] J4.1 – iOS SDK
@@ -2471,34 +2471,34 @@ Based on the comprehensive market comparison analysis (`docs/MARKET_COMPARISON_A
   - [x] Add email signature support.
 
 #### J2 – SMS/WhatsApp Channel
-- [ ] **J2.1 – SMS Integration**
-  - [ ] Integrate SMS provider (Twilio, AWS SNS, or similar).
-  - [ ] Implement SMS-to-conversation conversion.
-  - [ ] Add SMS reply functionality.
-  - [ ] Create SMS configuration UI.
-  - [ ] Test SMS delivery and reception.
+- [x] **J2.1 – SMS Integration**
+  - [x] Integrate SMS provider (Twilio, AWS SNS, or similar).
+  - [x] Implement SMS-to-conversation conversion.
+  - [x] Add SMS reply functionality.
+  - [x] Create SMS configuration UI.
+  - [x] Test SMS delivery and reception.
 
-- [ ] **J2.2 – WhatsApp Integration**
-  - [ ] Integrate WhatsApp Business API.
-  - [ ] Implement WhatsApp-to-conversation conversion.
-  - [ ] Add WhatsApp message formatting (rich media).
-  - [ ] Create WhatsApp configuration UI.
-  - [ ] Test WhatsApp integration.
+- [x] **J2.2 – WhatsApp Integration**
+  - [x] Integrate WhatsApp Business API.
+  - [x] Implement WhatsApp-to-conversation conversion.
+  - [x] Add WhatsApp message formatting (rich media).
+  - [x] Create WhatsApp configuration UI.
+  - [x] Test WhatsApp integration.
 
 #### J3 – Social Media Channels
-- [ ] **J3.1 – Facebook Messenger Integration**
-  - [ ] Integrate Facebook Messenger API.
-  - [ ] Implement Messenger-to-conversation conversion.
-  - [ ] Add Messenger message formatting.
-  - [ ] Create Messenger configuration UI.
-  - [ ] Test Messenger integration.
+- [x] **J3.1 – Facebook Messenger Integration**
+  - [x] Integrate Facebook Messenger API.
+  - [x] Implement Messenger-to-conversation conversion.
+  - [x] Add Messenger message formatting.
+  - [x] Create Messenger configuration UI.
+  - [x] Test Messenger integration.
 
-- [ ] **J3.2 – Twitter/X Integration**
-  - [ ] Integrate Twitter API.
-  - [ ] Implement Twitter DM-to-conversation conversion.
-  - [ ] Add Twitter reply functionality.
-  - [ ] Create Twitter configuration UI.
-  - [ ] Test Twitter integration.
+- [x] **J3.2 – Twitter/X Integration**
+  - [x] Integrate Twitter API.
+  - [x] Implement Twitter DM-to-conversation conversion.
+  - [x] Add Twitter reply functionality.
+  - [x] Create Twitter configuration UI.
+  - [x] Test Twitter integration.
 
 #### J4 – Mobile App SDK
 - [ ] **J4.1 – iOS SDK**

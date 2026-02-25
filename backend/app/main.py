@@ -29,6 +29,8 @@ from .routers import (
     sms,
     user_preferences,
     whatsapp,
+    messenger,
+    twitter,
 )
 
 
@@ -92,6 +94,8 @@ app.include_router(knowledge_bases.router)
 app.include_router(email.router)
 app.include_router(sms.router)
 app.include_router(whatsapp.router)
+app.include_router(messenger.router)
+app.include_router(twitter.router)
 
 
 @app.get("/")
