@@ -2,30 +2,34 @@
  * Role Context for managing user roles and permissions.
  * 
  * Provides role-based access control (RBAC) functionality throughout the application.
+ * Roles: owner, admin, agent (matches plan specification)
  */
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { adminApi, CurrentUser } from "@/lib/api";
 import { useAuth } from "./AuthContext";
 
+export type UserRole = "super_admin" | "owner" | "admin" | "agent" | "visitor";
+
 interface RoleContextType {
   user: CurrentUser | null;
   loading: boolean;
   error: string | null;
   hasPermission: (permission: string) => boolean;
-  hasRole: (role: "admin" | "analyst" | "viewer") => boolean;
+  hasRole: (role: UserRole) => boolean;
+  isSuperAdmin: boolean;
+  isOwner: boolean;
   isAdmin: boolean;
-  isAnalyst: boolean;
-  isViewer: boolean;
+  isAgent: boolean;
   refreshUser: () => Promise<void>;
 }
 
-// Default admin user for development/fallback
-const DEFAULT_ADMIN_USER: CurrentUser = {
+// Default owner user for development/fallback
+const DEFAULT_OWNER_USER: CurrentUser = {
   id: "default",
   email: "admin@acmedesk.com",
   name: "Admin User",
-  role: "admin",
+  role: "owner",
   is_active: true,
   permissions: [
     "admin:read",
@@ -49,23 +53,23 @@ const DEFAULT_ADMIN_USER: CurrentUser = {
 
 // Create context with a default value to prevent undefined errors
 const defaultContextValue: RoleContextType = {
-  user: DEFAULT_ADMIN_USER,
+  user: DEFAULT_OWNER_USER,
   loading: false,
   error: null,
   hasPermission: () => false,
   hasRole: () => false,
-  isAdmin: true,
-  isAnalyst: false,
-  isViewer: false,
+  isSuperAdmin: false,
+  isOwner: true,
+  isAdmin: false,
+  isAgent: false,
   refreshUser: async () => {},
 };
 
 const RoleContext = createContext<RoleContextType>(defaultContextValue);
 
 export function RoleProvider({ children }: { children: ReactNode }) {
-  // AuthContext is always available since AuthProvider wraps RoleProvider in App.tsx
   const { user: authUser, isAuthenticated } = useAuth();
-  const [user, setUser] = useState<CurrentUser | null>(DEFAULT_ADMIN_USER);
+  const [user, setUser] = useState<CurrentUser | null>(DEFAULT_OWNER_USER);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -90,9 +94,9 @@ export function RoleProvider({ children }: { children: ReactNode }) {
           id: authUser.user_id,
           email: authUser.email,
           name: authUser.name || undefined,
-          role: authUser.role as "admin" | "analyst" | "viewer",
+          role: authUser.role as UserRole,
           is_active: authUser.is_active,
-          permissions: [], // Will be empty if admin API fails
+          permissions: [],
         });
       } else {
         setUser(null);
@@ -111,14 +115,15 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     return user.permissions.includes(permission);
   };
 
-  const hasRole = (role: "admin" | "analyst" | "viewer"): boolean => {
+  const hasRole = (role: UserRole): boolean => {
     if (!user) return false;
     return user.role === role;
   };
 
+  const isSuperAdmin = user?.role === "super_admin";
+  const isOwner = user?.role === "owner";
   const isAdmin = user?.role === "admin";
-  const isAnalyst = user?.role === "analyst";
-  const isViewer = user?.role === "viewer";
+  const isAgent = user?.role === "agent";
 
   const refreshUser = async () => {
     await fetchUser();
@@ -126,14 +131,15 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 
   // Always provide a valid context value, even during loading
   const contextValue: RoleContextType = {
-    user: user || DEFAULT_ADMIN_USER,
+    user: user || DEFAULT_OWNER_USER,
     loading,
     error,
     hasPermission,
     hasRole,
+    isSuperAdmin,
+    isOwner,
     isAdmin,
-    isAnalyst,
-    isViewer,
+    isAgent,
     refreshUser,
   };
 

@@ -55,12 +55,12 @@ def _is_email_channel_enabled() -> bool:
     return True
 
 
-async def fetch_and_store_new_emails(user_id: str) -> int:
+async def fetch_and_store_new_emails(tenant_id: str) -> int:
     """
     Fetch new emails from the configured IMAP inbox and store them as conversation messages.
 
     Args:
-        user_id: Admin user ID performing the sync; used as owner of created conversations.
+        tenant_id: Tenant ID performing the sync; used as owner of created conversations.
 
     Returns:
         Number of new email messages imported.
@@ -148,12 +148,12 @@ async def fetch_and_store_new_emails(user_id: str) -> int:
 
                 body = "\n".join(body_parts).strip() or "(no content)"
 
-                # Ensure conversation exists for thread (per-admin owner)
+                # Ensure conversation exists for thread (per-tenant)
                 session_identifier = f"email-{thread_id}"
                 result = await session.execute(
                     select(Conversation).where(
                         Conversation.session_id == session_identifier,
-                        Conversation.user_id == user_id,
+                        Conversation.tenant_id == tenant_id,
                     )
                 )
                 conversation = result.scalar_one_or_none()
@@ -162,7 +162,7 @@ async def fetch_and_store_new_emails(user_id: str) -> int:
                     conversation_id = str(uuid.uuid4())
                     conversation = Conversation(
                         id=conversation_id,
-                        user_id=user_id,
+                        tenant_id=tenant_id,
                         session_id=session_identifier,
                         started_at=email.utils.parsedate_to_datetime(msg.get("Date"))
                         if msg.get("Date")
@@ -211,20 +211,20 @@ async def fetch_and_store_new_emails(user_id: str) -> int:
         raise
 
 
-async def list_email_threads(user_id: str, limit: int = 50, offset: int = 0) -> tuple[List[EmailThreadSummary], int]:
+async def list_email_threads(tenant_id: str, limit: int = 50, offset: int = 0) -> tuple[List[EmailThreadSummary], int]:
     """
-    List email threads for the given user, derived from message metadata.
+    List email threads for the given tenant, derived from message metadata.
     """
     session_factory = get_session_factory()
     async with session_factory() as session:
         try:
-            # Fetch all messages for this user that belong to the email channel.
+            # Fetch all messages for this tenant that belong to the email channel.
             # We use a simple in-Python grouping to avoid DB JSON dialect differences.
             result = await session.execute(
                 select(Message, Conversation)
                 .join(Conversation, Message.conversation_id == Conversation.id)
                 .where(
-                    Conversation.user_id == user_id,
+                    Conversation.tenant_id == tenant_id,
                 )
                 .order_by(Message.created_at.desc())
             )
@@ -284,7 +284,7 @@ async def list_email_threads(user_id: str, limit: int = 50, offset: int = 0) -> 
             raise
 
 
-async def list_email_thread_messages(user_id: str, thread_id: str) -> List[dict]:
+async def list_email_thread_messages(tenant_id: str, thread_id: str) -> List[dict]:
     """
     List messages for a specific email thread.
     """
@@ -295,7 +295,7 @@ async def list_email_thread_messages(user_id: str, thread_id: str) -> List[dict]
                 select(Message, Conversation)
                 .join(Conversation, Message.conversation_id == Conversation.id)
                 .where(
-                    Conversation.user_id == user_id,
+                    Conversation.tenant_id == tenant_id,
                     Message.message_metadata["email_thread_id"].as_string() == thread_id,
                 )
                 .order_by(Message.created_at.asc())
@@ -334,7 +334,7 @@ def _build_email_message(
 
 
 async def send_email_reply(
-    user_id: str,
+    tenant_id: str,
     thread_id: str,
     body: str,
 ) -> dict:
@@ -353,7 +353,7 @@ async def send_email_reply(
                 select(Message, Conversation)
                 .join(Conversation, Message.conversation_id == Conversation.id)
                 .where(
-                    Conversation.user_id == user_id,
+                    Conversation.tenant_id == tenant_id,
                     Message.message_metadata["email_thread_id"].as_string() == thread_id,
                 )
                 .order_by(Message.created_at.desc())

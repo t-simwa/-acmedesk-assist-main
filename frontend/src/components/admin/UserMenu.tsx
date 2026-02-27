@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRole, UserRole } from "@/contexts/RoleContext";
 import { useTranslation } from "react-i18next";
 import {
   DropdownMenu,
@@ -15,16 +16,24 @@ import { User, Settings, LogOut, Shield, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/contexts/ThemeContext";
 
+const ROLE_COLORS: Record<UserRole, { bg: string; text: string; label: string }> = {
+  super_admin: { bg: "rgba(239,68,68,0.15)", text: "#EF4444", label: "Super Admin" },
+  owner: { bg: "rgba(79,142,247,0.15)", text: "#4F8EF7", label: "Owner" },
+  admin: { bg: "rgba(124,58,237,0.15)", text: "#7C3AED", label: "Admin" },
+  agent: { bg: "rgba(16,185,129,0.15)", text: "#10B981", label: "Agent" },
+  visitor: { bg: "rgba(107,114,128,0.15)", text: "#6B7280", label: "Visitor" },
+};
+
 export function UserMenu() {
   const { user, logout } = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { resolvedTheme, setTheme } = useTheme();
+  const { user: roleUser } = useRole();
   const [open, setOpen] = useState(false);
 
   if (!user) return null;
 
-  // Get user initials for avatar
   const getInitials = (name?: string, email?: string) => {
     if (name) {
       const parts = name.split(" ");
@@ -38,6 +47,9 @@ export function UserMenu() {
     }
     return "U";
   };
+
+  const userRole = (roleUser?.role || "visitor") as UserRole;
+  const roleStyle = ROLE_COLORS[userRole] || ROLE_COLORS.visitor;
 
   const handleLogout = () => {
     setOpen(false);
@@ -69,9 +81,12 @@ export function UserMenu() {
             <p className="text-xs leading-none text-muted-foreground">
               {user.email}
             </p>
-            <p className="text-xs leading-none text-muted-foreground mt-1 capitalize">
-              {user.role}
-            </p>
+            <span
+              className="text-xs font-medium mt-1 px-2 py-0.5 rounded inline-block w-fit"
+              style={{ backgroundColor: roleStyle.bg, color: roleStyle.text }}
+            >
+              {roleStyle.label}
+            </span>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />

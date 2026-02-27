@@ -45,7 +45,7 @@ async def sync_email_inbox(
     - Returns a count of imported messages
     """
     try:
-        imported = await email_service.fetch_and_store_new_emails(user_id=current_user.id)
+        imported = await email_service.fetch_and_store_new_emails(tenant_id=current_user.tenant_id)
         return {"imported": imported}
     except Exception as exc:
         logger.error("Error during email inbox sync: %s", exc, exc_info=True)
@@ -70,7 +70,7 @@ async def list_email_threads(
     """
     try:
         threads, total = await email_service.list_email_threads(
-            user_id=current_user.id,
+            tenant_id=current_user.tenant_id,
             limit=limit,
             offset=offset,
         )
@@ -116,7 +116,7 @@ async def get_email_thread_messages(
     """
     try:
         messages = await email_service.list_email_thread_messages(
-            user_id=current_user.id,
+            tenant_id=current_user.tenant_id,
             thread_id=thread_id,
         )
 
@@ -162,7 +162,7 @@ async def reply_to_email_thread(
 
     try:
         message_dict = await email_service.send_email_reply(
-            user_id=current_user.id,
+            tenant_id=current_user.tenant_id,
             thread_id=thread_id,
             body=request.body,
         )

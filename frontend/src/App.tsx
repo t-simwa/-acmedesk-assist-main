@@ -21,6 +21,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import VerifyEmail from "./pages/VerifyEmail";
 import EmailVerified from "./pages/EmailVerified";
+import AcceptInvite from "./pages/AcceptInvite";
 import TwoFactorAuth from "./pages/TwoFactorAuth";
 import { AdminLayout } from "./components/admin/AdminLayout";
 import { DashboardSkeleton } from "./components/admin/skeletons/DashboardSkeleton";
@@ -118,6 +119,14 @@ const App = () => (
                 element={
                   <PageTransition>
                     <EmailVerified />
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="/team/accept"
+                element={
+                  <PageTransition>
+                    <AcceptInvite />
                   </PageTransition>
                 }
               />

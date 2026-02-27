@@ -20,7 +20,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Optional, List
 
-from fastapi import APIRouter, HTTPException, status, Request, Query
+from fastapi import APIRouter, HTTPException, status, Request, Query, Depends
 from sqlalchemy import select, func, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -30,6 +30,7 @@ from ..models.user import User, UserRole
 from ..models.audit_log import AuditLog, AuditAction, AuditResourceType
 from ..models.api_key import APIKey
 from ..models.team_member import TeamMember, TeamMemberRole, InvitationStatus
+from ..dependencies.auth import get_current_user, require_role, require_admin, require_owner
 from ..schemas.admin import (
     CurrentUserResponse,
     AuditLogResponse,
@@ -143,27 +144,29 @@ def get_user_permissions(role: str) -> List[str]:
 
 
 @router.get("/current-user", response_model=CurrentUserResponse, status_code=status.HTTP_200_OK)
-async def get_current_user(request: Request) -> CurrentUserResponse:
+async def get_current_user_info(
+    request: Request,
+    current_user: User = Depends(get_current_user)
+) -> CurrentUserResponse:
     """
     Get current user information and permissions.
     
     Returns the current user's information including role and permissions.
-    For now, returns a default admin user (single-user prototype).
+    Requires authentication.
     
     Returns:
         CurrentUserResponse with user info and permissions
     """
     try:
-        # For single-user prototype, return default admin user
-        role = DEFAULT_USER_ROLE.value
+        role = current_user.role.value if current_user.role else "agent"
         permissions = get_user_permissions(role)
         
         return CurrentUserResponse(
-            id=DEFAULT_USER_ID,
-            email=DEFAULT_USER_EMAIL,
-            name="Admin User",
+            id=current_user.id,
+            email=current_user.email,
+            name=current_user.full_name or "User",
             role=role,
-            is_active=True,
+            is_active=current_user.is_active,
             permissions=permissions,
         )
     except Exception as e:
@@ -185,6 +188,7 @@ async def list_audit_logs(
     end_date: Optional[str] = Query(None, description="End date (ISO format)"),
     limit: int = Query(50, ge=1, le=100, description="Number of logs to return"),
     offset: int = Query(0, ge=0, description="Number of logs to skip"),
+    current_user: User = Depends(require_admin())
 ) -> AuditLogListResponse:
     """
     List audit logs with filtering and pagination.
@@ -197,6 +201,8 @@ async def list_audit_logs(
     - status: Status of the action (success, error, warning)
     - start_date: Start date for date range filter (ISO format)
     - end_date: End date for date range filter (ISO format)
+    
+    Requires admin or owner role.
     
     Returns:
         AuditLogListResponse with paginated audit logs
@@ -314,12 +320,14 @@ async def list_api_keys(request: Request) -> APIKeyListResponse:
 async def create_api_key(
     request_body: APIKeyCreateRequest,
     request: Request,
+    current_user: User = Depends(require_admin())
 ) -> APIKeyCreateResponse:
     """
     Create a new API key.
     
     Generates a new API key for the current user. The key is only shown once
     in the response - it should be stored securely by the client.
+    Requires admin or owner role.
     
     Args:
         request_body: API key creation request with name and optional expiration
@@ -340,7 +348,7 @@ async def create_api_key(
             # Create API key record
             api_key = APIKey(
                 id=str(uuid.uuid4()),
-                user_id=DEFAULT_USER_ID,
+                user_id=current_user.id,
                 name=request_body.name,
                 key_hash=key_hash,
                 key_prefix=key_prefix,
@@ -359,6 +367,8 @@ async def create_api_key(
                 resource_name=api_key.name,
                 description=f"Created API key: {api_key.name}",
                 metadata={"key_prefix": key_prefix},
+                user_id=current_user.id,
+                user_email=current_user.email,
                 ip_address=request.client.host if request.client else None,
                 user_agent=request.headers.get("user-agent"),
             )
@@ -444,18 +454,24 @@ async def revoke_api_key(
 
 
 @router.get("/team", response_model=TeamMemberListResponse, status_code=status.HTTP_200_OK)
-async def list_team_members(request: Request) -> TeamMemberListResponse:
+async def list_team_members(
+    request: Request,
+    current_user: User = Depends(require_admin())
+) -> TeamMemberListResponse:
     """
     List all team members.
     
     Returns a list of all team members including their roles and invitation status.
+    Requires admin or owner role.
     
     Returns:
         TeamMemberListResponse with list of team members
     """
     try:
         async with get_db_session() as session:
-            query = select(TeamMember).order_by(TeamMember.created_at.desc())
+            query = select(TeamMember).where(
+                TeamMember.tenant_id == current_user.tenant_id
+            ).order_by(TeamMember.created_at.desc())
             result = await session.execute(query)
             members = result.scalars().all()
             
@@ -464,6 +480,8 @@ async def list_team_members(request: Request) -> TeamMemberListResponse:
                 action=AuditAction.VIEW,
                 resource_type=AuditResourceType.TEAM_MEMBER,
                 description="Listed team members",
+                user_id=current_user.id,
+                user_email=current_user.email,
                 ip_address=request.client.host if request.client else None,
                 user_agent=request.headers.get("user-agent"),
             )
@@ -484,12 +502,14 @@ async def list_team_members(request: Request) -> TeamMemberListResponse:
 async def invite_team_member(
     request_body: TeamMemberInviteRequest,
     request: Request,
+    current_user: User = Depends(require_admin())
 ) -> TeamMemberInviteResponse:
     """
     Invite a new team member.
     
     Creates a new team member invitation. The invitee will receive an email
-    (in a real implementation) with instructions to accept the invitation.
+    with instructions to accept the invitation.
+    Requires admin or owner role.
     
     Args:
         request_body: Invitation request with email, name, and role
@@ -499,8 +519,11 @@ async def invite_team_member(
     """
     try:
         async with get_db_session() as session:
-            # Check if member already exists
-            query = select(TeamMember).where(TeamMember.email == request_body.email)
+            # Check if member already exists in this tenant
+            query = select(TeamMember).where(
+                TeamMember.email == request_body.email,
+                TeamMember.tenant_id == current_user.tenant_id
+            )
             result = await session.execute(query)
             existing = result.scalar_one_or_none()
             
@@ -510,23 +533,31 @@ async def invite_team_member(
                     detail=f"Team member with email {request_body.email} already exists",
                 )
             
-            # Validate role
+            # Validate role - prevent inviting owner (only one owner per tenant)
             try:
                 role = TeamMemberRole(request_body.role)
             except ValueError:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Invalid role: {request_body.role}. Must be one of: admin, analyst, viewer",
+                    detail=f"Invalid role: {request_body.role}. Must be one of: owner, admin, agent",
+                )
+            
+            # Prevent changing own role to agent
+            if request_body.role == "owner" and current_user.role != UserRole.OWNER:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Only owners can invite other owners",
                 )
             
             # Create team member invitation
             team_member = TeamMember(
                 id=str(uuid.uuid4()),
+                tenant_id=current_user.tenant_id,
                 email=request_body.email,
                 name=request_body.name,
                 role=role,
                 status=InvitationStatus.PENDING,
-                invited_by=DEFAULT_USER_ID,
+                invited_by=current_user.id,
             )
             session.add(team_member)
             await session.commit()
@@ -540,9 +571,13 @@ async def invite_team_member(
                 resource_name=team_member.email,
                 description=f"Invited team member: {team_member.email} with role {team_member.role.value}",
                 metadata={"email": team_member.email, "role": team_member.role.value},
+                user_id=current_user.id,
+                user_email=current_user.email,
                 ip_address=request.client.host if request.client else None,
                 user_agent=request.headers.get("user-agent"),
             )
+            
+            # TODO: Send invitation email with Resend
             
             return TeamMemberInviteResponse(
                 id=team_member.id,
@@ -568,11 +603,13 @@ async def update_team_member_role(
     member_id: str,
     request_body: TeamMemberUpdateRoleRequest,
     request: Request,
+    current_user: User = Depends(require_admin())
 ) -> TeamMemberUpdateRoleResponse:
     """
     Update a team member's role.
     
     Changes the role of an existing team member.
+    Requires admin or owner role.
     
     Args:
         member_id: ID of the team member
@@ -583,8 +620,11 @@ async def update_team_member_role(
     """
     try:
         async with get_db_session() as session:
-            # Find team member
-            query = select(TeamMember).where(TeamMember.id == member_id)
+            # Find team member in the current tenant
+            query = select(TeamMember).where(
+                TeamMember.id == member_id,
+                TeamMember.tenant_id == current_user.tenant_id
+            )
             result = await session.execute(query)
             team_member = result.scalar_one_or_none()
             
@@ -594,13 +634,20 @@ async def update_team_member_role(
                     detail="Team member not found",
                 )
             
+            # Prevent demoting the owner
+            if team_member.role == TeamMemberRole.OWNER and request_body.role != "owner":
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Cannot change owner's role",
+                )
+            
             # Validate role
             try:
                 new_role = TeamMemberRole(request_body.role)
             except ValueError:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Invalid role: {request_body.role}. Must be one of: admin, analyst, viewer",
+                    detail=f"Invalid role: {request_body.role}. Must be one of: owner, admin, agent",
                 )
             
             old_role = team_member.role.value
@@ -616,6 +663,8 @@ async def update_team_member_role(
                 resource_name=team_member.email,
                 description=f"Changed role of {team_member.email} from {old_role} to {new_role.value}",
                 metadata={"old_role": old_role, "new_role": new_role.value},
+                user_id=current_user.id,
+                user_email=current_user.email,
                 ip_address=request.client.host if request.client else None,
                 user_agent=request.headers.get("user-agent"),
             )
@@ -639,11 +688,13 @@ async def update_team_member_role(
 async def remove_team_member(
     member_id: str,
     request: Request,
+    current_user: User = Depends(require_admin())
 ) -> dict:
     """
     Remove a team member.
     
     Removes a team member from the team (marks as inactive).
+    Requires admin or owner role.
     
     Args:
         member_id: ID of the team member to remove
@@ -653,8 +704,11 @@ async def remove_team_member(
     """
     try:
         async with get_db_session() as session:
-            # Find team member
-            query = select(TeamMember).where(TeamMember.id == member_id)
+            # Find team member in the current tenant
+            query = select(TeamMember).where(
+                TeamMember.id == member_id,
+                TeamMember.tenant_id == current_user.tenant_id
+            )
             result = await session.execute(query)
             team_member = result.scalar_one_or_none()
             
@@ -662,6 +716,13 @@ async def remove_team_member(
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Team member not found",
+                )
+            
+            # Prevent removing the owner
+            if team_member.role == TeamMemberRole.OWNER:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Cannot remove the owner",
                 )
             
             # Remove member (mark as inactive)
@@ -675,6 +736,8 @@ async def remove_team_member(
                 resource_id=team_member.id,
                 resource_name=team_member.email,
                 description=f"Removed team member: {team_member.email}",
+                user_id=current_user.id,
+                user_email=current_user.email,
                 ip_address=request.client.host if request.client else None,
                 user_agent=request.headers.get("user-agent"),
             )

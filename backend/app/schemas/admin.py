@@ -13,10 +13,10 @@ from pydantic import BaseModel, Field, EmailStr
 # ============================================================================
 
 class UserRole(str):
-    """User role enumeration."""
+    """User role enumeration - matches plan specification."""
+    OWNER = "owner"
     ADMIN = "admin"
-    ANALYST = "analyst"
-    VIEWER = "viewer"
+    AGENT = "agent"
 
 
 class UserResponse(BaseModel):
@@ -132,15 +132,16 @@ class APIKeyRevokeRequest(BaseModel):
 # ============================================================================
 
 class TeamMemberRole(str):
-    """Team member role enumeration."""
+    """Team member role enumeration - matches plan specification."""
+    OWNER = "owner"
     ADMIN = "admin"
-    ANALYST = "analyst"
-    VIEWER = "viewer"
+    AGENT = "agent"
 
 
 class TeamMemberResponse(BaseModel):
     """Team member response model."""
     id: str
+    tenant_id: str
     user_id: Optional[str] = None
     email: str
     name: Optional[str] = None
@@ -149,6 +150,7 @@ class TeamMemberResponse(BaseModel):
     invited_by: str
     invited_at: str
     accepted_at: Optional[str] = None
+    invite_token_expires: Optional[str] = None
     is_active: bool
     created_at: str
     updated_at: str
@@ -164,7 +166,7 @@ class TeamMemberInviteRequest(BaseModel):
     """Team member invite request model."""
     email: EmailStr = Field(..., description="Email address to invite")
     name: Optional[str] = Field(None, max_length=200, description="Name of the invitee")
-    role: str = Field(default="viewer", description="Role to assign (admin, analyst, viewer)")
+    role: str = Field(default="agent", description="Role to assign (owner, admin, agent)")
 
 
 class TeamMemberInviteResponse(BaseModel):
@@ -180,7 +182,7 @@ class TeamMemberInviteResponse(BaseModel):
 
 class TeamMemberUpdateRoleRequest(BaseModel):
     """Team member update role request model."""
-    role: str = Field(..., description="New role to assign (admin, analyst, viewer)")
+    role: str = Field(..., description="New role to assign (owner, admin, agent)")
 
 
 class TeamMemberUpdateRoleResponse(BaseModel):
@@ -188,3 +190,34 @@ class TeamMemberUpdateRoleResponse(BaseModel):
     id: str
     role: str
     message: str = Field(default="Role updated successfully")
+
+
+# ============================================================================
+# Accept Invite Schemas
+# ============================================================================
+
+class AcceptInviteRequest(BaseModel):
+    """Accept invite request model for new user registration."""
+    token: str = Field(..., description="Invitation token from email")
+    password: str = Field(..., min_length=8, description="Password for new account")
+    full_name: Optional[str] = Field(None, max_length=200, description="Full name of the user")
+
+
+class AcceptInviteResponse(BaseModel):
+    """Accept invite response model."""
+    message: str
+    tenant_id: str
+    role: str
+    email: str
+    name: Optional[str] = None
+
+
+class AcceptInviteStatusResponse(BaseModel):
+    """Check invite status response model."""
+    valid: bool
+    email: Optional[str] = None
+    name: Optional[str] = None
+    tenant_name: Optional[str] = None
+    role: Optional[str] = None
+    expires_at: Optional[str] = None
+    message: Optional[str] = None

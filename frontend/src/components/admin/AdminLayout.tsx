@@ -1,57 +1,23 @@
 import { useState, useEffect } from "react";
 import { Outlet, Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, FileText, BarChart3, Settings, User, Menu, X, Users, FileTextIcon, KeyRound, Shield, HelpCircle, Inbox } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { PageTransition } from "@/components/PageTransition";
 import { Logo } from "@/components/Branding/Logo";
 import { Footer } from "@/components/Footer";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useIsTablet } from "@/hooks/use-tablet";
-import { useRole } from "@/hooks/useRole";
-import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { UserMenu } from "./UserMenu";
-
-// Base navigation items available to all users - labels will be translated in component
-const baseNavItems = [
-  { labelKey: "navigation.dashboard", path: "/admin", icon: LayoutDashboard, permission: "analytics:read" },
-  { labelKey: "navigation.documents", path: "/admin/documents", icon: FileText, permission: "documents:read" },
-  { labelKey: "navigation.inbox", path: "/admin/inbox", icon: Inbox, permission: null },
-  { labelKey: "navigation.analytics", path: "/admin/analytics", icon: BarChart3, permission: "analytics:read" },
-  { labelKey: "navigation.settings", path: "/admin/settings", icon: Settings, permission: "settings:read" },
-  { labelKey: "navigation.security", path: "/admin/security", icon: Shield, permission: null },
-  { labelKey: "navigation.profile", path: "/admin/profile", icon: User, permission: null },
-  { labelKey: "navigation.helpCenter", path: "/admin/help", icon: HelpCircle, permission: null },
-];
-
-// Admin-only navigation items
-const adminNavItems = [
-  { labelKey: "navigation.team", path: "/admin/team", icon: Users, permission: "team:read" },
-  { labelKey: "navigation.auditLogs", path: "/admin/audit-logs", icon: FileTextIcon, permission: "audit_logs:read" },
-  { labelKey: "navigation.apiKeys", path: "/admin/api-keys", icon: KeyRound, permission: "api_keys:read" },
-];
+import { RoleBasedSidebar } from "./RoleBasedSidebar";
 
 export function AdminLayout() {
   const { t } = useTranslation();
   const location = useLocation();
   const isMobile = useIsMobile();
   const isTablet = useIsTablet();
-  const { hasPermission } = useRole();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  // Filter navigation items based on permissions
-  const getNavItems = () => {
-    const items = baseNavItems.filter(
-      (item) => !item.permission || hasPermission(item.permission)
-    );
-    const adminItems = adminNavItems.filter(
-      (item) => hasPermission(item.permission)
-    );
-    return [...items, ...adminItems];
-  };
-
-  const navItems = getNavItems();
 
   // Close mobile menu when route changes
   useEffect(() => {
@@ -74,6 +40,15 @@ export function AdminLayout() {
 
   const SidebarContent = () => (
     <>
+      <style>{`
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
       <div className="px-5 py-5 border-b border-border">
         <Link 
           to="/" 
@@ -86,30 +61,9 @@ export function AdminLayout() {
         </Link>
       </div>
 
-      <nav className="flex-1 px-3 py-4 space-y-0.5" aria-label="Main navigation">
-        {navItems.map((item) => {
-          const isActive =
-            item.path === "/admin"
-              ? location.pathname === "/admin"
-              : location.pathname.startsWith(item.path);
-          return (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14px] transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 min-h-[44px] ${
-                isActive
-                  ? "bg-accent text-accent-foreground font-medium"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              }`}
-              aria-current={isActive ? "page" : undefined}
-              onClick={() => isMobile && setMobileMenuOpen(false)}
-            >
-              <item.icon size={18} aria-hidden="true" />
-              {t(item.labelKey)}
-            </Link>
-          );
-        })}
-      </nav>
+      <div className="flex-1 overflow-y-auto scrollbar-hide py-2">
+        <RoleBasedSidebar />
+      </div>
 
       <div className="px-5 py-4 border-t border-border">
         <UserMenu />

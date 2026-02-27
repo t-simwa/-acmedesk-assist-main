@@ -33,6 +33,7 @@ from .routers import (
     twitter,
     security,
     oauth,
+    team,
 )
 
 
@@ -100,6 +101,7 @@ app.include_router(messenger.router)
 app.include_router(twitter.router)
 app.include_router(security.router)
 app.include_router(oauth.router)
+app.include_router(team.router)
 
 
 @app.get("/")

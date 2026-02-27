@@ -76,7 +76,7 @@ async def save_conversation_turn(
                 conversation_id = str(uuid.uuid4())
                 conversation = Conversation(
                     id=conversation_id,
-                    user_id=user_id or "anonymous",  # Use user_id if provided, otherwise "anonymous"
+                    tenant_id =user_id or "anonymous",  # Use user_id if provided, otherwise "anonymous"
                     session_id=session_id,
                     started_at=datetime.utcnow(),
                     last_activity_at=datetime.utcnow(),
@@ -152,12 +152,12 @@ async def get_conversation_history(
             # Find conversation by session_id, optionally filtered by user_id
             query = select(Conversation).where(Conversation.session_id == session_id)
             if user_id:
-                query = query.where(Conversation.user_id == user_id)
+                query = query.where(Conversation.tenant_id == user_id)
             result = await session.execute(query)
             conversation = result.scalar_one_or_none()
 
             if conversation is None:
-                logger.debug(f"No conversation history found for session_id={session_id}, user_id={user_id}")
+                logger.debug(f"No conversation history found for session_id={session_id}, tenant_id ={user_id}")
                 return [], 0
 
             # Get total count
@@ -209,12 +209,12 @@ async def update_message_reaction(message_id: str, reaction: Optional[str], user
             query = select(Message).where(Message.id == message_id)
             if user_id:
                 # Join with Conversation to filter by user_id
-                query = query.join(Conversation).where(Conversation.user_id == user_id)
+                query = query.join(Conversation).where(Conversation.tenant_id == user_id)
             result = await session.execute(query)
             message = result.scalar_one_or_none()
 
             if message is None:
-                logger.debug(f"No message found to update reaction: message_id={message_id}, user_id={user_id}")
+                logger.debug(f"No message found to update reaction: message_id={message_id}, tenant_id ={user_id}")
                 return False
 
             # Update metadata with reaction
@@ -256,7 +256,7 @@ async def delete_conversation(session_id: str, user_id: Optional[str] = None) ->
             # Find conversation by session_id, optionally filtered by user_id
             query = select(Conversation).where(Conversation.session_id == session_id)
             if user_id:
-                query = query.where(Conversation.user_id == user_id)
+                query = query.where(Conversation.tenant_id == user_id)
             result = await session.execute(query)
             conversation = result.scalar_one_or_none()
 
@@ -323,7 +323,7 @@ async def create_document(
         try:
             document = Document(
                 id=doc_id,
-                user_id=user_id or "anonymous",  # Use user_id if provided, otherwise "anonymous"
+                tenant_id =user_id or "anonymous",  # Use user_id if provided, otherwise "anonymous"
                 knowledge_base_id=knowledge_base_id,
                 name=name,
                 type=doc_type,
@@ -466,7 +466,7 @@ async def list_documents(
 
             # Always filter by user_id if provided
             if user_id:
-                conditions.append(Document.user_id == user_id)
+                conditions.append(Document.tenant_id == user_id)
 
             if search:
                 conditions.append(func.lower(Document.name).contains(func.lower(search)))
@@ -629,7 +629,7 @@ async def get_total_conversations(user_id: Optional[str] = None) -> int:
         try:
             query = select(func.count(Conversation.id))
             if user_id:
-                query = query.where(Conversation.user_id == user_id)
+                query = query.where(Conversation.tenant_id == user_id)
             result = await session.execute(query)
             total = result.scalar() or 0
             return total
@@ -645,7 +645,7 @@ async def get_total_messages(user_id: Optional[str] = None) -> int:
         try:
             # Join with Conversation to filter by user_id
             if user_id:
-                query = select(func.count(Message.id)).join(Conversation).where(Conversation.user_id == user_id)
+                query = select(func.count(Message.id)).join(Conversation).where(Conversation.tenant_id == user_id)
             else:
                 query = select(func.count(Message.id))
             result = await session.execute(query)
@@ -676,7 +676,7 @@ async def get_conversations_by_day(days: int = 7, user_id: Optional[str] = None)
             # Query conversations in the date range, optionally filtered by user_id
             query = select(Conversation).where(Conversation.started_at >= start_date)
             if user_id:
-                query = query.where(Conversation.user_id == user_id)
+                query = query.where(Conversation.tenant_id == user_id)
             
             result = await session.execute(query)
             conversations = result.scalars().all()
@@ -718,7 +718,7 @@ async def get_resolution_rate(user_id: Optional[str] = None) -> Dict[str, Any]:
             # Get total conversations, optionally filtered by user_id
             total_query = select(func.count(Conversation.id))
             if user_id:
-                total_query = total_query.where(Conversation.user_id == user_id)
+                total_query = total_query.where(Conversation.tenant_id == user_id)
             total_result = await session.execute(total_query)
             total_conversations = total_result.scalar() or 0
 
@@ -733,7 +733,7 @@ async def get_resolution_rate(user_id: Optional[str] = None) -> Dict[str, Any]:
                 )
             )
             if user_id:
-                resolved_query = resolved_query.where(Conversation.user_id == user_id)
+                resolved_query = resolved_query.where(Conversation.tenant_id == user_id)
             resolved_result = await session.execute(resolved_query)
             resolved_via_bot = resolved_result.scalar() or 0
 
@@ -747,7 +747,7 @@ async def get_resolution_rate(user_id: Optional[str] = None) -> Dict[str, Any]:
                 )
             )
             if user_id:
-                escalated_query = escalated_query.where(Conversation.user_id == user_id)
+                escalated_query = escalated_query.where(Conversation.tenant_id == user_id)
             escalated_result = await session.execute(escalated_query)
             escalated = escalated_result.scalar() or 0
 
@@ -783,7 +783,7 @@ async def get_response_accuracy_metrics(user_id: Optional[str] = None) -> Dict[s
                 )
             )
             if user_id:
-                query = query.where(Conversation.user_id == user_id)
+                query = query.where(Conversation.tenant_id == user_id)
             result = await session.execute(query)
             messages = result.scalars().all()
 
@@ -853,7 +853,7 @@ async def get_user_satisfaction_metrics(user_id: Optional[str] = None) -> Dict[s
                 )
             )
             if user_id:
-                thumbs_up_query = thumbs_up_query.where(Conversation.user_id == user_id)
+                thumbs_up_query = thumbs_up_query.where(Conversation.tenant_id == user_id)
             thumbs_up_result = await session.execute(thumbs_up_query)
             thumbs_up = thumbs_up_result.scalar() or 0
 
@@ -867,7 +867,7 @@ async def get_user_satisfaction_metrics(user_id: Optional[str] = None) -> Dict[s
                 )
             )
             if user_id:
-                thumbs_down_query = thumbs_down_query.where(Conversation.user_id == user_id)
+                thumbs_down_query = thumbs_down_query.where(Conversation.tenant_id == user_id)
             thumbs_down_result = await session.execute(thumbs_down_query)
             thumbs_down = thumbs_down_result.scalar() or 0
 
@@ -904,7 +904,7 @@ async def get_api_usage_metrics(user_id: Optional[str] = None) -> Dict[str, Any]
                 .where(Message.role == "assistant")
             )
             if user_id:
-                query = query.where(Conversation.user_id == user_id)
+                query = query.where(Conversation.tenant_id == user_id)
             total_requests_result = await session.execute(query)
             total_requests = total_requests_result.scalar() or 0
 
@@ -953,7 +953,7 @@ async def get_top_queries(limit: int = 10, user_id: Optional[str] = None) -> tup
                 .where(Message.role == "user")
             )
             if user_id:
-                query = query.where(Conversation.user_id == user_id)
+                query = query.where(Conversation.tenant_id == user_id)
             query = query.group_by(Message.content).order_by(func.count(Message.id).desc()).limit(limit)
             
             result = await session.execute(query)
@@ -966,7 +966,7 @@ async def get_top_queries(limit: int = 10, user_id: Optional[str] = None) -> tup
                 .where(Message.role == "user")
             )
             if user_id:
-                total_query = total_query.where(Conversation.user_id == user_id)
+                total_query = total_query.where(Conversation.tenant_id == user_id)
             total_result = await session.execute(total_query)
             total = total_result.scalar() or 0
 
@@ -983,7 +983,7 @@ async def get_top_queries(limit: int = 10, user_id: Optional[str] = None) -> tup
                     .where(Message.role == "user", Message.content == query_text)
                 )
                 if user_id:
-                    user_messages_query = user_messages_query.where(Conversation.user_id == user_id)
+                    user_messages_query = user_messages_query.where(Conversation.tenant_id == user_id)
                 user_messages_result = await session.execute(user_messages_query)
                 user_messages = user_messages_result.scalars().all()
 
@@ -1041,7 +1041,7 @@ async def get_user_preferences(user_id: str = DEFAULT_USER_ID) -> Optional[dict]
     async with session_factory() as session:
         try:
             result = await session.execute(
-                select(UserPreferences).where(UserPreferences.user_id == user_id)
+                select(UserPreferences).where(UserPreferences.tenant_id == user_id)
             )
             preferences = result.scalar_one_or_none()
             
@@ -1086,7 +1086,7 @@ async def create_or_update_user_preferences(
     async with session_factory() as session:
         try:
             result = await session.execute(
-                select(UserPreferences).where(UserPreferences.user_id == user_id)
+                select(UserPreferences).where(UserPreferences.tenant_id == user_id)
             )
             preferences = result.scalar_one_or_none()
             
@@ -1095,7 +1095,7 @@ async def create_or_update_user_preferences(
                 preferences_id = str(uuid.uuid4())
                 preferences = UserPreferences(
                     id=preferences_id,
-                    user_id=user_id,
+                    tenant_id =user_id,
                     name=name,
                     email=email,
                     avatar_url=avatar_url,
@@ -1133,7 +1133,7 @@ async def create_or_update_user_preferences(
             # Refresh to get updated values
             await session.refresh(preferences)
             
-            logger.info(f"User preferences saved: user_id={user_id}")
+            logger.info(f"User preferences saved: tenant_id ={user_id}")
             return preferences.to_dict()
             
         except Exception as e:
@@ -1156,7 +1156,7 @@ async def delete_user_avatar(user_id: str = DEFAULT_USER_ID) -> bool:
     async with session_factory() as session:
         try:
             result = await session.execute(
-                select(UserPreferences).where(UserPreferences.user_id == user_id)
+                select(UserPreferences).where(UserPreferences.tenant_id == user_id)
             )
             preferences = result.scalar_one_or_none()
             
@@ -1168,7 +1168,7 @@ async def delete_user_avatar(user_id: str = DEFAULT_USER_ID) -> bool:
             
             await session.commit()
             
-            logger.info(f"User avatar deleted: user_id={user_id}")
+            logger.info(f"User avatar deleted: tenant_id ={user_id}")
             return True
             
         except Exception as e:
@@ -1201,7 +1201,7 @@ async def create_knowledge_base(
             kb_id = str(uuid.uuid4())
             knowledge_base = KnowledgeBase(
                 id=kb_id,
-                user_id=user_id,
+                tenant_id =user_id,
                 name=name,
                 description=description,
                 is_default=False,
@@ -1214,7 +1214,7 @@ async def create_knowledge_base(
             await session.commit()
             await session.refresh(knowledge_base)
 
-            logger.info(f"Created knowledge base: id={kb_id}, name={name}, user_id={user_id}")
+            logger.info(f"Created knowledge base: id={kb_id}, name={name}, tenant_id ={user_id}")
 
             return knowledge_base.to_dict()
 
@@ -1267,7 +1267,7 @@ async def list_knowledge_bases(user_id: Optional[str] = None) -> List[dict]:
             if user_id:
                 # Return default KB + user's custom KBs
                 query = query.where(
-                    (KnowledgeBase.is_default == True) | (KnowledgeBase.user_id == user_id)
+                    (KnowledgeBase.is_default == True) | (KnowledgeBase.tenant_id == user_id)
                 )
             else:
                 # Return all KBs
@@ -1349,7 +1349,7 @@ async def delete_knowledge_base(kb_id: str, user_id: str) -> bool:
             result = await session.execute(
                 select(KnowledgeBase).where(
                     KnowledgeBase.id == kb_id,
-                    KnowledgeBase.user_id == user_id,
+                    KnowledgeBase.tenant_id == user_id,
                     KnowledgeBase.is_default == False
                 )
             )
@@ -1361,7 +1361,7 @@ async def delete_knowledge_base(kb_id: str, user_id: str) -> bool:
             await session.delete(kb)
             await session.commit()
 
-            logger.info(f"Deleted knowledge base: id={kb_id}, user_id={user_id}")
+            logger.info(f"Deleted knowledge base: id={kb_id}, tenant_id ={user_id}")
 
             return True
 
@@ -1385,7 +1385,7 @@ async def get_user_knowledge_base_preferences(user_id: str) -> dict:
     async with session_factory() as session:
         try:
             result = await session.execute(
-                select(UserKnowledgeBasePreference).where(UserKnowledgeBasePreference.user_id == user_id)
+                select(UserKnowledgeBasePreference).where(UserKnowledgeBasePreference.tenant_id == user_id)
             )
             prefs = result.scalar_one_or_none()
 
@@ -1394,7 +1394,7 @@ async def get_user_knowledge_base_preferences(user_id: str) -> dict:
                 prefs_id = str(uuid.uuid4())
                 prefs = UserKnowledgeBasePreference(
                     id=prefs_id,
-                    user_id=user_id,
+                    tenant_id =user_id,
                     use_default_kb=True,
                     active_kb_ids="[]",
                     created_at=datetime.utcnow(),
@@ -1432,7 +1432,7 @@ async def update_user_knowledge_base_preferences(
     async with session_factory() as session:
         try:
             result = await session.execute(
-                select(UserKnowledgeBasePreference).where(UserKnowledgeBasePreference.user_id == user_id)
+                select(UserKnowledgeBasePreference).where(UserKnowledgeBasePreference.tenant_id == user_id)
             )
             prefs = result.scalar_one_or_none()
 
@@ -1441,7 +1441,7 @@ async def update_user_knowledge_base_preferences(
                 prefs_id = str(uuid.uuid4())
                 prefs = UserKnowledgeBasePreference(
                     id=prefs_id,
-                    user_id=user_id,
+                    tenant_id =user_id,
                     use_default_kb=use_default_kb,
                     active_kb_ids=json.dumps(active_kb_ids),
                     created_at=datetime.utcnow(),
@@ -1456,7 +1456,7 @@ async def update_user_knowledge_base_preferences(
             await session.commit()
             await session.refresh(prefs)
 
-            logger.info(f"Updated user KB preferences: user_id={user_id}")
+            logger.info(f"Updated user KB preferences: tenant_id ={user_id}")
 
             return prefs.to_dict()
 

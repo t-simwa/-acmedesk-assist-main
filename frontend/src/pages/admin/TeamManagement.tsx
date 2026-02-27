@@ -45,8 +45,8 @@ import {
 import { cn } from "@/lib/utils";
 
 function roleBadgeVariant(role: string): "default" | "secondary" | "outline" {
-  if (role === "admin") return "default";
-  if (role === "analyst") return "secondary";
+  if (role === "owner") return "default";
+  if (role === "admin") return "secondary";
   return "outline";
 }
 
@@ -73,7 +73,7 @@ export default function TeamManagement() {
 
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteName, setInviteName] = useState("");
-  const [inviteRole, setInviteRole] = useState<"admin" | "analyst" | "viewer">("viewer");
+  const [inviteRole, setInviteRole] = useState<"owner" | "admin" | "agent">("agent");
 
   const canInvite = hasPermission("team:invite");
   const canRemove = hasPermission("team:remove");
@@ -113,7 +113,7 @@ export default function TeamManagement() {
       setInviteDialogOpen(false);
       setInviteEmail("");
       setInviteName("");
-      setInviteRole("viewer");
+      setInviteRole("agent");
       await fetchMembers();
     } catch (err) {
       const apiError = err as ApiError;
@@ -140,7 +140,7 @@ export default function TeamManagement() {
     }
   };
 
-  const handleUpdateRole = async (memberId: string, newRole: "admin" | "analyst" | "viewer") => {
+  const handleUpdateRole = async (memberId: string, newRole: "owner" | "admin" | "agent") => {
     try {
       setUpdatingRole(memberId);
       await adminApi.updateTeamMemberRole(memberId, { role: newRole });
@@ -252,16 +252,16 @@ export default function TeamManagement() {
                     {canUpdateRole ? (
                       <Select
                         value={member.role}
-                        onValueChange={(v) => handleUpdateRole(member.id, v as "admin" | "analyst" | "viewer")}
+                        onValueChange={(v) => handleUpdateRole(member.id, v as "owner" | "admin" | "agent")}
                         disabled={updatingRole === member.id}
                       >
                         <SelectTrigger className="w-[120px] h-9 rounded-xl text-[13px]">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="owner">Owner</SelectItem>
                           <SelectItem value="admin">Admin</SelectItem>
-                          <SelectItem value="analyst">Analyst</SelectItem>
-                          <SelectItem value="viewer">Viewer</SelectItem>
+                          <SelectItem value="agent">Agent</SelectItem>
                         </SelectContent>
                       </Select>
                     ) : (
@@ -323,16 +323,16 @@ export default function TeamManagement() {
                         {canUpdateRole ? (
                           <Select
                             value={member.role}
-                            onValueChange={(v) => handleUpdateRole(member.id, v as "admin" | "analyst" | "viewer")}
+                            onValueChange={(v) => handleUpdateRole(member.id, v as "owner" | "admin" | "agent")}
                             disabled={updatingRole === member.id}
                           >
                             <SelectTrigger className="w-[110px] h-9 rounded-xl text-[13px]">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
+                              <SelectItem value="owner">Owner</SelectItem>
                               <SelectItem value="admin">Admin</SelectItem>
-                              <SelectItem value="analyst">Analyst</SelectItem>
-                              <SelectItem value="viewer">Viewer</SelectItem>
+                              <SelectItem value="agent">Agent</SelectItem>
                             </SelectContent>
                           </Select>
                         ) : (
@@ -408,14 +408,14 @@ export default function TeamManagement() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="invite-role" className="text-[13px] font-medium">Role</Label>
-              <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as "admin" | "analyst" | "viewer")}>
+              <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as "owner" | "admin" | "agent")}>
                 <SelectTrigger id="invite-role" className="rounded-xl">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin">Admin — Full access</SelectItem>
-                  <SelectItem value="analyst">Analyst — Read & write documents</SelectItem>
-                  <SelectItem value="viewer">Viewer — Read-only</SelectItem>
+                  <SelectItem value="owner">Owner — Full access (cannot be removed)</SelectItem>
+                  <SelectItem value="admin">Admin — Manage team & settings</SelectItem>
+                  <SelectItem value="agent">Agent — Inbox & conversations only</SelectItem>
                 </SelectContent>
               </Select>
             </div>

@@ -70,7 +70,7 @@ async def create_inbound_sms_message(
         result = await session.execute(
             select(Conversation).where(
                 Conversation.session_id == session_identifier,
-                Conversation.user_id == user_id,
+                Conversation.tenant_id == user_id,
             )
         )
         conversation = result.scalar_one_or_none()
@@ -80,7 +80,7 @@ async def create_inbound_sms_message(
         if conversation is None:
             conversation = Conversation(
                 id=str(uuid.uuid4()),
-                user_id=user_id,
+                tenant_id =user_id,
                 session_id=session_identifier,
                 started_at=now,
                 last_activity_at=now,
@@ -124,7 +124,7 @@ async def list_sms_threads(
         result = await session.execute(
             select(Message, Conversation)
             .join(Conversation, Message.conversation_id == Conversation.id)
-            .where(Conversation.user_id == user_id)
+            .where(Conversation.tenant_id == user_id)
             .order_by(Message.created_at.desc())
         )
         rows = result.all()
@@ -184,7 +184,7 @@ async def list_sms_thread_messages(user_id: str, thread_id: str) -> List[dict]:
             select(Message, Conversation)
             .join(Conversation, Message.conversation_id == Conversation.id)
             .where(
-                Conversation.user_id == user_id,
+                Conversation.tenant_id == user_id,
                 Message.message_metadata["sms_thread_id"].as_string() == thread_id,
             )
             .order_by(Message.created_at.asc())
@@ -219,7 +219,7 @@ async def send_sms_reply(user_id: str, thread_id: str, body: str) -> dict:
             select(Message, Conversation)
             .join(Conversation, Message.conversation_id == Conversation.id)
             .where(
-                Conversation.user_id == user_id,
+                Conversation.tenant_id == user_id,
                 Message.message_metadata["sms_thread_id"].as_string() == thread_id,
             )
             .order_by(Message.created_at.desc())

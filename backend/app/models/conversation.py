@@ -56,6 +56,7 @@ class Conversation(Base):
     contact_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("contacts.id"), nullable=True, index=True)
     channel: Mapped[Channel] = mapped_column(SQLEnum(Channel), nullable=False, default=Channel.WEB)
     channel_conversation_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)  # External ID from channel
+    session_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)  # Session identifier
     status: Mapped[ConversationStatus] = mapped_column(
         SQLEnum(ConversationStatus),
         nullable=False,
@@ -65,6 +66,7 @@ class Conversation(Base):
     message_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     started_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    last_activity_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     page_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     rating: Mapped[Optional[Rating]] = mapped_column(SQLEnum(Rating), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
@@ -79,11 +81,13 @@ class Conversation(Base):
             "contact_id": self.contact_id,
             "channel": self.channel.value if self.channel else None,
             "channel_conversation_id": self.channel_conversation_id,
+            "session_id": self.session_id,
             "status": self.status.value if self.status else None,
             "outcome": self.outcome.value if self.outcome else None,
             "message_count": self.message_count,
             "started_at": self.started_at.isoformat() + "Z" if self.started_at else None,
             "resolved_at": self.resolved_at.isoformat() + "Z" if self.resolved_at else None,
+            "last_activity_at": self.last_activity_at.isoformat() + "Z" if self.last_activity_at else None,
             "page_url": self.page_url,
             "rating": self.rating.value if self.rating else None,
             "created_at": self.created_at.isoformat() + "Z" if self.created_at else None,

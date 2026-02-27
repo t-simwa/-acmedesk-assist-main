@@ -1870,3 +1870,52 @@ export const oauthApi = {
     });
   },
 };
+
+// ============================================================================
+// Team API - Invitations
+// ============================================================================
+
+export interface AcceptInviteRequest {
+  token: string;
+  password: string;
+  full_name?: string;
+}
+
+export interface AcceptInviteResponse {
+  message: string;
+  tenant_id: string;
+  role: string;
+  email: string;
+  name?: string;
+}
+
+export interface AcceptInviteStatusResponse {
+  valid: boolean;
+  email?: string;
+  name?: string;
+  tenant_name?: string;
+  role?: string;
+  expires_at?: string;
+  message?: string;
+}
+
+export const teamApi = {
+  /**
+   * Check invite status
+   */
+  async checkInviteStatus(token: string): Promise<AcceptInviteStatusResponse> {
+    return apiClient<AcceptInviteStatusResponse>(`/api/team/accept?token=${encodeURIComponent(token)}`, {
+      method: "GET",
+    });
+  },
+
+  /**
+   * Accept team invitation
+   */
+  async acceptInvite(payload: AcceptInviteRequest): Promise<AcceptInviteResponse> {
+    return apiClient<AcceptInviteResponse>("/api/team/accept", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+};
