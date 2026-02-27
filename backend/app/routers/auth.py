@@ -49,6 +49,7 @@ from ..models.user import User, UserRole
 from ..models.tenant import Tenant, SubscriptionStatus
 from ..models.chatbot_instance import ChatbotInstance, ChatbotStatus, WidgetPosition
 from ..models.password_reset_token import PasswordResetToken
+from ..models.two_factor_auth import TwoFactorAuth
 from ..models.base import get_db_session
 from ..services.auth import (
     hash_password,
@@ -259,15 +260,15 @@ async def register(request_data: RegisterRequest, request: Request) -> RegisterR
             )
 
 
-@router.get("/verify-email", response_model=VerifyEmailResponse)
-async def verify_email(token: str, request: Request = None) -> Union[VerifyEmailResponse, RedirectResponse]:
+@router.get("/verify-email")
+async def verify_email(token: str, request: Request = None):
     """
     Verify email address using token (per spec 3.1.2).
     
     - Look up token
     - Mark user as verified
     - Delete token
-    - Return redirect to /email-verified
+    - Return redirect URL to frontend
     - Tokens expire after 24 hours
     - If expired, show "resend verification" option
     """
@@ -295,7 +296,7 @@ async def verify_email(token: str, request: Request = None) -> Union[VerifyEmail
         
         # Check if already verified
         if user.is_verified:
-            return RedirectResponse(url=f"{frontend_url}/email-verified?already=true")
+            return {"redirect_url": f"{frontend_url}/email-verified?already=true"}
         
         # Mark user as verified
         user.is_verified = True
@@ -306,8 +307,8 @@ async def verify_email(token: str, request: Request = None) -> Union[VerifyEmail
             await session.commit()
             logger.info(f"Email verified for user: {user.email}")
             
-            # Return redirect to /email-verified as per spec
-            return RedirectResponse(url=f"{frontend_url}/email-verified")
+            # Return redirect URL to frontend
+            return {"redirect_url": f"{frontend_url}/email-verified"}
         except Exception as e:
             await session.rollback()
             logger.error(f"Error verifying email: {str(e)}")
@@ -488,6 +489,13 @@ async def login(request_data: LoginRequest, request: Request) -> LoginResponse:
             expires_in=expires_in,
         )
         
+        # Check if 2FA is enabled
+        result_2fa = await session.execute(
+            select(TwoFactorAuth).where(TwoFactorAuth.user_id == user.id)
+        )
+        two_fa = result_2fa.scalar_one_or_none()
+        requires_2fa = bool(two_fa and two_fa.is_enabled)
+        
         response = LoginResponse(
             message="Login successful",
             user_id=user.id,
@@ -495,14 +503,15 @@ async def login(request_data: LoginRequest, request: Request) -> LoginResponse:
             name=user.full_name,
             role=user.role.value if user.role else "agent",
             tokens=tokens,
+            requires_2fa=requires_2fa,
         )
         
         # Create response with httpOnly cookie for refresh token
         response = JSONResponse(
             content=response.model_dump(),
-            headers=[
-                ("Set-Cookie", f"refresh_token={refresh_token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age={settings.jwt_refresh_token_expire_days * 86400}")
-            ]
+            headers={
+                "Set-Cookie": f"refresh_token={refresh_token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age={settings.jwt_refresh_token_expire_days * 86400}"
+            }
         )
         
         return response
@@ -598,9 +607,9 @@ async def refresh_token(request: Request) -> TokenResponse:
             token_type="bearer",
             expires_in=expires_in,
         ).model_dump(),
-        headers=[
-            ("Set-Cookie", f"refresh_token={new_refresh_token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age={settings.jwt_refresh_token_expire_days * 86400}")
-        ]
+        headers={
+            "Set-Cookie": f"refresh_token={new_refresh_token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age={settings.jwt_refresh_token_expire_days * 86400}"
+        }
     )
     
     return response
@@ -628,9 +637,9 @@ async def logout(request: Request) -> LogoutResponse:
     # Return success with cookie clearing
     response = JSONResponse(
         content=LogoutResponse(message="Logged out successfully").model_dump(),
-        headers=[
-            ("Set-Cookie", "refresh_token=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0")
-        ]
+        headers={
+            "Set-Cookie": "refresh_token=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0"
+        }
     )
     
     return response

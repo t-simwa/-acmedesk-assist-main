@@ -27,6 +27,11 @@ python-jose[cryptography]>=3.3.0  # JWT token handling
 bcrypt>=4.0.0  # Password hashing
 python-multipart>=0.0.6  # For form data parsing
 redis>=4.5.0  # Redis for rate limiting and session management
+pyotp>=2.9.0  # TOTP for Two-Factor Authentication
+qrcode[pil]>=7.4.0  # QR code generation for 2FA setup
+
+# Email
+resend>=0.1.0  # Resend email API
 
 # Testing
 pytest>=7.4.0

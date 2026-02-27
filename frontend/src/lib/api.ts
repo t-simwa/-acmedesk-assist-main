@@ -705,14 +705,14 @@ export interface TokenResponse {
 export interface RegisterRequest {
   email: string;
   password: string;
-  name?: string;
+  full_name: string;
+  business_name: string;
 }
 
 export interface RegisterResponse {
   message: string;
   user_id: string;
   email: string;
-  tokens: TokenResponse;
 }
 
 export interface LoginRequest {
@@ -728,6 +728,7 @@ export interface LoginResponse {
   name?: string;
   role: string;
   tokens: TokenResponse;
+  requires_2fa?: boolean;
 }
 
 export interface RefreshTokenRequest {
@@ -746,6 +747,10 @@ export interface UserInfoResponse {
 // Auth API
 // ============================================================================
 
+export interface ResendVerificationRequest {
+  email: string;
+}
+
 export const authApi = {
   /**
    * Register a new user account
@@ -756,13 +761,26 @@ export const authApi = {
       body: JSON.stringify(payload),
     });
     
-    // Store tokens in localStorage
-    if (response.tokens) {
-      localStorage.setItem("access_token", response.tokens.access_token);
-      localStorage.setItem("refresh_token", response.tokens.refresh_token);
-    }
-    
     return response;
+  },
+
+  /**
+   * Verify email with token
+   */
+  async verifyEmail(token: string): Promise<{ message: string }> {
+    return apiClient<{ message: string }>(`/api/auth/verify-email?token=${encodeURIComponent(token)}`, {
+      method: "GET",
+    });
+  },
+
+  /**
+   * Resend verification email
+   */
+  async resendVerification(payload: ResendVerificationRequest): Promise<{ message: string }> {
+    return apiClient<{ message: string }>("/api/auth/resend-verification", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
   },
 
   /**
@@ -1699,6 +1717,156 @@ export const adminApi = {
   async removeTeamMember(memberId: string): Promise<{ message: string; id: string }> {
     return apiClient<{ message: string; id: string }>(`/api/admin/team/${memberId}`, {
       method: "DELETE",
+    });
+  },
+};
+
+// ============================================================================
+// Security API - Sessions & 2FA
+// ============================================================================
+
+export interface SessionInfo {
+  id: string;
+  device_type: string | null;
+  browser: string | null;
+  operating_system: string | null;
+  ip_address: string | null;
+  location: string | null;
+  last_active_at: string | null;
+  created_at: string | null;
+  is_current: boolean;
+}
+
+export interface SessionsListResponse {
+  sessions: SessionInfo[];
+  total: number;
+}
+
+export interface TwoFactorSetupResponse {
+  secret: string;
+  qr_code: string;
+  message: string;
+}
+
+export interface TwoFactorStatusResponse {
+  is_enabled: boolean;
+  backup_codes_count: number;
+  enabled_at: string | null;
+}
+
+export interface BackupCodesResponse {
+  backup_codes: string[];
+  message: string;
+}
+
+export const securityApi = {
+  /**
+   * List all active sessions
+   */
+  async listSessions(): Promise<SessionsListResponse> {
+    return apiClient<SessionsListResponse>("/api/auth/sessions");
+  },
+
+  /**
+   * Revoke a specific session
+   */
+  async revokeSession(sessionId: string): Promise<{ message: string }> {
+    return apiClient<{ message: string }>(`/api/auth/sessions/${sessionId}`, {
+      method: "DELETE",
+    });
+  },
+
+  /**
+   * Revoke all sessions except current
+   */
+  async revokeAllSessions(): Promise<{ message: string }> {
+    return apiClient<{ message: string }>("/api/auth/sessions/revoke-all", {
+      method: "POST",
+    });
+  },
+
+  /**
+   * Setup 2FA - generate secret and QR code
+   */
+  async setup2FA(): Promise<TwoFactorSetupResponse> {
+    return apiClient<TwoFactorSetupResponse>("/api/auth/2fa/setup", {
+      method: "POST",
+    });
+  },
+
+  /**
+   * Enable 2FA with verified code
+   */
+  async enable2FA(code: string): Promise<{ message: string; backup_codes: string[] }> {
+    return apiClient<{ message: string; backup_codes: string[] }>("/api/auth/2fa/enable", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    });
+  },
+
+  /**
+   * Disable 2FA
+   */
+  async disable2FA(code: string): Promise<{ message: string }> {
+    return apiClient<{ message: string }>("/api/auth/2fa/disable", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    });
+  },
+
+  /**
+   * Get 2FA status
+   */
+  async get2FAStatus(): Promise<TwoFactorStatusResponse> {
+    return apiClient<TwoFactorStatusResponse>("/api/auth/2fa/status");
+  },
+
+  /**
+   * Verify a 2FA code
+   */
+  async verify2FA(code: string): Promise<{ message: string; valid: boolean }> {
+    return apiClient<{ message: string; valid: boolean }>("/api/auth/2fa/verify", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    });
+  },
+};
+
+// ============================================================================
+// OAuth API - Google OAuth
+// ============================================================================
+
+export interface GoogleOAuthUrlResponse {
+  url: string;
+}
+
+export const oauthApi = {
+  /**
+   * Get Google OAuth URL
+   */
+  async getGoogleAuthUrl(): Promise<GoogleOAuthUrlResponse> {
+    return apiClient<GoogleOAuthUrlResponse>("/api/auth/oauth/google/url");
+  },
+
+  /**
+   * Handle Google OAuth callback
+   */
+  async handleGoogleCallback(code: string): Promise<{
+    message: string;
+    user_id: string;
+    email: string;
+    name?: string;
+    tokens: TokenResponse;
+  }> {
+    return apiClient<{
+      message: string;
+      user_id: string;
+      email: string;
+      name?: string;
+      tokens: TokenResponse;
+    }>("/api/auth/oauth/google/callback", {
+      method: "POST",
+      body: JSON.stringify({ code }),
     });
   },
 };

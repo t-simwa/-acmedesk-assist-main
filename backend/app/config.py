@@ -72,12 +72,13 @@ class Settings(BaseSettings):
     jwt_remember_me_expire_days: int = 30  # Remember me token expiration (30 days)
     
     # Email/SMTP configuration
-    smtp_host: str = "localhost"  # SMTP server host
+    resend_api_key: Optional[str] = None  # Resend API key (get from https://resend.com)
+    smtp_host: str = "localhost"  # SMTP server host (deprecated - use Resend)
     smtp_port: int = 587  # SMTP server port
     smtp_username: Optional[str] = None  # SMTP username (if required)
     smtp_password: Optional[str] = None  # SMTP password (if required)
     smtp_use_tls: bool = True  # Use TLS for SMTP
-    smtp_from_email: str = "noreply@acmedesk.com"  # From email address
+    smtp_from_email: str = "noreply@simca-agencies.com"  # From email address
     smtp_from_name: str = "AcmeDesk Assist"  # From name
 
     # Email inbox (IMAP/POP3) configuration
@@ -112,6 +113,11 @@ class Settings(BaseSettings):
     twitter_account_id: Optional[str] = None  # Twitter account ID / handle
     twitter_outbound_webhook_url: Optional[str] = None  # Optional HTTP endpoint to call for outbound Twitter DM delivery
     twitter_outbound_webhook_token: Optional[str] = None  # Optional token/secret for outbound webhook auth
+    
+    # Google OAuth configuration (3.3.5)
+    google_client_id: Optional[str] = None  # Google OAuth Client ID
+    google_client_secret: Optional[str] = None  # Google OAuth Client Secret
+    google_redirect_uri: str = "http://localhost:5173/login/oauth/callback"  # OAuth callback URL
 
 
     class Config:

@@ -1,13 +1,11 @@
 """
-Email service for sending emails (password reset, verification, etc.).
+Email service for sending emails using Resend API.
 """
 
 import logging
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 from typing import Optional
-from pathlib import Path
+
+import resend
 
 from ..config import settings
 
@@ -15,18 +13,17 @@ logger = logging.getLogger(__name__)
 
 
 class EmailService:
-    """Service for sending emails via SMTP."""
+    """Service for sending emails via Resend API."""
     
     def __init__(self):
         """Initialize email service with settings."""
-        self.smtp_host = getattr(settings, 'smtp_host', 'localhost')
-        self.smtp_port = getattr(settings, 'smtp_port', 587)
-        self.smtp_username = getattr(settings, 'smtp_username', None)
-        self.smtp_password = getattr(settings, 'smtp_password', None)
-        self.smtp_use_tls = getattr(settings, 'smtp_use_tls', True)
-        self.from_email = getattr(settings, 'smtp_from_email', 'noreply@acmedesk.com')
+        self.resend_api_key = getattr(settings, 'resend_api_key', None)
+        self.from_email = getattr(settings, 'smtp_from_email', 'AcmeDesk Assist <noreply@simca-agencies.com>')
         self.from_name = getattr(settings, 'smtp_from_name', 'AcmeDesk Assist')
         self.frontend_url = str(settings.frontend_origin)
+        
+        if self.resend_api_key:
+            resend.api_key = self.resend_api_key
     
     async def send_password_reset_email(
         self,
@@ -46,13 +43,10 @@ class EmailService:
             True if email sent successfully, False otherwise
         """
         try:
-            # Create reset link
             reset_url = f"{self.frontend_url}/reset-password?token={reset_token}"
             
-            # Email subject
             subject = "Reset Your AcmeDesk Assist Password"
             
-            # Email body (HTML)
             html_body = f"""
             <!DOCTYPE html>
             <html>
@@ -92,7 +86,6 @@ class EmailService:
             </html>
             """
             
-            # Plain text version
             text_body = f"""
             Password Reset Request
             
@@ -125,7 +118,7 @@ class EmailService:
         html_body: Optional[str] = None
     ) -> bool:
         """
-        Send an email via SMTP.
+        Send an email via Resend API.
         
         Args:
             to_email: Recipient email address
@@ -137,35 +130,28 @@ class EmailService:
             True if email sent successfully, False otherwise
         """
         try:
-            # Create message
-            msg = MIMEMultipart('alternative')
-            msg['From'] = f"{self.from_name} <{self.from_email}>"
-            msg['To'] = to_email
-            msg['Subject'] = subject
+            if not self.resend_api_key:
+                logger.warning(f"Resend API key not configured. Email would be sent to {to_email}")
+                logger.info(f"Email content - Subject: {subject}")
+                return True
             
-            # Add text and HTML parts
-            part1 = MIMEText(text_body, 'plain')
-            msg.attach(part1)
+            params: resend.Emails.SendParams = {
+                "from": self.from_email,
+                "to": [to_email],
+                "subject": subject,
+                "text": text_body,
+            }
             
             if html_body:
-                part2 = MIMEText(html_body, 'html')
-                msg.attach(part2)
+                params["html"] = html_body
             
-            # Send email via SMTP
-            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
-                if self.smtp_use_tls:
-                    server.starttls()
-                
-                if self.smtp_username and self.smtp_password:
-                    server.login(self.smtp_username, self.smtp_password)
-                
-                server.send_message(msg)
+            response = resend.Emails.send(params)
             
-            logger.info(f"Password reset email sent successfully to {to_email}")
+            logger.info(f"Email sent successfully to {to_email}: {response}")
             return True
             
         except Exception as e:
-            logger.error(f"Failed to send password reset email to {to_email}: {str(e)}")
+            logger.error(f"Failed to send email to {to_email}: {str(e)}")
             return False
 
     async def send_verification_email(
@@ -186,13 +172,10 @@ class EmailService:
             True if email sent successfully, False otherwise
         """
         try:
-            # Create verification link
             verify_url = f"{self.frontend_url}/verify-email?token={verification_token}"
             
-            # Email subject
             subject = "Verify Your AcmeDesk Assist Email"
             
-            # Email body (HTML)
             html_body = f"""
             <!DOCTYPE html>
             <html>
@@ -232,7 +215,6 @@ class EmailService:
             </html>
             """
             
-            # Plain text version
             text_body = f"""
             Verify Your Email
             
@@ -328,8 +310,105 @@ class EmailService:
             logger.error(f"Failed to send password changed confirmation to {to_email}: {str(e)}")
             return False
 
+    async def send_welcome_email(
+        self,
+        to_email: str,
+        user_name: Optional[str] = None
+    ) -> bool:
+        """
+        Send welcome email to new users.
+        
+        Args:
+            to_email: Recipient email address
+            user_name: Optional user name for personalization
+            
+        Returns:
+            True if email sent successfully, False otherwise
+        """
+        try:
+            subject = "Welcome to AcmeDesk Assist!"
+            
+            html_body = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <style>
+                    body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                    .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                    .header {{ background: linear-gradient(135deg, #4F8EF7, #7C3AED); color: white; padding: 30px; text-align: center; border-radius: 5px 5px 0 0; }}
+                    .content {{ background-color: #f9fafb; padding: 30px; border-radius: 0 0 5px 5px; }}
+                    .button {{ display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #4F8EF7, #7C3AED); color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }}
+                    .features {{ display: flex; gap: 20px; margin: 20px 0; }}
+                    .feature {{ flex: 1; padding: 15px; background: white; border-radius: 5px; text-align: center; }}
+                    .footer {{ text-align: center; margin-top: 20px; color: #6b7280; font-size: 12px; }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <h1>Welcome to AcmeDesk Assist!</h1>
+                    </div>
+                    <div class="content">
+                        <p>Hello{(' ' + user_name) if user_name else ''},</p>
+                        <p>Thank you for joining AcmeDesk Assist! We're excited to help you build your AI-powered customer support team.</p>
+                        <div class="features">
+                            <div class="feature">
+                                <h3>⚡</h3>
+                                <p>Live in 24 hours</p>
+                            </div>
+                            <div class="feature">
+                                <h3>🎯</h3>
+                                <p>No code needed</p>
+                            </div>
+                            <div class="feature">
+                                <h3>🛡️</h3>
+                                <p>7-day guarantee</p>
+                            </div>
+                        </div>
+                        <p>Ready to get started? Set up your chatbot in just a few minutes:</p>
+                        <a href="#" class="button">Set Up Your Chatbot</a>
+                        <p>If you have any questions, reply to this email or visit our help center.</p>
+                        <p>Best regards,<br>The AcmeDesk Team</p>
+                    </div>
+                    <div class="footer">
+                        <p>This is an automated message from AcmeDesk Assist. Please do not reply to this email.</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """
+            
+            text_body = f"""
+            Welcome to AcmeDesk Assist!
+            
+            Hello{(' ' + user_name) if user_name else ''},
+            
+            Thank you for joining AcmeDesk Assist! We're excited to help you build your AI-powered customer support team.
+            
+            Here's what you get:
+            - Live in 24 hours
+            - No code needed
+            - 7-day guarantee
+            
+            Ready to get started? Set up your chatbot in just a few minutes.
+            
+            If you have any questions, reply to this email or visit our help center.
+            
+            Best regards,
+            The AcmeDesk Team
+            
+            ---
+            This is an automated message from AcmeDesk Assist. Please do not reply to this email.
+            """
+            
+            return await self._send_email(to_email, subject, text_body, html_body)
+            
+        except Exception as e:
+            logger.error(f"Failed to send welcome email to {to_email}: {str(e)}")
+            return False
 
-# Global email service instance
+
 email_service = EmailService()
 
 
@@ -350,3 +429,20 @@ async def send_verification_email(
         True if email sent successfully
     """
     return await email_service.send_verification_email(to_email, verification_token, user_name)
+
+
+async def send_welcome_email(
+    to_email: str,
+    user_name: Optional[str] = None
+) -> bool:
+    """
+    Send welcome email to new users.
+    
+    Args:
+        to_email: Recipient email address
+        user_name: Optional user name for personalization
+        
+    Returns:
+        True if email sent successfully
+    """
+    return await email_service.send_welcome_email(to_email, user_name)
