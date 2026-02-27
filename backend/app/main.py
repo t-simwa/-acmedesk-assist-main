@@ -31,6 +31,8 @@ from .routers import (
     whatsapp,
     messenger,
     twitter,
+    security,
+    oauth,
 )
 
 
@@ -96,6 +98,8 @@ app.include_router(sms.router)
 app.include_router(whatsapp.router)
 app.include_router(messenger.router)
 app.include_router(twitter.router)
+app.include_router(security.router)
+app.include_router(oauth.router)
 
 
 @app.get("/")

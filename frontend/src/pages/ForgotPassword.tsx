@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { authApi, ApiError } from "@/lib/api";
+import { authApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,38 +19,34 @@ export default function ForgotPassword() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    
-    // Validation
+
     if (!email) {
       setError("Email is required");
       return;
     }
-    
-    // Basic email validation
+
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       setError("Please enter a valid email address");
       return;
     }
-    
+
     try {
       setLoading(true);
       await authApi.forgotPassword({ email });
       
       setSuccess(true);
       toast({
-        title: "Email sent",
-        description: "If an account with that email exists, a password reset link has been sent.",
+        title: "Check your email",
+        description: "If an account with that email exists, you'll receive a password reset link.",
         variant: "default",
       });
     } catch (err) {
-      const apiError = err as ApiError;
-      const errorMessage = apiError?.message || "Failed to send password reset email. Please try again.";
-      setError(errorMessage);
+      setSuccess(true);
       toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive",
+        title: "Check your email",
+        description: "If an account with that email exists, you'll receive a password reset link.",
+        variant: "default",
       });
     } finally {
       setLoading(false);
@@ -64,30 +60,30 @@ export default function ForgotPassword() {
           <div className="text-center mb-8">
             <Logo className="mx-auto mb-4" />
           </div>
-          
+
           <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-8">
             <div className="text-center">
               <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 dark:bg-green-900 mb-4">
                 <Mail className="h-6 w-6 text-green-600 dark:text-green-400" />
               </div>
-              
+
               <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">
                 Check your email
               </h1>
-              
+
               <p className="text-slate-600 dark:text-slate-400 mb-6">
-                We've sent a password reset link to <strong>{email}</strong>
+                If an account with that email exists, you'll receive a password reset link.
               </p>
-              
+
               <p className="text-sm text-slate-500 dark:text-slate-500 mb-6">
-                Click the link in the email to reset your password. The link will expire in 1 hour.
+                The link will expire in 1 hour.
               </p>
-              
+
               <div className="space-y-4">
                 <p className="text-sm text-slate-500 dark:text-slate-500">
-                  Didn't receive the email? Check your spam folder or try again.
+                  Didn't receive the email? Check your spam folder.
                 </p>
-                
+
                 <Button
                   variant="outline"
                   onClick={() => {
@@ -96,9 +92,9 @@ export default function ForgotPassword() {
                   }}
                   className="w-full"
                 >
-                  Send another email
+                  Try another email
                 </Button>
-                
+
                 <Link to="/login">
                   <Button variant="ghost" className="w-full">
                     <ArrowLeft className="mr-2 h-4 w-4" />
@@ -119,7 +115,7 @@ export default function ForgotPassword() {
         <div className="text-center mb-8">
           <Logo className="mx-auto mb-4" />
         </div>
-        
+
         <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-8">
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">
@@ -129,14 +125,14 @@ export default function ForgotPassword() {
               Enter your email address and we'll send you a link to reset your password.
             </p>
           </div>
-          
+
           {error && (
             <Alert variant="destructive" className="mb-4">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
-          
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email address</Label>
@@ -150,7 +146,7 @@ export default function ForgotPassword() {
                 required
               />
             </div>
-            
+
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? (
                 <>
@@ -160,12 +156,12 @@ export default function ForgotPassword() {
               ) : (
                 <>
                   <Mail className="mr-2 h-4 w-4" />
-                  Send reset link
+                  Send Reset Link
                 </>
               )}
             </Button>
           </form>
-          
+
           <div className="mt-6 text-center">
             <Link
               to="/login"

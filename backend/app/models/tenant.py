@@ -8,7 +8,7 @@ from typing import Optional
 from enum import Enum
 
 from sqlalchemy import String, DateTime, Integer, Enum as SQLEnum, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
 
@@ -47,6 +47,8 @@ class Tenant(Base):
     conversation_count_this_month: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    users = relationship("User", back_populates="tenant")
     
     def to_dict(self) -> dict:
         """Convert model to dictionary."""

@@ -102,6 +102,7 @@ class LoginResponse(BaseModel):
         name: Name of the authenticated user
         role: Role of the authenticated user
         tokens: JWT tokens (access and refresh)
+        requires_2fa: Whether 2FA verification is required
     """
 
     message: str = Field(..., description="Success message")
@@ -110,6 +111,7 @@ class LoginResponse(BaseModel):
     name: Optional[str] = Field(None, description="Name of the authenticated user")
     role: str = Field(..., description="Role of the authenticated user")
     tokens: TokenResponse = Field(..., description="JWT tokens")
+    requires_2fa: bool = Field(False, description="Whether 2FA verification is required")
 
 
 class RefreshTokenRequest(BaseModel):

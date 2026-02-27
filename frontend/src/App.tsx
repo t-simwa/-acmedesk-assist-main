@@ -19,6 +19,9 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import VerifyEmail from "./pages/VerifyEmail";
+import EmailVerified from "./pages/EmailVerified";
+import TwoFactorAuth from "./pages/TwoFactorAuth";
 import { AdminLayout } from "./components/admin/AdminLayout";
 import { DashboardSkeleton } from "./components/admin/skeletons/DashboardSkeleton";
 import { DocumentsSkeleton } from "./components/admin/skeletons/DocumentsSkeleton";
@@ -99,6 +102,38 @@ const App = () => (
                 element={
                   <PageTransition>
                     <ResetPassword />
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="/verify-email"
+                element={
+                  <PageTransition>
+                    <VerifyEmail />
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="/email-verified"
+                element={
+                  <PageTransition>
+                    <EmailVerified />
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="/2fa"
+                element={
+                  <PageTransition>
+                    <TwoFactorAuth />
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="/signup"
+                element={
+                  <PageTransition>
+                    <Register />
                   </PageTransition>
                 }
               />
