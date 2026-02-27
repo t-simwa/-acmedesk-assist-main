@@ -96,7 +96,11 @@ async def init_db():
     """
     # Force metadata refresh by clearing and re-importing models
     Base.metadata.clear()
-    from . import conversation, document, message, user, knowledge_base, password_reset_token  # noqa: F401
+    from . import (
+        tenant, user, chatbot_instance, conversation, document, message,
+        contact, lead, campaign, booking, plan, setting, user_preferences,
+        audit_log, api_key, team_member, knowledge_base
+    )  # noqa: F401
     
     engine = get_engine()
     async with engine.begin() as conn:
