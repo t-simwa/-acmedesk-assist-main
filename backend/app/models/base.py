@@ -32,8 +32,12 @@ def get_database_url() -> str:
         return settings.database_url
     
     # Default to SQLite in backend/data directory
-    # Ensure the directory exists
-    db_dir = Path("backend/data")
+    # Use absolute path relative to this file's location
+    # __file__ = backend/app/models/base.py
+    # parent = backend/app/models
+    # parent.parent = backend/app
+    # parent.parent.parent = backend
+    db_dir = Path(__file__).parent.parent.parent / "data"
     db_dir.mkdir(parents=True, exist_ok=True)
     
     # Use absolute path for SQLite
@@ -94,13 +98,12 @@ async def init_db():
     
     This should be called once at application startup.
     """
-    # Force metadata refresh by clearing and re-importing models
-    Base.metadata.clear()
-    from . import (
+    # Import all models to register them with Base.metadata
+    from app.models import (  # noqa: F401
         tenant, user, chatbot_instance, conversation, document, message,
         contact, lead, campaign, booking, plan, setting, user_preferences,
         audit_log, api_key, team_member, knowledge_base
-    )  # noqa: F401
+    )
     
     engine = get_engine()
     async with engine.begin() as conn:
