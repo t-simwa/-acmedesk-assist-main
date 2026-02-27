@@ -257,6 +257,77 @@ class EmailService:
             logger.error(f"Failed to send verification email to {to_email}: {str(e)}")
             return False
 
+    async def send_password_changed_confirmation(
+        self,
+        to_email: str,
+        user_name: Optional[str] = None
+    ) -> bool:
+        """
+        Send password changed confirmation email.
+        
+        Args:
+            to_email: Recipient email address
+            user_name: Optional user name for personalization
+            
+        Returns:
+            True if email sent successfully, False otherwise
+        """
+        try:
+            subject = "Your AcmeDesk Password Has Been Changed"
+            
+            html_body = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <style>
+                    body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                    .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                    .header {{ background-color: #10B981; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }}
+                    .content {{ background-color: #f9fafb; padding: 30px; border-radius: 0 0 5px 5px; }}
+                    .warning {{ background-color: #FEF3C7; padding: 15px; border-radius: 5px; margin-top: 20px; }}
+                    .footer {{ text-align: center; margin-top: 20px; color: #6b7280; font-size: 12px; }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <h1>Password Changed</h1>
+                    </div>
+                    <div class="content">
+                        <p>Hello{(' ' + user_name) if user_name else ''},</p>
+                        <p>Your password for AcmeDesk Assist has been successfully changed.</p>
+                        <div class="warning">
+                            <p><strong>If you didn't make this change, please contact support immediately.</strong></p>
+                        </div>
+                    </div>
+                    <div class="footer">
+                        <p>This is an automated message from AcmeDesk Assist. Please do not reply to this email.</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """
+            
+            text_body = f"""
+            Password Changed
+            
+            Hello{(' ' + user_name) if user_name else ''},
+            
+            Your password for AcmeDesk Assist has been successfully changed.
+            
+            If you didn't make this change, please contact support immediately.
+            
+            ---
+            This is an automated message from AcmeDesk Assist. Please do not reply to this email.
+            """
+            
+            return await self._send_email(to_email, subject, text_body, html_body)
+            
+        except Exception as e:
+            logger.error(f"Failed to send password changed confirmation to {to_email}: {str(e)}")
+            return False
+
 
 # Global email service instance
 email_service = EmailService()

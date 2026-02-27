@@ -23,7 +23,7 @@ from sqlalchemy.exc import IntegrityError
 
 from fastapi import APIRouter, HTTPException, status, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from typing import Union
 
 from ..schemas.auth import (
@@ -260,15 +260,19 @@ async def register(request_data: RegisterRequest, request: Request) -> RegisterR
 
 
 @router.get("/verify-email", response_model=VerifyEmailResponse)
-async def verify_email(token: str) -> VerifyEmailResponse:
+async def verify_email(token: str, request: Request = None) -> Union[VerifyEmailResponse, RedirectResponse]:
     """
     Verify email address using token (per spec 3.1.2).
     
     - Look up token
     - Mark user as verified
     - Delete token
-    - Return success message
+    - Return redirect to /email-verified
+    - Tokens expire after 24 hours
+    - If expired, show "resend verification" option
     """
+    frontend_url = str(settings.frontend_origin)
+    
     async with get_db_session() as session:
         # Find user with this verification token
         result = await session.execute(
@@ -291,9 +295,7 @@ async def verify_email(token: str) -> VerifyEmailResponse:
         
         # Check if already verified
         if user.is_verified:
-            return VerifyEmailResponse(
-                message="Email already verified. Please login."
-            )
+            return RedirectResponse(url=f"{frontend_url}/email-verified?already=true")
         
         # Mark user as verified
         user.is_verified = True
@@ -304,9 +306,8 @@ async def verify_email(token: str) -> VerifyEmailResponse:
             await session.commit()
             logger.info(f"Email verified for user: {user.email}")
             
-            return VerifyEmailResponse(
-                message="Email verified successfully! You can now login."
-            )
+            # Return redirect to /email-verified as per spec
+            return RedirectResponse(url=f"{frontend_url}/email-verified")
         except Exception as e:
             await session.rollback()
             logger.error(f"Error verifying email: {str(e)}")
@@ -828,6 +829,16 @@ async def reset_password(request_data: ResetPasswordRequest) -> ResetPasswordRes
         try:
             await session.commit()
             logger.info(f"Password reset completed for user: {user.email}")
+            
+            # Send password changed confirmation email (per spec 3.1.7)
+            from ..services.email import email_service
+            try:
+                await email_service.send_password_changed_confirmation(
+                    to_email=user.email,
+                    user_name=user.full_name
+                )
+            except Exception as e:
+                logger.error(f"Failed to send password changed email: {e}")
             
             return ResetPasswordResponse(
                 message="Password reset successfully. You can now login with your new password."
