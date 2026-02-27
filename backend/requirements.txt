@@ -26,6 +26,7 @@ python-docx>=1.1.0  # DOCX file parsing and text extraction
 python-jose[cryptography]>=3.3.0  # JWT token handling
 bcrypt>=4.0.0  # Password hashing
 python-multipart>=0.0.6  # For form data parsing
+redis>=4.5.0  # Redis for rate limiting and session management
 
 # Testing
 pytest>=7.4.0

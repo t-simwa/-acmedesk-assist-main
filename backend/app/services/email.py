@@ -165,17 +165,117 @@ class EmailService:
             return True
             
         except Exception as e:
-            logger.error(f"Failed to send email to {to_email}: {str(e)}")
-            # In development, log the email content instead of failing
-            if settings.environment == "development":
-                logger.info(f"DEVELOPMENT MODE: Would send email to {to_email}")
-                logger.info(f"Subject: {subject}")
-                logger.info(f"Body: {text_body}")
-                if html_body:
-                    logger.info(f"HTML Body: {html_body}")
-                return True  # Return True in dev mode to allow testing
+            logger.error(f"Failed to send password reset email to {to_email}: {str(e)}")
+            return False
+
+    async def send_verification_email(
+        self,
+        to_email: str,
+        verification_token: str,
+        user_name: Optional[str] = None
+    ) -> bool:
+        """
+        Send email verification email.
+        
+        Args:
+            to_email: Recipient email address
+            verification_token: Email verification token
+            user_name: Optional user name for personalization
+            
+        Returns:
+            True if email sent successfully, False otherwise
+        """
+        try:
+            # Create verification link
+            verify_url = f"{self.frontend_url}/verify-email?token={verification_token}"
+            
+            # Email subject
+            subject = "Verify Your AcmeDesk Assist Email"
+            
+            # Email body (HTML)
+            html_body = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <style>
+                    body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                    .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                    .header {{ background-color: #4F46E5; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }}
+                    .content {{ background-color: #f9fafb; padding: 30px; border-radius: 0 0 5px 5px; }}
+                    .button {{ display: inline-block; padding: 12px 24px; background-color: #4F46E5; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }}
+                    .footer {{ text-align: center; margin-top: 20px; color: #6b7280; font-size: 12px; }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <h1>Verify Your Email</h1>
+                    </div>
+                    <div class="content">
+                        <p>Hello{(' ' + user_name) if user_name else ''},</p>
+                        <p>Thank you for creating an AcmeDesk Assist account!</p>
+                        <p>Please verify your email address by clicking the button below:</p>
+                        <p style="text-align: center;">
+                            <a href="{verify_url}" class="button">Verify Email</a>
+                        </p>
+                        <p>Or copy and paste this link into your browser:</p>
+                        <p style="word-break: break-all; color: #4F46E5;">{verify_url}</p>
+                        <p><strong>This verification link will expire in 24 hours.</strong></p>
+                        <p>If you didn't create an account, please ignore this email.</p>
+                    </div>
+                    <div class="footer">
+                        <p>This is an automated message from AcmeDesk Assist. Please do not reply to this email.</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """
+            
+            # Plain text version
+            text_body = f"""
+            Verify Your Email
+            
+            Hello{(' ' + user_name) if user_name else ''},
+            
+            Thank you for creating an AcmeDesk Assist account!
+            
+            Please verify your email address by clicking the link below:
+            {verify_url}
+            
+            This verification link will expire in 24 hours.
+            
+            If you didn't create an account, please ignore this email.
+            
+            ---
+            This is an automated message from AcmeDesk Assist. Please do not reply to this email.
+            """
+            
+            return await self._send_email(to_email, subject, text_body, html_body)
+            
+        except Exception as e:
+            logger.error(f"Failed to send verification email to {to_email}: {str(e)}")
             return False
 
 
 # Global email service instance
 email_service = EmailService()
+
+
+async def send_verification_email(
+    to_email: str,
+    verification_token: str,
+    user_name: Optional[str] = None
+) -> bool:
+    """
+    Send email verification email.
+    
+    Args:
+        to_email: Recipient email address
+        verification_token: Email verification token
+        user_name: Optional user name for personalization
+        
+    Returns:
+        True if email sent successfully
+    """
+    return await email_service.send_verification_email(to_email, verification_token, user_name)

@@ -2,19 +2,29 @@
 Authentication API endpoints.
 
 Implements:
-- POST /api/auth/register - User registration
-- POST /api/auth/login - User login
+- POST /api/auth/register - User registration with tenant creation
+- GET /api/auth/verify-email - Email verification
+- POST /api/auth/login - User login with rate limiting
+- POST /api/auth/refresh - Token refresh with rotation
+- POST /api/auth/logout - Logout with token blacklist
+- POST /api/auth/forgot-password - Password reset request
+- POST /api/auth/reset-password - Password reset
+- POST /api/auth/resend-verification - Resend verification email
 """
 
 import logging
 import secrets
 import uuid
 from datetime import datetime, timedelta
+from typing import Optional
+
 from sqlalchemy import select, and_
 from sqlalchemy.exc import IntegrityError
 
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.responses import JSONResponse
+from typing import Union
 
 from ..schemas.auth import (
     RegisterRequest,
@@ -30,8 +40,14 @@ from ..schemas.auth import (
     ForgotPasswordResponse,
     ResetPasswordRequest,
     ResetPasswordResponse,
+    VerifyEmailResponse,
+    ResendVerificationRequest,
+    ResendVerificationResponse,
+    LogoutResponse,
 )
 from ..models.user import User, UserRole
+from ..models.tenant import Tenant, SubscriptionStatus
+from ..models.chatbot_instance import ChatbotInstance, ChatbotStatus, WidgetPosition
 from ..models.password_reset_token import PasswordResetToken
 from ..models.base import get_db_session
 from ..services.auth import (
@@ -42,31 +58,46 @@ from ..services.auth import (
     decode_token,
     generate_user_id,
 )
-from ..services.email import email_service
+from ..services.email import send_verification_email
+from ..services.redis_service import redis_service
 from ..config import settings
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
+
+# Rate limiting settings
+LOGIN_RATE_LIMIT = 5
+LOGIN_RATE_WINDOW = 900  # 15 minutes
+RESEND_VERIFY_RATE_LIMIT = 3
+RESEND_VERIFY_RATE_WINDOW = 3600  # 1 hour
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security)
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request = None
 ) -> User:
     """
     Get the current authenticated user from JWT token.
-
-    Args:
-        credentials: HTTP Bearer token credentials
-
-    Returns:
-        User model instance
-
-    Raises:
-        HTTPException: If token is invalid or user not found
     """
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
     token = credentials.credentials
+    
+    # Check if token is blacklisted
+    if redis_service.is_enabled and redis_service.is_blacklisted(token):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
     payload = decode_token(token)
     
     if payload is None:
@@ -111,31 +142,30 @@ async def get_current_user(
         return user
 
 
+def get_client_ip(request: Request) -> str:
+    """Get client IP address from request."""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
 @router.post("/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED)
-async def register(request: RegisterRequest) -> RegisterResponse:
+async def register(request_data: RegisterRequest, request: Request) -> RegisterResponse:
     """
-    Register a new user account.
+    Register a new user account with tenant and chatbot.
 
-    This endpoint:
-    1. Validates the request (email format, password strength)
-    2. Checks if email already exists
-    3. Hashes the password
-    4. Creates a new user in the database
-    5. Generates JWT tokens
-    6. Returns user info and tokens
-
-    Args:
-        request: RegisterRequest containing email, password, and optional name
-
-    Returns:
-        RegisterResponse with user info and JWT tokens
-
-    Raises:
-        HTTPException: If email already exists or validation fails
+    This endpoint (per spec 3.1.1):
+    1. Accepts email, password, business_name, full_name
+    2. Hashes password with bcrypt
+    3. Creates user + tenant + chatbot_instance in a SINGLE transaction
+    4. Generates email verification token (UUID4)
+    5. Sends verification email via SendGrid
+    6. Returns 201 with NO JWT (must verify email first)
     """
     async with get_db_session() as session:
         # Check if user with this email already exists
-        result = await session.execute(select(User).where(User.email == request.email))
+        result = await session.execute(select(User).where(User.email == request_data.email))
         existing_user = result.scalar_one_or_none()
         
         if existing_user:
@@ -144,46 +174,74 @@ async def register(request: RegisterRequest) -> RegisterResponse:
                 detail="Email already registered",
             )
         
-        # Hash password
-        password_hash = hash_password(request.password)
-        
-        # Generate user ID
+        # Generate IDs
         user_id = generate_user_id()
+        tenant_id = str(uuid.uuid4())
+        chatbot_id = str(uuid.uuid4())
         
-        # Create new user
+        # Generate verification token
+        verification_token = str(uuid.uuid4())
+        verification_expires = datetime.utcnow() + timedelta(hours=24)
+        
+        # Hash password
+        password_hash = hash_password(request_data.password)
+        
+        # Create tenant
+        new_tenant = Tenant(
+            id=tenant_id,
+            business_name=request_data.business_name,
+            subscription_status=SubscriptionStatus.TRIALING,
+        )
+        
+        # Create user with tenant_id
         new_user = User(
             id=user_id,
-            email=request.email,
-            name=request.name,
+            tenant_id=tenant_id,
+            email=request_data.email,
+            full_name=request_data.full_name,
             password_hash=password_hash,
-            role=UserRole.VIEWER,  # Default role
+            role=UserRole.OWNER,
             is_active=True,
+            is_verified=False,
+            verification_token=verification_token,
+            verification_token_expires=verification_expires,
+        )
+        
+        # Create default chatbot instance
+        new_chatbot = ChatbotInstance(
+            id=chatbot_id,
+            tenant_id=tenant_id,
+            name="Default Assistant",
+            status=ChatbotStatus.PAUSED,
+            widget_position=WidgetPosition.BOTTOM_RIGHT,
         )
         
         try:
+            # Add all to session (single transaction)
+            session.add(new_tenant)
             session.add(new_user)
+            session.add(new_chatbot)
+            
             await session.commit()
             await session.refresh(new_user)
             
-            logger.info(f"New user registered: {request.email} (ID: {user_id})")
+            logger.info(f"New user registered: {request_data.email} (ID: {user_id}, Tenant: {tenant_id})")
             
-            # Generate JWT tokens
-            token_data = {"sub": user_id, "email": request.email}
-            access_token = create_access_token(token_data)
-            refresh_token = create_refresh_token(token_data, remember_me=False)
-            
-            tokens = TokenResponse(
-                access_token=access_token,
-                refresh_token=refresh_token,
-                token_type="bearer",
-                expires_in=settings.jwt_access_token_expire_minutes * 60,
-            )
+            # Send verification email
+            try:
+                await send_verification_email(
+                    to_email=request_data.email,
+                    verification_token=verification_token,
+                    user_name=request_data.full_name
+                )
+            except Exception as e:
+                # Log but don't fail registration if email fails
+                logger.error(f"Failed to send verification email: {e}")
             
             return RegisterResponse(
-                message="User registered successfully",
+                message="Registration successful. Please check your email to verify your account.",
                 user_id=user_id,
-                email=request.email,
-                tokens=tokens,
+                email=request_data.email,
             )
             
         except IntegrityError:
@@ -201,35 +259,170 @@ async def register(request: RegisterRequest) -> RegisterResponse:
             )
 
 
-@router.post("/login", response_model=LoginResponse, status_code=status.HTTP_200_OK)
-async def login(request: LoginRequest) -> LoginResponse:
+@router.get("/verify-email", response_model=VerifyEmailResponse)
+async def verify_email(token: str) -> VerifyEmailResponse:
     """
-    Authenticate a user and return JWT tokens.
-
-    This endpoint:
-    1. Validates the request (email and password)
-    2. Finds the user by email
-    3. Verifies the password
-    4. Checks if account is active
-    5. Generates JWT tokens (with extended expiration if remember_me is True)
-    6. Returns user info and tokens
-
-    Args:
-        request: LoginRequest containing email, password, and optional remember_me
-
-    Returns:
-        LoginResponse with user info and JWT tokens
-
-    Raises:
-        HTTPException: If credentials are invalid or account is inactive
+    Verify email address using token (per spec 3.1.2).
+    
+    - Look up token
+    - Mark user as verified
+    - Delete token
+    - Return success message
     """
     async with get_db_session() as session:
-        # Find user by email
-        result = await session.execute(select(User).where(User.email == request.email))
+        # Find user with this verification token
+        result = await session.execute(
+            select(User).where(User.verification_token == token)
+        )
         user = result.scalar_one_or_none()
         
         if user is None:
-            # Don't reveal if email exists or not (security best practice)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid verification token",
+            )
+        
+        # Check if token is expired
+        if user.verification_token_expires and user.verification_token_expires < datetime.utcnow():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Verification token has expired. Please request a new one.",
+            )
+        
+        # Check if already verified
+        if user.is_verified:
+            return VerifyEmailResponse(
+                message="Email already verified. Please login."
+            )
+        
+        # Mark user as verified
+        user.is_verified = True
+        user.verification_token = None
+        user.verification_token_expires = None
+        
+        try:
+            await session.commit()
+            logger.info(f"Email verified for user: {user.email}")
+            
+            return VerifyEmailResponse(
+                message="Email verified successfully! You can now login."
+            )
+        except Exception as e:
+            await session.rollback()
+            logger.error(f"Error verifying email: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to verify email",
+            )
+
+
+@router.post("/resend-verification", response_model=ResendVerificationResponse)
+async def resend_verification(request_data: ResendVerificationRequest, request: Request) -> ResendVerificationResponse:
+    """
+    Resend verification email (per spec 3.1.8).
+    
+    - Rate limited to 3 per hour per email
+    - Generate new token
+    - Send new email
+    """
+    client_ip = get_client_ip(request)
+    rate_limit_key = f"resend_verify:{request_data.email}"
+    
+    # Check rate limit
+    if redis_service.is_enabled:
+        is_allowed, remaining = redis_service.check_rate_limit(
+            rate_limit_key, 
+            RESEND_VERIFY_RATE_LIMIT, 
+            RESEND_VERIFY_RATE_WINDOW
+        )
+        if not is_allowed:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many verification emails sent. Please try again later.",
+            )
+    
+    async with get_db_session() as session:
+        # Find user by email
+        result = await session.execute(
+            select(User).where(User.email == request_data.email)
+        )
+        user = result.scalar_one_or_none()
+        
+        # Always return success (security best practice)
+        if user is None:
+            return ResendVerificationResponse(
+                message="If an account with that email exists, a verification link has been sent."
+            )
+        
+        # If already verified, don't send again
+        if user.is_verified:
+            return ResendVerificationResponse(
+                message="Email already verified. Please login."
+            )
+        
+        # Generate new verification token
+        verification_token = str(uuid.uuid4())
+        verification_expires = datetime.utcnow() + timedelta(hours=24)
+        
+        user.verification_token = verification_token
+        user.verification_token_expires = verification_expires
+        
+        try:
+            await session.commit()
+            
+            # Send verification email
+            await send_verification_email(
+                to_email=request_data.email,
+                verification_token=verification_token,
+                user_name=user.full_name
+            )
+            
+            logger.info(f"Verification email resent to: {request_data.email}")
+            
+            return ResendVerificationResponse(
+                message="If an account with that email exists, a verification link has been sent."
+            )
+        except Exception as e:
+            await session.rollback()
+            logger.error(f"Error resending verification: {str(e)}")
+            return ResendVerificationResponse(
+                message="If an account with that email exists, a verification link has been sent."
+            )
+
+
+@router.post("/login", response_model=LoginResponse)
+async def login(request_data: LoginRequest, request: Request) -> LoginResponse:
+    """
+    Authenticate a user and return JWT tokens (per spec 3.1.3).
+    
+    - Rate limit: 5 attempts per 15 minutes per IP
+    - Check if user is verified (return 403 if not)
+    - Return access token in body
+    - Set refresh token in httpOnly cookie
+    """
+    client_ip = get_client_ip(request)
+    rate_limit_key = f"login:{client_ip}"
+    
+    # Check rate limit
+    if redis_service.is_enabled:
+        is_allowed, remaining = redis_service.check_rate_limit(
+            rate_limit_key, 
+            LOGIN_RATE_LIMIT, 
+            LOGIN_RATE_WINDOW
+        )
+        if not is_allowed:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many login attempts. Please try again in 15 minutes.",
+                headers={"Retry-After": str(LOGIN_RATE_WINDOW)},
+            )
+    
+    async with get_db_session() as session:
+        # Find user by email
+        result = await session.execute(select(User).where(User.email == request_data.email))
+        user = result.scalar_one_or_none()
+        
+        if user is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password",
@@ -243,23 +436,46 @@ async def login(request: LoginRequest) -> LoginResponse:
                 detail="User account is inactive",
             )
         
+        # Check if email is verified (per spec)
+        if not user.is_verified:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Please verify your email before logging in",
+            )
+        
         # Verify password
-        if not user.password_hash or not verify_password(request.password, user.password_hash):
+        if not user.password_hash or not verify_password(request_data.password, user.password_hash):
+            # Increment rate limit on failed attempt
+            if redis_service.is_enabled:
+                redis_service.increment_rate_limit(rate_limit_key, LOGIN_RATE_WINDOW)
+            
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password",
                 headers={"WWW-Authenticate": "Bearer"},
             )
         
-        logger.info(f"User logged in: {request.email} (ID: {user.id})")
+        # Reset rate limit on successful login
+        if redis_service.is_enabled:
+            redis_service.reset_rate_limit(rate_limit_key)
+        
+        logger.info(f"User logged in: {request_data.email} (ID: {user.id})")
+        
+        # Update last login
+        user.last_login_at = datetime.utcnow()
+        await session.commit()
         
         # Generate JWT tokens
-        token_data = {"sub": user.id, "email": user.email}
+        token_data = {
+            "sub": user.id, 
+            "email": user.email,
+            "tenant_id": user.tenant_id,
+        }
         access_token = create_access_token(token_data)
-        refresh_token = create_refresh_token(token_data, remember_me=request.remember_me or False)
+        refresh_token = create_refresh_token(token_data, remember_me=request_data.remember_me or False)
         
-        # Calculate expiration based on remember_me
-        if request.remember_me:
+        # Calculate expiration
+        if request_data.remember_me:
             expires_in = settings.jwt_remember_me_expire_days * 24 * 60 * 60
         else:
             expires_in = settings.jwt_access_token_expire_minutes * 60
@@ -271,37 +487,55 @@ async def login(request: LoginRequest) -> LoginResponse:
             expires_in=expires_in,
         )
         
-        return LoginResponse(
+        response = LoginResponse(
             message="Login successful",
             user_id=user.id,
             email=user.email,
-            name=user.name,
-            role=user.role.value,
+            name=user.full_name,
+            role=user.role.value if user.role else "agent",
             tokens=tokens,
         )
+        
+        # Create response with httpOnly cookie for refresh token
+        response = JSONResponse(
+            content=response.model_dump(),
+            headers=[
+                ("Set-Cookie", f"refresh_token={refresh_token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age={settings.jwt_refresh_token_expire_days * 86400}")
+            ]
+        )
+        
+        return response
 
 
-@router.post("/refresh", response_model=TokenResponse, status_code=status.HTTP_200_OK)
-async def refresh_token(request: RefreshTokenRequest) -> TokenResponse:
+@router.post("/refresh", response_model=TokenResponse)
+async def refresh_token(request: Request) -> TokenResponse:
     """
-    Refresh access token using refresh token.
-
-    This endpoint:
-    1. Validates the refresh token
-    2. Extracts user information from token
-    3. Generates new access and refresh tokens
-    4. Returns new tokens
-
-    Args:
-        request: RefreshTokenRequest containing refresh_token
-
-    Returns:
-        TokenResponse with new access and refresh tokens
-
-    Raises:
-        HTTPException: If refresh token is invalid or expired
+    Refresh access token using refresh token (per spec 3.1.4).
+    
+    - Read refresh token from httpOnly cookie
+    - Validate
+    - Issue new access token
+    - Rotate refresh token (invalidate old one in Redis blacklist)
     """
-    payload = decode_token(request.refresh_token)
+    # Get refresh token from cookie
+    refresh_token_value = request.cookies.get("refresh_token")
+    
+    if not refresh_token_value:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="No refresh token provided",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Check if token is blacklisted
+    if redis_service.is_enabled and redis_service.is_blacklisted(refresh_token_value):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    payload = decode_token(refresh_token_value)
     
     if payload is None:
         raise HTTPException(
@@ -319,6 +553,7 @@ async def refresh_token(request: RefreshTokenRequest) -> TokenResponse:
     
     user_id = payload.get("sub")
     email = payload.get("email")
+    tenant_id = payload.get("tenant_id")
     
     if user_id is None or email is None:
         raise HTTPException(
@@ -339,70 +574,86 @@ async def refresh_token(request: RefreshTokenRequest) -> TokenResponse:
                 headers={"WWW-Authenticate": "Bearer"},
             )
     
-    # Generate new tokens
-    token_data = {"sub": user_id, "email": email}
-    access_token = create_access_token(token_data)
-    # Use same remember_me setting as original (check if token was long-lived)
-    exp_timestamp = payload.get("exp", 0)
-    current_timestamp = datetime.utcnow().timestamp()
-    remember_me = (exp_timestamp - current_timestamp) > (7 * 24 * 60 * 60)
-    refresh_token = create_refresh_token(token_data, remember_me=remember_me)
+    # Blacklist old refresh token (rotation)
+    if redis_service.is_enabled:
+        # Get token expiry to know how long to blacklist
+        exp_timestamp = payload.get("exp", 0)
+        current_timestamp = datetime.utcnow().timestamp()
+        blacklist_seconds = int(exp_timestamp - current_timestamp) if exp_timestamp > current_timestamp else 3600
+        redis_service.add_to_blacklist(refresh_token_value, blacklist_seconds)
     
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        token_type="bearer",
-        expires_in=settings.jwt_access_token_expire_minutes * 60,
+    # Generate new tokens
+    token_data = {"sub": user_id, "email": email, "tenant_id": tenant_id}
+    access_token = create_access_token(token_data)
+    new_refresh_token = create_refresh_token(token_data, remember_me=False)
+    
+    # Calculate expiration
+    expires_in = settings.jwt_access_token_expire_minutes * 60
+    
+    response = JSONResponse(
+        content=TokenResponse(
+            access_token=access_token,
+            refresh_token=new_refresh_token,
+            token_type="bearer",
+            expires_in=expires_in,
+        ).model_dump(),
+        headers=[
+            ("Set-Cookie", f"refresh_token={new_refresh_token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age={settings.jwt_refresh_token_expire_days * 86400}")
+        ]
     )
+    
+    return response
 
 
-@router.get("/me", response_model=UserInfoResponse, status_code=status.HTTP_200_OK)
+@router.post("/logout", response_model=LogoutResponse)
+async def logout(request: Request) -> LogoutResponse:
+    """
+    Logout endpoint (per spec 3.1.5).
+    
+    - Add current refresh token to Redis blacklist
+    - Clear httpOnly cookie
+    - Return 200
+    """
+    # Get refresh token from cookie
+    refresh_token_value = request.cookies.get("refresh_token")
+    
+    if refresh_token_value and redis_service.is_enabled:
+        # Blacklist the refresh token
+        redis_service.add_to_blacklist(
+            refresh_token_value, 
+            settings.jwt_refresh_token_expire_days * 86400
+        )
+    
+    # Return success with cookie clearing
+    response = JSONResponse(
+        content=LogoutResponse(message="Logged out successfully").model_dump(),
+        headers=[
+            ("Set-Cookie", "refresh_token=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0")
+        ]
+    )
+    
+    return response
+
+
+@router.get("/me", response_model=UserInfoResponse)
 async def get_current_user_info(current_user: User = Depends(get_current_user)) -> UserInfoResponse:
-    """
-    Get current authenticated user information.
-
-    This endpoint requires a valid JWT access token in the Authorization header.
-
-    Args:
-        current_user: Current authenticated user (from dependency)
-
-    Returns:
-        UserInfoResponse with user information
-    """
+    """Get current authenticated user information."""
     return UserInfoResponse(
         user_id=current_user.id,
         email=current_user.email,
-        name=current_user.name,
-        role=current_user.role.value,
+        name=current_user.full_name,
+        role=current_user.role.value if current_user.role else "agent",
         is_active=current_user.is_active,
     )
 
 
-@router.post("/change-password", response_model=ChangePasswordResponse, status_code=status.HTTP_200_OK)
+@router.post("/change-password", response_model=ChangePasswordResponse)
 async def change_password(
-    request: ChangePasswordRequest,
+    request_data: ChangePasswordRequest,
     current_user: User = Depends(get_current_user)
 ) -> ChangePasswordResponse:
-    """
-    Change password for authenticated user.
-
-    This endpoint:
-    1. Verifies the current password
-    2. Validates the new password strength
-    3. Updates the password hash in the database
-
-    Args:
-        request: ChangePasswordRequest containing current_password and new_password
-        current_user: Current authenticated user (from dependency)
-
-    Returns:
-        ChangePasswordResponse with success message
-
-    Raises:
-        HTTPException: If current password is incorrect or validation fails
-    """
+    """Change password for authenticated user."""
     async with get_db_session() as session:
-        # Reload user in this session to ensure we're working with the same session
         result = await session.execute(select(User).where(User.id == current_user.id))
         user = result.scalar_one_or_none()
         
@@ -413,21 +664,21 @@ async def change_password(
             )
         
         # Verify current password
-        if not user.password_hash or not verify_password(request.current_password, user.password_hash):
+        if not user.password_hash or not verify_password(request_data.current_password, user.password_hash):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Current password is incorrect",
             )
         
-        # Check if new password is different from current password
-        if verify_password(request.new_password, user.password_hash):
+        # Check if new password is different
+        if verify_password(request_data.new_password, user.password_hash):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="New password must be different from current password",
             )
         
         # Hash new password
-        new_password_hash = hash_password(request.new_password)
+        new_password_hash = hash_password(request_data.new_password)
         
         # Update password
         user.password_hash = new_password_hash
@@ -435,7 +686,7 @@ async def change_password(
         
         try:
             await session.commit()
-            logger.info(f"Password changed for user: {user.email} (ID: {user.id})")
+            logger.info(f"Password changed for user: {user.email}")
             
             return ChangePasswordResponse(
                 message="Password changed successfully"
@@ -449,34 +700,21 @@ async def change_password(
             )
 
 
-@router.post("/forgot-password", response_model=ForgotPasswordResponse, status_code=status.HTTP_200_OK)
-async def forgot_password(request: ForgotPasswordRequest) -> ForgotPasswordResponse:
+@router.post("/forgot-password", response_model=ForgotPasswordResponse)
+async def forgot_password(request_data: ForgotPasswordRequest) -> ForgotPasswordResponse:
     """
-    Request password reset by sending email with reset token.
-
-    This endpoint:
-    1. Finds user by email
-    2. Generates secure reset token
-    3. Stores token in database with expiration (1 hour)
-    4. Sends password reset email
-
-    Args:
-        request: ForgotPasswordRequest containing email
-
-    Returns:
-        ForgotPasswordResponse with success message (always returns success for security)
-
-    Note:
-        Always returns success message even if email doesn't exist (security best practice)
+    Request password reset (per spec 3.1.6).
+    
+    - ALWAYS return 200 regardless of email existence
+    - Generate reset token with 1-hour expiry
+    - Send password reset email
     """
     async with get_db_session() as session:
-        # Find user by email
-        result = await session.execute(select(User).where(User.email == request.email))
+        result = await session.execute(select(User).where(User.email == request_data.email))
         user = result.scalar_one_or_none()
         
-        # Always return success message (security best practice - don't reveal if email exists)
+        # Always return success (security best practice)
         if user is None or not user.is_active:
-            # Still return success to prevent email enumeration
             return ForgotPasswordResponse(
                 message="If an account with that email exists, a password reset link has been sent."
             )
@@ -486,7 +724,7 @@ async def forgot_password(request: ForgotPasswordRequest) -> ForgotPasswordRespo
         token_id = str(uuid.uuid4())
         expires_at = datetime.utcnow() + timedelta(hours=1)
         
-        # Invalidate any existing reset tokens for this user
+        # Invalidate any existing reset tokens
         existing_tokens_result = await session.execute(
             select(PasswordResetToken)
             .where(
@@ -514,13 +752,14 @@ async def forgot_password(request: ForgotPasswordRequest) -> ForgotPasswordRespo
             await session.commit()
             
             # Send password reset email
+            from ..services.email import email_service
             await email_service.send_password_reset_email(
                 to_email=user.email,
                 reset_token=reset_token,
-                user_name=user.name
+                user_name=user.full_name
             )
             
-            logger.info(f"Password reset requested for user: {user.email} (ID: {user.id})")
+            logger.info(f"Password reset requested for user: {user.email}")
             
             return ForgotPasswordResponse(
                 message="If an account with that email exists, a password reset link has been sent."
@@ -528,37 +767,26 @@ async def forgot_password(request: ForgotPasswordRequest) -> ForgotPasswordRespo
         except Exception as e:
             await session.rollback()
             logger.error(f"Error processing password reset request: {str(e)}")
-            # Still return success to prevent information leakage
             return ForgotPasswordResponse(
                 message="If an account with that email exists, a password reset link has been sent."
             )
 
 
-@router.post("/reset-password", response_model=ResetPasswordResponse, status_code=status.HTTP_200_OK)
-async def reset_password(request: ResetPasswordRequest) -> ResetPasswordResponse:
+@router.post("/reset-password", response_model=ResetPasswordResponse)
+async def reset_password(request_data: ResetPasswordRequest) -> ResetPasswordResponse:
     """
-    Reset password using reset token from email.
-
-    This endpoint:
-    1. Validates the reset token (checks expiration and usage)
-    2. Finds the associated user
-    3. Validates new password strength
-    4. Updates password hash
-    5. Marks token as used
-
-    Args:
-        request: ResetPasswordRequest containing token and new_password
-
-    Returns:
-        ResetPasswordResponse with success message
-
-    Raises:
-        HTTPException: If token is invalid, expired, or already used
+    Reset password using reset token (per spec 3.1.7).
+    
+    - Verify token not expired and not already used
+    - Hash new password
+    - Update user
+    - Mark token as used
+    - Send confirmation email
     """
     async with get_db_session() as session:
         # Find reset token
         result = await session.execute(
-            select(PasswordResetToken).where(PasswordResetToken.token == request.token)
+            select(PasswordResetToken).where(PasswordResetToken.token == request_data.token)
         )
         reset_token_obj = result.scalar_one_or_none()
         
@@ -588,7 +816,7 @@ async def reset_password(request: ResetPasswordRequest) -> ResetPasswordResponse
             )
         
         # Hash new password
-        new_password_hash = hash_password(request.new_password)
+        new_password_hash = hash_password(request_data.new_password)
         
         # Update password
         user.password_hash = new_password_hash
@@ -599,7 +827,7 @@ async def reset_password(request: ResetPasswordRequest) -> ResetPasswordResponse
         
         try:
             await session.commit()
-            logger.info(f"Password reset completed for user: {user.email} (ID: {user.id})")
+            logger.info(f"Password reset completed for user: {user.email}")
             
             return ResetPasswordResponse(
                 message="Password reset successfully. You can now login with your new password."

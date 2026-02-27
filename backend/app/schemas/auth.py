@@ -14,12 +14,14 @@ class RegisterRequest(BaseModel):
     Attributes:
         email: User's email address (must be valid email format)
         password: User's password (must meet strength requirements)
-        name: User's full name (optional)
+        full_name: User's full name (required)
+        business_name: Business name for tenant creation (required)
     """
 
     email: EmailStr = Field(..., description="User's email address")
     password: str = Field(..., min_length=8, description="User's password (minimum 8 characters)")
-    name: Optional[str] = Field(None, max_length=200, description="User's full name")
+    full_name: str = Field(..., min_length=1, max_length=200, description="User's full name")
+    business_name: str = Field(..., min_length=1, max_length=255, description="Business name")
 
     @field_validator("password")
     @classmethod
@@ -82,13 +84,11 @@ class RegisterResponse(BaseModel):
         message: Success message
         user_id: ID of the newly created user
         email: Email address of the newly created user
-        tokens: JWT tokens (access and refresh)
     """
 
     message: str = Field(..., description="Success message")
     user_id: str = Field(..., description="ID of the newly created user")
     email: str = Field(..., description="Email address of the newly created user")
-    tokens: TokenResponse = Field(..., description="JWT tokens")
 
 
 class LoginResponse(BaseModel):
@@ -244,6 +244,61 @@ class ResetPasswordRequest(BaseModel):
 class ResetPasswordResponse(BaseModel):
     """
     Response model for password reset.
+
+    Attributes:
+        message: Success message
+    """
+
+    message: str = Field(..., description="Success message")
+
+
+class VerifyEmailRequest(BaseModel):
+    """
+    Request model for email verification.
+
+    Attributes:
+        token: Email verification token
+    """
+
+    token: str = Field(..., description="Email verification token")
+
+
+class VerifyEmailResponse(BaseModel):
+    """
+    Response model for email verification.
+
+    Attributes:
+        message: Success message
+    """
+
+    message: str = Field(..., description="Success message")
+
+
+class ResendVerificationRequest(BaseModel):
+    """
+    Request model for resending verification email.
+
+    Attributes:
+        email: User's email address
+    """
+
+    email: EmailStr = Field(..., description="User's email address")
+
+
+class ResendVerificationResponse(BaseModel):
+    """
+    Response model for resending verification email.
+
+    Attributes:
+        message: Success message
+    """
+
+    message: str = Field(..., description="Success message")
+
+
+class LogoutResponse(BaseModel):
+    """
+    Response model for logout.
 
     Attributes:
         message: Success message
