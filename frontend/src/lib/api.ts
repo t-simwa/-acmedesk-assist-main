@@ -2194,3 +2194,56 @@ export const onboardingApi = {
     });
   },
 };
+
+// ============================================================================
+// Chatbot API (Milestone 6)
+// ============================================================================
+
+export interface ChatbotConfig {
+  id: string;
+  name: string;
+  avatar_url?: string;
+  brand_color: string;
+  secondary_color: string;
+  greeting_message?: string;
+  fallback_message?: string;
+  escalation_message?: string;
+  offline_message?: string;
+  response_tone: string;
+  response_length: string;
+  show_citations: boolean;
+  show_typing: boolean;
+  show_powered_by: boolean;
+  widget_position: string;
+  allowed_domains: string[];
+  status: string;
+}
+
+export const chatbotApi = {
+  /**
+   * Get chatbot configuration
+   */
+  async getConfig(): Promise<ChatbotConfig> {
+    return apiClient<ChatbotConfig>("/api/chatbot/config");
+  },
+
+  /**
+   * Update chatbot configuration
+   */
+  async updateConfig(data: Partial<ChatbotConfig>): Promise<ChatbotConfig> {
+    return apiClient<ChatbotConfig>("/api/chatbot/config", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Update allowed domains
+   */
+  async updateDomains(domains: string[]): Promise<ChatbotConfig> {
+    return apiClient<ChatbotConfig>("/api/chatbot/domains", {
+      method: "PUT",
+      body: JSON.stringify({ allowed_domains: domains }),
+    });
+  },
+};

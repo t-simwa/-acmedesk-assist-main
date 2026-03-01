@@ -23,6 +23,8 @@ import VerifyEmail from "./pages/VerifyEmail";
 import EmailVerified from "./pages/EmailVerified";
 import AcceptInvite from "./pages/AcceptInvite";
 import TwoFactorAuth from "./pages/TwoFactorAuth";
+import OnboardingWizard from "./pages/OnboardingWizard";
+import GetStarted from "./pages/GetStarted";
 import { AdminLayout } from "./components/admin/AdminLayout";
 import { DashboardSkeleton } from "./components/admin/skeletons/DashboardSkeleton";
 import { DocumentsSkeleton } from "./components/admin/skeletons/DocumentsSkeleton";
@@ -44,6 +46,7 @@ const APIKeys = lazy(() => import("./pages/admin/APIKeys"));
 const HelpCenter = lazy(() => import("./pages/admin/HelpCenter"));
 const EmailChannel = lazy(() => import("./pages/admin/EmailChannel"));
 const Inbox = lazy(() => import("./pages/admin/Inbox"));
+const Install = lazy(() => import("./pages/admin/Install"));
 const Privacy = lazy(() => import("./pages/Privacy"));
 const Terms = lazy(() => import("./pages/Terms"));
 
@@ -147,6 +150,16 @@ const App = () => (
                 }
               />
               <Route
+                path="/onboarding"
+                element={
+                  <ProtectedRoute>
+                    <PageTransition>
+                      <OnboardingWizard />
+                    </PageTransition>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/admin"
                 element={
                   <ProtectedRoute>
@@ -160,6 +173,16 @@ const App = () => (
                     <PageTransition>
                       <Suspense fallback={<DashboardSkeleton />}>
                         <Dashboard />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="get-started"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <GetStarted />
                       </Suspense>
                     </PageTransition>
                   }
@@ -270,6 +293,16 @@ const App = () => (
                     <PageTransition>
                       <Suspense fallback={<DashboardSkeleton />}>
                         <HelpCenter />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="install"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <Install />
                       </Suspense>
                     </PageTransition>
                   }

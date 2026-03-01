@@ -20,6 +20,7 @@ from .routers import (
     analytics,
     auth,
     chat,
+    chatbot,
     conversations,
     documents,
     email,
@@ -34,6 +35,7 @@ from .routers import (
     security,
     oauth,
     team,
+    onboarding,
 )
 
 
@@ -87,6 +89,7 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(chat.router)
+app.include_router(chatbot.router)
 app.include_router(conversations.router)
 app.include_router(documents.router)
 app.include_router(settings_router.router)
@@ -102,6 +105,7 @@ app.include_router(twitter.router)
 app.include_router(security.router)
 app.include_router(oauth.router)
 app.include_router(team.router)
+app.include_router(onboarding.router)
 
 
 @app.get("/")

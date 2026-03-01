@@ -153,3 +153,91 @@ class MessageReactionResponse(BaseModel):
     message_id: str = Field(..., description="Unique message identifier")
     reaction: Optional[str] = Field(None, description="Current reaction type")
     success: bool = Field(..., description="Whether the update was successful")
+
+
+# =============================================================================
+# Widget-specific schemas (Milestone 6)
+# =============================================================================
+
+class WidgetConfigResponse(BaseModel):
+    """Response model for widget configuration endpoint."""
+    
+    chatbotId: str = Field(..., description="Chatbot instance ID")
+    apiUrl: str = Field(..., description="API URL for the widget")
+    name: str = Field(..., description="Chatbot name")
+    avatarUrl: Optional[str] = Field(None, description="Avatar URL")
+    brandColor: str = Field(..., description="Brand primary color (hex)")
+    secondaryColor: str = Field(..., description="Brand secondary color (hex)")
+    greetingMessage: str = Field(..., description="Greeting message")
+    fallbackMessage: str = Field(..., description="Fallback message when can't answer")
+    escalationMessage: str = Field(..., description="Escalation message")
+    offlineMessage: Optional[str] = Field(None, description="Offline message")
+    responseTone: str = Field(..., description="Response tone")
+    responseLength: str = Field(..., description="Response length")
+    showCitations: bool = Field(..., description="Whether to show source citations")
+    showTyping: bool = Field(..., description="Whether to show typing indicator")
+    showPoweredBy: bool = Field(..., description="Whether to show powered by badge")
+    position: str = Field(..., description="Widget position")
+    suggestedQuestions: list = Field(default_factory=list, description="Suggested questions")
+
+
+class HistoryMessage(BaseModel):
+    """A message in conversation history."""
+    role: str = Field(..., description="Message role: user or assistant")
+    content: str = Field(..., description="Message content")
+
+
+class LeadCaptureData(BaseModel):
+    """Lead capture data submitted by widget."""
+    name: Optional[str] = Field(None, description="Contact name")
+    email: Optional[str] = Field(None, description="Contact email")
+    phone: Optional[str] = Field(None, description="Contact phone")
+    company: Optional[str] = Field(None, description="Company name")
+
+
+class WidgetMessageRequest(BaseModel):
+    """Request model for widget message endpoint."""
+    
+    message: str = Field(..., min_length=1, description="User's message")
+    session_id: str = Field(..., description="Session identifier")
+    conversation_id: Optional[str] = Field(None, description="Conversation ID (for existing conversations)")
+    history: list = Field(default_factory=list, description="Message history for context")
+    lead_data: Optional[LeadCaptureData] = Field(None, description="Lead data if captured")
+
+
+class WidgetMessageResponse(BaseModel):
+    """Response model for widget message endpoint."""
+    
+    answer: str = Field(..., description="AI-generated answer")
+    sources: list = Field(default_factory=list, description="Source citations")
+    conversation_id: str = Field(..., description="Conversation ID")
+    metadata: dict = Field(default_factory=dict, description="Response metadata")
+
+
+class WidgetLeadRequest(BaseModel):
+    """Request model for widget lead capture endpoint."""
+    
+    conversation_id: str = Field(..., description="Conversation ID")
+    lead_data: LeadCaptureData = Field(..., description="Lead capture data")
+
+
+class WidgetLeadResponse(BaseModel):
+    """Response model for widget lead capture endpoint."""
+    
+    success: bool = Field(..., description="Whether lead was saved successfully")
+    message: str = Field(..., description="Response message")
+
+
+class WidgetFeedbackRequest(BaseModel):
+    """Request model for widget feedback endpoint."""
+    
+    conversation_id: str = Field(..., description="Conversation ID")
+    rating: str = Field(..., description="Rating: positive or negative")
+    feedback_text: Optional[str] = Field(None, description="Optional feedback text")
+
+
+class WidgetFeedbackResponse(BaseModel):
+    """Response model for widget feedback endpoint."""
+    
+    success: bool = Field(..., description="Whether feedback was saved successfully")
+    message: str = Field(..., description="Response message")

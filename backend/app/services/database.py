@@ -1663,3 +1663,29 @@ async def get_active_knowledge_base_ids(user_id: str) -> List[str]:
     active_ids.extend(prefs["active_kb_ids"])
     
     return active_ids
+
+
+async def get_active_knowledge_base_ids_by_tenant(tenant_id: str) -> List[str]:
+    """
+    Get list of active knowledge base IDs for a tenant (for widget RAG filtering).
+
+    Args:
+        tenant_id: Tenant identifier
+
+    Returns:
+        List of active knowledge base IDs
+    """
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        from sqlalchemy import select
+        from ..models.knowledge_base import KnowledgeBase
+        
+        result = await session.execute(
+            select(KnowledgeBase.id).where(
+                KnowledgeBase.tenant_id == tenant_id,
+                KnowledgeBase.is_active == True
+            )
+        )
+        kb_ids = [row[0] for row in result.fetchall()]
+        
+        return kb_ids

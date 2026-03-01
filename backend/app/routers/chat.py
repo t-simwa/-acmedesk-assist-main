@@ -243,3 +243,339 @@ async def chat_stream(
     """
     generator = _sse_chat_stream_generator(request=request, http_request=http_request, user_id=current_user.id)
     return StreamingResponse(generator, media_type="text/event-stream")
+
+
+# =============================================================================
+# Widget-specific endpoints (Milestone 6)
+# =============================================================================
+
+from ..schemas.chat import (
+    WidgetConfigResponse,
+    WidgetMessageRequest,
+    WidgetMessageResponse,
+    WidgetLeadRequest,
+    WidgetLeadResponse,
+    WidgetFeedbackRequest,
+    WidgetFeedbackResponse,
+)
+from ..models.base import get_db_session
+from ..models.chatbot_instance import ChatbotInstance
+from ..models.conversation import Conversation
+from ..models.message import Message
+from ..models.lead import Lead
+from ..services import database
+from sqlalchemy import select
+
+
+async def validate_domain(request: Request, chatbot_id: str) -> ChatbotInstance:
+    """
+    Validate that the request origin is in the chatbot's allowed domains.
+    
+    Raises HTTPException 403 if domain is not allowed.
+    """
+    origin = request.headers.get("origin") or request.headers.get("referer")
+    
+    async with get_db_session() as session:
+        result = await session.execute(
+            select(ChatbotInstance).where(ChatbotInstance.id == chatbot_id)
+        )
+        chatbot = result.scalar_one_or_none()
+    
+    if not chatbot:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Chatbot not found"
+        )
+    
+    if origin and chatbot.allowed_domains:
+        from urllib.parse import urlparse
+        origin_domain = urlparse(origin).netloc
+        
+        allowed = False
+        for domain in chatbot.allowed_domains:
+            if origin_domain == domain or origin_domain.endswith(f".{domain}"):
+                allowed = True
+                break
+        
+        if not allowed:
+            logger.warning(f"Unauthorized domain access attempt: {origin_domain} for chatbot {chatbot_id}")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Unauthorized domain — add this domain in your dashboard"
+            )
+    
+    return chatbot
+
+
+@router.get("/config/{chatbot_id}", response_model=WidgetConfigResponse)
+async def get_widget_config(
+    chatbot_id: str,
+    request: Request
+) -> WidgetConfigResponse:
+    """
+    Get widget configuration for a chatbot.
+    
+    Validates the request origin against domain whitelist.
+    Returns configuration (never secrets like API keys).
+    """
+    chatbot = await validate_domain(request, chatbot_id)
+    
+    suggested_questions = []
+    try:
+        from ..models.knowledge_base import KnowledgeBase
+        async with get_db_session() as session:
+            result = await session.execute(
+                select(KnowledgeBase).where(
+                    KnowledgeBase.tenant_id == chatbot.tenant_id,
+                    KnowledgeBase.is_active == True
+                )
+            )
+            kb = result.scalar_one_or_none()
+            if kb and hasattr(kb, 'suggested_questions') and kb.suggested_questions:
+                suggested_questions = kb.suggested_questions[:5]
+    except Exception:
+        pass
+    
+    return WidgetConfigResponse(
+        chatbotId=chatbot.id,
+        apiUrl=str(request.base_url).rstrip("/"),
+        name=chatbot.name,
+        avatarUrl=chatbot.avatar_url,
+        brandColor=chatbot.brand_color,
+        secondaryColor=chatbot.secondary_color,
+        greetingMessage=chatbot.greeting_message or "Hi! How can I help you today?",
+        fallbackMessage=chatbot.fallback_message or "I'm not sure about that. Would you like to speak with our team?",
+        escalationMessage=chatbot.escalation_message or "Let me connect you with our team.",
+        offlineMessage=chatbot.offline_message,
+        responseTone=chatbot.response_tone.value if chatbot.response_tone else "professional",
+        responseLength=chatbot.response_length.value if chatbot.response_length else "medium",
+        showCitations=chatbot.show_citations,
+        showTyping=chatbot.show_typing,
+        showPoweredBy=chatbot.show_powered_by,
+        position=chatbot.widget_position.value if chatbot.widget_position else "bottom_right",
+        suggestedQuestions=suggested_questions
+    )
+
+
+@router.post("/widget/message", response_model=WidgetMessageResponse)
+async def widget_message(
+    request_data: WidgetMessageRequest,
+    request: Request
+) -> WidgetMessageResponse:
+    """
+    Process a message from the widget.
+    
+    Creates or continues a conversation, processes through RAG,
+    and returns the AI response.
+    """
+    chatbot_id = request_data.session_id.split("-")[0] if request_data.session_id else None
+    
+    chatbot = None
+    if chatbot_id:
+        async with get_db_session() as session:
+            result = await session.execute(
+                select(ChatbotInstance).where(ChatbotInstance.id == chatbot_id)
+            )
+            chatbot = result.scalar_one_or_none()
+    
+    if not chatbot:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Chatbot not found"
+        )
+    
+    await validate_domain(request, chatbot.id)
+    
+    start_time = time.time()
+    
+    try:
+        conversation = None
+        if request_data.conversation_id:
+            async with get_db_session() as session:
+                result = await session.execute(
+                    select(Conversation).where(Conversation.id == request_data.conversation_id)
+                )
+                conversation = result.scalar_one_or_none()
+        
+        if not conversation:
+            conversation_id = f"conv_{request_data.session_id}_{int(datetime.utcnow().timestamp())}"
+            async with get_db_session() as session:
+                conversation = Conversation(
+                    id=conversation_id,
+                    tenant_id=chatbot.tenant_id,
+                    chatbot_id=chatbot.id,
+                    channel="web",
+                    status="active",
+                    session_id=request_data.session_id,
+                    started_at=datetime.utcnow()
+                )
+                session.add(conversation)
+                await session.commit()
+                conversation = await session.get(Conversation, conversation_id)
+        
+        user_message_id = f"msg_{int(datetime.utcnow().timestamp() * 1000)}"
+        async with get_db_session() as session:
+            user_message = Message(
+                id=user_message_id,
+                conversation_id=conversation.id,
+                role="user",
+                content=request_data.message,
+                created_at=datetime.utcnow()
+            )
+            session.add(user_message)
+            await session.commit()
+        
+        history_text = ""
+        for hist_msg in request_data.history[-10:]:
+            history_text += f"{hist_msg.get('role', 'user')}: {hist_msg.get('content', '')}\n"
+        
+        full_query = f"{history_text}User: {request_data.message}".strip() if history_text else request_data.message
+        
+        active_kb_ids = await database.get_active_knowledge_base_ids_by_tenant(chatbot.tenant_id)
+        
+        answer, sources = await rag.process_chat_query(
+            query=full_query,
+            top_k=5,
+            user_id=chatbot.tenant_id,
+            active_kb_ids=active_kb_ids
+        )
+        
+        query_time_ms = (time.time() - start_time) * 1000
+        
+        assistant_message_id = f"msg_{int(datetime.utcnow().timestamp() * 1000) + 1}"
+        async with get_db_session() as session:
+            assistant_message = Message(
+                id=assistant_message_id,
+                conversation_id=conversation.id,
+                role="assistant",
+                content=answer,
+                created_at=datetime.utcnow()
+            )
+            session.add(assistant_message)
+            await session.commit()
+        
+        sources_list = []
+        for src in sources:
+            if hasattr(src, 'get'):
+                sources_list.append({
+                    "filename": src.get("title", "Unknown"),
+                    "page_number": src.get("page_number"),
+                    "excerpt": (src.get("snippet", "") or "")[:200]
+                })
+            else:
+                sources_list.append({
+                    "filename": "Unknown",
+                    "page_number": None,
+                    "excerpt": ""
+                })
+        
+        return WidgetMessageResponse(
+            answer=answer,
+            sources=sources_list,
+            conversation_id=conversation.id,
+            metadata={
+                "query_time_ms": round(query_time_ms, 2),
+                "sources_count": len(sources_list)
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Error processing widget message: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to process message"
+        )
+
+
+@router.post("/widget/lead", response_model=WidgetLeadResponse)
+async def widget_lead(
+    request_data: WidgetLeadRequest,
+    request: Request
+) -> WidgetLeadResponse:
+    """
+    Save lead capture data from the widget.
+    """
+    conversation = None
+    async with get_db_session() as session:
+        result = await session.execute(
+            select(Conversation).where(Conversation.id == request_data.conversation_id)
+        )
+        conversation = result.scalar_one_or_none()
+    
+    if not conversation:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Conversation not found"
+        )
+    
+    await validate_domain(request, conversation.chatbot_id)
+    
+    try:
+        lead_id = f"lead_{int(datetime.utcnow().timestamp() * 1000)}"
+        async with get_db_session() as session:
+            lead = Lead(
+                id=lead_id,
+                tenant_id=conversation.tenant_id,
+                conversation_id=conversation.id,
+                name=request_data.lead_data.name,
+                email=request_data.lead_data.email,
+                phone=request_data.lead_data.phone,
+                company=request_data.lead_data.company,
+                source_channel="web",
+                status="new",
+                created_at=datetime.utcnow()
+            )
+            session.add(lead)
+            await session.commit()
+        
+        return WidgetLeadResponse(
+            success=True,
+            message="Lead captured successfully"
+        )
+    except Exception as e:
+        logger.error(f"Error saving lead: {str(e)}", exc_info=True)
+        return WidgetLeadResponse(
+            success=False,
+            message="Failed to capture lead"
+        )
+
+
+@router.post("/widget/feedback", response_model=WidgetFeedbackResponse)
+async def widget_feedback(
+    request_data: WidgetFeedbackRequest,
+    request: Request
+) -> WidgetFeedbackResponse:
+    """
+    Save feedback from the widget (thumbs up/down).
+    """
+    conversation = None
+    async with get_db_session() as session:
+        result = await session.execute(
+            select(Conversation).where(Conversation.id == request_data.conversation_id)
+        )
+        conversation = result.scalar_one_or_none()
+    
+    if not conversation:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Conversation not found"
+        )
+    
+    await validate_domain(request, conversation.chatbot_id)
+    
+    try:
+        rating_value = "positive" if request_data.rating == "positive" else "negative"
+        async with get_db_session() as session:
+            conversation.rating = rating_value
+            await session.commit()
+        
+        return WidgetFeedbackResponse(
+            success=True,
+            message="Feedback saved successfully"
+        )
+    except Exception as e:
+        logger.error(f"Error saving feedback: {str(e)}", exc_info=True)
+        return WidgetFeedbackResponse(
+            success=False,
+            message="Failed to save feedback"
+        )
