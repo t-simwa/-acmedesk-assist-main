@@ -119,6 +119,29 @@ class Settings(BaseSettings):
     google_client_secret: Optional[str] = None  # Google OAuth Client Secret
     google_redirect_uri: str = "http://localhost:5173/login/oauth/callback"  # OAuth callback URL
 
+    # Widget configuration
+    widget_url: Optional[str] = None  # URL for the embeddable chat widget
+    
+    # Cloudflare R2 storage configuration (supports both old and new env var names)
+    r2_bucket_name: Optional[str] = None  # R2 bucket name
+    r2_access_key: Optional[str] = None  # R2 access key
+    r2_secret_key: Optional[str] = None  # R2 secret key
+    r2_endpoint_url: Optional[str] = None  # R2 endpoint URL (e.g., https://xxx.r2.cloudflarestorage.com)
+    r2_region: str = "auto"  # R2 region
+    
+    # Legacy R2 config names (for backwards compatibility)
+    cloudflare_r2_bucket: Optional[str] = None
+    cloudflare_r2_access_key: Optional[str] = None
+    cloudflare_r2_secret_key: Optional[str] = None
+    cloudflare_r2_endpoint: Optional[str] = None
+    
+    # Redis configuration for job queue
+    redis_url: Optional[str] = None  # Redis URL (e.g., redis://localhost:6379)
+    
+    # Document processing configuration
+    max_file_size_mb: int = 50  # Maximum file size in MB
+    allowed_file_types: list = [".pdf", ".docx", ".txt", ".csv", ".md", ".html", ".htm"]
+
 
     class Config:
         env_file = ".env"

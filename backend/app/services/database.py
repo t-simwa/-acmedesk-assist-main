@@ -303,6 +303,12 @@ async def create_document(
     status: str = "processing",
     user_id: Optional[str] = None,
     knowledge_base_id: Optional[str] = None,
+    tenant_id: Optional[str] = None,
+    chatbot_id: Optional[str] = None,
+    original_filename: Optional[str] = None,
+    storage_url: Optional[str] = None,
+    content_hash: Optional[str] = None,
+    source_url: Optional[str] = None,
 ) -> dict:
     """
     Create a new document metadata record.
@@ -310,30 +316,45 @@ async def create_document(
     Args:
         doc_id: Unique document identifier
         name: Document name/filename
-        doc_type: Document type (markdown, html, text)
+        doc_type: Document type (pdf, docx, txt, csv, markdown, html)
         file_path: Path to the stored file
         file_size: File size in bytes
         status: Processing status (default: "processing")
+        user_id: User ID (for backwards compatibility)
+        knowledge_base_id: Knowledge base ID
+        tenant_id: Tenant ID for multi-tenancy
+        chatbot_id: Chatbot ID
+        original_filename: Original filename for display
+        storage_url: Storage URL (R2 or local)
+        content_hash: MD5 hash for duplicate detection
+        source_url: Source URL for URL ingestion
 
     Returns:
         Document metadata dictionary
     """
+    from ..models.document import DocumentStatus
+    
+    # Use tenant_id as primary, fall back to user_id
+    doc_tenant_id = tenant_id or user_id or "anonymous"
+    
     session_factory = get_session_factory()
     async with session_factory() as session:
         try:
             document = Document(
                 id=doc_id,
-                tenant_id =user_id or "anonymous",  # Use user_id if provided, otherwise "anonymous"
-                knowledge_base_id=knowledge_base_id,
-                name=name,
-                type=doc_type,
-                status=status,
-                file_path=file_path,
+                tenant_id=doc_tenant_id,
+                chatbot_id=chatbot_id,
+                filename=name,
+                original_filename=original_filename or name,
+                file_type=doc_type,
                 file_size=file_size,
+                storage_url=storage_url or file_path,
+                content_hash=content_hash,
+                status=DocumentStatus(status),
                 chunk_count=0,
+                source_url=source_url,
                 created_at=datetime.utcnow(),
                 updated_at=datetime.utcnow(),
-                last_indexed_at=None,
                 error_message=None,
             )
 
@@ -381,6 +402,11 @@ async def update_document(
     status: Optional[str] = None,
     chunk_count: Optional[int] = None,
     error_message: Optional[str] = None,
+    page_count: Optional[int] = None,
+    is_archived: Optional[bool] = None,
+    content_hash: Optional[str] = None,
+    file_size: Optional[int] = None,
+    storage_url: Optional[str] = None,
 ) -> Optional[dict]:
     """
     Update document metadata.
@@ -390,10 +416,17 @@ async def update_document(
         status: New status (if provided)
         chunk_count: New chunk count (if provided)
         error_message: Error message (if provided, None to clear)
+        page_count: Page count for PDFs (if provided)
+        is_archived: Archive status (if provided)
+        content_hash: MD5 hash (if provided)
+        file_size: File size in bytes (if provided)
+        storage_url: Storage URL (if provided)
 
     Returns:
         Updated document metadata dictionary if found, None otherwise
     """
+    from ..models.document import DocumentStatus
+    
     session_factory = get_session_factory()
     async with session_factory() as session:
         try:
@@ -408,16 +441,36 @@ async def update_document(
             document.updated_at = datetime.utcnow()
 
             if status is not None:
-                document.status = status
-                if status == "indexed":
-                    document.last_indexed_at = datetime.utcnow()
-                elif status == "error" and error_message:
+                # Convert string status to enum
+                try:
+                    document.status = DocumentStatus(status)
+                except ValueError:
+                    document.status = DocumentStatus.PROCESSING
+                    
+                if status == "ready":
+                    document.last_retrieved_at = datetime.utcnow()
+                elif status == "failed" and error_message:
                     document.error_message = error_message
-                elif status != "error":
+                elif status != "failed":
                     document.error_message = None
 
             if chunk_count is not None:
                 document.chunk_count = chunk_count
+
+            if page_count is not None:
+                document.page_count = page_count
+                
+            if is_archived is not None:
+                document.is_archived = is_archived
+
+            if content_hash is not None:
+                document.content_hash = content_hash
+                
+            if file_size is not None:
+                document.file_size = file_size
+                
+            if storage_url is not None:
+                document.storage_url = storage_url
 
             if error_message is not None:
                 document.error_message = error_message
@@ -442,6 +495,8 @@ async def list_documents(
     status: Optional[str] = None,
     doc_type: Optional[str] = None,
     user_id: Optional[str] = None,
+    tenant_id: Optional[str] = None,
+    include_archived: bool = False,
 ) -> tuple[List[dict], int]:
     """
     List documents with pagination, search, and filtering.
@@ -450,9 +505,11 @@ async def list_documents(
         limit: Maximum number of documents to return
         offset: Number of documents to skip
         search: Search term to filter by document name (case-insensitive)
-        status: Filter by status (processing, indexed, error)
-        doc_type: Filter by document type (markdown, html, text)
-        user_id: Optional user ID to filter by (required for user-specific queries)
+        status: Filter by status (processing, ready, failed)
+        doc_type: Filter by document type (pdf, docx, txt, csv, etc.)
+        user_id: Optional user ID to filter by (for backwards compatibility)
+        tenant_id: Optional tenant ID for multi-tenancy
+        include_archived: Whether to include archived documents
 
     Returns:
         Tuple of (list of document metadata dictionaries, total count)
@@ -464,18 +521,23 @@ async def list_documents(
             query = select(Document)
             conditions = []
 
-            # Always filter by user_id if provided
-            if user_id:
+            # Use tenant_id as primary filter
+            if tenant_id:
+                conditions.append(Document.tenant_id == tenant_id)
+            elif user_id:
                 conditions.append(Document.tenant_id == user_id)
 
             if search:
-                conditions.append(func.lower(Document.name).contains(func.lower(search)))
+                conditions.append(func.lower(Document.original_filename).contains(func.lower(search)))
 
             if status:
                 conditions.append(Document.status == status)
 
             if doc_type:
-                conditions.append(Document.type == doc_type)
+                conditions.append(Document.file_type == doc_type)
+                
+            if not include_archived:
+                conditions.append(Document.is_archived == False)
 
             if conditions:
                 query = query.where(and_(*conditions))
@@ -537,6 +599,117 @@ async def delete_document(doc_id: str) -> bool:
         except Exception as e:
             await session.rollback()
             logger.error(f"Error deleting document: {e}", exc_info=True)
+            raise
+
+
+async def check_duplicate_document(tenant_id: str, content_hash: str) -> Optional[dict]:
+    """
+    Check if a document with the same content hash already exists for this tenant.
+    
+    Args:
+        tenant_id: Tenant ID
+        content_hash: MD5 hash of file content
+        
+    Returns:
+        Document metadata dict if duplicate found, None otherwise
+    """
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        try:
+            result = await session.execute(
+                select(Document).where(
+                    and_(
+                        Document.tenant_id == tenant_id,
+                        Document.content_hash == content_hash,
+                        Document.is_archived == False
+                    )
+                )
+            )
+            document = result.scalar_one_or_none()
+            
+            if document:
+                logger.info(f"Duplicate document found: doc_id={document.id}, hash={content_hash}")
+                return document.to_dict()
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error checking duplicate document: {e}", exc_info=True)
+            raise
+
+
+async def get_storage_usage(tenant_id: str) -> tuple[int, int]:
+    """
+    Get storage usage for a tenant.
+    
+    Args:
+        tenant_id: Tenant ID
+        
+    Returns:
+        Tuple of (used_bytes, document_count)
+    """
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        try:
+            # Sum file sizes
+            result = await session.execute(
+                select(func.sum(Document.file_size)).where(
+                    and_(
+                        Document.tenant_id == tenant_id,
+                        Document.is_archived == False
+                    )
+                )
+            )
+            total_size = result.scalar() or 0
+            
+            # Count documents
+            count_result = await session.execute(
+                select(func.count(Document.id)).where(
+                    and_(
+                        Document.tenant_id == tenant_id,
+                        Document.is_archived == False
+                    )
+                )
+            )
+            doc_count = count_result.scalar() or 0
+            
+            return int(total_size), int(doc_count)
+            
+        except Exception as e:
+            logger.error(f"Error getting storage usage: {e}", exc_info=True)
+            raise
+
+
+async def get_document_by_tenant(doc_id: str, tenant_id: str) -> Optional[dict]:
+    """
+    Get document metadata by ID for a specific tenant.
+    
+    Args:
+        doc_id: Document identifier
+        tenant_id: Tenant ID for verification
+        
+    Returns:
+        Document metadata dictionary if found and belongs to tenant, None otherwise
+    """
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        try:
+            result = await session.execute(
+                select(Document).where(
+                    and_(
+                        Document.id == doc_id,
+                        Document.tenant_id == tenant_id
+                    )
+                )
+            )
+            document = result.scalar_one_or_none()
+
+            if document:
+                return document.to_dict()
+            return None
+
+        except Exception as e:
+            logger.error(f"Error getting document by tenant: {e}", exc_info=True)
             raise
 
 

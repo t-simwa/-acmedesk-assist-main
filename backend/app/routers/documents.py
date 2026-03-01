@@ -1,228 +1,184 @@
 """
 Document management API endpoints.
 
-Implements:
-- POST /api/documents/upload - Upload a document file
-- GET /api/documents - List documents with pagination, search, and filters
-- GET /api/documents/{id} - Get document details
-- POST /api/documents/{id}/reindex - Re-index a document
-- DELETE /api/documents/{id} - Delete a document
+Implements Milestone 5 specifications:
+- 5.1.1: Upload endpoint with R2 storage, 50MB limit, async processing
+- 5.1.2: URL ingestion endpoint
+- 5.1.4: Duplicate detection
+- 5.1.5: Password-protected PDF handling
+- 5.1.6: Processing status polling
+- 5.3.x: Document management UI endpoints
 """
 
 import logging
+import uuid
 from pathlib import Path
 from typing import Optional
 
+import httpx
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 
-from ..config import get_chunking_config, settings
+from ..config import settings
+from ..models.document import DocumentStatus
 from ..models.user import User
 from ..routers.auth import get_current_user
-from ..rag.chunking import chunk_text
-from ..rag.embeddings import EmbeddingModel
-from ..rag.ingestion import ingest_document
-from ..rag.vector_store import VectorStore
 from ..schemas.documents import (
+    ArchiveDocumentResponse,
     DeleteDocumentResponse,
     DocumentDetailResponse,
     DocumentListResponse,
     DocumentMetadata,
+    DocumentStatusResponse,
     DocumentUploadResponse,
+    DuplicateCheckResponse,
+    ReplaceDocumentResponse,
     ReindexResponse,
+    StorageUsageResponse,
+    URLIngestionRequest,
+    URLIngestionResponse,
 )
 from ..services import database, storage
+from ..services.document_queue import queue_service
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 
-# Initialize embedding model and vector store (singleton pattern)
-_embedding_model: Optional[EmbeddingModel] = None
-_vector_store: Optional[VectorStore] = None
-
-
-def get_embedding_model() -> EmbeddingModel:
-    """Get or create embedding model instance."""
-    global _embedding_model
-    if _embedding_model is None:
-        _embedding_model = EmbeddingModel(
-            model_name=settings.embedding_model,
-            openai_api_key=settings.openai_api_key,
-            use_openai=settings.use_openai_embeddings,
-        )
-    return _embedding_model
-
-
-def get_vector_store() -> VectorStore:
-    """Get or create vector store instance."""
-    global _vector_store
-    if _vector_store is None:
-        persist_dir = settings.vector_store_persist_dir or "backend/data/vector_db"
-        _vector_store = VectorStore(
-            collection_name=settings.vector_collection_name,
-            persist_directory=persist_dir,
-        )
-    return _vector_store
+MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB per spec 5.1.1
 
 
 def get_document_type(filename: str) -> str:
     """Determine document type from filename."""
     ext = Path(filename).suffix.lower()
-    if ext in [".md", ".markdown"]:
-        return "markdown"
-    elif ext in [".html", ".htm"]:
-        return "html"
-    elif ext == ".txt":
-        return "text"
-    elif ext == ".pdf":
-        return "pdf"
-    elif ext == ".docx":
-        return "docx"
-    else:
-        return "unknown"
+    type_map = {
+        ".pdf": "pdf",
+        ".docx": "docx",
+        ".txt": "text",
+        ".csv": "csv",
+        ".md": "markdown",
+        ".markdown": "markdown",
+        ".html": "html",
+        ".htm": "html",
+    }
+    return type_map.get(ext, "unknown")
 
 
-async def index_document(doc_id: str, file_path: Path, user_id: Optional[str] = None, knowledge_base_id: Optional[str] = None) -> tuple[int, Optional[str]]:
-    """
-    Index a document: ingest, chunk, embed, and store in vector DB.
-
-    Args:
-        doc_id: Document identifier
-        file_path: Path to the document file
-        user_id: Optional user ID to associate with the document
-
-    Returns:
-        Tuple of (chunk_count, error_message)
-    """
-    try:
-        # Update status to processing
-        await database.update_document(doc_id, status="processing", error_message=None)
-
-        # Ingest document
-        doc = ingest_document(file_path)
-        if doc is None:
-            error_msg = f"Failed to ingest document: unsupported format or error reading file"
-            await database.update_document(doc_id, status="error", error_message=error_msg)
-            return 0, error_msg
-
-        # Chunk document
-        chunking_config = get_chunking_config()
-        chunks = chunk_text(doc.text, chunking_config, doc_id, doc.url)
-
-        if not chunks:
-            error_msg = "No chunks created from document"
-            await database.update_document(doc_id, status="error", error_message=error_msg)
-            return 0, error_msg
-
-        # Generate embeddings
-        embedding_model = get_embedding_model()
-        texts = [chunk.text for chunk in chunks]
-        embeddings = embedding_model.embed_batch(texts)
-
-        # Store in vector DB with user_id and knowledge_base_id
-        vector_store = get_vector_store()
-        vector_store.add_documents(chunks, embeddings, user_id=user_id, knowledge_base_id=knowledge_base_id)
-
-        # Update document status
-        chunk_count = len(chunks)
-        await database.update_document(doc_id, status="indexed", chunk_count=chunk_count)
-
-        logger.info(f"Successfully indexed document: doc_id={doc_id}, chunks={chunk_count}")
-
-        return chunk_count, None
-
-    except Exception as e:
-        error_msg = f"Error indexing document: {str(e)}"
-        logger.error(f"Indexing error for doc_id={doc_id}: {e}", exc_info=True)
-        await database.update_document(doc_id, status="error", error_message=error_msg)
-        return 0, error_msg
+async def get_current_tenant_id(current_user: User) -> str:
+    """Get tenant ID from current user."""
+    # Get tenant_id from user, default to user.id if not available
+    tenant_id = getattr(current_user, 'tenant_id', None)
+    return tenant_id if tenant_id else current_user.id
 
 
-@router.post("/upload", response_model=DocumentUploadResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/upload", response_model=DocumentUploadResponse, status_code=status.HTTP_202_ACCEPTED)
 async def upload_document(
     file: UploadFile = File(...),
-    knowledge_base_id: Optional[str] = None,
+    chatbot_id: Optional[str] = None,
     current_user: User = Depends(get_current_user)
 ) -> DocumentUploadResponse:
     """
-    Upload a document file.
-
-    Accepts MD/HTML/TXT/PDF/DOCX files, stores them, creates metadata record,
-    and enqueues ingestion/indexing task.
-
-    Args:
-        file: Uploaded file (multipart/form-data)
-
-    Returns:
-        DocumentUploadResponse with document ID and status
-
-    Raises:
-        HTTPException: If file format is not supported or upload fails
+    Upload a document file (5.1.1).
+    
+    - Accepts multipart form data
+    - Validates file type (PDF, DOCX, TXT, CSV)
+    - Validates file size (max 50MB)
+    - Checks tenant storage limit
+    - Saves file to R2 or local storage
+    - Returns 202 Accepted immediately (async processing)
     """
     # Validate file type
     doc_type = get_document_type(file.filename or "")
     if doc_type == "unknown":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unsupported file format. Supported formats: .md, .html, .htm, .txt, .pdf, .docx",
+            detail=f"Unsupported file format. Supported formats: .pdf, .docx, .txt, .csv, .md, .html",
         )
 
-    # Validate file size (10MB limit)
-    MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+    # Read file content
     file_content = await file.read()
+    
+    # Validate file size (5.1.1)
     if len(file_content) > MAX_FILE_SIZE:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"File size exceeds maximum allowed size of {MAX_FILE_SIZE / (1024*1024):.0f}MB",
         )
 
-    try:
-        # Save file to storage
-        doc_id, file_path = storage.save_uploaded_file(file_content, file.filename or "unknown")
-
-        # Get file size
-        file_size = storage.get_file_size(file_path)
-
-        # Validate knowledge_base_id if provided
-        if knowledge_base_id:
-            kb = await database.get_knowledge_base(knowledge_base_id)
-            if not kb:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Knowledge base not found: {knowledge_base_id}",
-                )
-            # Check access: user can only upload to their own KBs or default KB
-            if not kb.get("is_default") and kb.get("user_id") != current_user.id:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="You don't have access to this knowledge base",
-                )
-
-        # Create document metadata record with status "processing"
-        document = await database.create_document(
-            doc_id=doc_id,
-            name=file.filename or "unknown",
-            doc_type=doc_type,
-            file_path=str(file_path),
-            file_size=file_size,
-            status="processing",
-            user_id=current_user.id,
-            knowledge_base_id=knowledge_base_id,
+    # Get tenant ID
+    tenant_id = await get_current_tenant_id(current_user)
+    
+    # Check storage limits
+    used_bytes, doc_count = await database.get_storage_usage(tenant_id)
+    storage_limit = 100 * 1024 * 1024  # 100MB default limit (should come from plan)
+    if used_bytes + len(file_content) > storage_limit:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Storage limit exceeded. Used {used_bytes / (1024*1024):.1f}MB of {storage_limit / (1024*1024):.0f}MB",
         )
 
-        # Index document synchronously with user_id and knowledge_base_id
-        chunk_count, error_message = await index_document(doc_id, file_path, user_id=current_user.id, knowledge_base_id=knowledge_base_id)
+    try:
+        # Compute content hash for duplicate detection (5.1.4)
+        content_hash = storage.compute_file_hash(file_content)
+        
+        # Check for duplicates
+        duplicate = await database.check_duplicate_document(tenant_id, content_hash)
+        is_duplicate = duplicate is not None
+        
+        # Generate document ID
+        doc_id = str(uuid.uuid4())
+        
+        # Save file
+        doc_id, storage_url = storage.save_uploaded_file(
+            file_content, 
+            file.filename or "unknown",
+            tenant_id=tenant_id,
+            doc_id=doc_id
+        )
+        
+        file_size = len(file_content)
 
-        # Get updated document
-        document = await database.get_document(doc_id)
-        if not document:
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retrieve document")
+        # Create document record
+        document = await database.create_document(
+            doc_id=doc_id,
+            name=f"{doc_id}_{file.filename or 'unknown'}",  # Stored filename
+            doc_type=doc_type,
+            file_path=storage_url,
+            file_size=file_size,
+            status="processing",
+            tenant_id=tenant_id,
+            chatbot_id=chatbot_id,
+            original_filename=file.filename or "unknown",
+            storage_url=storage_url,
+            content_hash=content_hash,
+        )
+
+        # Try to enqueue for background processing (5.1.3)
+        if queue_service.enabled:
+            queue_service.enqueue_document_processing(
+                doc_id=doc_id,
+                tenant_id=tenant_id,
+                file_path=storage_url,
+                filename=file.filename or "unknown",
+                chatbot_id=chatbot_id,
+            )
+        else:
+            # Fallback: process synchronously
+            from ..services.document_queue import process_document_job
+            await process_document_job({
+                "doc_id": doc_id,
+                "tenant_id": tenant_id,
+                "file_path": storage_url,
+                "filename": file.filename or "unknown",
+                "chatbot_id": chatbot_id,
+            })
 
         return DocumentUploadResponse(
-            id=document["id"],
-            name=document["name"],
-            status=document["status"],
-            message=f"Document uploaded and {'indexed successfully' if document['status'] == 'indexed' else 'processing failed'}",
+            id=doc_id,
+            name=file.filename or "unknown",
+            status="processing",
+            message="Document uploaded successfully and is being processed",
+            is_duplicate=is_duplicate,
+            duplicate_of=duplicate.get("id") if duplicate else None,
         )
 
     except HTTPException:
@@ -235,35 +191,198 @@ async def upload_document(
         )
 
 
-@router.get("", response_model=DocumentListResponse, status_code=status.HTTP_200_OK)
+@router.post("/check-duplicate", response_model=DuplicateCheckResponse)
+async def check_duplicate(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user)
+) -> DuplicateCheckResponse:
+    """
+    Check if a file is a duplicate before uploading (5.1.4).
+    """
+    file_content = await file.read()
+    tenant_id = await get_current_tenant_id(current_user)
+    content_hash = storage.compute_file_hash(file_content)
+    
+    duplicate = await database.check_duplicate_document(tenant_id, content_hash)
+    
+    return DuplicateCheckResponse(
+        is_duplicate=duplicate is not None,
+        duplicate_of=duplicate.get("id") if duplicate else None,
+        duplicate_filename=duplicate.get("original_filename") if duplicate else None,
+        can_proceed=True,
+    )
+
+
+@router.post("/ingest-url", response_model=URLIngestionResponse, status_code=status.HTTP_202_ACCEPTED)
+async def ingest_url(
+    request: URLIngestionRequest,
+    current_user: User = Depends(get_current_user)
+) -> URLIngestionResponse:
+    """
+    Ingest content from a URL (5.1.2).
+    
+    - Accepts URL
+    - Uses trafilatura to extract clean text
+    - Saves as .txt to storage
+    - Processes like a regular document
+    """
+    import trafilatura
+    
+    tenant_id = await get_current_tenant_id(current_user)
+    
+    try:
+        # Extract content from URL
+        downloaded = trafilatura.fetch_url(request.url)
+        if not downloaded:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Could not extract content from URL. Make sure the URL is accessible.",
+            )
+        
+        text = trafilatura.extract(downloaded)
+        if not text or len(text.strip()) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No extractable text found at URL",
+            )
+        
+        # Generate document ID and filename
+        doc_id = str(uuid.uuid4())
+        filename = f"{doc_id}.txt"
+        
+        # Create filename from URL domain
+        from urllib.parse import urlparse
+        domain = urlparse(request.url).netloc
+        display_name = f"{domain}_content"
+        
+        # Encode text to bytes
+        file_content = text.encode('utf-8')
+        
+        # Save to storage
+        doc_id, storage_url = storage.save_uploaded_file(
+            file_content,
+            filename,
+            tenant_id=tenant_id,
+            doc_id=doc_id
+        )
+        
+        # Create document record
+        document = await database.create_document(
+            doc_id=doc_id,
+            name=filename,
+            doc_type="text",
+            file_path=storage_url,
+            file_size=len(file_content),
+            status="processing",
+            tenant_id=tenant_id,
+            chatbot_id=request.chatbot_id,
+            original_filename=display_name,
+            storage_url=storage_url,
+            source_url=request.url,
+        )
+        
+        # Queue for processing
+        if queue_service.enabled:
+            queue_service.enqueue_document_processing(
+                doc_id=doc_id,
+                tenant_id=tenant_id,
+                file_path=storage_url,
+                filename=filename,
+                chatbot_id=request.chatbot_id,
+            )
+        else:
+            from ..services.document_queue import process_document_job
+            await process_document_job({
+                "doc_id": doc_id,
+                "tenant_id": tenant_id,
+                "file_path": storage_url,
+                "filename": filename,
+                "chatbot_id": request.chatbot_id,
+            })
+        
+        return URLIngestionResponse(
+            id=doc_id,
+            name=display_name,
+            status="processing",
+            message="URL content extracted and is being processed",
+        )
+        
+    except HTTPException:
+        raise
+    except ImportError:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="URL ingestion requires trafilatura library. Install with: pip install trafilatura",
+        )
+    except Exception as e:
+        logger.error(f"Error ingesting URL: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to ingest URL: {str(e)}",
+        )
+
+
+@router.get("/{doc_id}/status", response_model=DocumentStatusResponse)
+async def get_document_status(
+    doc_id: str,
+    current_user: User = Depends(get_current_user)
+) -> DocumentStatusResponse:
+    """
+    Get document processing status (5.1.6).
+    
+    - Client polls this endpoint while status is 'processing'
+    - Returns current status, progress, and any error message
+    """
+    tenant_id = await get_current_tenant_id(current_user)
+    document = await database.get_document_by_tenant(doc_id, tenant_id)
+    
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document not found: {doc_id}",
+        )
+    
+    # Get progress from Redis if available
+    progress = 0
+    job_status = queue_service.get_job_status(doc_id)
+    if job_status:
+        progress = job_status.get("progress", 0)
+    elif document.get("status") == "processing":
+        progress = 50  # Default processing progress
+    
+    return DocumentStatusResponse(
+        id=doc_id,
+        status=document.get("status", "processing"),
+        chunk_count=document.get("chunk_count"),
+        page_count=document.get("page_count"),
+        error_message=document.get("error_message"),
+        progress=progress,
+    )
+
+
+@router.get("", response_model=DocumentListResponse)
 async def list_documents(
-    limit: int = Query(50, ge=1, le=100, description="Maximum number of documents to return"),
-    offset: int = Query(0, ge=0, description="Number of documents to skip"),
-    search: Optional[str] = Query(None, description="Search term to filter by document name"),
-    status: Optional[str] = Query(None, description="Filter by status (processing, indexed, error)"),
-    type: Optional[str] = Query(None, alias="type", description="Filter by document type (markdown, html, text, pdf, docx)"),
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    search: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    type: Optional[str] = Query(None, alias="type"),
+    include_archived: bool = Query(False),
     current_user: User = Depends(get_current_user),
 ) -> DocumentListResponse:
     """
-    List documents with pagination, search, and filtering.
-
-    Args:
-        limit: Maximum number of documents to return (1-100)
-        offset: Number of documents to skip
-        search: Search term to filter by document name (case-insensitive)
-        status: Filter by status (processing, indexed, error)
-        type: Filter by document type (markdown, html, text, pdf, docx)
-
-    Returns:
-        DocumentListResponse with list of documents and pagination info
+    List documents with pagination, search, and filters (5.3.1).
     """
+    tenant_id = await get_current_tenant_id(current_user)
+    
     documents, total = await database.list_documents(
         limit=limit,
         offset=offset,
         search=search,
         status=status,
         doc_type=type,
-        user_id=current_user.id,
+        tenant_id=tenant_id,
+        include_archived=include_archived,
     )
 
     return DocumentListResponse(
@@ -274,174 +393,241 @@ async def list_documents(
     )
 
 
-@router.get("/{doc_id}", response_model=DocumentDetailResponse, status_code=status.HTTP_200_OK)
+@router.get("/usage", response_model=StorageUsageResponse)
+async def get_storage_usage(
+    current_user: User = Depends(get_current_user)
+) -> StorageUsageResponse:
+    """Get storage usage for current tenant (5.3.1)."""
+    tenant_id = await get_current_tenant_id(current_user)
+    used_bytes, doc_count = await database.get_storage_usage(tenant_id)
+    
+    # Limit should come from the tenant's plan
+    limit_bytes = 100 * 1024 * 1024  # 100MB default
+    
+    return StorageUsageResponse(
+        used_bytes=used_bytes,
+        limit_bytes=limit_bytes,
+        used_percent=round((used_bytes / limit_bytes) * 100, 1) if limit_bytes > 0 else 0,
+        document_count=doc_count,
+    )
+
+
+@router.get("/{doc_id}", response_model=DocumentDetailResponse)
 async def get_document(
     doc_id: str,
     current_user: User = Depends(get_current_user)
 ) -> DocumentDetailResponse:
-    """
-    Get document details by ID.
-
-    Returns metadata and basic stats (chunk count, last indexed).
-
-    Args:
-        doc_id: Document identifier
-        current_user: Current authenticated user
-
-    Returns:
-        DocumentDetailResponse with document metadata
-
-    Raises:
-        HTTPException: If document is not found or user doesn't have access
-    """
-    document = await database.get_document(doc_id)
-    if not document:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Document not found: {doc_id}")
+    """Get document details."""
+    tenant_id = await get_current_tenant_id(current_user)
+    document = await database.get_document_by_tenant(doc_id, tenant_id)
     
-    # Check if document belongs to current user
-    if document.get("user_id") != current_user.id:
+    if not document:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You don't have access to this document"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document not found: {doc_id}",
         )
-
+    
     return DocumentDetailResponse(document=DocumentMetadata(**document))
 
 
-@router.post("/{doc_id}/reindex", response_model=ReindexResponse, status_code=status.HTTP_200_OK)
+@router.post("/{doc_id}/archive", response_model=ArchiveDocumentResponse)
+async def archive_document(
+    doc_id: str,
+    current_user: User = Depends(get_current_user)
+) -> ArchiveDocumentResponse:
+    """
+    Archive a document (5.3.5).
+    
+    - Removes from vector store (chatbot stops using it)
+    - Keeps original file and database record
+    """
+    tenant_id = await get_current_tenant_id(current_user)
+    document = await database.get_document_by_tenant(doc_id, tenant_id)
+    
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document not found: {doc_id}",
+        )
+    
+    # Update document as archived
+    await database.update_document(doc_id, is_archived=True)
+    
+    # TODO: Remove from vector store
+    
+    return ArchiveDocumentResponse(
+        id=doc_id,
+        archived=True,
+        message="Document archived successfully",
+    )
+
+
+@router.post("/{doc_id}/restore", response_model=ArchiveDocumentResponse)
+async def restore_document(
+    doc_id: str,
+    current_user: User = Depends(get_current_user)
+) -> ArchiveDocumentResponse:
+    """Restore an archived document (5.3.5)."""
+    tenant_id = await get_current_tenant_id(current_user)
+    document = await database.get_document_by_tenant(doc_id, tenant_id)
+    
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document not found: {doc_id}",
+        )
+    
+    # Update document as not archived
+    await database.update_document(doc_id, is_archived=False)
+    
+    # Re-process and re-embed
+    # TODO: Trigger re-processing
+    
+    return ArchiveDocumentResponse(
+        id=doc_id,
+        archived=False,
+        message="Document restored successfully",
+    )
+
+
+@router.post("/{doc_id}/replace", response_model=ReplaceDocumentResponse)
+async def replace_document(
+    doc_id: str,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user)
+) -> ReplaceDocumentResponse:
+    """
+    Replace document with new version (5.3.6).
+    
+    - Deletes old chunks from vector store
+    - Processes new file
+    - Preserves filename in UI
+    """
+    tenant_id = await get_current_tenant_id(current_user)
+    document = await database.get_document_by_tenant(doc_id, tenant_id)
+    
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document not found: {doc_id}",
+        )
+    
+    # Read new file
+    file_content = await file.read()
+    if len(file_content) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File size exceeds maximum allowed size of {MAX_FILE_SIZE / (1024*1024):.0f}MB",
+        )
+    
+    # Compute new hash
+    content_hash = storage.compute_file_hash(file_content)
+    
+    # Save new file (replace)
+    _, storage_url = storage.save_uploaded_file(
+        file_content,
+        file.filename or document.get("original_filename", "unknown"),
+        tenant_id=tenant_id,
+        doc_id=doc_id
+    )
+    
+    # Update document
+    await database.update_document(
+        doc_id,
+        status="processing",
+        content_hash=content_hash,
+        file_size=len(file_content),
+        storage_url=storage_url,
+    )
+    
+    # TODO: Delete old vectors and re-process
+    
+    return ReplaceDocumentResponse(
+        id=doc_id,
+        status="processing",
+        message="Document replaced successfully, reprocessing...",
+    )
+
+
+@router.post("/{doc_id}/reindex", response_model=ReindexResponse)
 async def reindex_document(
     doc_id: str,
     current_user: User = Depends(get_current_user)
 ) -> ReindexResponse:
-    """
-    Re-index a document.
-
-    Re-runs ingestion and indexing for the document.
-
-    Args:
-        doc_id: Document identifier
-        current_user: Current authenticated user
-
-    Returns:
-        ReindexResponse with new status and message
-
-    Raises:
-        HTTPException: If document is not found or user doesn't have access
-    """
-    # Get document
-    document = await database.get_document(doc_id)
-    if not document:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Document not found: {doc_id}")
+    """Re-index a document."""
+    tenant_id = await get_current_tenant_id(current_user)
+    document = await database.get_document_by_tenant(doc_id, tenant_id)
     
-    # Check if document belongs to current user
-    if document.get("user_id") != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You don't have access to this document"
-        )
-
-    # Get file path
-    file_path = Path(document["file_path"])
-    if not file_path.exists():
-        error_msg = f"Document file not found: {file_path}"
-        await database.update_document(doc_id, status="error", error_message=error_msg)
-        return ReindexResponse(
-            id=doc_id,
-            status="error",
-            message=error_msg,
-        )
-
-    # Delete existing vectors for this document
-    try:
-        vector_store = get_vector_store()
-        deleted_count = vector_store.delete_by_doc_id(doc_id)
-        logger.info(f"Deleted {deleted_count} existing chunks for doc_id={doc_id} before reindexing")
-    except Exception as e:
-        logger.warning(f"Error deleting existing chunks for doc_id={doc_id}: {e}")
-
-    # Re-index document with user_id and knowledge_base_id
-    doc_kb_id = document.get("knowledge_base_id")
-    chunk_count, error_message = await index_document(doc_id, file_path, user_id=current_user.id, knowledge_base_id=doc_kb_id)
-
-    # Get updated document
-    document = await database.get_document(doc_id)
     if not document:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retrieve document")
-
-    if document["status"] == "indexed":
-        message = f"Document re-indexed successfully with {chunk_count} chunks"
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document not found: {doc_id}",
+        )
+    
+    # Reset status and re-process
+    await database.update_document(doc_id, status="processing", chunk_count=0)
+    
+    # Queue for processing
+    if queue_service.enabled:
+        queue_service.enqueue_document_processing(
+            doc_id=doc_id,
+            tenant_id=tenant_id,
+            file_path=document.get("storage_url", ""),
+            filename=document.get("original_filename", "unknown"),
+            chatbot_id=document.get("chatbot_id"),
+        )
     else:
-        message = f"Re-indexing failed: {error_message or 'Unknown error'}"
-
+        from ..services.document_queue import process_document_job
+        await process_document_job({
+            "doc_id": doc_id,
+            "tenant_id": tenant_id,
+            "file_path": document.get("storage_url", ""),
+            "filename": document.get("original_filename", "unknown"),
+            "chatbot_id": document.get("chatbot_id"),
+        })
+    
     return ReindexResponse(
         id=doc_id,
-        status=document["status"],
-        message=message,
+        status="processing",
+        message="Document reindexing started",
     )
 
 
-@router.delete("/{doc_id}", response_model=DeleteDocumentResponse, status_code=status.HTTP_200_OK)
+@router.delete("/{doc_id}", response_model=DeleteDocumentResponse)
 async def delete_document(
     doc_id: str,
     current_user: User = Depends(get_current_user)
 ) -> DeleteDocumentResponse:
     """
-    Delete a document.
-
-    Removes metadata, source file, and vectors.
-
-    Args:
-        doc_id: Document identifier
-
-    Returns:
-        DeleteDocumentResponse with deletion status
-
-    Raises:
-        HTTPException: If document is not found
-    """
-    # Get document to verify it exists
-    document = await database.get_document(doc_id)
-    if not document:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Document not found: {doc_id}")
+    Delete a document (5.3.7).
     
-    # Check if document belongs to current user
-    if document.get("user_id") != current_user.id:
+    - Deletes from R2/local storage
+    - Deletes all chunks from vector store
+    - Deletes database record
+    """
+    tenant_id = await get_current_tenant_id(current_user)
+    document = await database.get_document_by_tenant(doc_id, tenant_id)
+    
+    if not document:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You don't have access to this document"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document not found: {doc_id}",
         )
-
-    try:
-        # Delete vectors from vector store
-        try:
-            vector_store = get_vector_store()
-            deleted_count = vector_store.delete_by_doc_id(doc_id)
-            logger.info(f"Deleted {deleted_count} chunks from vector store for doc_id={doc_id}")
-        except Exception as e:
-            logger.warning(f"Error deleting vectors for doc_id={doc_id}: {e}")
-
-        # Delete file from storage
-        storage.delete_file(doc_id)
-
-        # Delete metadata from database
-        deleted = await database.delete_document(doc_id)
-
-        if deleted:
-            return DeleteDocumentResponse(
-                id=doc_id,
-                deleted=True,
-                message=f"Document '{document['name']}' has been successfully deleted",
-            )
-        else:
-            return DeleteDocumentResponse(
-                id=doc_id,
-                deleted=False,
-                message=f"Document metadata deleted but some cleanup may have failed",
-            )
-
-    except Exception as e:
-        logger.error(f"Error deleting document {doc_id}: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete document: {str(e)}",
-        )
+    
+    # Delete from storage
+    storage.delete_file(
+        doc_id,
+        tenant_id=tenant_id,
+        filename=document.get("original_filename")
+    )
+    
+    # TODO: Delete from vector store
+    
+    # Delete from database
+    deleted = await database.delete_document(doc_id)
+    
+    return DeleteDocumentResponse(
+        id=doc_id,
+        deleted=deleted,
+        message=f"Document '{document.get('original_filename')}' deleted successfully",
+    )

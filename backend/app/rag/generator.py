@@ -198,6 +198,112 @@ class LLMGenerator:
             logger.error(f"OpenAI generation error: {e}")
             raise
 
+    def stream_generate(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None
+    ):
+        """
+        Generate a streaming response from the LLM.
+        
+        Args:
+            prompt: User prompt/query
+            system_prompt: Optional system prompt
+            
+        Yields:
+            Chunks of generated text
+        """
+        if not prompt or not prompt.strip():
+            logger.warning("Empty prompt provided")
+            return
+            yield
+            
+        try:
+            if LITELLM_AVAILABLE:
+                yield from self._stream_litellm(prompt, system_prompt)
+            elif self.openai_client:
+                yield from self._stream_openai(prompt, system_prompt)
+            else:
+                raise RuntimeError("No LLM provider available")
+        except Exception as e:
+            logger.error(f"Error in streaming generation: {e}")
+            raise
+    
+    def _stream_litellm(self, prompt: str, system_prompt: Optional[str] = None):
+        """Stream using LiteLLM."""
+        messages = []
+        
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        
+        messages.append({"role": "user", "content": prompt})
+        
+        api_key = self.api_key
+        extra_params = {}
+        
+        if "ollama" in self.model.lower():
+            if self.base_url:
+                extra_params["api_base"] = self.base_url
+            else:
+                extra_params["api_base"] = "https://api.ollama.com"
+            
+            if api_key:
+                extra_params["api_key"] = api_key
+                api_key = None
+        
+        try:
+            completion_kwargs = {
+                "model": self.model,
+                "messages": messages,
+                "temperature": self.temperature,
+                "max_tokens": self.max_tokens,
+                "stream": True,
+                **extra_params
+            }
+            
+            if api_key:
+                completion_kwargs["api_key"] = api_key
+            
+            response = completion(**completion_kwargs)
+            
+            for chunk in response:
+                if hasattr(chunk, 'choices') and len(chunk.choices) > 0:
+                    delta = chunk.choices[0].delta
+                    if delta and hasattr(delta, 'content') and delta.content:
+                        yield delta.content
+                        
+        except Exception as e:
+            logger.error(f"LiteLLM stream error: {e}")
+            raise
+    
+    def _stream_openai(self, prompt: str, system_prompt: Optional[str] = None):
+        """Stream using OpenAI SDK."""
+        messages = []
+        
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        
+        messages.append({"role": "user", "content": prompt})
+        
+        try:
+            response = self.openai_client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=self.temperature,
+                max_tokens=self.max_tokens,
+                stream=True,
+            )
+            
+            for chunk in response:
+                if chunk.choices and len(chunk.choices) > 0:
+                    delta = chunk.choices[0].delta
+                    if delta and delta.content:
+                        yield delta.content
+                        
+        except Exception as e:
+            logger.error(f"OpenAI stream error: {e}")
+            raise
+
 
 def format_response_text(text: str, max_chunks: int = 100) -> str:
     """

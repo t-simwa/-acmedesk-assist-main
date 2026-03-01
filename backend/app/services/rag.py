@@ -286,7 +286,7 @@ Respond naturally and friendly. Keep it brief and welcoming. You can mention tha
         )
 
 
-async def process_chat_query(query: str, top_k: int = 5, user_id: Optional[str] = None, active_kb_ids: Optional[List[str]] = None) -> tuple[str, List[SourceRef]]:
+async def process_chat_query(query: str, top_k: int = 5, user_id: Optional[str] = None, active_kb_ids: Optional[List[str]] = None, fallback_message: str = "I'm not sure I understand. Would you like to speak with our team?") -> tuple[str, List[SourceRef]]:
     """
     Process a chat query through the RAG pipeline.
 
@@ -296,12 +296,26 @@ async def process_chat_query(query: str, top_k: int = 5, user_id: Optional[str] 
         query: The user's query string
         top_k: Number of top chunks to retrieve (default: 5)
         user_id: Optional user ID to filter chunks by (only return chunks from user's documents)
+        fallback_message: Message to return if confidence is too low
 
     Returns:
         Tuple of (answer, sources)
     """
+    # Confidence threshold (spec 5.2.2)
+    CONFIDENCE_THRESHOLD = 0.65
+    
     # Retrieve relevant chunks filtered by user_id and active knowledge bases
     sources = await retrieve_relevant_chunks(query, top_k=top_k, user_id=user_id, active_kb_ids=active_kb_ids)
+    
+    # Check confidence threshold (5.2.2)
+    # If the highest similarity score is below 0.65, use fallback message
+    if sources:
+        highest_score = max(source.score for source in sources)
+        if highest_score < CONFIDENCE_THRESHOLD:
+            logger.info(f"Query confidence too low: {highest_score:.2f} < {CONFIDENCE_THRESHOLD}. Using fallback message.")
+            # Log this as an "unanswered question" for Training & Improvements page
+            # TODO: Store in database for Training & Improvements page
+            return fallback_message, sources
     
     # Generate answer
     answer = await generate_answer(query, sources)

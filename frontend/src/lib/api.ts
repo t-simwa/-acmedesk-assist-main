@@ -42,16 +42,24 @@ export interface ChatResponse {
 
 export interface Document {
   id: string;
-  name: string;
-  type: string;
-  status: "processing" | "indexed" | "error";
-  file_path: string;
+  tenant_id: string;
+  chatbot_id?: string | null;
+  filename: string;
+  original_filename: string;
+  file_type: string;
   file_size: number;
+  storage_url: string;
+  content_hash?: string | null;
+  status: "processing" | "ready" | "failed" | "archived";
   chunk_count: number;
+  page_count?: number | null;
+  source_url?: string | null;
+  upload_date: string;
+  last_retrieved_at?: string | null;
+  error_message?: string | null;
+  is_archived: boolean;
   created_at: string;
   updated_at: string;
-  last_indexed_at?: string | null;
-  error_message?: string | null;
 }
 
 export interface DocumentDetail {
@@ -74,7 +82,31 @@ export interface DocumentListResponse {
 export interface DocumentUploadResponse {
   id: string;
   name: string;
-  status: "processing" | "indexed" | "error";
+  status: "processing" | "ready" | "failed";
+  message: string;
+  is_duplicate?: boolean;
+  duplicate_of?: string | null;
+}
+
+export interface DocumentStatusResponse {
+  id: string;
+  status: string;
+  chunk_count?: number | null;
+  page_count?: number | null;
+  error_message?: string | null;
+  progress: number;
+}
+
+export interface StorageUsageResponse {
+  used_bytes: number;
+  limit_bytes: number;
+  used_percent: number;
+  document_count: number;
+}
+
+export interface ArchiveDocumentResponse {
+  id: string;
+  archived: boolean;
   message: string;
 }
 
@@ -982,6 +1014,62 @@ export const documentsApi = {
     return apiClient<Document>(`/api/documents/${id}`, {
       method: "PUT",
       body: JSON.stringify(updates),
+    });
+  },
+
+  /**
+   * Get document processing status
+   */
+  async getStatus(id: string): Promise<DocumentStatusResponse> {
+    return apiClient<DocumentStatusResponse>(`/api/documents/${id}/status`);
+  },
+
+  /**
+   * Get storage usage for tenant
+   */
+  async getStorageUsage(): Promise<StorageUsageResponse> {
+    return apiClient<StorageUsageResponse>("/api/documents/usage");
+  },
+
+  /**
+   * Ingest content from URL
+   */
+  async ingestUrl(url: string, chatbot_id?: string): Promise<DocumentUploadResponse> {
+    return apiClient<DocumentUploadResponse>("/api/documents/ingest-url", {
+      method: "POST",
+      body: JSON.stringify({ url, chatbot_id }),
+    });
+  },
+
+  /**
+   * Archive a document
+   */
+  async archive(id: string): Promise<ArchiveDocumentResponse> {
+    return apiClient<ArchiveDocumentResponse>(`/api/documents/${id}/archive`, {
+      method: "POST",
+    });
+  },
+
+  /**
+   * Restore an archived document
+   */
+  async restore(id: string): Promise<ArchiveDocumentResponse> {
+    return apiClient<ArchiveDocumentResponse>(`/api/documents/${id}/restore`, {
+      method: "POST",
+    });
+  },
+
+  /**
+   * Replace document with new version
+   */
+  async replace(id: string, file: File): Promise<DocumentUploadResponse> {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    return apiClient<DocumentUploadResponse>(`/api/documents/${id}/replace`, {
+      method: "POST",
+      headers: {},
+      body: formData,
     });
   },
 };
@@ -1916,6 +2004,193 @@ export const teamApi = {
     return apiClient<AcceptInviteResponse>("/api/team/accept", {
       method: "POST",
       body: JSON.stringify(payload),
+    });
+  },
+};
+
+// ============================================================================
+// Onboarding API
+// ============================================================================
+
+export interface OnboardingStatus {
+  current_step: number;
+  completed: boolean;
+  skipped_steps: string[];
+  business_name?: string;
+  industry?: string;
+  website_url?: string;
+  plan_tier?: string;
+  chatbot_name?: string;
+  document_count: number;
+  ready_document_count: number;
+}
+
+export interface PlanInfo {
+  tier: string;
+  name: string;
+  description: string;
+  price_monthly: number;
+  setup_fee: number;
+  features: string[];
+  highlighted: boolean;
+}
+
+export interface BusinessProfileRequest {
+  business_name?: string;
+  industry?: string;
+  website_url?: string;
+  business_description?: string;
+  logo_url?: string;
+}
+
+export interface ChatbotConfigRequest {
+  name?: string;
+  avatar_url?: string;
+  brand_color?: string;
+  secondary_color?: string;
+  greeting_message?: string;
+  fallback_message?: string;
+}
+
+export interface DocumentStatusResponse {
+  total: number;
+  ready: number;
+  processing: number;
+  failed: number;
+}
+
+export interface EmbedCodeResponse {
+  chatbot_id: string;
+  embed_code: string;
+  installation_instructions: {
+    [key: string]: {
+      title: string;
+      steps?: string[];
+      description?: string;
+      code: string;
+    };
+  };
+}
+
+export const onboardingApi = {
+  /**
+   * Get onboarding status
+   */
+  async getStatus(): Promise<OnboardingStatus> {
+    return apiClient<OnboardingStatus>("/api/onboarding/status", {
+      method: "GET",
+    });
+  },
+
+  /**
+   * Get available plans
+   */
+  async getPlans(): Promise<PlanInfo[]> {
+    return apiClient<PlanInfo[]>("/api/onboarding/plans", {
+      method: "GET",
+    });
+  },
+
+  /**
+   * Update business profile (Step 1)
+   */
+  async updateProfile(data: BusinessProfileRequest): Promise<{
+    message: string;
+    business_name?: string;
+    industry?: string;
+    website_url?: string;
+    business_description?: string;
+    logo_url?: string;
+  }> {
+    return apiClient("/api/onboarding/profile", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Select plan (Step 2)
+   */
+  async selectPlan(planTier: string): Promise<{
+    message: string;
+    plan_tier: string;
+    trial_days: number;
+  }> {
+    return apiClient("/api/onboarding/plan", {
+      method: "PUT",
+      body: JSON.stringify({ plan_tier: planTier }),
+    });
+  },
+
+  /**
+   * Get document status for Step 3
+   */
+  async getDocumentStatus(): Promise<DocumentStatusResponse> {
+    return apiClient<DocumentStatusResponse>("/api/onboarding/documents/status", {
+      method: "GET",
+    });
+  },
+
+  /**
+   * Configure chatbot (Step 4)
+   */
+  async configureChatbot(data: ChatbotConfigRequest): Promise<{
+    message: string;
+    chatbot_id?: string;
+    name?: string;
+    brand_color?: string;
+    greeting_message?: string;
+    fallback_message?: string;
+  }> {
+    return apiClient("/api/onboarding/chatbot", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Complete a step
+   */
+  async completeStep(step: number): Promise<{
+    message: string;
+    next_step: number;
+    completed: boolean;
+  }> {
+    return apiClient("/api/onboarding/complete", {
+      method: "POST",
+      body: JSON.stringify({ step }),
+    });
+  },
+
+  /**
+   * Skip a step
+   */
+  async skipStep(step: number, reason?: string): Promise<{
+    message: string;
+    skipped_step: number;
+    next_step: number;
+  }> {
+    return apiClient("/api/onboarding/skip", {
+      method: "POST",
+      body: JSON.stringify({ step, reason }),
+    });
+  },
+
+  /**
+   * Get embed code (Step 6)
+   */
+  async getEmbedCode(): Promise<EmbedCodeResponse> {
+    return apiClient<EmbedCodeResponse>("/api/onboarding/embed-code", {
+      method: "GET",
+    });
+  },
+
+  /**
+   * Dismiss setup checklist
+   */
+  async dismissChecklist(): Promise<{ message: string }> {
+    return apiClient("/api/onboarding/dismiss-checklist", {
+      method: "POST",
     });
   },
 };
