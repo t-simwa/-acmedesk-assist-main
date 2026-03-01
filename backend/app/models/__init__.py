@@ -22,7 +22,7 @@ This module defines SQLAlchemy models for:
 """
 
 from .base import Base
-from .tenant import Tenant, SubscriptionStatus
+from .tenant import Tenant, SubscriptionStatus, PlanTier
 from .user import User, UserRole
 from .chatbot_instance import ChatbotInstance, ChatbotStatus, WidgetPosition, ResponseTone, ResponseLength
 from .conversation import Conversation, Channel, ConversationStatus, ConversationOutcome, Rating
@@ -47,6 +47,7 @@ __all__ = [
     # Tenant & Plans
     "Tenant",
     "SubscriptionStatus",
+    "PlanTier",
     "Plan",
     
     # Users

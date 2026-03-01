@@ -144,6 +144,22 @@ async def _ensure_schema_updates(conn):
     """
     from sqlalchemy import text
 
+    # tenant table onboarding columns
+    try:
+        result = await conn.execute(text("PRAGMA table_info(tenants)"))
+        columns = [col[1] for col in result.fetchall()]
+
+        missing_columns = {
+            "onboarding_step": "INTEGER NOT NULL DEFAULT 1",
+            "onboarding_completed": "BOOLEAN NOT NULL DEFAULT 0",
+            "skipped_steps": "JSON",
+        }
+        for col_name, col_type in missing_columns.items():
+            if col_name not in columns:
+                await conn.execute(text(f"ALTER TABLE tenants ADD COLUMN {col_name} {col_type}"))
+    except Exception:
+        pass
+
     # conversations/document user_id columns and indexes
     try:
         result = await conn.execute(text("PRAGMA table_info(conversations)"))

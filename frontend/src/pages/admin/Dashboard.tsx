@@ -9,6 +9,7 @@ import { useCountUp } from "@/hooks/useCountUp";
 import { NetworkErrorState } from "@/components/error/NetworkErrorState";
 import { HelpIcon } from "@/components/help/HelpIcon";
 import { OnboardingTour, TourStep } from "@/components/help/OnboardingTour";
+import { SetupChecklistBanner } from "@/components/onboarding/SetupChecklistBanner";
 import { cn } from "@/lib/utils";
 
 interface DashboardStat {
@@ -313,6 +314,8 @@ export default function Dashboard() {
           </div>
         </div>
       </header>
+
+      <SetupChecklistBanner className="mb-6" />
 
       <DraggableDashboard items={orderedWidgets} onReorder={handleReorder} />
     </div>

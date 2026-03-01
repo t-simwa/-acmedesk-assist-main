@@ -4,10 +4,11 @@ Every client/business is a tenant in the system.
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 from enum import Enum
+import json
 
-from sqlalchemy import String, DateTime, Integer, Enum as SQLEnum, Text
+from sqlalchemy import String, DateTime, Integer, Enum as SQLEnum, Text, JSON, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
@@ -19,6 +20,15 @@ class SubscriptionStatus(str, Enum):
     PAST_DUE = "past_due"
     CANCELLED = "cancelled"
     TRIALING = "trialing"
+    SUSPENDED = "suspended"
+
+
+class PlanTier(str, Enum):
+    """Plan tier enumeration for demo mode."""
+    STARTER = "starter"
+    GROWTH = "growth"
+    PRO = "pro"
+    ENTERPRISE = "enterprise"
 
 
 class Tenant(Base):
@@ -37,6 +47,7 @@ class Tenant(Base):
     logo_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     timezone: Mapped[str] = mapped_column(String(50), nullable=False, default="UTC")
     plan_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)  # FK to plans
+    plan_tier: Mapped[Optional[PlanTier]] = mapped_column(SQLEnum(PlanTier), nullable=True)
     stripe_customer_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
     stripe_subscription_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     subscription_status: Mapped[SubscriptionStatus] = mapped_column(
@@ -45,6 +56,11 @@ class Tenant(Base):
         default=SubscriptionStatus.TRIALING
     )
     conversation_count_this_month: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    
+    onboarding_step: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    onboarding_completed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    skipped_steps: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
+    
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -61,8 +77,12 @@ class Tenant(Base):
             "logo_url": self.logo_url,
             "timezone": self.timezone,
             "plan_id": self.plan_id,
+            "plan_tier": self.plan_tier.value if self.plan_tier else None,
             "subscription_status": self.subscription_status.value if self.subscription_status else None,
             "conversation_count_this_month": self.conversation_count_this_month,
+            "onboarding_step": self.onboarding_step,
+            "onboarding_completed": self.onboarding_completed,
+            "skipped_steps": self.skipped_steps or [],
             "created_at": self.created_at.isoformat() + "Z" if self.created_at else None,
             "updated_at": self.updated_at.isoformat() + "Z" if self.updated_at else None,
         }

@@ -22,6 +22,14 @@ rank-bm25>=0.2.2  # BM25 keyword search for hybrid search
 pdfplumber>=0.10.0  # PDF text extraction with structure preservation
 python-docx>=1.1.0  # DOCX file parsing and text extraction
 
+# Background Processing
+rq==1.15.2  # Redis Queue for async job processing
+
+# Advanced File Features
+pytesseract==0.3.10  # OCR for scanned PDFs
+trafilatura==1.6.3   # Web content extraction
+python-magic==0.4.27 # File type detection
+
 # Authentication & Security
 python-jose[cryptography]>=3.3.0  # JWT token handling
 bcrypt>=4.0.0  # Password hashing
