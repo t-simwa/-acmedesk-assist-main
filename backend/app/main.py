@@ -27,6 +27,7 @@ from .routers import (
     email,
     health,
     knowledge_bases,
+    leads,
     settings as settings_router,
     sms,
     user_preferences,
@@ -92,6 +93,7 @@ app.include_router(auth.router)
 app.include_router(chat.router)
 app.include_router(chatbot.router)
 app.include_router(conversations.router)
+app.include_router(leads.router)
 app.include_router(documents.router)
 app.include_router(settings_router.router)
 app.include_router(analytics.router)

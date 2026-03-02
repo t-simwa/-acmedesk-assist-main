@@ -2669,3 +2669,157 @@ export const chatbotApi = {
     });
   },
 };
+
+// ============================================================================
+// Leads API (Milestone 7.5)
+// ============================================================================
+
+export interface LeadStats {
+  total: number;
+  new: number;
+  contacted: number;
+  qualified: number;
+  converted: number;
+  this_month: number;
+}
+
+export interface LeadListItem {
+  id: string;
+  contact_id: string | null;
+  conversation_id: string | null;
+  contact_name: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  contact_company: string | null;
+  channel: string | null;
+  source_page_url: string | null;
+  first_message: string | null;
+  status: string;
+  lead_score: string | null;
+  message_count: number;
+  created_at: string;
+}
+
+export interface LeadListResponse {
+  leads: LeadListItem[];
+  total: number;
+  page: number;
+  per_page: number;
+  stats: LeadStats;
+}
+
+export interface LeadContactDetail {
+  id: string | null;
+  full_name: string | null;
+  email: string | null;
+  phone: string | null;
+  company: string | null;
+  instagram_handle: string | null;
+  channels_used: string[] | null;
+  lead_status: string | null;
+  lead_score: string | null;
+  tags: string[] | null;
+  notes: string | null;
+}
+
+export interface LeadMessageItem {
+  id: string;
+  role: string;
+  content: string;
+  timestamp: string;
+  sources: string[] | null;
+}
+
+export interface LeadTimelineEvent {
+  event: string;
+  timestamp: string;
+  detail: string | null;
+}
+
+export interface LeadDetailResponse {
+  id: string;
+  contact: LeadContactDetail | null;
+  conversation_id: string | null;
+  channel: string | null;
+  source_page_url: string | null;
+  first_message: string | null;
+  status: string;
+  lead_score: string | null;
+  message_count: number;
+  messages: LeadMessageItem[];
+  timeline: LeadTimelineEvent[];
+  notes: Array<{ note: string; created_at: string }>;
+  created_at: string;
+  updated_at: string | null;
+}
+
+export interface LeadBulkRequest {
+  action: string;
+  lead_ids: string[];
+  status?: string;
+  reason?: string;
+}
+
+export interface LeadBulkResponse {
+  action: string;
+  affected: number;
+  failed: number;
+  export_data: Array<Record<string, unknown>> | null;
+}
+
+export interface LeadListFilters {
+  page?: number;
+  per_page?: number;
+  search?: string;
+  status?: string;
+  channel?: string;
+  date_from?: string;
+  date_to?: string;
+  source_page?: string;
+}
+
+export const leadsApi = {
+  async listLeads(filters: LeadListFilters = {}): Promise<LeadListResponse> {
+    const params = new URLSearchParams();
+    if (filters.page) params.set("page", String(filters.page));
+    if (filters.per_page) params.set("per_page", String(filters.per_page));
+    if (filters.search) params.set("search", filters.search);
+    if (filters.status) params.set("status", filters.status);
+    if (filters.channel) params.set("channel", filters.channel);
+    if (filters.date_from) params.set("date_from", filters.date_from);
+    if (filters.date_to) params.set("date_to", filters.date_to);
+    if (filters.source_page) params.set("source_page", filters.source_page);
+    return apiClient<LeadListResponse>(`/api/leads/list?${params.toString()}`);
+  },
+
+  async getLeadDetail(id: string): Promise<LeadDetailResponse> {
+    return apiClient<LeadDetailResponse>(`/api/leads/${id}`);
+  },
+
+  async updateLeadStatus(id: string, status: string, reason?: string): Promise<{ id: string; status: string; updated_at: string }> {
+    return apiClient(`/api/leads/${id}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status, reason }),
+    });
+  },
+
+  async addNote(id: string, note: string): Promise<{ id: string; note: string; timestamp: string }> {
+    return apiClient(`/api/leads/${id}/notes`, {
+      method: "POST",
+      body: JSON.stringify({ note }),
+    });
+  },
+
+  async recalculateScore(id: string): Promise<{ id: string; lead_score: string | null; updated_at: string }> {
+    return apiClient(`/api/leads/${id}/score`, {
+      method: "POST",
+    });
+  },
+
+  async bulkAction(request: LeadBulkRequest): Promise<LeadBulkResponse> {
+    return apiClient("/api/leads/bulk", {
+      method: "POST",
+      body: JSON.stringify(request),
+    });
+  },
+};

@@ -2913,3 +2913,493 @@ async def bulk_conversation_action(
         await session.commit()
 
     return {"action": action, "affected": affected, "failed": failed, "export_data": None}
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Leads admin functions (Milestone 7.5)
+# ──────────────────────────────────────────────────────────────────────────────
+
+# In-memory notes store for leads (MVP: persisted in contact.notes when possible)
+_lead_notes: Dict[str, List[Dict[str, str]]] = {}
+
+# Intent keywords for lead score calculation
+_INTENT_KEYWORDS = {"book", "price", "when can", "how much", "cost", "purchase", "buy", "demo", "trial", "plan"}
+
+
+async def get_admin_leads_list(
+    tenant_id: str,
+    page: int = 1,
+    per_page: int = 20,
+    search: Optional[str] = None,
+    status: Optional[str] = None,
+    channel: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    source_page: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Return a paginated list of leads with stats for the admin Leads page (7.5).
+    Joins Lead → Contact → Conversation to build a full ListItem.
+    """
+    from ..models.contact import Contact
+    from ..models.lead import LeadStatus
+
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        # Base query: join Lead with Contact (optional) and Conversation (optional)
+        base_q = (
+            select(Lead, Contact, Conversation)
+            .outerjoin(Contact, Lead.contact_id == Contact.id)
+            .outerjoin(Conversation, Lead.conversation_id == Conversation.id)
+            .where(Lead.tenant_id == tenant_id)
+        )
+
+        # Apply filters
+        if search:
+            search_lower = f"%{search.lower()}%"
+            base_q = base_q.where(
+                func.lower(Contact.full_name).like(search_lower)
+                | func.lower(Contact.email).like(search_lower)
+                | func.lower(Contact.phone).like(search_lower)
+                | func.lower(Lead.first_message_preview).like(search_lower)
+            )
+
+        if status:
+            try:
+                base_q = base_q.where(Lead.status == LeadStatus(status.lower()))
+            except ValueError:
+                pass
+
+        if channel:
+            base_q = base_q.where(Lead.source_channel == channel.lower())
+
+        if date_from:
+            try:
+                dt_from = datetime.fromisoformat(date_from)
+                base_q = base_q.where(Lead.created_at >= dt_from)
+            except ValueError:
+                pass
+
+        if date_to:
+            try:
+                dt_to = datetime.fromisoformat(date_to)
+                base_q = base_q.where(Lead.created_at <= dt_to)
+            except ValueError:
+                pass
+
+        if source_page:
+            base_q = base_q.where(Lead.source_page_url.like(f"%{source_page}%"))
+
+        # Count total matching
+        count_result = await session.execute(select(func.count()).select_from(base_q.subquery()))
+        total_matching = count_result.scalar_one() or 0
+
+        # Stats — count per status for this tenant
+        stats_result = await session.execute(
+            select(
+                func.count(Lead.id).label("total"),
+                func.sum(case((Lead.status == LeadStatus.NEW, 1), else_=0)).label("new"),
+                func.sum(case((Lead.status == LeadStatus.CONTACTED, 1), else_=0)).label("contacted"),
+                func.sum(case((Lead.status == LeadStatus.QUALIFIED, 1), else_=0)).label("qualified"),
+                func.sum(case((Lead.status == LeadStatus.CONVERTED, 1), else_=0)).label("converted"),
+                func.sum(
+                    case((Lead.created_at >= datetime.utcnow().replace(day=1), 1), else_=0)
+                ).label("this_month"),
+            ).where(Lead.tenant_id == tenant_id)
+        )
+        stats_row = stats_result.fetchone()
+        stats = {
+            "total": stats_row.total or 0,
+            "new": stats_row.new or 0,
+            "contacted": stats_row.contacted or 0,
+            "qualified": stats_row.qualified or 0,
+            "converted": stats_row.converted or 0,
+            "this_month": stats_row.this_month or 0,
+        }
+
+        # Paginate
+        offset = (page - 1) * per_page
+        rows = await session.execute(
+            base_q.order_by(Lead.created_at.desc()).offset(offset).limit(per_page)
+        )
+        rows = rows.fetchall()
+
+        leads = []
+        for lead, contact, conv in rows:
+            leads.append({
+                "id": lead.id,
+                "contact_id": lead.contact_id,
+                "conversation_id": lead.conversation_id,
+                "contact_name": contact.full_name if contact else None,
+                "contact_email": contact.email if contact else None,
+                "contact_phone": contact.phone if contact else None,
+                "contact_company": contact.company if contact else None,
+                "channel": lead.source_channel,
+                "source_page_url": lead.source_page_url,
+                "first_message": lead.first_message_preview,
+                "status": lead.status.value if lead.status else "new",
+                "lead_score": contact.lead_score.value if (contact and contact.lead_score) else None,
+                "message_count": conv.message_count if conv else 0,
+                "created_at": lead.created_at.isoformat() + "Z" if lead.created_at else "",
+            })
+
+        return {
+            "leads": leads,
+            "total": total_matching,
+            "page": page,
+            "per_page": per_page,
+            "stats": stats,
+        }
+
+
+async def get_admin_lead_detail(
+    lead_id: str,
+    tenant_id: str,
+) -> Optional[Dict[str, Any]]:
+    """
+    Return full lead detail: contact info, conversation transcript, timeline, notes.
+    """
+    from ..models.contact import Contact, LeadScore
+
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        result = await session.execute(
+            select(Lead, Contact, Conversation)
+            .outerjoin(Contact, Lead.contact_id == Contact.id)
+            .outerjoin(Conversation, Lead.conversation_id == Conversation.id)
+            .where(Lead.id == lead_id, Lead.tenant_id == tenant_id)
+        )
+        row = result.fetchone()
+        if not row:
+            return None
+
+        lead, contact, conv = row
+
+        # Build contact detail
+        contact_detail = None
+        if contact:
+            contact_detail = {
+                "id": contact.id,
+                "full_name": contact.full_name,
+                "email": contact.email,
+                "phone": contact.phone,
+                "company": contact.company,
+                "instagram_handle": contact.instagram_handle,
+                "channels_used": contact.channels_used or [],
+                "lead_status": contact.lead_status.value if contact.lead_status else "new",
+                "lead_score": contact.lead_score.value if contact.lead_score else None,
+                "tags": contact.tags or [],
+                "notes": contact.notes,
+            }
+
+        # Conversation transcript
+        messages_detail = []
+        message_count = 0
+        if conv:
+            msg_result = await session.execute(
+                select(Message)
+                .where(Message.conversation_id == conv.id)
+                .order_by(Message.created_at.asc())
+            )
+            messages = msg_result.scalars().all()
+            message_count = len(messages)
+            for msg in messages:
+                messages_detail.append({
+                    "id": msg.id,
+                    "role": msg.role.value if hasattr(msg.role, "value") else str(msg.role),
+                    "content": msg.content,
+                    "timestamp": msg.created_at.isoformat() + "Z" if msg.created_at else "",
+                    "sources": msg.sources if hasattr(msg, "sources") and msg.sources else None,
+                })
+
+        # Build timeline
+        timeline = []
+        if lead.created_at:
+            timeline.append({
+                "event": "Lead Captured",
+                "timestamp": lead.created_at.isoformat() + "Z",
+                "detail": f"Via {lead.source_channel or 'web'} channel",
+            })
+        if contact and contact.full_name:
+            timeline.append({
+                "event": "Contact Identified",
+                "timestamp": (contact.created_at.isoformat() + "Z") if contact.created_at else lead.created_at.isoformat() + "Z",
+                "detail": contact.full_name,
+            })
+        if lead.status and lead.status.value == "contacted":
+            timeline.append({
+                "event": "Status: Contacted",
+                "timestamp": lead.updated_at.isoformat() + "Z" if lead.updated_at else "",
+                "detail": None,
+            })
+        if lead.status and lead.status.value == "qualified":
+            timeline.append({
+                "event": "Lead Qualified",
+                "timestamp": lead.updated_at.isoformat() + "Z" if lead.updated_at else "",
+                "detail": None,
+            })
+        if lead.status and lead.status.value == "converted":
+            timeline.append({
+                "event": "Lead Converted",
+                "timestamp": lead.updated_at.isoformat() + "Z" if lead.updated_at else "",
+                "detail": None,
+            })
+
+        # Notes
+        notes = _lead_notes.get(lead_id, [])
+
+        return {
+            "id": lead.id,
+            "contact": contact_detail,
+            "conversation_id": lead.conversation_id,
+            "channel": lead.source_channel,
+            "source_page_url": lead.source_page_url,
+            "first_message": lead.first_message_preview,
+            "status": lead.status.value if lead.status else "new",
+            "lead_score": contact.lead_score.value if (contact and contact.lead_score) else None,
+            "message_count": message_count,
+            "messages": messages_detail,
+            "timeline": timeline,
+            "notes": notes,
+            "created_at": lead.created_at.isoformat() + "Z" if lead.created_at else "",
+            "updated_at": lead.updated_at.isoformat() + "Z" if lead.updated_at else None,
+        }
+
+
+async def update_lead_status(
+    lead_id: str,
+    tenant_id: str,
+    new_status: str,
+    reason: Optional[str] = None,
+) -> bool:
+    """Update a lead's status. Also syncs the linked contact's lead_status. Returns True if updated."""
+    from ..models.lead import LeadStatus
+    from ..models.contact import Contact, LeadStatus as ContactLeadStatus
+
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        result = await session.execute(
+            select(Lead).where(Lead.id == lead_id, Lead.tenant_id == tenant_id)
+        )
+        lead = result.scalar_one_or_none()
+        if not lead:
+            return False
+
+        try:
+            lead.status = LeadStatus(new_status.lower())
+        except ValueError:
+            return False
+
+        lead.updated_at = datetime.utcnow()
+
+        # Also update the linked contact's lead_status
+        if lead.contact_id:
+            contact_result = await session.execute(
+                select(Contact).where(Contact.id == lead.contact_id)
+            )
+            contact = contact_result.scalar_one_or_none()
+            if contact:
+                try:
+                    contact.lead_status = ContactLeadStatus(new_status.lower())
+                    contact.updated_at = datetime.utcnow()
+                except ValueError:
+                    pass
+
+        await session.commit()
+        return True
+
+
+async def add_lead_note(
+    lead_id: str,
+    tenant_id: str,
+    note: str,
+) -> bool:
+    """
+    Add an internal note to a lead.
+    Stored in-memory (MVP); also appended to contact.notes when possible.
+    """
+    from ..models.contact import Contact
+
+    # Always store in in-memory dict
+    if lead_id not in _lead_notes:
+        _lead_notes[lead_id] = []
+    _lead_notes[lead_id].append({
+        "note": note,
+        "created_at": datetime.utcnow().isoformat() + "Z",
+    })
+
+    # Also persist in contact.notes when possible
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        lead_result = await session.execute(
+            select(Lead).where(Lead.id == lead_id, Lead.tenant_id == tenant_id)
+        )
+        lead = lead_result.scalar_one_or_none()
+        if lead and lead.contact_id:
+            contact_result = await session.execute(
+                select(Contact).where(Contact.id == lead.contact_id)
+            )
+            contact = contact_result.scalar_one_or_none()
+            if contact:
+                timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M")
+                existing = contact.notes or ""
+                contact.notes = f"{existing}\n[{timestamp}] {note}".strip()
+                contact.updated_at = datetime.utcnow()
+                await session.commit()
+
+    return True
+
+
+async def calculate_lead_score(
+    lead_id: str,
+    tenant_id: str,
+) -> Optional[str]:
+    """
+    Auto-calculate and persist lead score (High / Medium / Low).
+    Algorithm:
+    - High: 5+ messages + intent keyword in first message + all contact fields present
+    - Medium: 3+ messages + email provided
+    - Low: anything else
+    Returns the new score string or None on failure.
+    """
+    from ..models.contact import Contact, LeadScore
+
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        result = await session.execute(
+            select(Lead, Contact, Conversation)
+            .outerjoin(Contact, Lead.contact_id == Contact.id)
+            .outerjoin(Conversation, Lead.conversation_id == Conversation.id)
+            .where(Lead.id == lead_id, Lead.tenant_id == tenant_id)
+        )
+        row = result.fetchone()
+        if not row:
+            return None
+
+        lead, contact, conv = row
+        message_count = conv.message_count if conv else 0
+
+        # Check intent keywords
+        first_msg_lower = (lead.first_message_preview or "").lower()
+        has_intent = any(kw in first_msg_lower for kw in _INTENT_KEYWORDS)
+
+        # Check contact completeness
+        has_all_fields = bool(
+            contact
+            and contact.full_name
+            and contact.email
+            and contact.phone
+        )
+        has_email = bool(contact and contact.email)
+
+        # Score logic
+        if message_count >= 5 and has_intent and has_all_fields:
+            score = LeadScore.HIGH
+            score_val = "high"
+        elif message_count >= 3 and has_email:
+            score = LeadScore.MEDIUM
+            score_val = "medium"
+        else:
+            score = LeadScore.LOW
+            score_val = "low"
+
+        # Persist
+        if contact:
+            contact.lead_score = score
+            contact.updated_at = datetime.utcnow()
+            await session.commit()
+
+        return score_val
+
+
+async def bulk_lead_action(
+    lead_ids: List[str],
+    tenant_id: str,
+    action: str,
+    status: Optional[str] = None,
+    reason: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Execute a bulk action on a list of leads.
+    action: "status_change" | "delete" | "export"
+    """
+    from ..models.lead import LeadStatus
+    from ..models.contact import Contact, LeadStatus as ContactLeadStatus
+
+    affected = 0
+    failed = 0
+    export_rows: List[Dict[str, Any]] = []
+
+    if action == "export":
+        session_factory = get_session_factory()
+        async with session_factory() as session:
+            for lead_id in lead_ids:
+                try:
+                    result = await session.execute(
+                        select(Lead, Contact)
+                        .outerjoin(Contact, Lead.contact_id == Contact.id)
+                        .where(Lead.id == lead_id, Lead.tenant_id == tenant_id)
+                    )
+                    row = result.fetchone()
+                    if not row:
+                        failed += 1
+                        continue
+                    lead, contact = row
+                    export_rows.append({
+                        "id": lead.id,
+                        "channel": lead.source_channel,
+                        "name": contact.full_name if contact else "",
+                        "email": contact.email if contact else "",
+                        "phone": contact.phone if contact else "",
+                        "company": contact.company if contact else "",
+                        "status": lead.status.value if lead.status else "new",
+                        "lead_score": contact.lead_score.value if (contact and contact.lead_score) else "",
+                        "first_message": lead.first_message_preview or "",
+                        "created_at": lead.created_at.isoformat() + "Z" if lead.created_at else "",
+                    })
+                    affected += 1
+                except Exception as e:
+                    logger.error("Export failed for lead %s: %s", lead_id, str(e))
+                    failed += 1
+        return {"action": action, "affected": affected, "failed": failed, "export_data": export_rows}
+
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        for lead_id in lead_ids:
+            try:
+                result = await session.execute(
+                    select(Lead, Contact)
+                    .outerjoin(Contact, Lead.contact_id == Contact.id)
+                    .where(Lead.id == lead_id, Lead.tenant_id == tenant_id)
+                )
+                row = result.fetchone()
+                if not row:
+                    failed += 1
+                    continue
+                lead, contact = row
+
+                if action == "status_change" and status:
+                    try:
+                        lead.status = LeadStatus(status.lower())
+                        lead.updated_at = datetime.utcnow()
+                        if contact:
+                            try:
+                                contact.lead_status = ContactLeadStatus(status.lower())
+                                contact.updated_at = datetime.utcnow()
+                            except ValueError:
+                                pass
+                        affected += 1
+                    except ValueError:
+                        failed += 1
+
+                elif action == "delete":
+                    await session.delete(lead)
+                    affected += 1
+
+            except Exception as e:
+                logger.error("Bulk lead action failed for lead %s: %s", lead_id, str(e))
+                failed += 1
+
+        await session.commit()
+
+    return {"action": action, "affected": affected, "failed": failed, "export_data": None}
