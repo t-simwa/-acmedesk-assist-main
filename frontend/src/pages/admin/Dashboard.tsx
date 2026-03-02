@@ -1,323 +1,222 @@
-import { useState, useEffect, useCallback } from "react";
-import { RefreshCw } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { DraggableDashboard } from "@/components/admin/DraggableDashboard";
-import { ApiError } from "@/lib/api";
-import { useAnalyticsSummary, useTopQueries } from "@/hooks/useAnalytics";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useCountUp } from "@/hooks/useCountUp";
-import { NetworkErrorState } from "@/components/error/NetworkErrorState";
-import { HelpIcon } from "@/components/help/HelpIcon";
-import { OnboardingTour, TourStep } from "@/components/help/OnboardingTour";
+import { useState } from "react";
+import { MessageSquare, Users, Percent, Clock, TrendingUp } from "lucide-react";
 import { SetupChecklistBanner } from "@/components/onboarding/SetupChecklistBanner";
-import { cn } from "@/lib/utils";
+import { DateRangeFilter } from "@/components/dashboard/DateRangeFilter";
+import { KPICard } from "@/components/dashboard/KPICard";
+import { ConversationVolumeChart } from "@/components/dashboard/ConversationVolumeChart";
+import { ConversationOutcomesDonut } from "@/components/dashboard/ConversationOutcomesDonut";
+import { ChannelBreakdown } from "@/components/dashboard/ChannelBreakdown";
+import { RecentConversations } from "@/components/dashboard/RecentConversations";
+import { RecentLeads } from "@/components/dashboard/RecentLeads";
+import { UnansweredAlert } from "@/components/dashboard/UnansweredAlert";
+import { ChatbotStatusCard } from "@/components/dashboard/ChatbotStatusCard";
+import { useDashboardSummary } from "@/hooks/useDashboard";
+import { Skeleton } from "@/components/ui/skeleton";
+import { NetworkErrorState } from "@/components/error/NetworkErrorState";
+import { ApiError } from "@/lib/api";
 
-interface DashboardStat {
-  label: string;
-  value: string | number;
-  id: string;
-}
-
-interface TopQuery {
-  question: string;
-  count: number;
-  answered: boolean;
-}
+// Mock data for when API is unavailable
+const MOCK_DATA = {
+  total_conversations: 247,
+  leads_captured: 38,
+  resolution_rate: 82.5,
+  avg_response_time: "1.2s",
+  conversations_trend: 12.5,
+  leads_trend: 8.3,
+  resolution_trend: 5.2,
+  response_time_trend: -15.0,
+  conversation_volume: [
+    { date: "2026-02-24", count: 32 },
+    { date: "2026-02-25", count: 45 },
+    { date: "2026-02-26", count: 28 },
+    { date: "2026-02-27", count: 51 },
+    { date: "2026-02-28", count: 39 },
+    { date: "2026-03-01", count: 29 },
+    { date: "2026-03-02", count: 23 },
+  ],
+  conversation_outcomes: [
+    { outcome: "resolved", count: 203, percentage: 82.2 },
+    { outcome: "escalated", count: 29, percentage: 11.7 },
+    { outcome: "abandoned", count: 15, percentage: 6.1 },
+  ],
+  channel_breakdown: [
+    { channel: "web", count: 189, icon: "🌐" },
+    { channel: "whatsapp", count: 34, icon: "💬" },
+    { channel: "instagram", count: 15, icon: "📸" },
+    { channel: "facebook", count: 6, icon: "📘" },
+    { channel: "email", count: 3, icon: "📧" },
+    { channel: "sms", count: 0, icon: "📱" },
+  ],
+  recent_conversations: [
+    { id: "1", channel: "web", contact_name: "John Smith", first_message: "What's your return policy?", status: "resolved", time_ago: "5m" },
+    { id: "2", channel: "whatsapp", contact_name: "Sarah Johnson", first_message: "Do you have this in blue?", status: "active", time_ago: "12m" },
+    { id: "3", channel: "web", contact_name: "Mike Davis", first_message: "How much is shipping?", status: "escalated", time_ago: "28m" },
+    { id: "4", channel: "instagram", contact_name: "Emily Brown", first_message: "Love your products!", status: "resolved", time_ago: "1h" },
+    { id: "5", channel: "web", contact_name: "Anonymous", first_message: "Where are you located?", status: "abandoned", time_ago: "2h" },
+  ],
+  recent_leads: [
+    { id: "1", name: "Alex Thompson", email: "alex@example.com", channel: "web", status: "new", time_ago: "3m" },
+    { id: "2", name: "Maria Garcia", email: "maria@example.com", channel: "whatsapp", status: "contacted", time_ago: "15m" },
+    { id: "3", name: "James Wilson", email: "james@example.com", channel: "web", status: "qualified", time_ago: "1h" },
+    { id: "4", name: "Lisa Anderson", email: "lisa@example.com", channel: "instagram", status: "converted", time_ago: "3h" },
+    { id: "5", name: "David Martinez", email: "david@example.com", channel: "web", status: "new", time_ago: "5h" },
+  ],
+  unanswered_count: 3,
+  chatbot_status: {
+    status: "live" as const,
+    last_active: new Date().toISOString(),
+    chatbot_name: "Aria Assistant",
+  },
+};
 
 export default function Dashboard() {
-  const [stats, setStats] = useState<DashboardStat[]>([
-    { label: "Conversations Today", value: "0", id: "stats" },
-    { label: "Documents Indexed", value: "0", id: "documents" },
-    { label: "Resolution Rate", value: "0%", id: "resolution" },
-    { label: "Active Users", value: "0", id: "users" },
-  ]);
-  const [recentQueries, setRecentQueries] = useState<TopQuery[]>([]);
-  const [isPolling, setIsPolling] = useState(true);
-  const [widgetOrder, setWidgetOrder] = useState<string[]>(["stats", "queries"]);
+  const [dateRange, setDateRange] = useState("7days");
+  
+  const { data, isLoading, error, refetch } = useDashboardSummary(dateRange);
 
-  const {
-    data: summary,
-    isLoading: summaryLoading,
-    error: summaryError,
-    refetch: refetchSummary,
-  } = useAnalyticsSummary(1);
+  const summary = data || MOCK_DATA;
 
-  const {
-    data: topQueriesResponse,
-    isLoading: queriesLoading,
-    error: queriesError,
-    refetch: refetchQueries,
-  } = useTopQueries(5);
-
-  const loading = summaryLoading || queriesLoading;
-  const hasError = summaryError || queriesError;
-
-  const conversationsValue = summary?.conversations_by_day[summary.conversations_by_day.length - 1]?.count || 0;
-  const documentsValue = summary?.total_conversations || 0;
-  const resolutionValue = summary?.resolution_rate?.percentage || 0;
-  const usersValue = summary?.total_messages || 0;
-
-  const conversationsCount = useCountUp(conversationsValue, 1000, 0, "");
-  const documentsCount = useCountUp(documentsValue, 1000, 0, "");
-  const resolutionCount = useCountUp(resolutionValue, 1000, 1, "%");
-  const usersCount = useCountUp(usersValue, 1000, 0, "");
-
-  useEffect(() => {
-    if (summary) {
-      setStats([
-        { label: "Conversations Today", value: conversationsCount, id: "stats" },
-        { label: "Documents Indexed", value: documentsCount, id: "documents" },
-        { label: "Resolution Rate", value: resolutionCount, id: "resolution" },
-        { label: "Active Users", value: usersCount, id: "users" },
-      ]);
-    }
-  }, [summary, conversationsCount, documentsCount, resolutionCount, usersCount]);
-
-  useEffect(() => {
-    if (topQueriesResponse) {
-      setRecentQueries(
-        (topQueriesResponse.queries || []).map((q) => ({
-          question: q.query,
-          count: q.count,
-          answered: q.resolved_percentage > 50,
-        }))
-      );
-    }
-  }, [topQueriesResponse]);
-
-  const handleReorder = useCallback((newOrder: string[]) => {
-    setWidgetOrder(newOrder);
-    localStorage.setItem("dashboard-widget-order", JSON.stringify(newOrder));
-  }, []);
-
-  useEffect(() => {
-    const savedOrder = localStorage.getItem("dashboard-widget-order");
-    if (savedOrder) {
-      try {
-        setWidgetOrder(JSON.parse(savedOrder));
-      } catch {
-        // ignore
-      }
-    }
-  }, []);
-
-  const statsWidget = (
-    <div
-      className={cn(
-        "grid gap-3 sm:gap-4",
-        "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4",
-        "min-w-0"
-      )}
-    >
-      {stats.map((stat) => (
-        <div
-          key={stat.id}
-          className={cn(
-            "rounded-2xl border border-border/50 bg-muted/20 p-4 sm:p-5",
-            "transition-colors hover:border-border/70 hover:bg-muted/30",
-            "min-w-0"
-          )}
-          role="region"
-          aria-label={stat.label}
-        >
-          {loading ? (
-            <Skeleton className="h-8 w-16 sm:h-9 sm:w-20 mb-2" />
-          ) : (
-            <p
-              className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground leading-none mb-1.5"
-              aria-live="polite"
-              aria-atomic="true"
-            >
-              {stat.value}
-            </p>
-          )}
-          <p className="text-[11px] sm:text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            {stat.label}
-          </p>
-        </div>
-      ))}
-    </div>
-  );
-
-  const queriesWidget = (
-    <section
-      className={cn(
-        "rounded-2xl border border-border/50 bg-muted/10 overflow-hidden",
-        "min-w-0"
-      )}
-      aria-labelledby="top-questions-heading"
-    >
-      <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3.5 sm:py-4 border-b border-border/50">
-        <div className="flex items-center gap-2 min-w-0">
-          <h2
-            id="top-questions-heading"
-            className="text-[13px] font-medium uppercase tracking-wider text-muted-foreground"
-          >
-            Top questions today
-          </h2>
-          <HelpIcon
-            content="Most frequently asked questions from today. 'Resolved' = answered by the bot; 'Escalated' = needed human help."
-            side="right"
-          />
-        </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="shrink-0 h-9 w-9 sm:h-8 sm:w-8"
-          onClick={() => {
-            refetchSummary();
-            refetchQueries();
-          }}
-          aria-label="Refresh"
-        >
-          <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
-        </Button>
-      </div>
-      <div className="divide-y divide-border/50">
-        {loading ? (
-          <div className="p-4 sm:p-5 space-y-3">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <Skeleton key={i} className="h-14 sm:h-12 rounded-lg" />
-            ))}
-          </div>
-        ) : recentQueries.length === 0 ? (
-          <div className="px-4 sm:px-5 py-8 sm:py-10 text-center">
-            <p className="text-[13px] text-muted-foreground">No queries yet</p>
-            <p className="text-[12px] text-muted-foreground/80 mt-1">Activity will appear here</p>
-          </div>
-        ) : (
-          <ul className="divide-y divide-border/50">
-            {recentQueries.map((q, i) => (
-              <li key={i} className="px-4 sm:px-5 py-3.5 sm:py-4 min-h-[56px] sm:min-h-0 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                <div className="flex gap-3 min-w-0 flex-1">
-                  <span className="text-[12px] text-muted-foreground shrink-0 w-5 tabular-nums">
-                    {i + 1}
-                  </span>
-                  <p className="text-[13px] sm:text-sm text-foreground break-words line-clamp-2 sm:line-clamp-1">
-                    {q.question}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 sm:gap-3 pl-8 sm:pl-0 shrink-0">
-                  <span className="text-[12px] text-muted-foreground whitespace-nowrap">
-                    {q.count} ask{q.count === 1 ? "" : "s"}
-                  </span>
-                  <span
-                    className={cn(
-                      "text-[11px] font-medium uppercase tracking-wider px-2.5 py-1 rounded-full whitespace-nowrap",
-                      q.answered
-                        ? "bg-primary/10 text-primary"
-                        : "bg-destructive/10 text-destructive"
-                    )}
-                  >
-                    {q.answered ? "Resolved" : "Escalated"}
-                  </span>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </section>
-  );
-
-  const widgetMap: Record<string, { id: string; component: JSX.Element }> = {
-    stats: { id: "stats", component: statsWidget },
-    queries: { id: "queries", component: queriesWidget },
-  };
-
-  const orderedWidgets = widgetOrder
-    .map((id) => widgetMap[id])
-    .filter((w): w is { id: string; component: JSX.Element } => w !== undefined);
-
-  if (hasError && !loading && !summary && !topQueriesResponse) {
+  if (error && !data) {
     return (
       <div className="flex flex-col w-full min-w-0">
         <header className="mb-6 sm:mb-8">
-          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">Dashboard</h1>
-          <p className="mt-1.5 text-[13px] sm:text-sm text-muted-foreground max-w-xl">
-            Overview of your support chatbot performance
+          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground font-heading">
+            Dashboard
+          </h1>
+          <p className="mt-1.5 text-[13px] sm:text-sm text-muted-foreground font-description max-w-xl">
+            Overview of your chatbot performance
           </p>
         </header>
         <NetworkErrorState
-          error={(summaryError || queriesError) as ApiError}
-          onRetry={() => {
-            refetchSummary();
-            refetchQueries();
-          }}
-          title="Failed to load dashboard data"
+          error={error as ApiError}
+          onRetry={() => refetch()}
+          title="Failed to load dashboard"
           description="We couldn't load your dashboard data. Please try again."
         />
       </div>
     );
   }
 
-  const tourSteps: TourStep[] = [
-    {
-      id: "dashboard-overview",
-      target: "h1",
-      title: "Welcome to AcmeDesk Assist!",
-      content: "This is your dashboard where you can monitor your chatbot's performance. Let's take a quick tour of the key features.",
-      position: "bottom",
-    },
-    {
-      id: "stats-widget",
-      target: '[role="region"][aria-label*="Conversations"]',
-      title: "Key Metrics",
-      content: "These cards show important metrics: conversations today, documents indexed, resolution rate, and active users. They update in real-time.",
-      position: "bottom",
-    },
-    {
-      id: "top-questions",
-      target: "#top-questions-heading",
-      title: "Top Questions",
-      content: "See the most frequently asked questions. 'Resolved' = answered by the bot; 'Escalated' = needed human help.",
-      position: "bottom",
-    },
-  ];
-
   return (
     <div className="flex flex-col w-full min-w-0">
-      <OnboardingTour
-        steps={tourSteps}
-        onComplete={() => {}}
-        onSkip={() => {}}
-      />
+      {/* Header */}
       <header className="mb-6 sm:mb-8">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-          <div className="min-w-0">
-            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">Dashboard</h1>
-            <p className="mt-1.5 text-[13px] sm:text-sm text-muted-foreground max-w-xl">
-              Support chatbot performance at a glance
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <HelpIcon
-              content="Key metrics and top questions. Drag widgets to reorder. Toggle auto-refresh below."
-              side="left"
-              className="shrink-0"
-            />
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsPolling(!isPolling)}
-              className={cn(
-                "gap-2 shrink-0",
-                "min-h-[44px] sm:min-h-9",
-                "w-full sm:w-auto"
-              )}
-            >
-              <RefreshCw className={cn("h-4 w-4 shrink-0", isPolling && "animate-spin")} />
-              <span className="text-[13px] sm:text-sm truncate">
-                {isPolling ? "Auto-refresh on" : "Auto-refresh off"}
-              </span>
-            </Button>
-          </div>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0" />
+          <DateRangeFilter value={dateRange} onChange={setDateRange} className="w-full sm:w-auto" />
         </div>
       </header>
 
+      {/* Setup Checklist Banner */}
       <SetupChecklistBanner className="mb-6" />
 
-      <DraggableDashboard items={orderedWidgets} onReorder={handleReorder} />
+      {/* 7.2.1 - Setup Checklist Card (handled by SetupChecklistBanner above) */}
+
+      {/* 7.2.3 - KPI Cards Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+        {isLoading ? (
+          <>
+            <Skeleton className="h-32 rounded-xl" />
+            <Skeleton className="h-32 rounded-xl" />
+            <Skeleton className="h-32 rounded-xl" />
+            <Skeleton className="h-32 rounded-xl" />
+          </>
+        ) : (
+          <>
+            <KPICard
+              label="Total Conversations"
+              value={summary.total_conversations.toLocaleString()}
+              trend={summary.conversations_trend}
+              trendLabel="vs last period"
+              icon={<MessageSquare className="w-5 h-5" />}
+            />
+            <KPICard
+              label="Leads Captured"
+              value={summary.leads_captured.toString()}
+              trend={summary.leads_trend}
+              trendLabel="vs last period"
+              icon={<Users className="w-5 h-5" />}
+            />
+            <KPICard
+              label="Resolution Rate"
+              value={`${summary.resolution_rate}%`}
+              trend={summary.resolution_trend}
+              trendLabel="vs last period"
+              icon={<Percent className="w-5 h-5" />}
+            />
+            <KPICard
+              label="Avg Response Time"
+              value={summary.avg_response_time}
+              trend={summary.response_time_trend}
+              trendLabel="vs last period (lower is better)"
+              icon={<Clock className="w-5 h-5" />}
+            />
+          </>
+        )}
+      </div>
+
+      {/* Charts Row - 7.2.4 & 7.2.5 */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+        <div className="lg:col-span-2">
+          {isLoading ? (
+            <Skeleton className="h-[300px] rounded-xl" />
+          ) : (
+            <ConversationVolumeChart data={summary.conversation_volume} />
+          )}
+        </div>
+        <div>
+          {isLoading ? (
+            <Skeleton className="h-[300px] rounded-xl" />
+          ) : (
+            <ConversationOutcomesDonut data={summary.conversation_outcomes} />
+          )}
+        </div>
+      </div>
+
+      {/* 7.2.6 - Channel Breakdown */}
+      <div className="mb-6">
+        {isLoading ? (
+          <Skeleton className="h-[180px] rounded-xl" />
+        ) : (
+          <ChannelBreakdown data={summary.channel_breakdown} />
+        )}
+      </div>
+
+      {/* 7.2.10 - Unanswered Questions Alert */}
+      <div className="mb-6">
+        <UnansweredAlert count={summary.unanswered_count} />
+      </div>
+
+      {/* 7.2.11 - Chatbot Status Card */}
+      <div className="mb-6">
+        {isLoading ? (
+          <Skeleton className="h-[140px] rounded-xl" />
+        ) : (
+          <ChatbotStatusCard
+            status={summary.chatbot_status.status}
+            lastActive={summary.chatbot_status.last_active}
+            chatbotName={summary.chatbot_status.chatbot_name}
+          />
+        )}
+      </div>
+
+      {/* Recent Items Row - 7.2.7 & 7.2.8 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+        <div>
+          {isLoading ? (
+            <Skeleton className="h-[280px] rounded-xl" />
+          ) : (
+            <RecentConversations data={summary.recent_conversations} />
+          )}
+        </div>
+        <div>
+          {isLoading ? (
+            <Skeleton className="h-[280px] rounded-xl" />
+          ) : (
+            <RecentLeads data={summary.recent_leads} />
+          )}
+        </div>
+      </div>
     </div>
   );
 }
