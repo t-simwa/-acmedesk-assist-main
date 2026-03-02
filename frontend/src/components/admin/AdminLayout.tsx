@@ -1,155 +1,155 @@
+/**
+ * AdminLayout — Wrapper for all client dashboard and admin pages
+ *
+ * Implements Milestone 7.1 specs:
+ * - Fixed sidebar (240px / 64px collapsed) via Sidebar component
+ * - TopBar (56px sticky) via TopBar component
+ * - Mobile: sidebar replaced by slide-in drawer (280px) with overlay
+ * - Collapse state saved to localStorage key "nexachat-sidebar-collapsed"
+ */
+
 import { useState, useEffect } from "react";
-import { Outlet, Link, useLocation } from "react-router-dom";
-import { Menu, X } from "lucide-react";
-import { useTranslation } from "react-i18next";
-import { PageTransition } from "@/components/PageTransition";
-import { Logo } from "@/components/Branding/Logo";
-import { Footer } from "@/components/Footer";
+import { Outlet, useLocation } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useIsTablet } from "@/hooks/use-tablet";
-import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { UserMenu } from "./UserMenu";
-import { RoleBasedSidebar } from "./RoleBasedSidebar";
+import { Sidebar } from "@/components/layout/Sidebar";
+import { TopBar } from "@/components/layout/TopBar";
+import { PageTransition } from "@/components/PageTransition";
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const COLLAPSED_KEY = "nexachat-sidebar-collapsed";
+
+// ─── AdminLayout ──────────────────────────────────────────────────────────────
 
 export function AdminLayout() {
-  const { t } = useTranslation();
-  const location = useLocation();
   const isMobile = useIsMobile();
-  const isTablet = useIsTablet();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const location = useLocation();
 
-  // Close mobile menu when route changes
-  useEffect(() => {
-    if (isMobile) {
-      setMobileMenuOpen(false);
+  // Desktop sidebar collapse — persisted in localStorage
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(COLLAPSED_KEY) === "true";
+    } catch {
+      return false;
     }
-  }, [location.pathname, isMobile]);
+  });
 
-  // Prevent body scroll when mobile menu is open
+  // Mobile sidebar open/close
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  // Persist collapse state on toggle
+  const handleToggle = () => {
+    setIsCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(COLLAPSED_KEY, String(next));
+      } catch {
+        // ignore storage errors
+      }
+      return next;
+    });
+  };
+
+  // Close mobile sidebar on route change
   useEffect(() => {
-    if (isMobile && mobileMenuOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
+    setMobileSidebarOpen(false);
+  }, [location.pathname]);
+
+  // Prevent body scroll when mobile sidebar is open
+  useEffect(() => {
+    document.body.style.overflow = isMobile && mobileSidebarOpen ? "hidden" : "";
     return () => {
       document.body.style.overflow = "";
     };
-  }, [isMobile, mobileMenuOpen]);
+  }, [isMobile, mobileSidebarOpen]);
 
-  const SidebarContent = () => (
-    <>
-      <style>{`
-        .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
-      `}</style>
-      <div className="px-5 py-5 border-b border-border">
-        <Link 
-          to="/" 
-          className="focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 rounded-sm" 
-          aria-label="Home"
-          onClick={() => isMobile && setMobileMenuOpen(false)}
-        >
-          <Logo size={28} showText={true} textClassName="text-[15px]" />
-          <span className="text-[11px] text-muted-foreground block -mt-0.5 ml-[36px]">Support AI</span>
-        </Link>
-      </div>
-
-      <div className="flex-1 overflow-y-auto scrollbar-hide py-2">
-        <RoleBasedSidebar />
-      </div>
-
-      <div className="px-5 py-4 border-t border-border">
-        <UserMenu />
-      </div>
-    </>
-  );
+  // Calculate sidebar width for main content offset
+  const sidebarWidth = isCollapsed ? 64 : 240;
 
   return (
-    <div className="flex h-screen bg-surface">
-      {/* F4.1 - Skip link for main content */}
-      <a href="#admin-main-content" className="skip-link">
-        {t("navigation.skipToContent")}
-      </a>
-      
-      {/* Desktop & Tablet Sidebar */}
-      {!isMobile && (
-        <aside
-          className={`hidden md:flex border-r border-border bg-background flex-col ${isTablet ? "w-56" : "w-60"}`}
-          aria-label="Admin navigation"
-        >
-          <SidebarContent />
-        </aside>
-      )}
-
-      {/* Mobile Header with Hamburger Menu */}
-      {isMobile && (
-        <header className="md:hidden fixed top-0 left-0 right-0 h-14 border-b border-border bg-background z-50 flex items-center justify-between px-4">
-          <Link 
-            to="/" 
-            className="focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 rounded-sm" 
-            aria-label="Home"
-          >
-            <Logo size={24} showText={true} textClassName="text-[14px]" />
-          </Link>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-11 w-11 min-h-[44px] min-w-[44px]"
-            onClick={() => setMobileMenuOpen(true)}
-            aria-label="Open navigation menu"
-            aria-expanded={mobileMenuOpen}
-          >
-            <Menu size={20} aria-hidden="true" />
-          </Button>
-        </header>
-      )}
-
-      {/* Mobile Navigation Drawer */}
-      {isMobile && (
-        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-          <SheetContent side="left" className="w-[280px] p-0">
-            <SheetHeader className="sr-only">
-              <SheetTitle>Navigation</SheetTitle>
-            </SheetHeader>
-            <div className="flex flex-col h-full">
-              <SidebarContent />
-            </div>
-          </SheetContent>
-        </Sheet>
-      )}
-
-      {/* Main content */}
-      <main
-        id="admin-main-content"
-        className={`flex-1 overflow-auto flex flex-col ${isMobile ? "pt-14" : ""}`}
+    <div
+      className="min-h-screen"
+      style={{ background: "#070B14" }}
+    >
+      {/* Skip to content */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[200] focus:bg-[#4F8EF7] focus:text-white focus:px-4 focus:py-2 focus:rounded-lg focus:text-sm focus:font-medium"
       >
-        {/* Desktop Header with User Menu */}
-        {!isMobile && (
-          <header className="border-b border-border bg-background">
-            <div className="max-w-6xl mx-auto px-4 md:px-8 h-14 flex items-center justify-end">
-              <UserMenu />
-            </div>
-          </header>
-        )}
-        <div
-          className={`flex-1 max-w-6xl mx-auto ${isTablet ? "px-4 md:px-6" : "px-4 md:px-8"} py-4 ${
-            isTablet ? "md:py-6" : "md:py-8"
-          }`}
+        Skip to main content
+      </a>
+
+      {/* ── Desktop Sidebar (fixed left, full height) ── */}
+      {!isMobile && (
+        <Sidebar isCollapsed={isCollapsed} onToggle={handleToggle} />
+      )}
+
+      {/* ── Mobile Overlay + Slide-in Drawer ── */}
+      {isMobile && (
+        <>
+          {/* Backdrop overlay — rgba(0,0,0,0.6) per spec */}
+          <div
+            className="fixed inset-0 transition-opacity duration-250"
+            style={{
+              background: "rgba(0,0,0,0.6)",
+              zIndex: 60,
+              opacity: mobileSidebarOpen ? 1 : 0,
+              pointerEvents: mobileSidebarOpen ? "auto" : "none",
+            }}
+            onClick={() => setMobileSidebarOpen(false)}
+            aria-hidden="true"
+          />
+
+          {/* Slide-in sidebar drawer (280px per spec) */}
+          <div
+            className="fixed top-0 left-0 bottom-0"
+            style={{
+              width: 280,
+              zIndex: 70,
+              transform: mobileSidebarOpen ? "translateX(0)" : "translateX(-100%)",
+              transition: "transform 250ms cubic-bezier(0.4,0,0.2,1)",
+            }}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Navigation menu"
+          >
+            {/* Mobile sidebar content (always expanded) */}
+            <Sidebar
+              isCollapsed={false}
+              onToggle={() => setMobileSidebarOpen(false)}
+              mobile={true}
+            />
+          </div>
+        </>
+      )}
+
+      {/* ── Main Content Area ── */}
+      <div
+        style={{
+          marginLeft: isMobile ? 0 : sidebarWidth,
+          transition: "margin-left 200ms cubic-bezier(0.4,0,0.2,1)",
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        {/* Top bar (sticky, 56px) */}
+        <TopBar
+          onMenuClick={() => setMobileSidebarOpen(true)}
+          isMobile={isMobile}
+        />
+
+        {/* Page content */}
+        <main
+          id="main-content"
+          className="flex-1"
+          style={{ padding: "24px 24px 40px" }}
         >
           <PageTransition>
             <Outlet />
           </PageTransition>
-        </div>
-        {/* Footer in admin layout */}
-        <Footer />
-      </main>
+        </main>
+      </div>
     </div>
   );
 }

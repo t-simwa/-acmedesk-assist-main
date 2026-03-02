@@ -1100,6 +1100,82 @@ export const analyticsApi = {
 };
 
 // ============================================================================
+// Dashboard API (Milestone 7.2)
+// ============================================================================
+
+export interface ConversationVolumeData {
+  date: string;
+  count: number;
+}
+
+export interface ConversationOutcomeData {
+  outcome: string;
+  count: number;
+  percentage: number;
+}
+
+export interface ChannelData {
+  channel: string;
+  count: number;
+  icon: string;
+}
+
+export interface RecentConversationItem {
+  id: string;
+  channel: string;
+  contact_name: string;
+  first_message: string;
+  status: string;
+  time_ago: string;
+}
+
+export interface RecentLeadItem {
+  id: string;
+  name: string;
+  email: string;
+  channel: string;
+  status: string;
+  time_ago: string;
+}
+
+export interface ChatbotStatusResponse {
+  status: "live" | "paused" | "not_installed";
+  last_active?: string | null;
+  embed_code?: string | null;
+  chatbot_name?: string | null;
+}
+
+export interface DashboardSummary {
+  total_conversations: number;
+  leads_captured: number;
+  resolution_rate: number;
+  avg_response_time: string;
+  conversations_trend?: number | null;
+  leads_trend?: number | null;
+  resolution_trend?: number | null;
+  response_time_trend?: number | null;
+  conversation_volume: ConversationVolumeData[];
+  conversation_outcomes: ConversationOutcomeData[];
+  channel_breakdown: ChannelData[];
+  recent_conversations: RecentConversationItem[];
+  recent_leads: RecentLeadItem[];
+  unanswered_count: number;
+  chatbot_status: ChatbotStatusResponse;
+}
+
+export const dashboardApi = {
+  /**
+   * Get dashboard summary with all metrics
+   * @param preset Date range preset: "today", "7days", "30days"
+   */
+  async getSummary(preset: string = "7days"): Promise<DashboardSummary> {
+    return apiClient<DashboardSummary>("/api/dashboard/summary", {
+      params: { preset },
+    });
+  },
+};
+
+// ============================================================================
 // Knowledge Bases API
 // ============================================================================
 

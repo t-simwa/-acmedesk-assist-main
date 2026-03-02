@@ -23,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..models.base import get_session_factory
 from ..models.conversation import Conversation
 from ..models.document import Document
+from ..models.lead import Lead
 from ..models.message import Message
 from ..models.setting import Setting
 from ..models.user_preferences import UserPreferences
@@ -1689,3 +1690,300 @@ async def get_active_knowledge_base_ids_by_tenant(tenant_id: str) -> List[str]:
         kb_ids = [row[0] for row in result.fetchall()]
         
         return kb_ids
+
+
+# ============================================================================
+# Dashboard-specific functions (Milestone 7.2)
+# ============================================================================
+
+async def get_conversations_count_by_date_range(
+    tenant_id: str,
+    start_date: datetime,
+    end_date: datetime
+) -> int:
+    """Get total conversation count within a date range."""
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        result = await session.execute(
+            select(func.count(Conversation.id))
+            .where(
+                Conversation.tenant_id == tenant_id,
+                Conversation.started_at >= start_date,
+                Conversation.started_at <= end_date
+            )
+        )
+        return result.scalar() or 0
+
+
+async def get_leads_count_by_date_range(
+    tenant_id: str,
+    start_date: datetime,
+    end_date: datetime
+) -> int:
+    """Get total leads count within a date range."""
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        result = await session.execute(
+            select(func.count(Lead.id))
+            .where(
+                Lead.tenant_id == tenant_id,
+                Lead.created_at >= start_date,
+                Lead.created_at <= end_date
+            )
+        )
+        return result.scalar() or 0
+
+
+async def get_resolution_rate_by_date_range(
+    tenant_id: str,
+    start_date: datetime,
+    end_date: datetime
+) -> float:
+    """Get resolution rate percentage within a date range."""
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        # Get resolved count
+        resolved_result = await session.execute(
+            select(func.count(Conversation.id))
+            .where(
+                Conversation.tenant_id == tenant_id,
+                Conversation.started_at >= start_date,
+                Conversation.started_at <= end_date,
+                Conversation.outcome == "resolved"
+            )
+        )
+        resolved = resolved_result.scalar() or 0
+        
+        # Get total with outcome
+        total_result = await session.execute(
+            select(func.count(Conversation.id))
+            .where(
+                Conversation.tenant_id == tenant_id,
+                Conversation.started_at >= start_date,
+                Conversation.started_at <= end_date,
+                Conversation.outcome.isnot(None)
+            )
+        )
+        total = total_result.scalar() or 0
+        
+        if total == 0:
+            return 0.0
+        
+        return (resolved / total) * 100
+
+
+async def get_conversations_by_date_range(
+    tenant_id: str,
+    start_date: datetime,
+    end_date: datetime
+) -> List[Dict[str, Any]]:
+    """Get conversation counts grouped by date."""
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        result = await session.execute(
+            select(
+                func.date(Conversation.started_at).label("date"),
+                func.count(Conversation.id).label("count")
+            )
+            .where(
+                Conversation.tenant_id == tenant_id,
+                Conversation.started_at >= start_date,
+                Conversation.started_at <= end_date
+            )
+            .group_by(func.date(Conversation.started_at))
+            .order_by(func.date(Conversation.started_at))
+        )
+        
+        return [{"date": str(row.date), "count": row.count} for row in result.fetchall()]
+
+
+async def get_conversation_outcomes(
+    tenant_id: str,
+    start_date: datetime,
+    end_date: datetime
+) -> List[Dict[str, Any]]:
+    """Get conversation outcomes breakdown."""
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        result = await session.execute(
+            select(
+                Conversation.outcome,
+                func.count(Conversation.id).label("count")
+            )
+            .where(
+                Conversation.tenant_id == tenant_id,
+                Conversation.started_at >= start_date,
+                Conversation.started_at <= end_date,
+                Conversation.outcome.isnot(None)
+            )
+            .group_by(Conversation.outcome)
+        )
+        
+        return [
+            {"outcome": row.outcome.value if row.outcome else "unknown", "count": row.count}
+            for row in result.fetchall()
+        ]
+
+
+async def get_conversations_by_channel(
+    tenant_id: str,
+    start_date: datetime,
+    end_date: datetime
+) -> List[Dict[str, Any]]:
+    """Get conversation counts grouped by channel."""
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        result = await session.execute(
+            select(
+                Conversation.channel,
+                func.count(Conversation.id).label("count")
+            )
+            .where(
+                Conversation.tenant_id == tenant_id,
+                Conversation.started_at >= start_date,
+                Conversation.started_at <= end_date
+            )
+            .group_by(Conversation.channel)
+            .order_by(func.count(Conversation.id).desc())
+        )
+        
+        return [
+            {"channel": row.channel.value if row.channel else "web", "count": row.count}
+            for row in result.fetchall()
+        ]
+
+
+async def get_avg_response_time(
+    tenant_id: str,
+    start_date: datetime,
+    end_date: datetime
+) -> float:
+    """Get average response time in milliseconds.
+    
+    Note: Since Message model doesn't have message_metadata field,
+    this returns a placeholder value. In production, this could be
+    calculated from actual response time tracking.
+    """
+    # Return placeholder - in production would track actual response times
+    return 1500.0  # 1.5 seconds placeholder
+
+
+async def get_recent_conversations(
+    tenant_id: str,
+    limit: int = 5
+) -> List[Dict[str, Any]]:
+    """Get recent conversations with contact info."""
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        from ..models.message import Message
+        from ..models.contact import Contact
+        
+        result = await session.execute(
+            select(Conversation, Contact, Message)
+            .outerjoin(Contact, Conversation.contact_id == Contact.id)
+            .outerjoin(
+                Message,
+                and_(
+                    Message.conversation_id == Conversation.id,
+                    Message.role == "user"
+                )
+            )
+            .where(Conversation.tenant_id == tenant_id)
+            .order_by(Conversation.started_at.desc())
+            .limit(limit)
+        )
+        
+        conversations = []
+        for conv, contact, msg in result.fetchall():
+            conversations.append({
+                "id": conv.id,
+                "channel": conv.channel.value if conv.channel else "web",
+                "contact_name": contact.full_name if contact and contact.full_name else "Anonymous",
+                "first_message": msg.content if msg else "",
+                "status": conv.status.value if conv.status else "active",
+                "started_at": conv.started_at
+            })
+        
+        return conversations
+
+
+async def get_recent_leads(
+    tenant_id: str,
+    limit: int = 5
+) -> List[Dict[str, Any]]:
+    """Get recent leads with contact info."""
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        result = await session.execute(
+            select(Lead)
+            .where(Lead.tenant_id == tenant_id)
+            .order_by(Lead.created_at.desc())
+            .limit(limit)
+        )
+        
+        leads = []
+        for lead in result.fetchall():
+            lead_data = lead.lead_capture_data or {}
+            leads.append({
+                "id": lead.id,
+                "name": lead_data.get("name", "Unknown"),
+                "email": lead_data.get("email", ""),
+                "source_channel": lead.source_channel or "web",
+                "status": lead.status.value if lead.status else "new",
+                "created_at": lead.created_at
+            })
+        
+        return leads
+
+
+async def get_unanswered_questions_count(
+    tenant_id: str,
+    start_date: datetime,
+    end_date: datetime
+) -> int:
+    """Get count of conversations that were escalated (unanswered)."""
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        result = await session.execute(
+            select(func.count(Conversation.id))
+            .where(
+                Conversation.tenant_id == tenant_id,
+                Conversation.started_at >= start_date,
+                Conversation.started_at <= end_date,
+                Conversation.outcome == "escalated"
+            )
+        )
+        return result.scalar() or 0
+
+
+async def get_chatbot_status(tenant_id: str) -> Dict[str, Any]:
+    """Get chatbot status for the dashboard."""
+    from ..models.chatbot_instance import ChatbotInstance, ChatbotStatus
+    
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        result = await session.execute(
+            select(ChatbotInstance)
+            .where(ChatbotInstance.tenant_id == tenant_id)
+            .order_by(ChatbotInstance.created_at.desc())
+            .limit(1)
+        )
+        chatbot = result.scalar_one_or_none()
+        
+        if not chatbot:
+            return {
+                "status": "not_installed",
+                "last_active": None,
+                "embed_code": None,
+                "chatbot_name": None
+            }
+        
+        # Generate embed code
+        embed_code = f'<script src="https://nexachat.com/widget.js" data-chatbot-id="{chatbot.id}" async></script>'
+        
+        return {
+            "status": chatbot.status.value if chatbot.status else "paused",
+            "last_active": chatbot.updated_at.isoformat() + "Z" if chatbot.updated_at else None,
+            "embed_code": embed_code,
+            "chatbot_name": chatbot.name
+        }

@@ -22,6 +22,7 @@ from .routers import (
     chat,
     chatbot,
     conversations,
+    dashboard,
     documents,
     email,
     health,
@@ -106,6 +107,7 @@ app.include_router(security.router)
 app.include_router(oauth.router)
 app.include_router(team.router)
 app.include_router(onboarding.router)
+app.include_router(dashboard.router)
 
 
 @app.get("/")

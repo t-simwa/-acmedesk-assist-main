@@ -159,6 +159,141 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
+              {/*
+               * /dashboard routes — client dashboard (spec path per Milestone 7)
+               * Mirrors /admin routes; both use AdminLayout
+               */}
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <AdminLayout />
+                  </ProtectedRoute>
+                }
+              >
+                <Route
+                  index
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <Dashboard />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="documents"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<DocumentsSkeleton />}>
+                        <Documents />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="analytics"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<AnalyticsSkeleton />}>
+                        <Analytics />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="inbox"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <Inbox />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="settings"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<SettingsSkeleton />}>
+                        <Settings />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="security"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<SecuritySkeleton />}>
+                        <Security />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="profile"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<ProfileSkeleton />}>
+                        <Profile />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="team"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <TeamManagement />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="audit-logs"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <AuditLogs />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="api-keys"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <APIKeys />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="help"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <HelpCenter />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="install"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <Install />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+              </Route>
+
+              {/* /admin — legacy route kept for backward compatibility */}
               <Route
                 path="/admin"
                 element={
