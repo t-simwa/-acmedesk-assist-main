@@ -118,3 +118,114 @@ class TopQueriesResponse(BaseModel):
     queries: List[TopQuery] = Field(default_factory=list, description="List of top queries with statistics")
     total: int = Field(..., ge=0, description="Total number of unique queries")
     limit: int = Field(..., ge=1, description="Maximum number of queries returned")
+
+
+# =============================================================================
+# Milestone 7.3 - Analytics Page Schemas
+# =============================================================================
+
+class LeadCountByDay(BaseModel):
+    """Lead count by date."""
+    date: str = Field(..., description="Date in ISO 8601 format (YYYY-MM-DD)")
+    count: int = Field(..., ge=0, description="Number of leads on this date")
+
+
+class LeadSourceItem(BaseModel):
+    """Lead source breakdown."""
+    channel: str = Field(..., description="Channel name")
+    count: int = Field(..., ge=0, description="Number of leads from this channel")
+    percentage: float = Field(..., ge=0.0, le=100.0, description="Percentage of total leads")
+
+
+class ConversionFunnelItem(BaseModel):
+    """Conversion funnel stage."""
+    stage: str = Field(..., description="Funnel stage name")
+    count: int = Field(..., ge=0, description="Number of leads at this stage")
+    percentage: float = Field(..., ge=0.0, le=100.0, description="Percentage from previous stage")
+
+
+class LeadAnalyticsResponse(BaseModel):
+    """Response model for GET /api/analytics/leads endpoint (7.3.6)."""
+    total_leads: int = Field(..., ge=0, description="Total leads in date range")
+    leads_by_day: List[LeadCountByDay] = Field(default_factory=list, description="Leads over time")
+    lead_sources: List[LeadSourceItem] = Field(default_factory=list, description="Lead sources by channel")
+    conversion_funnel: List[ConversionFunnelItem] = Field(default_factory=list, description="Conversion funnel stages")
+    leads_trend: Optional[float] = Field(None, description="Trend percentage vs previous period")
+
+
+class ChannelConversationItem(BaseModel):
+    """Channel conversation breakdown."""
+    channel: str = Field(..., description="Channel name")
+    icon: str = Field(..., description="Channel icon/emoji")
+    conversations: int = Field(..., ge=0, description="Number of conversations")
+    resolution_rate: float = Field(..., ge=0.0, le=100.0, description="Resolution rate percentage")
+    avg_duration_minutes: Optional[float] = Field(None, ge=0.0, description="Average conversation duration in minutes")
+
+
+class ChannelAnalyticsResponse(BaseModel):
+    """Response model for GET /api/analytics/channels endpoint (7.3.4)."""
+    channels: List[ChannelConversationItem] = Field(default_factory=list, description="Channel breakdown")
+    total_conversations: int = Field(..., ge=0, description="Total conversations across all channels")
+
+
+class UnansweredQuestion(BaseModel):
+    """Unanswered question item."""
+    query: str = Field(..., description="The question that wasn't answered")
+    count: int = Field(..., ge=0, description="Number of times asked")
+    last_asked: str = Field(..., description="ISO timestamp of last time asked")
+
+
+class DocumentUsageItem(BaseModel):
+    """Document usage for RAG."""
+    document_id: str = Field(..., description="Document ID")
+    filename: str = Field(..., description="Document filename")
+    reference_count: int = Field(..., ge=0, description="Times referenced in responses")
+    last_referenced: Optional[str] = Field(None, description="ISO timestamp of last reference")
+
+
+class ContentAnalyticsResponse(BaseModel):
+    """Response model for GET /api/analytics/content endpoint (7.3.5)."""
+    top_questions: List[TopQuery] = Field(default_factory=list, description="Top 10 questions")
+    unanswered_questions: List[UnansweredQuestion] = Field(default_factory=list, description="Unanswered questions")
+    most_referenced_docs: List[DocumentUsageItem] = Field(default_factory=list, description="Most referenced documents")
+    underutilized_docs: List[DocumentUsageItem] = Field(default_factory=list, description="Underutilized documents")
+    total_unanswered: int = Field(..., ge=0, description="Total unanswered questions count")
+
+
+class SatisfactionDataPoint(BaseModel):
+    """Satisfaction score over time."""
+    date: str = Field(..., description="Date in ISO 8601 format")
+    score: float = Field(..., ge=0.0, le=100.0, description="Satisfaction score percentage")
+    positive: int = Field(..., ge=0, description="Positive feedback count")
+    negative: int = Field(..., ge=0, description="Negative feedback count")
+
+
+class SatisfactionAnalyticsResponse(BaseModel):
+    """Response model for GET /api/analytics/satisfaction endpoint (7.3.7)."""
+    current_score: float = Field(..., ge=0.0, le=100.0, description="Current satisfaction score")
+    satisfaction_by_day: List[SatisfactionDataPoint] = Field(default_factory=list, description="Satisfaction over time")
+    total_positive: int = Field(..., ge=0, description="Total positive feedback")
+    total_negative: int = Field(..., ge=0, description="Total negative feedback")
+    score_trend: Optional[float] = Field(None, description="Trend percentage vs previous period")
+
+
+class ScheduleReportRequest(BaseModel):
+    """Request model for scheduling analytics reports (7.3.1)."""
+    frequency: str = Field(..., description="Frequency: weekly or monthly")
+    day_of_week: Optional[int] = Field(None, ge=0, le=6, description="Day of week (0=Monday, 6=Sunday)")
+    day_of_month: Optional[int] = Field(None, ge=1, le=31, description="Day of month (1-31)")
+    time: str = Field(..., description="Time in HH:MM format")
+    recipient_email: str = Field(..., description="Email address to send report to")
+    enabled: bool = Field(default=True, description="Whether the schedule is active")
+
+
+class ScheduleReportResponse(BaseModel):
+    """Response model for scheduled report."""
+    id: str = Field(..., description="Schedule ID")
+    frequency: str = Field(..., description="Frequency: weekly or monthly")
+    day_of_week: Optional[int] = Field(None, description="Day of week")
+    day_of_month: Optional[int] = Field(None, description="Day of month")
+    time: str = Field(..., description="Time in HH:MM format")
+    recipient_email: str = Field(..., description="Email address")
+    enabled: bool = Field(..., description="Whether active")
+    created_at: str = Field(..., description="ISO timestamp of creation")

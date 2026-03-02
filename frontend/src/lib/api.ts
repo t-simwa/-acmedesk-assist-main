@@ -170,6 +170,109 @@ export interface TopQueriesResponse {
   limit: number;
 }
 
+// =============================================================================
+// Milestone 7.3 - Analytics Page Types
+// =============================================================================
+
+// Lead Analytics (7.3.6)
+export interface LeadCountByDay {
+  date: string;
+  count: number;
+}
+
+export interface LeadSourceItem {
+  channel: string;
+  count: number;
+  percentage: number;
+}
+
+export interface ConversionFunnelItem {
+  stage: string;
+  count: number;
+  percentage: number;
+}
+
+export interface LeadAnalyticsResponse {
+  total_leads: number;
+  leads_by_day: LeadCountByDay[];
+  lead_sources: LeadSourceItem[];
+  conversion_funnel: ConversionFunnelItem[];
+  leads_trend?: number | null;
+}
+
+// Channel Analytics (7.3.4)
+export interface ChannelConversationItem {
+  channel: string;
+  icon: string;
+  conversations: number;
+  resolution_rate: number;
+  avg_duration_minutes?: number | null;
+}
+
+export interface ChannelAnalyticsResponse {
+  channels: ChannelConversationItem[];
+  total_conversations: number;
+}
+
+// Content Analytics (7.3.5)
+export interface UnansweredQuestion {
+  query: string;
+  count: number;
+  last_asked: string;
+}
+
+export interface DocumentUsageItem {
+  document_id: string;
+  filename: string;
+  reference_count: number;
+  last_referenced?: string | null;
+}
+
+export interface ContentAnalyticsResponse {
+  top_questions: TopQuery[];
+  unanswered_questions: UnansweredQuestion[];
+  most_referenced_docs: DocumentUsageItem[];
+  underutilized_docs: DocumentUsageItem[];
+  total_unanswered: number;
+}
+
+// Satisfaction Analytics (7.3.7)
+export interface SatisfactionDataPoint {
+  date: string;
+  score: number;
+  positive: number;
+  negative: number;
+}
+
+export interface SatisfactionAnalyticsResponse {
+  current_score: number;
+  satisfaction_by_day: SatisfactionDataPoint[];
+  total_positive: number;
+  total_negative: number;
+  score_trend?: number | null;
+}
+
+// Schedule Report (7.3.1)
+export interface ScheduleReportRequest {
+  frequency: string;
+  day_of_week?: number;
+  day_of_month?: number;
+  time: string;
+  recipient_email: string;
+  enabled: boolean;
+}
+
+export interface ScheduleReportResponse {
+  id: string;
+  frequency: string;
+  day_of_week?: number;
+  day_of_month?: number;
+  time: string;
+  recipient_email: string;
+  enabled: boolean;
+  created_at: string;
+}
+
 export interface RAGSettings {
   model?: string;
   temperature?: number;
@@ -1095,6 +1198,66 @@ export const analyticsApi = {
   async getTopQueries(limit: number = 10): Promise<TopQueriesResponse> {
     return apiClient<TopQueriesResponse>("/api/analytics/top-queries", {
       params: { limit },
+    });
+  },
+
+  /**
+   * Get lead analytics (7.3.6 - Lead Analytics Section)
+   */
+  async getLeadsAnalytics(days: number = 30): Promise<LeadAnalyticsResponse> {
+    return apiClient<LeadAnalyticsResponse>("/api/analytics/leads", {
+      params: { days },
+    });
+  },
+
+  /**
+   * Get channel analytics (7.3.4 - Channel Analytics Section)
+   */
+  async getChannelAnalytics(): Promise<ChannelAnalyticsResponse> {
+    return apiClient<ChannelAnalyticsResponse>("/api/analytics/channels");
+  },
+
+  /**
+   * Get content analytics (7.3.5 - Content Analytics Section)
+   */
+  async getContentAnalytics(days: number = 30): Promise<ContentAnalyticsResponse> {
+    return apiClient<ContentAnalyticsResponse>("/api/analytics/content", {
+      params: { days },
+    });
+  },
+
+  /**
+   * Get satisfaction analytics (7.3.7 - Satisfaction Analytics Section)
+   */
+  async getSatisfactionAnalytics(days: number = 30): Promise<SatisfactionAnalyticsResponse> {
+    return apiClient<SatisfactionAnalyticsResponse>("/api/analytics/satisfaction", {
+      params: { days },
+    });
+  },
+
+  /**
+   * Schedule automated report (7.3.1 - Schedule Report)
+   */
+  async scheduleReport(config: ScheduleReportRequest): Promise<ScheduleReportResponse> {
+    return apiClient<ScheduleReportResponse>("/api/analytics/schedule-report", {
+      method: "POST",
+      body: config,
+    });
+  },
+
+  /**
+   * Get scheduled reports
+   */
+  async getScheduledReports(): Promise<ScheduleReportResponse[]> {
+    return apiClient<ScheduleReportResponse[]>("/api/analytics/schedule-report");
+  },
+
+  /**
+   * Delete scheduled report
+   */
+  async deleteScheduledReport(reportId: string): Promise<void> {
+    return apiClient<void>(`/api/analytics/schedule-report/${reportId}`, {
+      method: "DELETE",
     });
   },
 };

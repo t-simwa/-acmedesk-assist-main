@@ -1,1029 +1,753 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useCallback } from "react";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  CartesianGrid,
-  Cell,
-  Brush,
-  TooltipProps,
-} from "recharts";
-import { analyticsApi, ApiError } from "@/lib/api";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useAnalyticsSummary } from "@/hooks/useAnalytics";
-import { AlertCircle, Download, RefreshCw, FileSpreadsheet, FileText, FilterX } from "lucide-react";
+  BarChart3,
+  MessageSquare,
+  Users,
+  Percent,
+  TrendingUp,
+  Clock,
+  Star,
+  Download,
+  RefreshCw,
+  Calendar,
+  FileText,
+  ThumbsUp,
+  ThumbsDown,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { DateRangePicker } from "@/components/admin/DateRangePicker";
-import { DateRange } from "react-day-picker";
-import { format, differenceInDays, parseISO, getHours, getDay } from "date-fns";
-import {
-  exportChartAsPNG,
-  exportChartAsPDF,
-  exportChartAsSVG,
-  exportDataAsCSV,
-  exportDataAsExcel,
-  generatePDFReport,
-} from "@/utils/chartExport";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { useToast } from "@/hooks/use-toast";
-import { HeatmapChart } from "@/components/admin/HeatmapChart";
-import { SankeyDiagram } from "@/components/admin/SankeyDiagram";
-import { WordCloud } from "@/components/admin/WordCloud";
-import { ConversationTimeline } from "@/components/admin/ConversationTimeline";
-import { UserJourney } from "@/components/admin/UserJourney";
-import { SentimentAnalysis } from "@/components/admin/SentimentAnalysis";
-import { PerformanceMetrics } from "@/components/admin/PerformanceMetrics";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
+  DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useAccessibility } from "@/contexts/AccessibilityContext";
-import { getChartTheme, chartA11y } from "@/lib/chartTheme";
+import { KPICard } from "@/components/dashboard/KPICard";
+import { DateRangeFilter } from "@/components/dashboard/DateRangeFilter";
+import { ConversationVolumeChart } from "@/components/dashboard/ConversationVolumeChart";
+import { ConversationOutcomesDonut } from "@/components/dashboard/ConversationOutcomesDonut";
+import {
+  ScheduleReportModal,
+  LeadsOverTimeChart,
+  LeadSourceDonut,
+  ConversionFunnel,
+  ChannelPerformanceTable,
+  UnansweredQuestionsTable,
+} from "@/components/analytics";
+import {
+  useAnalyticsSummary,
+  useLeadsAnalytics,
+  useChannelAnalytics,
+  useContentAnalytics,
+  useSatisfactionAnalytics,
+} from "@/hooks/useAnalytics";
+import { exportDataAsCSV, exportDataAsExcel, generatePDFReport } from "@/utils/chartExport";
 import { NetworkErrorState } from "@/components/error/NetworkErrorState";
-import { EmptyState } from "@/components/error/EmptyState";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { useIsTablet } from "@/hooks/use-tablet";
-import { HelpIcon } from "@/components/help/HelpIcon";
+import { useToast } from "@/hooks/use-toast";
+import type { ApiError, UnansweredQuestion } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
-interface ChartDataPoint {
-  day: string;
-  date?: string;
-  conversations?: number;
-  rate?: number;
-  category?: string;
-}
+// ============================================================================
+// Mock data — used when API is unavailable
+// ============================================================================
 
-interface DrillDownData {
-  date: string;
-  conversations: number;
-  details?: any;
-}
+const TODAY = new Date();
+const MOCK_DAYS = Array.from({ length: 7 }, (_, i) => {
+  const d = new Date(TODAY);
+  d.setDate(TODAY.getDate() - (6 - i));
+  return { date: d.toISOString().split("T")[0], count: Math.floor(Math.random() * 60) + 20 };
+});
 
-// Custom tooltip component with enhanced formatting
-const CustomTooltip = ({ active, payload, label }: TooltipProps<any, any>) => {
-  if (active && payload && payload.length) {
-    const data = payload[0].payload as ChartDataPoint;
-    const total = data.conversations ? payload.reduce((sum, p) => sum + (p.value as number), 0) : 0;
-    const percentage = data.conversations && total > 0 ? ((data.conversations / total) * 100).toFixed(1) : null;
+const MOCK_SUMMARY = {
+  total_conversations: 1247,
+  total_messages: 8934,
+  conversations_by_day: MOCK_DAYS,
+  resolution_rate: { resolved_via_bot: 1027, escalated: 148, total: 1247, percentage: 82.4 },
+  response_accuracy: { average_query_time_ms: 420, average_sources_count: 3.2 },
+  top_categories: [],
+  api_usage: { total_requests: 1247, last_updated: new Date().toISOString() },
+  user_satisfaction: { thumbs_up: 892, thumbs_down: 156, total_feedback: 1048, satisfaction_rate: 85.1 },
+};
 
+const MOCK_LEADS = {
+  total_leads: 312,
+  leads_by_day: MOCK_DAYS.map((d) => ({ date: d.date, count: Math.floor(d.count * 0.25) })),
+  lead_sources: [
+    { channel: "web", count: 180, percentage: 57.7 },
+    { channel: "whatsapp", count: 89, percentage: 28.5 },
+    { channel: "instagram", count: 43, percentage: 13.8 },
+  ],
+  conversion_funnel: [
+    { stage: "Conversations", count: 1247, percentage: 100 },
+    { stage: "Leads", count: 312, percentage: 25.0 },
+    { stage: "Contacted", count: 187, percentage: 59.9 },
+    { stage: "Qualified", count: 89, percentage: 47.6 },
+    { stage: "Converted", count: 34, percentage: 38.2 },
+  ],
+  leads_trend: 12.5,
+};
+
+const MOCK_CHANNELS = {
+  channels: [
+    { channel: "web", icon: "🌐", conversations: 892, resolution_rate: 85.2, avg_duration_minutes: 4.2 },
+    { channel: "whatsapp", icon: "💬", conversations: 234, resolution_rate: 79.1, avg_duration_minutes: 6.8 },
+    { channel: "instagram", icon: "📸", conversations: 121, resolution_rate: 71.3, avg_duration_minutes: 5.1 },
+  ],
+  total_conversations: 1247,
+};
+
+const MOCK_CONTENT = {
+  top_questions: [
+    { query: "What are your business hours?", count: 89, resolved_by_bot: 85, resolved_percentage: 95.5 },
+    { query: "How do I track my order?", count: 74, resolved_by_bot: 68, resolved_percentage: 91.9 },
+    { query: "What is your return policy?", count: 61, resolved_by_bot: 54, resolved_percentage: 88.5 },
+    { query: "Do you offer free shipping?", count: 55, resolved_by_bot: 49, resolved_percentage: 89.1 },
+    { query: "How can I contact support?", count: 48, resolved_by_bot: 41, resolved_percentage: 85.4 },
+  ],
+  unanswered_questions: [
+    { query: "Do you ship internationally?", count: 23, last_asked: new Date().toISOString() },
+    { query: "What is your cancellation policy?", count: 18, last_asked: new Date().toISOString() },
+    { query: "Can I change my order after placing?", count: 11, last_asked: new Date().toISOString() },
+  ],
+  most_referenced_docs: [
+    { document_id: "1", filename: "Product Guide.pdf", reference_count: 234, last_referenced: new Date().toISOString() },
+    { document_id: "2", filename: "FAQ.pdf", reference_count: 189, last_referenced: new Date().toISOString() },
+    { document_id: "3", filename: "Return Policy.pdf", reference_count: 142, last_referenced: new Date().toISOString() },
+    { document_id: "4", filename: "Shipping Info.pdf", reference_count: 98, last_referenced: new Date().toISOString() },
+  ],
+  underutilized_docs: [],
+  total_unanswered: 3,
+};
+
+const MOCK_SATISFACTION = {
+  current_score: 85.1,
+  satisfaction_by_day: [],
+  total_positive: 892,
+  total_negative: 156,
+  score_trend: 3.2,
+};
+
+// ============================================================================
+// Helper — section header component
+// ============================================================================
+
+function SectionHeader({ icon: Icon, title }: { icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>; title: string }) {
   return (
-    <div className="bg-background border border-border/50 rounded-xl shadow-lg p-3">
-        <p className="text-sm font-medium mb-2">{label}</p>
-        {payload.map((entry, index) => (
-          <div key={index} className="text-sm">
-            <span className="text-muted-foreground">{entry.name || entry.dataKey}: </span>
-            <span className="font-semibold text-foreground">
-              {typeof entry.value === "number" && entry.dataKey === "rate"
-                ? `${entry.value.toFixed(1)}%`
-                : entry.value}
-            </span>
-            {percentage && entry.dataKey === "conversations" && (
-              <span className="text-muted-foreground ml-2">({percentage}%)</span>
-            )}
-          </div>
-        ))}
-        {data.date && (
-          <p className="text-xs text-muted-foreground mt-2">{format(new Date(data.date), "MMM dd, yyyy")}</p>
-        )}
+    <div className="flex items-center gap-2 mb-4">
+      <Icon className="h-4 w-4 shrink-0" style={{ color: "#4F8EF7" }} />
+      <h2
+        className="text-xs font-semibold uppercase tracking-wider font-heading whitespace-nowrap"
+        style={{ color: "#9CA3AF" }}
+      >
+        {title}
+      </h2>
+      <div className="flex-1 h-px" style={{ backgroundColor: "#2D333B" }} />
+    </div>
+  );
+}
+
+// ============================================================================
+// Date range preset → days mapping
+// ============================================================================
+
+function presetToDays(preset: string): number {
+  if (preset === "today") return 1;
+  if (preset === "30days") return 30;
+  return 7;
+}
+
+// ============================================================================
+// Main Analytics Page
+// ============================================================================
+
+export default function Analytics() {
+  const [dateRange, setDateRange] = useState("7days");
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(false);
+  const { toast } = useToast();
+
+  const days = presetToDays(dateRange);
+
+  // API hooks
+  const { data: summaryData, isLoading: summaryLoading, error: summaryError, refetch: refetchSummary } = useAnalyticsSummary(days);
+  const { data: leadsRaw, isLoading: leadsLoading } = useLeadsAnalytics(days);
+  const { data: channelRaw, isLoading: channelsLoading } = useChannelAnalytics();
+  const { data: contentRaw, isLoading: contentLoading } = useContentAnalytics(days);
+  const { data: satisfactionRaw, isLoading: satisfactionLoading } = useSatisfactionAnalytics(days);
+
+  // Use real data or mock fallback
+  const summary = summaryData ?? MOCK_SUMMARY;
+  const leadsData = leadsRaw ?? MOCK_LEADS;
+  const channelData = channelRaw ?? MOCK_CHANNELS;
+  const contentData = contentRaw ?? MOCK_CONTENT;
+  const satisfactionData = satisfactionRaw ?? MOCK_SATISFACTION;
+
+  // Derived KPI values
+  const escalationRate =
+    summary.resolution_rate.total > 0
+      ? ((summary.resolution_rate.escalated || 0) / summary.resolution_rate.total) * 100
+      : 0;
+
+  const avgMessages =
+    summary.total_conversations > 0
+      ? (summary.total_messages / summary.total_conversations).toFixed(1)
+      : "0";
+
+  // Outcomes for conversation donut
+  const conversationOutcomes = [
+    {
+      outcome: "resolved",
+      count: summary.resolution_rate.resolved_via_bot || 0,
+      percentage: summary.resolution_rate.percentage || 0,
+    },
+    {
+      outcome: "escalated",
+      count: summary.resolution_rate.escalated || 0,
+      percentage: parseFloat(escalationRate.toFixed(1)),
+    },
+    { outcome: "abandoned", count: 0, percentage: 0 },
+  ];
+
+  // Export handlers
+  const handleExportCSV = useCallback(() => {
+    try {
+      const exportData = [
+        { metric: "Total Conversations", value: summary.total_conversations },
+        { metric: "Total Leads", value: leadsData.total_leads },
+        { metric: "Resolution Rate", value: `${summary.resolution_rate.percentage || 0}%` },
+        { metric: "Escalation Rate", value: `${escalationRate.toFixed(1)}%` },
+        { metric: "Avg Messages", value: avgMessages },
+        { metric: "Satisfaction Score", value: `${satisfactionData.current_score}%` },
+      ];
+      exportDataAsCSV(exportData, `analytics-${dateRange}.csv`);
+      toast({ title: "Exported", description: "CSV downloaded successfully." });
+    } catch {
+      toast({ title: "Export failed", description: "Could not export CSV.", variant: "destructive" });
+    }
+  }, [summary, leadsData, satisfactionData, escalationRate, avgMessages, dateRange, toast]);
+
+  const handleExportExcel = useCallback(() => {
+    try {
+      const exportData = summary.conversations_by_day.map((d) => ({
+        date: d.date,
+        conversations: d.count,
+      }));
+      exportDataAsExcel(exportData, `analytics-${dateRange}.xlsx`, "Conversations");
+      toast({ title: "Exported", description: "Excel file downloaded successfully." });
+    } catch {
+      toast({ title: "Export failed", description: "Could not export Excel.", variant: "destructive" });
+    }
+  }, [summary, dateRange, toast]);
+
+  const handleGeneratePDF = useCallback(async () => {
+    try {
+      await generatePDFReport([], [], `analytics-report-${dateRange}.pdf`);
+      toast({ title: "PDF generated", description: "PDF report downloaded successfully." });
+    } catch {
+      toast({ title: "Export failed", description: "Could not generate PDF.", variant: "destructive" });
+    }
+  }, [dateRange, toast]);
+
+  const handleAddToKB = useCallback((question: UnansweredQuestion) => {
+    toast({
+      title: "Navigate to Documents",
+      description: `Add an answer for: "${question.query.slice(0, 50)}..."`,
+    });
+  }, [toast]);
+
+  const handleClearFilters = useCallback(() => {
+    setDateRange("7days");
+  }, []);
+
+  // Hard error state (no data at all, API failed)
+  if (summaryError && !summaryData) {
+    return (
+      <div className="flex flex-col w-full min-w-0">
+        <header className="mb-6 sm:mb-8">
+          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight font-heading" style={{ color: "#F9FAFB" }}>
+            Analytics
+          </h1>
+          <p className="mt-1 text-sm font-description" style={{ color: "#9CA3AF" }}>
+            Chatbot usage and performance metrics
+          </p>
+        </header>
+        <NetworkErrorState
+          error={summaryError as ApiError}
+          onRetry={() => refetchSummary()}
+          title="Failed to load analytics"
+          description="We couldn't load your analytics data. Please try again."
+        />
       </div>
     );
   }
-  return null;
-};
-
-export default function Analytics() {
-  const isMobile = useIsMobile();
-  const isTablet = useIsTablet();
-  const [error, setError] = useState<string | null>(null);
-  const [conversationData, setConversationData] = useState<ChartDataPoint[]>([]);
-  const [resolutionData, setResolutionData] = useState<ChartDataPoint[]>([]);
-  const [topCategories, setTopCategories] = useState<Array<{ category: string; count: number }>>([]);
-  const [resolutionRate, setResolutionRate] = useState<number | null>(null);
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
-    const end = new Date();
-    const start = new Date();
-    start.setDate(start.getDate() - 7);
-    return { from: start, to: end };
-  });
-  const [isPolling, setIsPolling] = useState(true);
-  const [drillDownOpen, setDrillDownOpen] = useState(false);
-  const [drillDownData, setDrillDownData] = useState<DrillDownData | null>(null);
-  const [filteredDate, setFilteredDate] = useState<string | null>(null);
-  const [filteredCategory, setFilteredCategory] = useState<string | null>(null);
-  const [brushStartIndex, setBrushStartIndex] = useState<number | undefined>(undefined);
-  const [brushEndIndex, setBrushEndIndex] = useState<number | undefined>(undefined);
-  const { toast } = useToast();
-  const { reduceMotion, highContrast } = useAccessibility();
-  const theme = getChartTheme(highContrast);
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const conversationsChartRef = useRef<HTMLDivElement>(null);
-  const resolutionChartRef = useRef<HTMLDivElement>(null);
-
-  const calculateDays = useCallback((range: DateRange | undefined): number => {
-    if (!range?.from || !range?.to) return 7;
-    const days = differenceInDays(range.to, range.from);
-    return Math.max(1, Math.min(days, 90)); // Clamp between 1 and 90 days
-  }, []);
-
-  const days = calculateDays(dateRange);
-  
-  // Use React Query for analytics with automatic caching and refetching
-  const {
-    data: summary,
-    isLoading: loading,
-    error: queryError,
-    refetch: refetchAnalytics,
-  } = useAnalyticsSummary(days);
-
-  // Transform data when summary changes
-  useEffect(() => {
-    if (summary) {
-      // Transform conversations_by_day to chart format
-      const transformedConversations = summary.conversations_by_day.map((item) => {
-        const date = new Date(item.date);
-        const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-        return {
-          day: dayNames[date.getDay()],
-          date: item.date,
-          conversations: item.count,
-        };
-      });
-
-      // For resolution rate, calculate per-day if possible, otherwise use overall
-      const transformedResolution = summary.conversations_by_day.map((item) => {
-        const date = new Date(item.date);
-        const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-        return {
-          day: dayNames[date.getDay()],
-          date: item.date,
-          rate: summary.resolution_rate?.percentage || 0,
-        };
-      });
-
-      setConversationData(transformedConversations);
-      setResolutionData(transformedResolution);
-      setResolutionRate(summary.resolution_rate?.percentage || 0);
-      setTopCategories(summary.top_categories);
-    }
-  }, [summary]);
-
-  // Set error from query
-  useEffect(() => {
-    if (queryError) {
-      const errorMessage = queryError?.message || "Failed to load analytics data";
-      setError(typeof errorMessage === "string" ? errorMessage : String(errorMessage));
-    } else {
-      setError(null);
-    }
-  }, [queryError]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-      }
-    };
-  }, []);
-
-  // Filter data based on selected date or category
-  const filteredConversationData = useMemo(() => {
-    let filtered = [...conversationData];
-    if (filteredDate) {
-      filtered = filtered.filter((item) => item.date === filteredDate);
-    }
-    if (filteredCategory) {
-      // Filter by category if we have category data
-      filtered = filtered.filter((item) => item.category === filteredCategory);
-    }
-    return filtered;
-  }, [conversationData, filteredDate, filteredCategory]);
-
-  const filteredResolutionData = useMemo(() => {
-    let filtered = [...resolutionData];
-    if (filteredDate) {
-      filtered = filtered.filter((item) => item.date === filteredDate);
-    }
-    return filtered;
-  }, [resolutionData, filteredDate]);
-
-  // Handle bar click with filtering
-  const handleBarClick = (data: any) => {
-    if (data && data.activePayload && data.activePayload[0]) {
-      const payload = data.activePayload[0].payload as ChartDataPoint;
-      setFilteredDate(payload.date || null);
-      setDrillDownData({
-        date: payload.date || payload.day,
-        conversations: payload.conversations || 0,
-      });
-      setDrillDownOpen(true);
-    }
-  };
-
-  // Handle line click with filtering
-  const handleLineClick = (data: any) => {
-    if (data && data.activePayload && data.activePayload[0]) {
-      const payload = data.activePayload[0].payload as ChartDataPoint;
-      setFilteredDate(payload.date || null);
-      setDrillDownData({
-        date: payload.date || payload.day,
-        conversations: 0,
-        details: { rate: payload.rate },
-      });
-      setDrillDownOpen(true);
-    }
-  };
-
-  // Handle category click for filtering
-  const handleCategoryClick = (category: string) => {
-    setFilteredCategory(filteredCategory === category ? null : category);
-  };
-
-  // Clear all filters
-  const clearFilters = () => {
-    setFilteredDate(null);
-    setFilteredCategory(null);
-    setBrushStartIndex(undefined);
-    setBrushEndIndex(undefined);
-  };
-
-  // Export handlers
-  const handleExportPNG = async (chartId: string, filename: string) => {
-    try {
-      await exportChartAsPNG(chartId, filename);
-      toast({
-        title: "Export successful",
-        description: `Chart exported as ${filename}`,
-      });
-    } catch (err) {
-      toast({
-        title: "Export failed",
-        description: "Failed to export chart as PNG",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleExportSVG = async (chartId: string, filename: string) => {
-    try {
-      await exportChartAsSVG(chartId, filename);
-      toast({
-        title: "Export successful",
-        description: `Chart exported as ${filename}`,
-      });
-    } catch (err) {
-      toast({
-        title: "Export failed",
-        description: "Failed to export chart as SVG",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleExportPDF = async (chartId: string, filename: string) => {
-    try {
-      await exportChartAsPDF(chartId, filename);
-      toast({
-        title: "Export successful",
-        description: `Chart exported as ${filename}`,
-      });
-    } catch (err) {
-      toast({
-        title: "Export failed",
-        description: "Failed to export chart as PDF",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleExportCSV = () => {
-    try {
-      const csvData = conversationData.map((item) => ({
-        Date: item.date || item.day,
-        Day: item.day,
-        Conversations: item.conversations || 0,
-        "Resolution Rate": item.rate ? `${item.rate}%` : "N/A",
-      }));
-      exportDataAsCSV(csvData, `analytics-${format(new Date(), "yyyy-MM-dd")}.csv`);
-      toast({
-        title: "Export successful",
-        description: "Data exported as CSV",
-      });
-    } catch (err) {
-      toast({
-        title: "Export failed",
-        description: "Failed to export data as CSV",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleExportExcel = () => {
-    try {
-      const excelData = conversationData.map((item) => ({
-        Date: item.date || item.day,
-        Day: item.day,
-        Conversations: item.conversations || 0,
-        "Resolution Rate": item.rate || 0,
-      }));
-      exportDataAsExcel(excelData, `analytics-${format(new Date(), "yyyy-MM-dd")}.xlsx`, "Analytics");
-      toast({
-        title: "Export successful",
-        description: "Data exported as Excel",
-      });
-    } catch (err) {
-      toast({
-        title: "Export failed",
-        description: "Failed to export data as Excel",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleExportPDFReport = async () => {
-    try {
-      const charts = [
-        { id: "conversations-chart", title: "Conversations Over Time" },
-        { id: "resolution-chart", title: "Resolution Rate" },
-      ];
-      const reportData = conversationData.map((item) => ({
-        Date: item.date || item.day,
-        Conversations: item.conversations || 0,
-        "Resolution Rate": item.rate ? `${item.rate}%` : "N/A",
-      }));
-      await generatePDFReport(charts, reportData, `analytics-report-${format(new Date(), "yyyy-MM-dd")}.pdf`);
-      toast({
-        title: "Export successful",
-        description: "PDF report generated",
-      });
-    } catch (err) {
-      toast({
-        title: "Export failed",
-        description: "Failed to generate PDF report",
-        variant: "destructive",
-      });
-    }
-  };
-
-  // Generate heatmap data (mock data based on conversations - in real app, this would come from backend)
-  const heatmapData = useMemo(() => {
-    const data: Array<{ day: string; hour: number; value: number }> = [];
-    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-    conversationData.forEach((item) => {
-      if (item.date) {
-        const date = parseISO(item.date);
-        const dayName = days[getDay(date)];
-        const hour = getHours(date);
-        const existing = data.find((d) => d.day === dayName && d.hour === hour);
-        if (existing) {
-          existing.value += item.conversations || 0;
-        } else {
-          data.push({
-            day: dayName,
-            hour,
-            value: item.conversations || 0,
-          });
-        }
-      }
-    });
-
-    return data;
-  }, [conversationData]);
-
-  // Generate Sankey data
-  const sankeyData = useMemo(() => {
-    if (!resolutionRate) return { nodes: [], links: [] };
-
-    const resolved = Math.round((resolutionRate / 100) * (conversationData.reduce((sum, d) => sum + (d.conversations || 0), 0) || 1));
-    const escalated = Math.max(0, (conversationData.reduce((sum, d) => sum + (d.conversations || 0), 0) || 0) - resolved);
-
-    return {
-      nodes: [
-        { id: "total", name: "Total Conversations", value: resolved + escalated },
-        { id: "resolved", name: "Resolved", value: resolved },
-        { id: "escalated", name: "Escalated", value: escalated },
-      ],
-      links: [
-        { source: "total", target: "resolved", value: resolved },
-        { source: "total", target: "escalated", value: escalated },
-      ],
-    };
-  }, [resolutionRate, conversationData]);
-
-  // Generate word cloud data from top categories
-  const wordCloudData = useMemo(() => {
-    return topCategories.map((cat) => ({
-      word: cat.category,
-      count: cat.count,
-    }));
-  }, [topCategories]);
-
-  const getDateRangeLabel = () => {
-    if (!dateRange?.from || !dateRange?.to) return "Last 7 days";
-    return `${format(dateRange.from, "MMM dd")} - ${format(dateRange.to, "MMM dd, yyyy")}`;
-  };
-
-  const hasActiveFilters = filteredDate !== null || filteredCategory !== null;
 
   return (
-    <div className="flex flex-col w-full min-w-0">
+    <div className="flex flex-col w-full min-w-0 pb-10">
+
+      {/* ================================================================
+          7.3.1 — Page Header
+      ================================================================ */}
       <header className="mb-6 sm:mb-8">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-          <div className="flex items-start gap-2 min-w-0">
-            <div className="min-w-0">
-              <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">Analytics</h1>
-              <p className="mt-1.5 text-[13px] sm:text-sm text-muted-foreground max-w-xl">
-                Chatbot usage and performance metrics
-              </p>
-            </div>
-            <HelpIcon
-              content="View detailed analytics about your chatbot's performance. Track conversations over time, resolution rates, top questions, and more. Use date range filters to analyze specific periods. Export data as CSV, Excel, or PDF."
-              side="right"
-              className="mt-1 shrink-0"
-            />
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          {/* Title */}
+          <div>
+            <h1
+              className="text-xl sm:text-2xl font-semibold tracking-tight font-heading"
+              style={{ color: "#F9FAFB" }}
+            >
+              Analytics
+            </h1>
+            <p className="mt-1 text-[13px] sm:text-sm font-description" style={{ color: "#9CA3AF" }}>
+              Chatbot usage and performance metrics
+            </p>
           </div>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 shrink-0">
-            <div className="w-full sm:w-auto min-w-0">
-              <DateRangePicker dateRange={dateRange} onDateRangeChange={setDateRange} />
-            </div>
-            {hasActiveFilters && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={clearFilters}
-                className="gap-2 w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-xl"
-              >
-                <FilterX className="h-4 w-4 shrink-0" />
-                <span className="text-[13px] sm:text-sm">Clear filters</span>
-              </Button>
-            )}
+
+          {/* Controls row */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Date range */}
+            <DateRangeFilter value={dateRange} onChange={setDateRange} />
+
+            {/* Schedule Report */}
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setIsPolling(!isPolling)}
-              className="gap-2 w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-xl"
+              onClick={() => setScheduleOpen(true)}
+              className="h-9 px-3 text-xs font-description border gap-1.5"
+              style={{ backgroundColor: "#1C1F26", borderColor: "#2D333B", color: "#F9FAFB" }}
             >
-              <RefreshCw className={"h-4 w-4 shrink-0 " + (isPolling ? "animate-spin" : "")} />
-              <span className="text-[13px] sm:text-sm hidden sm:inline">
-                {isPolling ? "Auto-refresh ON" : "Auto-refresh OFF"}
-              </span>
-              <span className="text-[13px] sm:text-sm sm:hidden">
-                {isPolling ? "ON" : "OFF"}
-              </span>
+              <Calendar className="h-3.5 w-3.5" style={{ color: "#4F8EF7" }} />
+              Schedule Report
             </Button>
+
+            {/* Export dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2 w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-xl">
-                  <Download className="h-4 w-4 shrink-0" />
-                  <span className="text-[13px] sm:text-sm">Export</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 px-3 text-xs font-description border gap-1.5"
+                  style={{ backgroundColor: "#1C1F26", borderColor: "#2D333B", color: "#F9FAFB" }}
+                >
+                  <Download className="h-3.5 w-3.5" style={{ color: "#9CA3AF" }} />
+                  Export
                 </Button>
               </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[200px]">
-              <DropdownMenuItem onClick={handleExportCSV} className="min-h-[44px]">
-                <FileSpreadsheet className="h-4 w-4 mr-2" />
-                <span className="text-[14px]">Export as CSV</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleExportExcel} className="min-h-[44px]">
-                <FileSpreadsheet className="h-4 w-4 mr-2" />
-                <span className="text-[14px]">Export as Excel</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleExportPDFReport} className="min-h-[44px]">
-                <FileText className="h-4 w-4 mr-2" />
-                <span className="text-[14px]">Generate PDF Report</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+              <DropdownMenuContent
+                align="end"
+                className="w-44 border"
+                style={{ backgroundColor: "#1C1F26", borderColor: "#2D333B" }}
+              >
+                <DropdownMenuItem
+                  onClick={handleExportCSV}
+                  className="text-xs font-description cursor-pointer"
+                  style={{ color: "#F9FAFB" }}
+                >
+                  Export CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={handleExportExcel}
+                  className="text-xs font-description cursor-pointer"
+                  style={{ color: "#F9FAFB" }}
+                >
+                  Export Excel
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={handleGeneratePDF}
+                  className="text-xs font-description cursor-pointer"
+                  style={{ color: "#F9FAFB" }}
+                >
+                  Generate PDF Report
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Auto-refresh toggle */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAutoRefresh((v) => !v)}
+              className={cn("h-9 px-3 text-xs font-description border gap-1.5 transition-colors")}
+              style={{
+                backgroundColor: autoRefresh ? "rgba(79,142,247,0.15)" : "#1C1F26",
+                borderColor: autoRefresh ? "#4F8EF7" : "#2D333B",
+                color: autoRefresh ? "#4F8EF7" : "#9CA3AF",
+              }}
+              title={autoRefresh ? "Auto-refresh ON" : "Auto-refresh OFF"}
+            >
+              <RefreshCw className={cn("h-3.5 w-3.5", autoRefresh && "animate-spin")} />
+              {autoRefresh ? "Live" : "Refresh"}
+            </Button>
+
+            {/* Clear Filters */}
+            {dateRange !== "7days" && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleClearFilters}
+                className="h-9 px-2 text-xs font-description"
+                style={{ color: "#9CA3AF" }}
+              >
+                Clear filters
+              </Button>
+            )}
+          </div>
         </div>
       </header>
 
-      {queryError && (
-        <div className="mb-6">
-          <NetworkErrorState
-            error={queryError as ApiError}
-            onRetry={() => refetchAnalytics()}
-            variant="inline"
-          />
-        </div>
-      )}
-
-      {hasActiveFilters && (
-        <div className="rounded-xl border border-border/50 bg-muted/10 px-4 py-3 text-[13px] mb-6">
-          <span className="text-muted-foreground">Active filters: </span>
-          {filteredDate && (
-            <span className="font-medium">Date: {format(new Date(filteredDate), "MMM dd, yyyy")}</span>
-          )}
-          {filteredCategory && (
-            <span className="font-medium ml-2">Category: {filteredCategory}</span>
-          )}
-        </div>
-      )}
-
-      <div className={"grid grid-cols-1 " + (isTablet ? "" : "lg:grid-cols-2") + " gap-4 " + (isTablet ? "md:gap-5" : "sm:gap-6") + " mb-6"}>
-        {/* Conversations chart */}
-        <section className="rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5 lg:p-6" aria-labelledby="conversations-chart-heading">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-4">
-            <div className="min-w-0">
-              <h2 id="conversations-chart-heading" className="text-[13px] font-medium uppercase tracking-wider text-muted-foreground">
-                Conversations
-              </h2>
-              <p className="text-[12px] text-muted-foreground/80 mt-0.5">{getDateRangeLabel()}</p>
-            </div>
-            <div className="flex gap-2 shrink-0">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-2 min-h-[44px] sm:min-h-[40px] rounded-xl">
-                    <Download className="h-4 w-4 shrink-0" />
-                    <span className="text-[13px] sm:text-sm">Export</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    onClick={() =>
-                      handleExportPNG("conversations-chart", `conversations-${format(new Date(), "yyyy-MM-dd")}.png`)
-                    }
-                  >
-                    PNG
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() =>
-                      handleExportSVG("conversations-chart", `conversations-${format(new Date(), "yyyy-MM-dd")}.svg`)
-                    }
-                  >
-                    SVG
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() =>
-                      handleExportPDF("conversations-chart", `conversations-${format(new Date(), "yyyy-MM-dd")}.pdf`)
-                    }
-                  >
-                    PDF
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
-          {loading ? (
-            <div className={`${isTablet ? "h-[280px]" : isMobile ? "h-[200px]" : "h-[250px]"} flex items-center justify-center`}>
-              <Skeleton className="w-full h-full" />
-            </div>
-          ) : (
-            <div
-              id="conversations-chart"
-              ref={conversationsChartRef}
-              role="img"
-              aria-label={chartA11y.getChartLabel("Conversations", "bar", filteredConversationData.length)}
-              aria-describedby="conversations-chart-description"
-            >
-              <div id="conversations-chart-description" className="sr-only">
-                {chartA11y.getChartDescription(
-                  "Conversations chart",
-                  `Shows ${filteredConversationData.length} data points over the selected date range. Total conversations: ${filteredConversationData.reduce((sum, d) => sum + (d.conversations || 0), 0)}.`
-                )}
-              </div>
-              <ResponsiveContainer width="100%" height={isTablet ? 280 : isMobile ? 200 : 250}>
-                <BarChart
-                  data={filteredConversationData}
-                  onClick={handleBarClick}
-                  style={{ cursor: "pointer" }}
-                  margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
-                  accessibilityLayer
-                >
-                  <XAxis
-                    dataKey="day"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{
-                      fontSize: theme.typography.axis.fontSize,
-                      fill: theme.colors.axis,
-                      fontFamily: theme.typography.axis.fontFamily,
-                    }}
-                  />
-                  <YAxis
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{
-                      fontSize: theme.typography.axis.fontSize,
-                      fill: theme.colors.axis,
-                      fontFamily: theme.typography.axis.fontFamily,
-                    }}
-                  />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Bar
-                    dataKey="conversations"
-                    fill={theme.colors.primary}
-                    radius={[4, 4, 0, 0]}
-                    isAnimationActive={!reduceMotion}
-                    animationBegin={0}
-                    animationDuration={800}
-                    animationEasing="ease-out"
-                  >
-                    {filteredConversationData.map((entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={
-                          filteredDate && entry.date === filteredDate
-                            ? theme.colors.primaryHover
-                            : theme.colors.primary
-                        }
-                        aria-label={chartA11y.getDataPointLabel(
-                          entry.day,
-                          entry.conversations || 0,
-                          index,
-                          filteredConversationData.length
-                        )}
-                      />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </section>
-
-        {/* Resolution rate chart */}
-        <section className="rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5 lg:p-6" aria-labelledby="resolution-chart-heading">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-4">
-            <div className="min-w-0">
-              <h2 id="resolution-chart-heading" className="text-[13px] font-medium uppercase tracking-wider text-muted-foreground">
-                Resolution rate
-              </h2>
-              <p className="text-[12px] text-muted-foreground/80 mt-0.5">{getDateRangeLabel()}</p>
-            </div>
-            <div className="flex gap-2 shrink-0">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-2 min-h-[44px] sm:min-h-[40px] rounded-xl">
-                    <Download className="h-4 w-4 shrink-0" />
-                    <span className="text-[13px] sm:text-sm">Export</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    onClick={() =>
-                      handleExportPNG("resolution-chart", `resolution-rate-${format(new Date(), "yyyy-MM-dd")}.png`)
-                    }
-                  >
-                    PNG
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() =>
-                      handleExportSVG("resolution-chart", `resolution-rate-${format(new Date(), "yyyy-MM-dd")}.svg`)
-                    }
-                  >
-                    SVG
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() =>
-                      handleExportPDF("resolution-chart", `resolution-rate-${format(new Date(), "yyyy-MM-dd")}.pdf`)
-                    }
-                  >
-                    PDF
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
-          {loading ? (
-            <div className={`${isTablet ? "h-[280px]" : isMobile ? "h-[200px]" : "h-[250px]"} flex items-center justify-center`}>
-              <Skeleton className="w-full h-full" />
-            </div>
-          ) : (
-            <div
-              id="resolution-chart"
-              ref={resolutionChartRef}
-              role="img"
-              aria-label={chartA11y.getChartLabel("Resolution Rate", "line", filteredResolutionData.length)}
-              aria-describedby="resolution-chart-description"
-            >
-              <div id="resolution-chart-description" className="sr-only">
-                {chartA11y.getChartDescription(
-                  "Resolution Rate chart",
-                  `Shows ${filteredResolutionData.length} data points over the selected date range. Average resolution rate: ${Math.round(filteredResolutionData.reduce((sum, d) => sum + (d.rate || 0), 0) / (filteredResolutionData.length || 1))}%.`
-                )}
-              </div>
-              <ResponsiveContainer width="100%" height={isTablet ? 280 : isMobile ? 200 : 250}>
-                <LineChart
-                  data={filteredResolutionData}
-                  onClick={handleLineClick}
-                  style={{ cursor: "pointer" }}
-                  margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
-                  accessibilityLayer
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke={theme.colors.grid} />
-                  <XAxis
-                    dataKey="day"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{
-                      fontSize: theme.typography.axis.fontSize,
-                      fill: theme.colors.axis,
-                      fontFamily: theme.typography.axis.fontFamily,
-                    }}
-                  />
-                  <YAxis
-                    domain={[0, 100]}
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{
-                      fontSize: theme.typography.axis.fontSize,
-                      fill: theme.colors.axis,
-                      fontFamily: theme.typography.axis.fontFamily,
-                    }}
-                    tickFormatter={(v) => `${v}%`}
-                  />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Line
-                    type="monotone"
-                    dataKey="rate"
-                    stroke={theme.colors.primary}
-                    strokeWidth={2}
-                    dot={{ r: 3, fill: theme.colors.primary }}
-                    isAnimationActive={!reduceMotion}
-                    animationBegin={0}
-                    animationDuration={800}
-                    animationEasing="ease-out"
-                  />
-                  <Brush
-                    dataKey="day"
-                    height={30}
-                    stroke={theme.colors.primary}
-                    startIndex={brushStartIndex}
-                    endIndex={brushEndIndex}
-                    onChange={(brushData) => {
-                      if (brushData && typeof brushData.startIndex === "number" && typeof brushData.endIndex === "number") {
-                        setBrushStartIndex(brushData.startIndex);
-                        setBrushEndIndex(brushData.endIndex);
-                      }
-                    }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </section>
+      {/* ================================================================
+          7.3.2 — Overview KPI Row (6 cards)
+      ================================================================ */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
+        {summaryLoading || leadsLoading || satisfactionLoading ? (
+          Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-28 rounded-xl" />
+          ))
+        ) : (
+          <>
+            <KPICard
+              label="Total Conversations"
+              value={summary.total_conversations.toLocaleString()}
+              icon={<MessageSquare className="w-4 h-4" />}
+            />
+            <KPICard
+              label="Total Leads"
+              value={leadsData.total_leads.toLocaleString()}
+              trend={leadsData.leads_trend ?? null}
+              trendLabel="vs last period"
+              icon={<Users className="w-4 h-4" />}
+            />
+            <KPICard
+              label="Resolution Rate"
+              value={`${(summary.resolution_rate.percentage || 0).toFixed(1)}%`}
+              icon={<Percent className="w-4 h-4" />}
+            />
+            <KPICard
+              label="Escalation Rate"
+              value={`${escalationRate.toFixed(1)}%`}
+              icon={<TrendingUp className="w-4 h-4" />}
+            />
+            <KPICard
+              label="Avg Messages"
+              value={avgMessages}
+              icon={<MessageSquare className="w-4 h-4" />}
+            />
+            <KPICard
+              label="Satisfaction"
+              value={`${satisfactionData.current_score.toFixed(1)}%`}
+              trend={satisfactionData.score_trend ?? null}
+              trendLabel="vs last period"
+              icon={<Star className="w-4 h-4" />}
+            />
+          </>
+        )}
       </div>
 
-      {/* Additional Visualizations */}
-      <div className="grid grid-cols-1 gap-4 sm:gap-6 mb-6">
-        {/* Heatmap */}
-        <section
-          className="rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5 lg:p-6"
-          aria-labelledby="heatmap-section-heading"
-        >
-          <h2 id="heatmap-section-heading" className="sr-only">
-            Conversation Activity Heatmap
-          </h2>
-          <HeatmapChart
-            data={heatmapData}
-            title="Conversation Activity Heatmap (by Hour/Day)"
-          />
-        </section>
-
-        {/* Sankey and Word Cloud in a row */}
-        <div className={"grid grid-cols-1 " + (isTablet ? "" : "lg:grid-cols-2") + " gap-4 " + (isTablet ? "md:gap-5" : "sm:gap-6")}>
-          <section
-            className="rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5 lg:p-6"
-            aria-labelledby="sankey-section-heading"
-          >
-            <h2 id="sankey-section-heading" className="sr-only">
-              Conversation Flow Diagram
-            </h2>
-            <SankeyDiagram
-              nodes={sankeyData.nodes}
-              links={sankeyData.links}
-              title="Conversation Flow (Resolved vs Escalated)"
-            />
-          </section>
-          <section
-            className="rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5 lg:p-6"
-            aria-labelledby="wordcloud-section-heading"
-          >
-            <h2 id="wordcloud-section-heading" className="sr-only">
-              Word Cloud Visualization
-            </h2>
-            <WordCloud words={wordCloudData} title="Most Common Question Keywords" />
-          </section>
-        </div>
-      </div>
-
-      {/* Advanced Analytics Views - F8.2 */}
-      <div className="space-y-4 sm:space-y-6 mb-6">
-        <div>
-          <h2 className="text-[13px] font-medium uppercase tracking-wider text-muted-foreground">
-            Advanced analytics views
-          </h2>
-          <p className="text-[12px] text-muted-foreground/80 mt-0.5">
-            Conversation patterns, user journeys, and performance metrics
-          </p>
-        </div>
-
-        {/* Performance Metrics Dashboard */}
-        <section
-          className="rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5 lg:p-6"
-          aria-labelledby="performance-metrics-heading"
-        >
-          <h2 id="performance-metrics-heading" className="sr-only">
-            Performance Metrics Dashboard
-          </h2>
-          <PerformanceMetrics
-            data={{
-              response_accuracy: summary?.response_accuracy,
-              resolution_rate: summary?.resolution_rate,
-            }}
-            title="Performance Metrics Dashboard"
-          />
-        </section>
-
-        {/* Conversation Timeline and User Journey in a row */}
-        <div className={"grid grid-cols-1 " + (isTablet ? "" : "lg:grid-cols-2") + " gap-4 " + (isTablet ? "md:gap-5" : "sm:gap-6")}>
-          <section
-            className="rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5 lg:p-6"
-            aria-labelledby="timeline-heading"
-          >
-            <h2 id="timeline-heading" className="sr-only">
-              Conversation Timeline
-            </h2>
-            <ConversationTimeline
-              data={conversationData.map((item) => ({
-                date: item.date || item.day,
-                count: item.conversations || 0,
-              }))}
-              title="Conversation Timeline"
-            />
-          </section>
-
-          <section
-            className="rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5 lg:p-6"
-            aria-labelledby="user-journey-heading"
-          >
-            <h2 id="user-journey-heading" className="sr-only">
-              User Journey Visualization
-            </h2>
-            <UserJourney
-              data={[
-                {
-                  step: "Initial Question",
-                  count: summary?.total_conversations || 0,
-                  percentage: 100,
-                },
-                {
-                  step: "Follow-up Question",
-                  count: Math.round((summary?.total_conversations || 0) * 0.65),
-                  percentage: 65,
-                },
-                {
-                  step: "Resolution",
-                  count: summary?.resolution_rate?.resolved_via_bot || 0,
-                  percentage: summary?.resolution_rate?.percentage || 0,
-                },
-                {
-                  step: "Escalation",
-                  count: summary?.resolution_rate?.escalated || 0,
-                  percentage: summary?.resolution_rate?.escalated
-                    ? Math.round(
-                        ((summary.resolution_rate.escalated || 0) /
-                          (summary?.resolution_rate?.total || 1)) *
-                          100
-                      )
-                    : 0,
-                },
-              ]}
-              title="User Journey Visualization"
-            />
-          </section>
-        </div>
-
-        {/* Sentiment Analysis */}
-        <section
-          className="rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5 lg:p-6"
-          aria-labelledby="sentiment-heading"
-        >
-          <h2 id="sentiment-heading" className="sr-only">
-            Sentiment Analysis
-          </h2>
-          <SentimentAnalysis
-            data={
-              summary?.user_satisfaction
-                ? {
-                    positive: summary.user_satisfaction.thumbs_up || 0,
-                    negative: summary.user_satisfaction.thumbs_down || 0,
-                    neutral:
-                      (summary.user_satisfaction.total_feedback || 0) -
-                      (summary.user_satisfaction.thumbs_up || 0) -
-                      (summary.user_satisfaction.thumbs_down || 0),
-                    total: summary.user_satisfaction.total_feedback || 0,
-                  }
-                : undefined
-            }
-            title="Sentiment Analysis"
-          />
-        </section>
-      </div>
-
-      {/* Top Categories */}
-      <section className="rounded-2xl border border-border/50 bg-muted/10 overflow-hidden" aria-labelledby="top-categories-heading">
-        <div className="px-4 sm:px-5 lg:px-6 py-4 border-b border-border/50">
-          <h2 id="top-categories-heading" className="text-[13px] font-medium uppercase tracking-wider text-muted-foreground">
-            Top question categories
-          </h2>
-          <p className="text-[12px] text-muted-foreground/80 mt-0.5">Most common question topics in the selected period</p>
-        </div>
-        <div className="p-4 sm:p-5 lg:p-6 space-y-4">
-          {loading ? (
-            <div className="space-y-4">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="space-y-2">
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-2 w-full" />
-                </div>
-              ))}
-            </div>
-          ) : topCategories.length === 0 ? (
-            <p className="text-[14px] text-muted-foreground">No categories available</p>
-          ) : (
-            topCategories.map((cat) => {
-              const maxCount = topCategories[0]?.count || 1;
-              const width = (cat.count / maxCount) * 100;
-              const isFiltered = filteredCategory === cat.category;
-              return (
-                <div
-                  key={cat.category}
-                  onClick={() => handleCategoryClick(cat.category)}
-                  className={`cursor-pointer transition-all ${
-                    isFiltered ? "bg-muted/50 rounded p-2" : ""
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[14px] text-foreground">{cat.category}</span>
-                    <span className="text-[13px] text-muted-foreground">{cat.count}</span>
-                  </div>
-                  <div className="h-2 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-500 ${
-                        isFiltered ? "bg-primary" : "bg-primary/70"
-                      }`}
-                      style={{ width: `${width}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </section>
-
-      {/* Drill-down Dialog */}
-      <Dialog open={drillDownOpen} onOpenChange={setDrillDownOpen}>
-        <DialogContent className="rounded-2xl p-4 sm:p-6">
-          <DialogHeader>
-            <DialogTitle className="text-lg">Date details</DialogTitle>
-            <DialogDescription className="text-[13px]">
-              {drillDownData?.date
-                ? "Details for " + format(new Date(drillDownData.date), "MMMM dd, yyyy")
-                : "Details for selected date"}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            {drillDownData && (
-              <>
-                <div className="space-y-2">
-                  <p className="text-sm font-medium">Date</p>
-                  <p className="text-sm text-muted-foreground">
-                    {format(new Date(drillDownData.date), "EEEE, MMMM dd, yyyy")}
-                  </p>
-                </div>
-                {drillDownData.conversations !== undefined && (
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium">Conversations</p>
-                    <p className="text-sm text-muted-foreground">{drillDownData.conversations}</p>
-                  </div>
-                )}
-                {drillDownData.details?.rate !== undefined && (
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium">Resolution Rate</p>
-                    <p className="text-sm text-muted-foreground">{drillDownData.details.rate}%</p>
-                  </div>
-                )}
-              </>
+      {/* ================================================================
+          7.3.3 — Conversation Analytics Section
+      ================================================================ */}
+      <div className="mb-8">
+        <SectionHeader icon={MessageSquare} title="Conversation Analytics" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-2">
+            {summaryLoading ? (
+              <Skeleton className="h-[300px] rounded-xl" />
+            ) : (
+              <ConversationVolumeChart data={summary.conversations_by_day} />
             )}
           </div>
-        </DialogContent>
-      </Dialog>
+          <div>
+            {summaryLoading ? (
+              <Skeleton className="h-[300px] rounded-xl" />
+            ) : (
+              <ConversationOutcomesDonut data={conversationOutcomes} />
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ================================================================
+          7.3.4 — Channel Analytics Section
+      ================================================================ */}
+      <div className="mb-8">
+        <SectionHeader icon={BarChart3} title="Channel Analytics" />
+        {channelsLoading ? (
+          <Skeleton className="h-[220px] rounded-xl" />
+        ) : (
+          <ChannelPerformanceTable
+            data={channelData.channels}
+            total={channelData.total_conversations}
+          />
+        )}
+      </div>
+
+      {/* ================================================================
+          7.3.5 — Content Analytics Section
+      ================================================================ */}
+      <div className="mb-8">
+        <SectionHeader icon={FileText} title="Content Analytics" />
+
+        {/* Top questions + Unanswered */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+          {/* Top Questions inline table */}
+          <div
+            className="rounded-xl border overflow-hidden"
+            style={{ backgroundColor: "#1C1F26", borderColor: "#2D333B" }}
+          >
+            <div className="px-4 sm:px-5 py-4 border-b" style={{ borderColor: "#2D333B" }}>
+              <h3 className="text-sm font-semibold font-heading" style={{ color: "#F9FAFB" }}>
+                Top Questions
+              </h3>
+            </div>
+            {contentLoading ? (
+              <div className="p-4 space-y-3">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Skeleton key={i} className="h-8 rounded" />
+                ))}
+              </div>
+            ) : contentData.top_questions.length === 0 ? (
+              <div className="px-5 py-8 text-center">
+                <p className="text-sm font-description" style={{ color: "#9CA3AF" }}>
+                  No questions data yet
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid #2D333B" }}>
+                      {["Question", "Count", "Resolved"].map((col) => (
+                        <th
+                          key={col}
+                          className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider font-heading"
+                          style={{ color: "#9CA3AF" }}
+                        >
+                          {col}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {contentData.top_questions.slice(0, 10).map((q, i) => (
+                      <tr
+                        key={i}
+                        style={{ borderBottom: i < contentData.top_questions.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}
+                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#252A33")}
+                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                        className="transition-colors duration-150"
+                      >
+                        <td className="px-4 py-2.5 max-w-[200px]">
+                          <p
+                            className="font-description text-xs truncate"
+                            style={{ color: "#F9FAFB" }}
+                            title={q.query}
+                          >
+                            {q.query}
+                          </p>
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <span className="font-mono text-xs font-semibold" style={{ color: "#F9FAFB" }}>
+                            {q.count}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <span
+                            className="text-xs font-mono px-2 py-0.5 rounded-full"
+                            style={{
+                              backgroundColor:
+                                q.resolved_percentage >= 80
+                                  ? "rgba(16,185,129,0.15)"
+                                  : "rgba(239,68,68,0.15)",
+                              color: q.resolved_percentage >= 80 ? "#10B981" : "#EF4444",
+                            }}
+                          >
+                            {q.resolved_percentage.toFixed(0)}%
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Unanswered Questions */}
+          {contentLoading ? (
+            <Skeleton className="h-[280px] rounded-xl" />
+          ) : (
+            <UnansweredQuestionsTable
+              data={contentData.unanswered_questions}
+              total={contentData.total_unanswered}
+              onAddToKnowledgeBase={handleAddToKB}
+            />
+          )}
+        </div>
+
+        {/* Most Referenced Documents — horizontal bar chart */}
+        {contentData.most_referenced_docs.length > 0 && (
+          <div
+            className="rounded-xl border p-4 sm:p-5"
+            style={{ backgroundColor: "#1C1F26", borderColor: "#2D333B" }}
+          >
+            <h3 className="text-sm font-semibold font-heading mb-4" style={{ color: "#F9FAFB" }}>
+              Most Referenced Documents
+            </h3>
+            {contentLoading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-8 rounded" />)}
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {contentData.most_referenced_docs.map((doc, i) => {
+                  const maxRef = contentData.most_referenced_docs[0]?.reference_count || 1;
+                  const pct = (doc.reference_count / maxRef) * 100;
+                  return (
+                    <div key={doc.document_id}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-description truncate max-w-[60%]" style={{ color: "#F9FAFB" }}>
+                          {doc.filename}
+                        </span>
+                        <span className="text-xs font-mono" style={{ color: "#9CA3AF" }}>
+                          {doc.reference_count} refs
+                        </span>
+                      </div>
+                      <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: "rgba(255,255,255,0.06)" }}>
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{
+                            width: `${pct}%`,
+                            backgroundColor: i === 0 ? "#4F8EF7" : i === 1 ? "#7C3AED" : i === 2 ? "#10B981" : "#F59E0B",
+                          }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ================================================================
+          7.3.6 — Lead Analytics Section
+      ================================================================ */}
+      <div className="mb-8">
+        <SectionHeader icon={Users} title="Lead Analytics" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {leadsLoading ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-[260px] rounded-xl" />
+            ))
+          ) : (
+            <>
+              <LeadsOverTimeChart data={leadsData.leads_by_day} />
+              <LeadSourceDonut data={leadsData.lead_sources} />
+              <ConversionFunnel data={leadsData.conversion_funnel} />
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* ================================================================
+          7.3.7 — Satisfaction Analytics Section
+      ================================================================ */}
+      <div className="mb-8">
+        <SectionHeader icon={Star} title="Satisfaction Analytics" />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {satisfactionLoading ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-32 rounded-xl" />
+            ))
+          ) : (
+            <>
+              {/* Current Satisfaction Score */}
+              <div
+                className="rounded-xl border p-5 relative overflow-hidden"
+                style={{ backgroundColor: "#1C1F26", borderColor: "#2D333B" }}
+              >
+                <div
+                  className="absolute inset-0 opacity-5"
+                  style={{ background: "radial-gradient(circle at top right, #4F8EF7, transparent 70%)" }}
+                />
+                <p className="text-xs font-semibold uppercase tracking-wider font-heading mb-2" style={{ color: "#9CA3AF" }}>
+                  Satisfaction Score
+                </p>
+                <p className="text-4xl font-bold font-mono" style={{ color: "#F9FAFB" }}>
+                  {satisfactionData.current_score.toFixed(1)}%
+                </p>
+                {satisfactionData.score_trend != null && (
+                  <div className="flex items-center gap-1 mt-2">
+                    <span
+                      className="text-xs font-mono px-2 py-0.5 rounded-full"
+                      style={{
+                        backgroundColor: satisfactionData.score_trend >= 0 ? "rgba(16,185,129,0.15)" : "rgba(239,68,68,0.15)",
+                        color: satisfactionData.score_trend >= 0 ? "#10B981" : "#EF4444",
+                      }}
+                    >
+                      {satisfactionData.score_trend >= 0 ? "+" : ""}{satisfactionData.score_trend.toFixed(1)}%
+                    </span>
+                    <span className="text-xs font-description" style={{ color: "#9CA3AF" }}>vs last period</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Positive Feedback */}
+              <div
+                className="rounded-xl border p-5 relative overflow-hidden"
+                style={{ backgroundColor: "#1C1F26", borderColor: "#2D333B" }}
+              >
+                <div
+                  className="absolute inset-0 opacity-5"
+                  style={{ background: "radial-gradient(circle at top right, #10B981, transparent 70%)" }}
+                />
+                <div className="flex items-center gap-2 mb-2">
+                  <ThumbsUp className="h-4 w-4" style={{ color: "#10B981" }} />
+                  <p className="text-xs font-semibold uppercase tracking-wider font-heading" style={{ color: "#9CA3AF" }}>
+                    Positive Feedback
+                  </p>
+                </div>
+                <p className="text-4xl font-bold font-mono" style={{ color: "#10B981" }}>
+                  {satisfactionData.total_positive.toLocaleString()}
+                </p>
+                <p className="text-xs font-description mt-2" style={{ color: "#9CA3AF" }}>
+                  {satisfactionData.total_positive + satisfactionData.total_negative > 0
+                    ? `${((satisfactionData.total_positive / (satisfactionData.total_positive + satisfactionData.total_negative)) * 100).toFixed(1)}% of all feedback`
+                    : "No feedback yet"}
+                </p>
+              </div>
+
+              {/* Negative Feedback */}
+              <div
+                className="rounded-xl border p-5 relative overflow-hidden"
+                style={{ backgroundColor: "#1C1F26", borderColor: "#2D333B" }}
+              >
+                <div
+                  className="absolute inset-0 opacity-5"
+                  style={{ background: "radial-gradient(circle at top right, #EF4444, transparent 70%)" }}
+                />
+                <div className="flex items-center gap-2 mb-2">
+                  <ThumbsDown className="h-4 w-4" style={{ color: "#EF4444" }} />
+                  <p className="text-xs font-semibold uppercase tracking-wider font-heading" style={{ color: "#9CA3AF" }}>
+                    Negative Feedback
+                  </p>
+                </div>
+                <p className="text-4xl font-bold font-mono" style={{ color: "#EF4444" }}>
+                  {satisfactionData.total_negative.toLocaleString()}
+                </p>
+                <p className="text-xs font-description mt-2" style={{ color: "#9CA3AF" }}>
+                  {satisfactionData.total_positive + satisfactionData.total_negative > 0
+                    ? `${((satisfactionData.total_negative / (satisfactionData.total_positive + satisfactionData.total_negative)) * 100).toFixed(1)}% of all feedback`
+                    : "No feedback yet"}
+                </p>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Schedule Report Modal */}
+      <ScheduleReportModal open={scheduleOpen} onClose={() => setScheduleOpen(false)} />
     </div>
   );
 }

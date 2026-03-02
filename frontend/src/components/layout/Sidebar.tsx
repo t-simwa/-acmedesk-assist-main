@@ -922,10 +922,10 @@ export function Sidebar({ isCollapsed, onToggle, mobile = false }: SidebarProps)
           ? {
               position: "relative",
               width: "100%",
+              height: "100%",
               background: SIDEBAR_BG,
               display: "flex",
               flexDirection: "column",
-              flex: 1,
               overflow: "hidden",
             }
           : {
