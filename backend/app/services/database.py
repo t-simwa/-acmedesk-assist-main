@@ -2404,3 +2404,512 @@ async def get_satisfaction_analytics(
             "total_negative": negative,
             "score_trend": score_trend
         }
+
+
+# =============================================================================
+# Milestone 7.4 — Conversations Admin Management
+# =============================================================================
+
+# In-memory stores for features that don't require DB migrations (MVP)
+_conversation_flags: Dict[str, bool] = {}  # conversation_id -> flagged bool
+_conversation_notes: Dict[str, List[Dict[str, str]]] = {}  # conversation_id -> [{note, created_at}]
+
+
+async def get_admin_conversation_list(
+    tenant_id: str,
+    page: int = 1,
+    per_page: int = 20,
+    search: Optional[str] = None,
+    channel: Optional[str] = None,
+    status: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    rating: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Get paginated list of conversations for the admin conversations table.
+
+    Returns conversations with contact info, first message preview, stats summary.
+    """
+    from ..models.contact import Contact
+    from ..models.conversation import ConversationStatus, Rating as ConvRating, Channel as ConvChannel
+    from sqlalchemy import or_, text
+
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        # Build base filter conditions
+        conditions = [Conversation.tenant_id == tenant_id]
+
+        if channel and channel != "all":
+            try:
+                ch = ConvChannel(channel.lower())
+                conditions.append(Conversation.channel == ch)
+            except ValueError:
+                pass
+
+        if status and status != "all":
+            try:
+                st = ConversationStatus(status.lower())
+                conditions.append(Conversation.status == st)
+            except ValueError:
+                pass
+
+        if rating and rating != "all":
+            try:
+                rt = ConvRating(rating.lower())
+                conditions.append(Conversation.rating == rt)
+            except ValueError:
+                if rating.lower() == "none":
+                    conditions.append(Conversation.rating.is_(None))
+
+        if date_from:
+            try:
+                dt = datetime.fromisoformat(date_from.replace("Z", "+00:00")).replace(tzinfo=None)
+                conditions.append(Conversation.started_at >= dt)
+            except (ValueError, AttributeError):
+                pass
+
+        if date_to:
+            try:
+                dt = datetime.fromisoformat(date_to.replace("Z", "+00:00")).replace(tzinfo=None)
+                conditions.append(Conversation.started_at <= dt)
+            except (ValueError, AttributeError):
+                pass
+
+        # Stats query (runs on unfiltered base, then applies filters)
+        stats_result = await session.execute(
+            select(
+                func.count(Conversation.id).label("total"),
+                func.sum(case((Conversation.status == ConversationStatus.ACTIVE, 1), else_=0)).label("active"),
+                func.sum(case((Conversation.status == ConversationStatus.RESOLVED, 1), else_=0)).label("resolved"),
+                func.sum(case((Conversation.status == ConversationStatus.ESCALATED, 1), else_=0)).label("escalated"),
+                func.sum(case((Conversation.status == ConversationStatus.ABANDONED, 1), else_=0)).label("abandoned"),
+            ).where(and_(*conditions))
+        )
+        stats_row = stats_result.fetchone()
+        stats = {
+            "total": stats_row.total or 0,
+            "active": stats_row.active or 0,
+            "resolved": stats_row.resolved or 0,
+            "escalated": stats_row.escalated or 0,
+            "abandoned": stats_row.abandoned or 0,
+        }
+
+        # If search is provided, filter by contact name/phone/email or first message content
+        if search and search.strip():
+            search_term = f"%{search.strip()}%"
+            # Subquery: get conversation IDs where first user message matches
+            msg_subq = (
+                select(Message.conversation_id)
+                .where(
+                    Message.content.ilike(search_term),
+                    Message.role == "user",
+                )
+                .limit(500)
+                .scalar_subquery()
+            )
+            # Join contact and apply search on name/phone/email OR message content
+            search_conditions = or_(
+                Contact.full_name.ilike(search_term),
+                Contact.phone.ilike(search_term),
+                Contact.email.ilike(search_term),
+                Conversation.id.in_(msg_subq),
+            )
+            base_query = (
+                select(Conversation, Contact)
+                .outerjoin(Contact, Conversation.contact_id == Contact.id)
+                .where(and_(*conditions), search_conditions)
+                .order_by(Conversation.started_at.desc())
+            )
+        else:
+            base_query = (
+                select(Conversation, Contact)
+                .outerjoin(Contact, Conversation.contact_id == Contact.id)
+                .where(and_(*conditions))
+                .order_by(Conversation.started_at.desc())
+            )
+
+        # Count total matching for pagination
+        count_result = await session.execute(
+            select(func.count()).select_from(base_query.subquery())
+        )
+        total_matching = count_result.scalar() or 0
+
+        # Paginate
+        offset = (page - 1) * per_page
+        paginated_result = await session.execute(
+            base_query.offset(offset).limit(per_page)
+        )
+        rows = paginated_result.fetchall()
+
+        # Fetch first user messages for this page of conversations
+        conv_ids = [conv.id for conv, _ in rows]
+        first_messages: Dict[str, str] = {}
+        if conv_ids:
+            msg_result = await session.execute(
+                select(Message.conversation_id, Message.content)
+                .where(
+                    Message.conversation_id.in_(conv_ids),
+                    Message.role == "user",
+                )
+                .order_by(Message.created_at.asc())
+            )
+            # Keep only the first user message per conversation
+            for msg_row in msg_result.fetchall():
+                if msg_row.conversation_id not in first_messages:
+                    first_messages[msg_row.conversation_id] = msg_row.content
+
+        conversations = []
+        for conv, contact in rows:
+            duration_mins: Optional[float] = None
+            if conv.resolved_at and conv.started_at:
+                delta = conv.resolved_at - conv.started_at
+                duration_mins = round(delta.total_seconds() / 60, 1)
+            elif conv.last_activity_at and conv.started_at:
+                delta = conv.last_activity_at - conv.started_at
+                duration_mins = round(delta.total_seconds() / 60, 1)
+
+            first_msg = first_messages.get(conv.id, "")
+            # Truncate preview to 120 chars
+            if len(first_msg) > 120:
+                first_msg = first_msg[:117] + "..."
+
+            conversations.append({
+                "id": conv.id,
+                "channel": conv.channel.value if conv.channel else "web",
+                "contact_name": contact.full_name if contact else None,
+                "contact_phone": contact.phone if contact else None,
+                "contact_email": contact.email if contact else None,
+                "first_message": first_msg or None,
+                "message_count": conv.message_count or 0,
+                "status": conv.status.value if conv.status else "active",
+                "rating": conv.rating.value if conv.rating else None,
+                "duration_minutes": duration_mins,
+                "started_at": conv.started_at.isoformat() + "Z" if conv.started_at else "",
+            })
+
+        return {
+            "conversations": conversations,
+            "total": total_matching,
+            "page": page,
+            "per_page": per_page,
+            "stats": stats,
+        }
+
+
+async def get_admin_conversation_detail(
+    conversation_id: str,
+    tenant_id: str,
+) -> Optional[Dict[str, Any]]:
+    """
+    Get full conversation detail with transcript, contact info, and timeline.
+    """
+    from ..models.contact import Contact
+
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        # Get conversation with contact
+        result = await session.execute(
+            select(Conversation, Contact)
+            .outerjoin(Contact, Conversation.contact_id == Contact.id)
+            .where(
+                Conversation.id == conversation_id,
+                Conversation.tenant_id == tenant_id,
+            )
+        )
+        row = result.fetchone()
+        if not row:
+            return None
+
+        conv, contact = row
+
+        # Get all messages
+        msg_result = await session.execute(
+            select(Message)
+            .where(Message.conversation_id == conversation_id)
+            .order_by(Message.created_at.asc())
+        )
+        messages = msg_result.scalars().all()
+
+        # Build timeline events
+        timeline: List[Dict[str, str]] = []
+        if conv.started_at:
+            timeline.append({
+                "event": "Conversation Started",
+                "timestamp": conv.started_at.isoformat() + "Z",
+                "detail": f"via {conv.channel.value if conv.channel else 'web'}",
+            })
+        # Check if a lead was captured (lead_status on contact != NEW means it progressed)
+        if contact and contact.first_seen_at:
+            timeline.append({
+                "event": "Contact Identified",
+                "timestamp": contact.first_seen_at.isoformat() + "Z",
+                "detail": contact.full_name or contact.email or contact.phone or "Anonymous",
+            })
+        if conv.status and conv.status.value == "escalated":
+            event_ts = conv.last_activity_at or conv.updated_at or conv.started_at
+            timeline.append({
+                "event": "Escalated to Agent",
+                "timestamp": event_ts.isoformat() + "Z",
+                "detail": None,
+            })
+        if conv.resolved_at:
+            timeline.append({
+                "event": "Resolved",
+                "timestamp": conv.resolved_at.isoformat() + "Z",
+                "detail": None,
+            })
+
+        # Duration
+        duration_mins: Optional[float] = None
+        if conv.resolved_at and conv.started_at:
+            delta = conv.resolved_at - conv.started_at
+            duration_mins = round(delta.total_seconds() / 60, 1)
+        elif conv.last_activity_at and conv.started_at:
+            delta = conv.last_activity_at - conv.started_at
+            duration_mins = round(delta.total_seconds() / 60, 1)
+
+        # Build stored notes (in-memory, joined with contact.notes for display)
+        contact_notes = contact.notes if contact else None
+
+        contact_detail = None
+        if contact:
+            contact_detail = {
+                "id": contact.id,
+                "full_name": contact.full_name,
+                "email": contact.email,
+                "phone": contact.phone,
+                "instagram_handle": contact.instagram_handle,
+                "company": contact.company,
+                "lead_status": contact.lead_status.value if contact.lead_status else None,
+                "channels_used": contact.channels_used,
+                "first_seen_at": contact.first_seen_at.isoformat() + "Z" if contact.first_seen_at else None,
+                "last_active_at": contact.last_active_at.isoformat() + "Z" if contact.last_active_at else None,
+                "notes": contact_notes,
+            }
+
+        messages_detail = [
+            {
+                "id": msg.id,
+                "role": msg.role.value if msg.role else "user",
+                "content": msg.content,
+                "citations": msg.citations,
+                "confidence_score": msg.confidence_score,
+                "created_at": msg.created_at.isoformat() + "Z" if msg.created_at else "",
+            }
+            for msg in messages
+        ]
+
+        return {
+            "id": conv.id,
+            "channel": conv.channel.value if conv.channel else "web",
+            "status": conv.status.value if conv.status else "active",
+            "rating": conv.rating.value if conv.rating else None,
+            "message_count": conv.message_count or len(messages_detail),
+            "started_at": conv.started_at.isoformat() + "Z" if conv.started_at else "",
+            "resolved_at": conv.resolved_at.isoformat() + "Z" if conv.resolved_at else None,
+            "last_activity_at": conv.last_activity_at.isoformat() + "Z" if conv.last_activity_at else None,
+            "page_url": conv.page_url,
+            "duration_minutes": duration_mins,
+            "messages": messages_detail,
+            "contact": contact_detail,
+            "timeline": timeline,
+            "is_flagged": _conversation_flags.get(conversation_id, False),
+        }
+
+
+async def update_admin_conversation_status(
+    conversation_id: str,
+    tenant_id: str,
+    new_status: str,
+    reason: Optional[str] = None,
+) -> bool:
+    """Update a conversation's status. Returns True if updated."""
+    from ..models.conversation import ConversationStatus, ConversationOutcome
+
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        result = await session.execute(
+            select(Conversation).where(
+                Conversation.id == conversation_id,
+                Conversation.tenant_id == tenant_id,
+            )
+        )
+        conv = result.scalar_one_or_none()
+        if not conv:
+            return False
+
+        try:
+            conv.status = ConversationStatus(new_status.lower())
+        except ValueError:
+            return False
+
+        # Set outcome and resolved_at for terminal statuses
+        if new_status.lower() == "resolved":
+            conv.outcome = ConversationOutcome.RESOLVED
+            conv.resolved_at = datetime.utcnow()
+        elif new_status.lower() == "escalated":
+            conv.outcome = ConversationOutcome.ESCALATED
+        elif new_status.lower() == "abandoned":
+            conv.outcome = ConversationOutcome.ABANDONED
+
+        conv.updated_at = datetime.utcnow()
+        await session.commit()
+        return True
+
+
+async def add_conversation_note(
+    conversation_id: str,
+    tenant_id: str,
+    note: str,
+) -> bool:
+    """
+    Add an internal note to a conversation.
+    Notes are stored in-memory (MVP; persisted in contact.notes if contact exists).
+    Returns True if successful.
+    """
+    from ..models.contact import Contact
+
+    # Always store in in-memory dict
+    if conversation_id not in _conversation_notes:
+        _conversation_notes[conversation_id] = []
+    _conversation_notes[conversation_id].append({
+        "note": note,
+        "created_at": datetime.utcnow().isoformat() + "Z",
+    })
+
+    # Also attempt to persist in contact.notes as a simple log
+    try:
+        session_factory = get_session_factory()
+        async with session_factory() as session:
+            result = await session.execute(
+                select(Conversation, Contact)
+                .outerjoin(Contact, Conversation.contact_id == Contact.id)
+                .where(
+                    Conversation.id == conversation_id,
+                    Conversation.tenant_id == tenant_id,
+                )
+            )
+            row = result.fetchone()
+            if row:
+                conv, contact = row
+                if contact:
+                    ts = datetime.utcnow().strftime("%Y-%m-%d %H:%M")
+                    new_note = f"[{ts}] {note}"
+                    contact.notes = (
+                        f"{contact.notes}\n{new_note}" if contact.notes else new_note
+                    )
+                    contact.updated_at = datetime.utcnow()
+                    await session.commit()
+    except Exception:
+        pass  # In-memory storage already succeeded
+
+    return True
+
+
+def toggle_conversation_flag(conversation_id: str) -> bool:
+    """Toggle the 'flagged for training' status of a conversation. Returns new flag state."""
+    current = _conversation_flags.get(conversation_id, False)
+    _conversation_flags[conversation_id] = not current
+    return _conversation_flags[conversation_id]
+
+
+async def bulk_conversation_action(
+    conversation_ids: List[str],
+    tenant_id: str,
+    action: str,
+    tag: Optional[str] = None,
+    reason: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Perform bulk actions: resolve, delete, tag, export.
+    Returns {action, affected, failed, export_data}.
+    """
+    from ..models.conversation import ConversationStatus, ConversationOutcome
+    from ..models.contact import Contact
+
+    affected = 0
+    failed = 0
+    export_data = None
+
+    if action == "export":
+        # Build export data without modifying records
+        session_factory = get_session_factory()
+        async with session_factory() as session:
+            result = await session.execute(
+                select(Conversation, Contact)
+                .outerjoin(Contact, Conversation.contact_id == Contact.id)
+                .where(
+                    Conversation.id.in_(conversation_ids),
+                    Conversation.tenant_id == tenant_id,
+                )
+            )
+            export_rows = []
+            for conv, contact in result.fetchall():
+                export_rows.append({
+                    "id": conv.id,
+                    "channel": conv.channel.value if conv.channel else "web",
+                    "contact": contact.full_name if contact else "Anonymous",
+                    "email": contact.email if contact else "",
+                    "phone": contact.phone if contact else "",
+                    "status": conv.status.value if conv.status else "active",
+                    "rating": conv.rating.value if conv.rating else "",
+                    "messages": conv.message_count or 0,
+                    "started_at": conv.started_at.isoformat() + "Z" if conv.started_at else "",
+                    "resolved_at": conv.resolved_at.isoformat() + "Z" if conv.resolved_at else "",
+                })
+                affected += 1
+        return {"action": action, "affected": affected, "failed": failed, "export_data": export_rows}
+
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        for conv_id in conversation_ids:
+            try:
+                result = await session.execute(
+                    select(Conversation).where(
+                        Conversation.id == conv_id,
+                        Conversation.tenant_id == tenant_id,
+                    )
+                )
+                conv = result.scalar_one_or_none()
+                if not conv:
+                    failed += 1
+                    continue
+
+                if action == "resolve":
+                    conv.status = ConversationStatus.RESOLVED
+                    conv.outcome = ConversationOutcome.RESOLVED
+                    conv.resolved_at = datetime.utcnow()
+                    conv.updated_at = datetime.utcnow()
+                    affected += 1
+
+                elif action == "delete":
+                    # Delete messages first, then conversation
+                    await session.execute(
+                        delete(Message).where(Message.conversation_id == conv_id)
+                    )
+                    await session.delete(conv)
+                    affected += 1
+
+                elif action == "tag":
+                    # Apply tag to the contact if exists
+                    if conv.contact_id and tag:
+                        contact_result = await session.execute(
+                            select(Contact).where(Contact.id == conv.contact_id)
+                        )
+                        contact = contact_result.scalar_one_or_none()
+                        if contact:
+                            tags = list(contact.tags or [])
+                            if tag not in tags:
+                                tags.append(tag)
+                            contact.tags = tags
+                            contact.updated_at = datetime.utcnow()
+                    affected += 1
+
+            except Exception as e:
+                logger.error("Bulk action failed for conv %s: %s", conv_id, str(e))
+                failed += 1
+
+        await session.commit()
+
+    return {"action": action, "affected": affected, "failed": failed, "export_data": None}

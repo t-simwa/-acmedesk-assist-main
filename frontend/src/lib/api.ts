@@ -1732,6 +1732,132 @@ export interface DeleteConversationResponse {
   message: string;
 }
 
+// ─── Admin Conversations Types (7.4) ─────────────────────────────────────────
+
+export interface ConversationListItem {
+  id: string;
+  channel: string;
+  contact_name: string | null;
+  contact_phone: string | null;
+  contact_email: string | null;
+  first_message: string | null;
+  message_count: number;
+  status: "active" | "resolved" | "escalated" | "abandoned";
+  rating: "positive" | "negative" | null;
+  duration_minutes: number | null;
+  started_at: string;
+}
+
+export interface ConversationStats {
+  total: number;
+  active: number;
+  resolved: number;
+  escalated: number;
+  abandoned: number;
+}
+
+export interface ConversationListResponse {
+  conversations: ConversationListItem[];
+  total: number;
+  page: number;
+  per_page: number;
+  stats: ConversationStats;
+}
+
+export interface ConversationMessageDetail {
+  id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  citations: Array<{ title?: string; url?: string; source?: string }> | null;
+  confidence_score: number | null;
+  created_at: string;
+}
+
+export interface ConversationContactDetail {
+  id: string | null;
+  full_name: string | null;
+  email: string | null;
+  phone: string | null;
+  instagram_handle: string | null;
+  company: string | null;
+  lead_status: string | null;
+  channels_used: string[] | null;
+  first_seen_at: string | null;
+  last_active_at: string | null;
+  notes: string | null;
+}
+
+export interface ConversationTimelineEvent {
+  event: string;
+  timestamp: string;
+  detail: string | null;
+}
+
+export interface ConversationDetailResponse {
+  id: string;
+  channel: string;
+  status: string;
+  rating: string | null;
+  message_count: number;
+  started_at: string;
+  resolved_at: string | null;
+  last_activity_at: string | null;
+  page_url: string | null;
+  duration_minutes: number | null;
+  messages: ConversationMessageDetail[];
+  contact: ConversationContactDetail | null;
+  timeline: ConversationTimelineEvent[];
+  is_flagged: boolean;
+}
+
+export interface ConversationStatusUpdateResponse {
+  id: string;
+  status: string;
+  updated: boolean;
+  message: string;
+}
+
+export interface ConversationNoteResponse {
+  conversation_id: string;
+  note: string;
+  added: boolean;
+  message: string;
+}
+
+export interface ConversationFlagResponse {
+  conversation_id: string;
+  is_flagged: boolean;
+  message: string;
+}
+
+export interface ConversationBulkRequest {
+  action: "resolve" | "delete" | "tag" | "export";
+  conversation_ids: string[];
+  tag?: string;
+  reason?: string;
+}
+
+export interface ConversationBulkResponse {
+  action: string;
+  affected: number;
+  failed: number;
+  message: string;
+  export_data: Array<Record<string, string | number>> | null;
+}
+
+export interface ConversationListFilters {
+  page?: number;
+  per_page?: number;
+  search?: string;
+  channel?: string;
+  status?: string;
+  date_from?: string;
+  date_to?: string;
+  rating?: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export const conversationsApi = {
   /**
    * Delete a conversation by session ID
@@ -1758,6 +1884,63 @@ export const conversationsApi = {
   async removeMessageReaction(messageId: string): Promise<MessageReactionResponse> {
     return apiClient<MessageReactionResponse>(`/api/conversations/messages/reaction/${messageId}`, {
       method: "DELETE",
+    });
+  },
+
+  // ─── Admin Conversation Management (7.4) ───────────────────────────────────
+
+  /** 7.4.1–7.4.3: Paginated list with filters and stats */
+  async listConversations(filters: ConversationListFilters = {}): Promise<ConversationListResponse> {
+    const params = new URLSearchParams();
+    if (filters.page) params.set("page", String(filters.page));
+    if (filters.per_page) params.set("per_page", String(filters.per_page));
+    if (filters.search) params.set("search", filters.search);
+    if (filters.channel && filters.channel !== "all") params.set("channel", filters.channel);
+    if (filters.status && filters.status !== "all") params.set("status", filters.status);
+    if (filters.date_from) params.set("date_from", filters.date_from);
+    if (filters.date_to) params.set("date_to", filters.date_to);
+    if (filters.rating && filters.rating !== "all") params.set("rating", filters.rating);
+    const qs = params.toString();
+    return apiClient<ConversationListResponse>(`/api/conversations/admin/list${qs ? `?${qs}` : ""}`);
+  },
+
+  /** 7.4.4: Full conversation detail */
+  async getConversationDetail(id: string): Promise<ConversationDetailResponse> {
+    return apiClient<ConversationDetailResponse>(`/api/conversations/admin/${id}`);
+  },
+
+  /** 7.4.4: Update conversation status */
+  async updateConversationStatus(
+    id: string,
+    status: string,
+    reason?: string,
+  ): Promise<ConversationStatusUpdateResponse> {
+    return apiClient<ConversationStatusUpdateResponse>(`/api/conversations/admin/${id}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status, reason }),
+    });
+  },
+
+  /** 7.4.4: Add internal note */
+  async addNote(id: string, note: string): Promise<ConversationNoteResponse> {
+    return apiClient<ConversationNoteResponse>(`/api/conversations/admin/${id}/notes`, {
+      method: "POST",
+      body: JSON.stringify({ note }),
+    });
+  },
+
+  /** 7.4.4: Toggle flag for training */
+  async toggleFlag(id: string): Promise<ConversationFlagResponse> {
+    return apiClient<ConversationFlagResponse>(`/api/conversations/admin/${id}/flag`, {
+      method: "POST",
+    });
+  },
+
+  /** 7.4.5: Bulk action */
+  async bulkAction(request: ConversationBulkRequest): Promise<ConversationBulkResponse> {
+    return apiClient<ConversationBulkResponse>("/api/conversations/admin/bulk", {
+      method: "POST",
+      body: JSON.stringify(request),
     });
   },
 };

@@ -46,6 +46,7 @@ const APIKeys = lazy(() => import("./pages/admin/APIKeys"));
 const HelpCenter = lazy(() => import("./pages/admin/HelpCenter"));
 const EmailChannel = lazy(() => import("./pages/admin/EmailChannel"));
 const Inbox = lazy(() => import("./pages/admin/Inbox"));
+const Conversations = lazy(() => import("./pages/admin/Conversations"));
 const Install = lazy(() => import("./pages/admin/Install"));
 const Privacy = lazy(() => import("./pages/Privacy"));
 const Terms = lazy(() => import("./pages/Terms"));
@@ -207,6 +208,16 @@ const App = () => (
                     <PageTransition>
                       <Suspense fallback={<DashboardSkeleton />}>
                         <Inbox />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="conversations"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <Conversations />
                       </Suspense>
                     </PageTransition>
                   }
