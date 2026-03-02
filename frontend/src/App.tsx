@@ -47,6 +47,7 @@ const HelpCenter = lazy(() => import("./pages/admin/HelpCenter"));
 const EmailChannel = lazy(() => import("./pages/admin/EmailChannel"));
 const Inbox = lazy(() => import("./pages/admin/Inbox"));
 const Conversations = lazy(() => import("./pages/admin/Conversations"));
+const Leads = lazy(() => import("./pages/admin/Leads"));
 const Install = lazy(() => import("./pages/admin/Install"));
 const Privacy = lazy(() => import("./pages/Privacy"));
 const Terms = lazy(() => import("./pages/Terms"));
@@ -223,6 +224,16 @@ const App = () => (
                   }
                 />
                 <Route
+                  path="leads"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <Leads />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
                   path="settings"
                   element={
                     <PageTransition>
@@ -369,6 +380,16 @@ const App = () => (
                     <PageTransition>
                       <Suspense fallback={<DashboardSkeleton />}>
                         <EmailChannel />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="leads"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <Leads />
                       </Suspense>
                     </PageTransition>
                   }
