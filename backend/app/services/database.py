@@ -2225,7 +2225,8 @@ async def get_content_analytics(
         )
         
         unanswered = []
-        for row in result:
+        rows = result.all()
+        for row in rows:
             count_result = await session.execute(
                 select(func.count(Message.id))
                 .join(Conversation, Message.conversation_id == Conversation.id)

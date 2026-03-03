@@ -302,6 +302,7 @@ async def get_content_analytics(
     """
     try:
         tenant_id = current_user.tenant_id or current_user.id
+        logger.debug(f"Fetching content analytics for tenant_id={tenant_id}, days={days}")
         data = await database.get_content_analytics(tenant_id, days)
         
         logger.info(f"Retrieved content analytics: top_questions={len(data['top_questions'])}")
@@ -346,10 +347,10 @@ async def get_content_analytics(
         )
         
     except Exception as e:
-        logger.error(f"Error getting content analytics: {e}", exc_info=True)
+        logger.error(f"Error getting content analytics: {type(e).__name__}: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"An error occurred while retrieving content analytics: {str(e)}",
+            detail=f"An error occurred while retrieving content analytics",
         )
 
 
