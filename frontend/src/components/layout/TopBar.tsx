@@ -354,10 +354,10 @@ export function TopBar({ onMenuClick, isMobile }: TopBarProps) {
           </Tooltip>
 
           {/* Notifications */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Tooltip>
-                <TooltipTrigger asChild>
+          <Tooltip>
+            <DropdownMenu>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
                   <button
                     style={{ ...iconButtonStyle, position: "relative" }}
                     onMouseEnter={(e) => {
@@ -396,10 +396,9 @@ export function TopBar({ onMenuClick, isMobile }: TopBarProps) {
                       </span>
                     )}
                   </button>
-                </TooltipTrigger>
-                <TooltipContent>Notifications</TooltipContent>
-              </Tooltip>
-            </DropdownMenuTrigger>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent>Notifications</TooltipContent>
             <DropdownMenuContent
               align="end"
               className="w-80"
@@ -513,9 +512,10 @@ export function TopBar({ onMenuClick, isMobile }: TopBarProps) {
                 >
                   View all notifications →
                 </button>
-              </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
+               </div>
+             </DropdownMenuContent>
+            </DropdownMenu>
+          </Tooltip>
 
           {/* Help */}
           <Tooltip>
