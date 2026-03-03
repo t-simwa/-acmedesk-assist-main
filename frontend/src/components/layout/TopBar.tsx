@@ -518,10 +518,10 @@ export function TopBar({ onMenuClick, isMobile }: TopBarProps) {
           </DropdownMenu>
 
           {/* Help */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Tooltip>
-                <TooltipTrigger asChild>
+          <Tooltip>
+            <DropdownMenu>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
                   <button
                     style={iconButtonStyle}
                     onMouseEnter={(e) => {
@@ -537,10 +537,9 @@ export function TopBar({ onMenuClick, isMobile }: TopBarProps) {
                   >
                     <HelpCircle size={18} />
                   </button>
-                </TooltipTrigger>
-                <TooltipContent>Help</TooltipContent>
-              </Tooltip>
-            </DropdownMenuTrigger>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent>Help</TooltipContent>
             <DropdownMenuContent
               align="end"
               className="w-52"
@@ -563,9 +562,10 @@ export function TopBar({ onMenuClick, isMobile }: TopBarProps) {
               <DropdownMenuSeparator style={{ background: "rgba(255,255,255,0.08)" }} />
               <DropdownMenuItem className="cursor-pointer text-[13px]" style={{ color: "#9CA3AF" }}>
                 <Newspaper size={14} className="mr-2" /> What&apos;s New
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+               </DropdownMenuItem>
+             </DropdownMenuContent>
+           </DropdownMenu>
+         </Tooltip>
 
           {/* Account Avatar */}
           <DropdownMenu>
