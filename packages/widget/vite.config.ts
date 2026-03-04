@@ -5,7 +5,7 @@ export default defineConfig({
   build: {
     lib: {
       entry: resolve(__dirname, 'src/index.ts'),
-      name: 'AcmeDeskWidget',
+      name: 'NexaChatWidget',
       fileName: 'widget',
       formats: ['iife']
     },

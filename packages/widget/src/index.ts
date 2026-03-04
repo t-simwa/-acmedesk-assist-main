@@ -1,6 +1,6 @@
 import type { WidgetConfig, ChatMessage, ConversationContext } from './types';
 
-class AcmeDeskWidget {
+class NexaChatWidget {
   private config: WidgetConfig | null = null;
   private shadowRoot: ShadowRoot;
   private widgetContainer: HTMLElement;
@@ -33,7 +33,7 @@ class AcmeDeskWidget {
     };
     
     this.widgetContainer = document.createElement('div');
-    this.widgetContainer.id = 'acmedesk-widget-container';
+    this.widgetContainer.id = 'nexachat-widget-container';
     this.widgetContainer.style.cssText = `position: fixed; z-index: ${this.Z_INDEX};`;
     
     this.shadowRoot = this.widgetContainer.attachShadow({ mode: 'open' });
@@ -49,7 +49,7 @@ class AcmeDeskWidget {
   private async init() {
     const chatbotId = this.getChatbotId();
     if (!chatbotId) {
-      console.error('AcmeDesk Widget: No chatbot ID found');
+      console.error('NexaChat Widget: No chatbot ID found');
       return;
     }
     
@@ -59,7 +59,7 @@ class AcmeDeskWidget {
       this.bindEvents();
       this.loadSession();
     } catch (error) {
-      console.error('AcmeDesk Widget: Failed to initialize', error);
+      console.error('NexaChat Widget: Failed to initialize', error);
     }
   }
   
@@ -119,12 +119,12 @@ class AcmeDeskWidget {
     
     this.shadowRoot.innerHTML = `<style>${styles}</style>${html}`;
     
-    this.launcher = this.shadowRoot.getElementById('acmedesk-launcher');
-    this.chatPanel = this.shadowRoot.getElementById('acmedesk-panel');
-    this.messagesContainer = this.shadowRoot.getElementById('acmedesk-messages');
-    this.messageInput = this.shadowRoot.getElementById('acmedesk-input') as HTMLTextAreaElement;
-    this.sendButton = this.shadowRoot.getElementById('acmedesk-send') as HTMLButtonElement;
-    this.typingIndicator = this.shadowRoot.getElementById('acmedesk-typing');
+    this.launcher = this.shadowRoot.getElementById('nexachat-launcher');
+    this.chatPanel = this.shadowRoot.getElementById('nexachat-panel');
+    this.messagesContainer = this.shadowRoot.getElementById('nexachat-messages');
+    this.messageInput = this.shadowRoot.getElementById('nexachat-input') as HTMLTextAreaElement;
+    this.sendButton = this.shadowRoot.getElementById('nexachat-send') as HTMLButtonElement;
+    this.typingIndicator = this.shadowRoot.getElementById('nexachat-typing');
     
     this.updatePosition();
     this.renderMessages();
@@ -736,7 +736,7 @@ class AcmeDeskWidget {
     
     return `
       <div class="widget-container ${this.getPositionClass()}">
-        <div class="panel" id="acmedesk-panel">
+        <div class="panel" id="nexachat-panel">
           <div class="panel-header">
             <div class="avatar">
               ${this.config?.avatarUrl 
@@ -751,7 +751,7 @@ class AcmeDeskWidget {
               </div>
             </div>
             <div class="header-actions">
-              <button class="header-btn" id="acmedesk-minimize" title="Minimize">
+              <button class="header-btn" id="nexachat-minimize" title="Minimize">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <line x1="5" y1="12" x2="19" y2="12"></line>
                 </svg>
@@ -759,28 +759,28 @@ class AcmeDeskWidget {
             </div>
           </div>
           
-          <div class="messages" id="acmedesk-messages"></div>
+          <div class="messages" id="nexachat-messages"></div>
           
-          <div class="suggested-questions" id="acmedesk-suggestions" ${suggestedQuestions.length === 0 ? 'style="display: none;"' : ''}>
+          <div class="suggested-questions" id="nexachat-suggestions" ${suggestedQuestions.length === 0 ? 'style="display: none;"' : ''}>
             ${suggestedQuestions.map(q => `<button class="suggested-chip" data-question="${q}">${q}</button>`).join('')}
           </div>
           
-          <div class="typing-indicator" id="acmedesk-typing" style="display: none;">
+          <div class="typing-indicator" id="nexachat-typing" style="display: none;">
             <span class="typing-dot"></span>
             <span class="typing-dot"></span>
             <span class="typing-dot"></span>
           </div>
           
-          <div class="input-area" id="acmedesk-input-area">
+          <div class="input-area" id="nexachat-input-area">
             <div class="input-wrapper">
               <textarea 
                 class="message-input" 
-                id="acmedesk-input" 
+                id="nexachat-input" 
                 placeholder="Type a message..."
                 rows="1"
               ></textarea>
             </div>
-            <button class="send-btn" id="acmedesk-send" disabled>
+            <button class="send-btn" id="nexachat-send" disabled>
               <svg viewBox="0 0 24 24" fill="none">
                 <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
               </svg>
@@ -789,12 +789,12 @@ class AcmeDeskWidget {
           
           ${showPoweredBy ? `
           <div class="powered-by">
-            Powered by <a href="#" target="_blank">AcmeDesk</a>
+            Powered by <a href="#" target="_blank">NexaChat</a>
           </div>
           ` : ''}
         </div>
         
-        <button class="launcher" id="acmedesk-launcher">
+        <button class="launcher" id="nexachat-launcher">
           <span class="chat-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
@@ -806,7 +806,7 @@ class AcmeDeskWidget {
               <line x1="6" y1="6" x2="18" y2="18"></line>
             </svg>
           </span>
-          <span class="unread-badge" id="acmedesk-unread" style="display: none;">0</span>
+          <span class="unread-badge" id="nexachat-unread" style="display: none;">0</span>
         </button>
       </div>
     `;
@@ -815,7 +815,7 @@ class AcmeDeskWidget {
   private bindEvents() {
     this.launcher?.addEventListener('click', () => this.togglePanel());
     
-    const minimizeBtn = this.shadowRoot.getElementById('acmedesk-minimize');
+    const minimizeBtn = this.shadowRoot.getElementById('nexachat-minimize');
     minimizeBtn?.addEventListener('click', () => this.closePanel());
     
     this.sendButton?.addEventListener('click', () => this.sendMessage());
@@ -884,7 +884,7 @@ class AcmeDeskWidget {
   
   private clearUnread() {
     this.hasNewMessage = false;
-    const unreadBadge = this.shadowRoot.getElementById('acmedesk-unread');
+    const unreadBadge = this.shadowRoot.getElementById('nexachat-unread');
     if (unreadBadge) {
       unreadBadge.style.display = 'none';
     }
@@ -892,7 +892,7 @@ class AcmeDeskWidget {
   
   private showUnread(count: number) {
     this.hasNewMessage = true;
-    const unreadBadge = this.shadowRoot.getElementById('acmedesk-unread');
+    const unreadBadge = this.shadowRoot.getElementById('nexachat-unread');
     if (unreadBadge) {
       unreadBadge.textContent = count.toString();
       unreadBadge.style.display = 'flex';
@@ -928,7 +928,7 @@ class AcmeDeskWidget {
     this.addMessage(userMessage);
     this.context.messageCount++;
     
-    const suggestionsEl = this.shadowRoot.getElementById('acmedesk-suggestions');
+    const suggestionsEl = this.shadowRoot.getElementById('nexachat-suggestions');
     if (suggestionsEl) {
       suggestionsEl.style.display = 'none';
     }
@@ -1028,7 +1028,7 @@ class AcmeDeskWidget {
       </div>
     `;
     
-    const inputArea = this.shadowRoot.getElementById('acmedesk-input-area');
+    const inputArea = this.shadowRoot.getElementById('nexachat-input-area');
     inputArea?.insertAdjacentHTML('beforebegin', formHtml);
     
     const submitBtn = this.shadowRoot.getElementById('lead-submit');
@@ -1115,7 +1115,7 @@ class AcmeDeskWidget {
     this.scrollToBottom();
     
     if (!this.isOpen && message.role === 'assistant') {
-      const currentUnread = parseInt((this.shadowRoot.getElementById('acmedesk-unread')?.textContent || '0'));
+      const currentUnread = parseInt((this.shadowRoot.getElementById('nexachat-unread')?.textContent || '0'));
       this.showUnread(currentUnread + 1);
     }
   }
@@ -1185,7 +1185,7 @@ class AcmeDeskWidget {
   
   private loadSession() {
     try {
-      const stored = sessionStorage.getItem(`acmedesk_session_${this.sessionId}`);
+      const stored = sessionStorage.getItem(`nexachat_session_${this.sessionId}`);
       if (stored) {
         const data = JSON.parse(stored);
         this.context = { ...this.context, ...data };
@@ -1194,7 +1194,7 @@ class AcmeDeskWidget {
       // Ignore session storage errors
     }
     
-    sessionStorage.setItem(`acmedesk_session_${this.sessionId}`, JSON.stringify(this.context));
+    sessionStorage.setItem(`nexachat_session_${this.sessionId}`, JSON.stringify(this.context));
   }
   
   public open() {
@@ -1212,12 +1212,12 @@ class AcmeDeskWidget {
 
 declare global {
   interface Window {
-    AcmeDeskWidget: typeof AcmeDeskWidget;
-    acmedeskWidget: AcmeDeskWidget;
+    NexaChatWidget: typeof NexaChatWidget;
+    nexachatWidget: NexaChatWidget;
   }
 }
 
-window.AcmeDeskWidget = AcmeDeskWidget;
-window.acmedeskWidget = new AcmeDeskWidget();
+window.NexaChatWidget = NexaChatWidget;
+window.nexachatWidget = new NexaChatWidget();
 
-export default AcmeDeskWidget;
+export default NexaChatWidget;

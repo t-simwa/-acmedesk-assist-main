@@ -105,6 +105,7 @@ export function ChatWidget() {
       setHasNewMessage(false);
       lastMessageCountRef.current = messages.length;
     }
+    return undefined;
   }, [messages, isOpen]);
 
   // F2.4 - Prevent body scroll when chat is open on mobile
@@ -123,6 +124,7 @@ export function ChatWidget() {
         document.body.style.width = "";
       };
     }
+    return undefined;
   }, [isMobile, isOpen]);
 
   // F2.4 - Handle keyboard appearance on mobile (iOS/Android)
@@ -156,6 +158,7 @@ export function ChatWidget() {
     if (!isMobile || !isOpen) return;
     
     const touch = e.touches[0];
+    if (!touch) return;
     swipeStartRef.current = {
       x: touch.clientX,
       y: touch.clientY,
@@ -168,6 +171,7 @@ export function ChatWidget() {
     if (!isMobile || !isOpen || !swipeStartRef.current) return;
     
     const touch = e.touches[0];
+    if (!touch) return;
     const deltaY = touch.clientY - swipeStartRef.current.y;
     
     // Only allow downward swipe (to close)
@@ -281,7 +285,7 @@ export function ChatWidget() {
       // Clean up any citations with out-of-range numbers (based on actual sources count)
       const maxValidCitation = response.sources.length;
       if (maxValidCitation > 0) {
-        formattedAnswer = formattedAnswer.replace(/\[([^\]]+)\]/g, (match, content) => {
+        formattedAnswer = formattedAnswer.replace(/\[([^\]]+)\]/g, (_match, content) => {
           // Skip if contains invalid values
           if (/\bNaN\b|\bundefined\b|\bnull\b/i.test(content)) {
             return '';
@@ -306,9 +310,10 @@ export function ChatWidget() {
       // Extract citations from cleaned formatted answer
       const citationPattern = /\[(\d+)\]/g;
       const citations = new Set<number>();
-      let match;
-      while ((match = citationPattern.exec(formattedAnswer)) !== null) {
-        citations.add(parseInt(match[1]));
+      let citMatch;
+      while ((citMatch = citationPattern.exec(formattedAnswer)) !== null) {
+        const num = citMatch[1];
+        if (num) citations.add(parseInt(num));
       }
 
       // Map sources by their position (citation numbers are 1-indexed, matching chunk order)
@@ -402,8 +407,8 @@ export function ChatWidget() {
         role: "assistant",
         content: formattedAnswer,
         timestamp: new Date(),
-        sources: shouldShowSources ? numberedSources : undefined,
-        userMessageId: userMessageId, // Track which user message triggered this
+        ...(shouldShowSources ? { sources: numberedSources } : {}),
+        ...(userMessageId ? { userMessageId } : {}),
       };
       
       // Store mapping for regenerate functionality
@@ -479,9 +484,15 @@ export function ChatWidget() {
 
   const handleReactionChange = (messageId: string, reaction: "thumbs_up" | "thumbs_down" | null) => {
     setMessages((prev) =>
-      prev.map((msg) =>
-        msg.id === messageId ? { ...msg, reaction: reaction || undefined } : msg
-      )
+      prev.map((msg) => {
+        if (msg.id !== messageId) return msg;
+        if (reaction) {
+          return { ...msg, reaction };
+        }
+        // Remove the reaction property entirely (exactOptionalPropertyTypes)
+        const { reaction: _removed, ...rest } = msg;
+        return rest as ChatMessage;
+      })
     );
   };
 
@@ -617,7 +628,7 @@ export function ChatWidget() {
   };
 
   // Check if conversation is empty (only welcome message)
-  const isConversationEmpty = messages.length === 1 && messages[0].id === "welcome";
+  const isConversationEmpty = messages.length === 1 && messages[0]?.id === "welcome";
 
   return (
     <>

@@ -1,7 +1,7 @@
 {
-  "name": "@acmedesk/widget",
+  "name": "@nexachat/widget",
   "version": "1.0.0",
-  "description": "AcmeDesk Chat Widget - Embeddable JavaScript widget",
+  "description": "NexaChat Widget - Embeddable JavaScript chat widget",
   "type": "module",
   "main": "dist/widget.js",
   "types": "dist/index.d.ts",
