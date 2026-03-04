@@ -1,49 +1,54 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, Fragment } from "react";
 import {
-  Users, Search, X, Filter, Download, Trash2, Tag,
-  Globe, Phone, Mail, Clock, ChevronLeft, ChevronRight,
-  MoreHorizontal, Star, TrendingUp, Calendar, ArrowRight,
-  CheckCircle2, AlertCircle, RefreshCw, SlidersHorizontal,
-  MessageSquare, Send, FileText, User, Building2, Layers,
-  ChevronDown, ArrowUpRight
+  Users, Search, X, Download, Trash2,
+  Phone, Mail, Clock, ChevronLeft, ChevronRight,
+  MoreHorizontal, Star, Calendar,
+  CheckCircle2, RefreshCw,
+  MessageSquare, Send, FileText, Building2, Layers,
+  Globe, ArrowUpRight, AlertCircle, Eye,
+  GripVertical, Sparkles, ExternalLink, SlidersHorizontal,
+  ChevronDown, Filter,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuTrigger, DropdownMenuSeparator
+  DropdownMenuTrigger, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
-  DragEndEvent
+  DragEndEvent,
 } from "@dnd-kit/core";
 import {
-  SortableContext, verticalListSortingStrategy, useSortable
+  SortableContext, verticalListSortingStrategy, useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
   useLeadsList, useLeadDetail, useUpdateLeadStatus,
-  useAddLeadNote, useRecalculateLeadScore, useBulkLeadAction
+  useAddLeadNote, useRecalculateLeadScore, useBulkLeadAction,
 } from "@/hooks/useLeads";
 import {
-  type LeadListItem, type LeadDetailResponse, type LeadListFilters
+  type LeadListItem, type LeadDetailResponse, type LeadListFilters,
 } from "@/lib/api";
-import { KPICard } from "@/components/dashboard/KPICard";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
+/* ═══════════════════════════════════════════════════════════════════════════════
+   MOCK DATA
+   ═══════════════════════════════════════════════════════════════════════════════ */
 
-const MOCK_STATS = { total: 847, new: 124, contacted: 198, qualified: 89, converted: 312, this_month: 67 };
+const MOCK_STATS = {
+  total: 847, new: 124, contacted: 198, qualified: 89, converted: 312, this_month: 67,
+};
 
 const MOCK_LEADS: LeadListItem[] = [
   { id: "1", contact_id: "c1", conversation_id: "cv1", contact_name: "Sarah Johnson", contact_email: "sarah@acme.com", contact_phone: "+1 555 0101", contact_company: "Acme Corp", channel: "web", source_page_url: "/pricing", first_message: "Hi, I need help comparing your Pro and Business plans. We have a team of 25 people.", status: "qualified", lead_score: "high", message_count: 9, created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() },
@@ -84,28 +89,47 @@ const MOCK_DETAIL: LeadDetailResponse = {
   updated_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
 };
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+/* ═══════════════════════════════════════════════════════════════════════════════
+   CONSTANTS & STYLE MAPS
+   ═══════════════════════════════════════════════════════════════════════════════ */
 
-const CHANNEL_ICONS: Record<string, string> = { web: "🌐", whatsapp: "💬", instagram: "📸", facebook: "💙", email: "📧", sms: "📱" };
-const CHANNEL_COLORS: Record<string, string> = { web: "#4F8EF7", whatsapp: "#10B981", instagram: "#F59E0B", facebook: "#3B82F6", email: "#8B5CF6", sms: "#EC4899" };
-const STATUS_PIPELINE = ["new", "contacted", "qualified", "converted", "lost"];
-const COLUMN_COLORS: Record<string, string> = { new: "#F59E0B", contacted: "#A78BFA", qualified: "#4F8EF7", converted: "#10B981", lost: "#9CA3AF" };
+const STATUS_PIPELINE = ["new", "contacted", "qualified", "converted", "lost"] as const;
 
-const STATUS_STYLE: Record<string, { bg: string; border: string; text: string }> = {
-  new:       { bg: "rgba(245,158,11,0.12)",  border: "rgba(245,158,11,0.3)",  text: "#F59E0B" },
-  contacted: { bg: "rgba(167,139,250,0.12)", border: "rgba(167,139,250,0.3)", text: "#A78BFA" },
-  qualified: { bg: "rgba(79,142,247,0.12)",  border: "rgba(79,142,247,0.3)",  text: "#4F8EF7" },
-  converted: { bg: "rgba(16,185,129,0.12)",  border: "rgba(16,185,129,0.3)",  text: "#10B981" },
-  lost:      { bg: "rgba(107,114,128,0.12)", border: "rgba(107,114,128,0.3)", text: "#9CA3AF" },
+const CHANNEL_META: Record<string, { icon: string; label: string; className: string }> = {
+  web:       { icon: "🌐", label: "Web",       className: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
+  whatsapp:  { icon: "💬", label: "WhatsApp",  className: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" },
+  instagram: { icon: "📸", label: "Instagram", className: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
+  facebook:  { icon: "💙", label: "Facebook",  className: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
+  email:     { icon: "📧", label: "Email",     className: "bg-violet-500/10 text-violet-400 border-violet-500/20" },
+  sms:       { icon: "📱", label: "SMS",       className: "bg-pink-500/10 text-pink-400 border-pink-500/20" },
 };
 
-const SCORE_STYLE: Record<string, { bg: string; border: string; text: string }> = {
-  high:   { bg: "rgba(16,185,129,0.12)",  border: "rgba(16,185,129,0.3)",  text: "#10B981" },
-  medium: { bg: "rgba(245,158,11,0.12)",  border: "rgba(245,158,11,0.3)",  text: "#F59E0B" },
-  low:    { bg: "rgba(107,114,128,0.12)", border: "rgba(107,114,128,0.3)", text: "#9CA3AF" },
+const STATUS_META: Record<string, { dot: string; badge: string; label: string }> = {
+  new:       { dot: "bg-amber-400",   badge: "bg-amber-500/10 text-amber-400 border-amber-500/20",   label: "New" },
+  contacted: { dot: "bg-violet-400",  badge: "bg-violet-500/10 text-violet-400 border-violet-500/20", label: "Contacted" },
+  qualified: { dot: "bg-blue-400",    badge: "bg-blue-500/10 text-blue-400 border-blue-500/20",       label: "Qualified" },
+  converted: { dot: "bg-emerald-400", badge: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", label: "Converted" },
+  lost:      { dot: "bg-gray-400",    badge: "bg-gray-500/10 text-gray-400 border-gray-500/20",       label: "Lost" },
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+const SCORE_META: Record<string, { badge: string; label: string }> = {
+  high:   { badge: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", label: "High" },
+  medium: { badge: "bg-amber-500/10 text-amber-400 border-amber-500/20",      label: "Medium" },
+  low:    { badge: "bg-gray-500/10 text-gray-400 border-gray-500/20",          label: "Low" },
+};
+
+const STAT_CARDS: { key: keyof typeof MOCK_STATS; label: string; icon: React.ReactNode; accent: string }[] = [
+  { key: "total",      label: "Total Leads",  icon: <Users size={18} />,          accent: "from-blue-500/20 to-blue-500/0" },
+  { key: "new",        label: "New",           icon: <AlertCircle size={18} />,    accent: "from-amber-500/20 to-amber-500/0" },
+  { key: "contacted",  label: "Contacted",     icon: <MessageSquare size={18} />,  accent: "from-violet-500/20 to-violet-500/0" },
+  { key: "qualified",  label: "Qualified",     icon: <CheckCircle2 size={18} />,   accent: "from-blue-500/20 to-blue-500/0" },
+  { key: "converted",  label: "Converted",     icon: <ArrowUpRight size={18} />,   accent: "from-emerald-500/20 to-emerald-500/0" },
+  { key: "this_month", label: "This Month",    icon: <Calendar size={18} />,       accent: "from-pink-500/20 to-pink-500/0" },
+];
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   HELPERS
+   ═══════════════════════════════════════════════════════════════════════════════ */
 
 function relativeTime(isoDate: string): string {
   const diff = Date.now() - new Date(isoDate).getTime();
@@ -124,93 +148,139 @@ function getInitials(name: string | null): string {
   return name.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase();
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+/* ═══════════════════════════════════════════════════════════════════════════════
+   ATOMIC COMPONENTS
+   ═══════════════════════════════════════════════════════════════════════════════ */
 
-function ScorePill({ score }: { score: string | null }) {
-  if (!score) return <span style={{ color: "#6B7280", fontSize: 12 }}>—</span>;
-  const s = SCORE_STYLE[score] || SCORE_STYLE.low;
+function LeadAvatar({ name, size = "md" }: { name: string | null; size?: "sm" | "md" | "lg" }) {
+  const sizes = { sm: "h-7 w-7 text-[10px]", md: "h-9 w-9 text-xs", lg: "h-12 w-12 text-sm" };
   return (
-    <span style={{ background: s.bg, border: `1px solid ${s.border}`, color: s.text, borderRadius: 999, padding: "2px 9px", fontSize: 12, fontWeight: 600, fontFamily: "var(--font-mono, monospace)" }}>
-      {score.charAt(0).toUpperCase() + score.slice(1)}
-    </span>
-  );
-}
-
-function StatusPill({ status }: { status: string }) {
-  const s = STATUS_STYLE[status] || STATUS_STYLE.new;
-  return (
-    <span style={{ background: s.bg, border: `1px solid ${s.border}`, color: s.text, borderRadius: 999, padding: "3px 10px", fontSize: 12, fontWeight: 600, textTransform: "capitalize" as const }}>
-      {status}
-    </span>
-  );
-}
-
-function LeadAvatar({ name, size = 32 }: { name: string | null; size?: number }) {
-  return (
-    <div style={{ width: size, height: size, borderRadius: "50%", background: "linear-gradient(135deg, #4F8EF7 0%, #7C3AED 100%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: Math.round(size * 0.34), fontWeight: 700, color: "#fff", flexShrink: 0, letterSpacing: "0.02em" }}>
+    <div className={cn(
+      sizes[size],
+      "rounded-full bg-gradient-to-br from-primary/80 to-violet-600/80",
+      "flex items-center justify-center font-bold text-white",
+      "ring-2 ring-background shrink-0 select-none tracking-wide",
+    )}>
       {getInitials(name)}
     </div>
   );
 }
 
-// Kanban: invisible droppable placeholder at bottom of each column
-function ColumnDropTarget({ columnId }: { columnId: string }) {
-  const { setNodeRef } = useSortable({ id: `__col__${columnId}`, data: { status: columnId } });
-  return <div ref={setNodeRef} style={{ height: 8, width: "100%" }} />;
+function StatusBadge({ status, interactive }: { status: string; interactive?: boolean }) {
+  const meta = STATUS_META[status] ?? STATUS_META.new;
+  return (
+    <span className={cn(
+      "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5",
+      "text-[11px] font-semibold font-heading tracking-wide transition-colors",
+      meta.badge,
+      interactive && "cursor-pointer hover:brightness-125",
+    )}>
+      <span className={cn("h-1.5 w-1.5 rounded-full", meta.dot)} />
+      {meta.label}
+    </span>
+  );
 }
 
-// Kanban: draggable lead card
+function ScoreBadge({ score }: { score: string | null }) {
+  if (!score) return <span className="text-muted-foreground text-xs">--</span>;
+  const meta = SCORE_META[score] ?? SCORE_META.low;
+  return (
+    <span className={cn(
+      "inline-flex items-center rounded-full border px-2 py-0.5",
+      "text-[11px] font-semibold font-mono tracking-wide",
+      meta.badge,
+    )}>
+      {meta.label}
+    </span>
+  );
+}
+
+function ChannelPill({ channel }: { channel: string | null }) {
+  if (!channel) return <span className="text-muted-foreground text-xs">--</span>;
+  const meta = CHANNEL_META[channel] ?? CHANNEL_META.web;
+  return (
+    <span className={cn(
+      "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5",
+      "text-[11px] font-medium",
+      meta.className,
+    )}>
+      <span className="text-[10px]">{meta.icon}</span>
+      <span className="hidden sm:inline">{meta.label}</span>
+    </span>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   KANBAN COMPONENTS
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+function ColumnDropTarget({ columnId }: { columnId: string }) {
+  const { setNodeRef } = useSortable({ id: `__col__${columnId}`, data: { status: columnId } });
+  return <div ref={setNodeRef} className="h-2 w-full" />;
+}
+
 function KanbanCard({ lead, onOpen }: { lead: LeadListItem; onOpen: (id: string) => void }) {
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
     id: lead.id,
     data: { status: lead.status },
   });
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.35 : 1,
-  };
-
   return (
     <div
       ref={setNodeRef}
       style={{
-        ...style,
-        background: "#111827",
-        border: "1px solid #2D333B",
-        borderRadius: 10,
-        padding: "12px 14px",
-        cursor: isDragging ? "grabbing" : "grab",
-        userSelect: "none" as const,
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
       }}
+      className={cn(
+        "group rounded-xl border bg-card p-3.5 transition-all",
+        "hover:border-primary/30 hover:shadow-soft-md",
+        isDragging ? "cursor-grabbing shadow-strong border-primary/40 scale-[1.02]" : "cursor-grab",
+      )}
       {...attributes}
       {...listeners}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-        <LeadAvatar name={lead.contact_name} size={30} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 600, fontSize: 13, color: "#F9FAFB", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+      {/* Drag handle + name */}
+      <div className="flex items-start gap-2.5 mb-3">
+        <GripVertical size={14} className="text-muted-foreground/40 mt-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+        <LeadAvatar name={lead.contact_name} size="sm" />
+        <div className="min-w-0 flex-1">
+          <p className="font-heading font-semibold text-[13px] text-foreground truncate leading-tight">
             {lead.contact_name || "Anonymous"}
-          </div>
-          <div style={{ fontSize: 11, color: "#6B7280", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          </p>
+          <p className="text-[11px] text-muted-foreground truncate mt-0.5">
             {lead.contact_email || lead.contact_phone || "No contact info"}
-          </div>
+          </p>
         </div>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" as const }}>
-        {lead.channel && (
-          <span style={{ fontSize: 11, color: "#9CA3AF", background: "rgba(255,255,255,0.06)", borderRadius: 6, padding: "2px 6px" }}>
-            {CHANNEL_ICONS[lead.channel] || "🌐"} {lead.channel}
-          </span>
-        )}
-        <ScorePill score={lead.lead_score} />
-        <span style={{ marginLeft: "auto", color: "#6B7280", fontSize: 11 }}>{relativeTime(lead.created_at)}</span>
+
+      {/* First message preview */}
+      {lead.first_message && (
+        <p className="text-[11px] text-muted-foreground/80 line-clamp-2 mb-3 leading-relaxed pl-[38px]">
+          {lead.first_message}
+        </p>
+      )}
+
+      {/* Meta row */}
+      <div className="flex items-center gap-1.5 flex-wrap pl-[38px]">
+        <ChannelPill channel={lead.channel} />
+        <ScoreBadge score={lead.lead_score} />
+        <span className="ml-auto text-[10px] text-muted-foreground font-mono">
+          {relativeTime(lead.created_at)}
+        </span>
       </div>
+
+      {/* View button */}
       <button
         onPointerDown={e => e.stopPropagation()}
         onClick={e => { e.stopPropagation(); onOpen(lead.id); }}
-        style={{ marginTop: 10, width: "100%", background: "rgba(79,142,247,0.08)", border: "1px solid rgba(79,142,247,0.18)", color: "#4F8EF7", borderRadius: 7, padding: "5px 8px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}
+        className={cn(
+          "mt-3 w-full rounded-lg py-1.5 text-[11px] font-semibold font-heading",
+          "bg-primary/8 border border-primary/15 text-primary",
+          "hover:bg-primary/15 hover:border-primary/25 transition-colors",
+          "opacity-0 group-hover:opacity-100 focus:opacity-100",
+        )}
       >
         View Detail
       </button>
@@ -218,7 +288,70 @@ function KanbanCard({ lead, onOpen }: { lead: LeadListItem; onOpen: (id: string)
   );
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
+/* ═══════════════════════════════════════════════════════════════════════════════
+   PIPELINE STEPPER
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+function PipelineStepper({
+  currentStatus,
+  onChangeStatus,
+}: {
+  currentStatus: string;
+  onChangeStatus: (status: string) => void;
+}) {
+  const currentIdx = STATUS_PIPELINE.indexOf(currentStatus as typeof STATUS_PIPELINE[number]);
+
+  return (
+    <div className="flex items-center w-full">
+      {STATUS_PIPELINE.map((step, i) => {
+        const isLost = currentStatus === "lost" && step === "lost";
+        const isPast = i < currentIdx && currentStatus !== "lost";
+        const isCurrent = i === currentIdx;
+        const isLast = i === STATUS_PIPELINE.length - 1;
+
+        return (
+          <Fragment key={step}>
+            <button
+              onClick={() => onChangeStatus(step)}
+              className="flex flex-col items-center gap-1.5 group shrink-0"
+            >
+              <div className={cn(
+                "h-7 w-7 rounded-full flex items-center justify-center text-[11px] transition-all border-2",
+                isLost && "border-red-500/50 bg-red-500/10",
+                isCurrent && !isLost && "border-primary bg-primary text-white scale-110",
+                isPast && "border-emerald-500 bg-emerald-500/15",
+                !isCurrent && !isPast && !isLost && "border-border bg-card",
+              )}>
+                {(isPast || (isCurrent && !isLost)) && <CheckCircle2 size={13} className={isCurrent ? "text-white" : "text-emerald-500"} />}
+                {isLost && <X size={11} className="text-red-500" />}
+              </div>
+              <span className={cn(
+                "text-[9px] sm:text-[10px] font-semibold font-heading capitalize whitespace-nowrap transition-colors",
+                isLost && "text-red-400",
+                isCurrent && !isLost && "text-primary",
+                isPast && "text-emerald-400",
+                !isCurrent && !isPast && !isLost && "text-muted-foreground",
+                "group-hover:text-foreground",
+              )}>
+                {step}
+              </span>
+            </button>
+            {!isLast && (
+              <div className={cn(
+                "flex-1 h-[2px] mx-1 rounded-full transition-colors min-w-[12px]",
+                isPast && currentStatus !== "lost" ? "bg-emerald-500/40" : "bg-border",
+              )} />
+            )}
+          </Fragment>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   MAIN COMPONENT
+   ═══════════════════════════════════════════════════════════════════════════════ */
 
 export default function Leads() {
   const [view, setView] = useState<"table" | "kanban">("table");
@@ -227,6 +360,8 @@ export default function Leads() {
   const [activeLead, setActiveLead] = useState<string | null>(null);
   const [noteText, setNoteText] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [kanbanMobileOpen, setKanbanMobileOpen] = useState<string | null>("new");
 
   const { data: listData, isLoading, refetch } = useLeadsList(filters);
   const { data: detailData, isLoading: detailLoading } = useLeadDetail(activeLead);
@@ -243,7 +378,7 @@ export default function Leads() {
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
-  // ── Filter helpers ─────────────────────────────────────────────────────────
+  /* ── Filter helpers ──────────────────────────────────────────────────────── */
 
   const updateFilter = useCallback((key: keyof LeadListFilters, value: string | number | undefined) => {
     setFilters(prev => ({ ...prev, [key]: value, page: 1 }));
@@ -257,7 +392,7 @@ export default function Leads() {
     ([k, v]) => k !== "page" && k !== "per_page" && v !== undefined && v !== ""
   ).length;
 
-  // ── Selection helpers ──────────────────────────────────────────────────────
+  /* ── Selection helpers ───────────────────────────────────────────────────── */
 
   const toggleSelect = useCallback((id: string) => {
     setSelectedIds(prev => {
@@ -272,7 +407,7 @@ export default function Leads() {
     else setSelectedIds(new Set(leads.map(l => l.id)));
   }, [selectedIds.size, leads]);
 
-  // ── DnD ───────────────────────────────────────────────────────────────────
+  /* ── DnD ─────────────────────────────────────────────────────────────────── */
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
@@ -304,7 +439,7 @@ export default function Leads() {
     });
   }, [leads, updateStatus, toast, refetch]);
 
-  // ── Bulk actions ───────────────────────────────────────────────────────────
+  /* ── Bulk actions ────────────────────────────────────────────────────────── */
 
   const handleBulkExport = useCallback(async () => {
     try {
@@ -352,7 +487,7 @@ export default function Leads() {
     });
   }, [bulkAction, selectedIds, toast, refetch]);
 
-  // ── Kanban columns ─────────────────────────────────────────────────────────
+  /* ── Kanban columns ──────────────────────────────────────────────────────── */
 
   const kanbanColumns = useMemo(() =>
     STATUS_PIPELINE.map(status => ({
@@ -361,7 +496,7 @@ export default function Leads() {
     }))
   , [leads]);
 
-  // ── Pagination ─────────────────────────────────────────────────────────────
+  /* ── Pagination ──────────────────────────────────────────────────────────── */
 
   const currentPage = filters.page || 1;
   const perPage = filters.per_page || 20;
@@ -369,336 +504,529 @@ export default function Leads() {
   const fromIdx = (currentPage - 1) * perPage + 1;
   const toIdx = Math.min(currentPage * perPage, totalCount);
 
-  // ─────────────────────────────────────────────────────────────────────────────
+  /* ═══════════════════════════════════════════════════════════════════════════
+     RENDER
+     ═══════════════════════════════════════════════════════════════════════════ */
 
   return (
-    <div style={{ padding: "24px 24px 120px", display: "flex", flexDirection: "column", gap: 24 }}>
+    <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8 pb-32 max-w-[1600px] mx-auto w-full">
 
-      {/* ── Page Header ── */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+      {/* ─── Page Header ────────────────────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="font-heading" style={{ fontSize: 22, fontWeight: 700, color: "#F9FAFB", margin: 0 }}>
+          <h1 className="font-heading text-xl sm:text-2xl font-bold text-foreground tracking-tight leading-none">
             Leads
           </h1>
-          <p className="font-description" style={{ fontSize: 13, color: "#9CA3AF", margin: "4px 0 0" }}>
-            Lead pipeline and contact management
+          <p className="text-sm text-muted-foreground mt-1 font-description">
+            Pipeline management and lead tracking
           </p>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+
+        <div className="flex items-center gap-2">
           {/* View toggle */}
-          <div style={{ display: "flex", background: "#111827", border: "1px solid #2D333B", borderRadius: 8, overflow: "hidden" }}>
+          <div className="flex rounded-lg border bg-card overflow-hidden">
             {(["table", "kanban"] as const).map(v => (
               <button
                 key={v}
                 onClick={() => setView(v)}
-                style={{
-                  padding: "7px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer",
-                  background: view === v ? "#1C1F26" : "transparent",
-                  color: view === v ? "#F9FAFB" : "#6B7280",
-                  border: "none", display: "flex", alignItems: "center", gap: 6,
-                  transition: "all 0.15s",
-                }}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold font-heading transition-all",
+                  view === v
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent/50",
+                )}
               >
-                {v === "table" ? <FileText size={14} /> : <Layers size={14} />}
-                {v.charAt(0).toUpperCase() + v.slice(1)}
+                {v === "table" ? <FileText size={13} /> : <Layers size={13} />}
+                <span className="hidden sm:inline">{v === "table" ? "Table" : "Board"}</span>
               </button>
             ))}
           </div>
+
           <Button
             variant="outline" size="sm"
             onClick={() => void refetch()}
-            style={{ border: "1px solid #2D333B", background: "transparent", color: "#9CA3AF" }}
+            className="gap-1.5 text-xs"
           >
-            <RefreshCw size={14} style={{ marginRight: 6 }} /> Refresh
+            <RefreshCw size={13} />
+            <span className="hidden sm:inline">Refresh</span>
           </Button>
         </div>
       </div>
 
-      {/* ── 7.5.1 Stats Bar ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-        <KPICard label="Total Leads" value={stats.total.toLocaleString()} icon={<Users size={20} />} />
-        <KPICard label="New" value={stats.new.toLocaleString()} icon={<AlertCircle size={20} />} />
-        <KPICard label="Contacted" value={stats.contacted.toLocaleString()} icon={<MessageSquare size={20} />} />
-        <KPICard label="Qualified" value={stats.qualified.toLocaleString()} icon={<CheckCircle2 size={20} />} />
-        <KPICard label="Converted" value={stats.converted.toLocaleString()} icon={<ArrowUpRight size={20} />} />
-        <KPICard label="This Month" value={stats.this_month.toLocaleString()} icon={<Calendar size={20} />} />
+      {/* ─── Stats Grid ─────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        {STAT_CARDS.map((card, i) => (
+          <div
+            key={card.key}
+            className={cn(
+              "relative overflow-hidden rounded-xl border bg-card p-3 sm:p-4",
+              "transition-all duration-200 hover:border-primary/20 hover:shadow-soft-sm group",
+            )}
+            style={{ animationDelay: `${i * 50}ms` }}
+          >
+            {/* Gradient accent */}
+            <div className={cn(
+              "absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-100 transition-opacity duration-300",
+              card.accent,
+            )} />
+            <div className="relative">
+              <div className="text-muted-foreground mb-2">
+                {card.icon}
+              </div>
+              <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider font-heading text-muted-foreground mb-1">
+                {card.label}
+              </p>
+              <p className="text-xl sm:text-2xl lg:text-3xl font-bold font-mono tracking-tight text-foreground">
+                {(stats[card.key] ?? 0).toLocaleString()}
+              </p>
+            </div>
+          </div>
+        ))}
       </div>
 
-      {/* ── 7.5.2 Filters Row ── */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-        <div style={{ position: "relative", flex: "1 1 200px", minWidth: 180, maxWidth: 280 }}>
-          <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#6B7280", pointerEvents: "none" }} />
-          <Input
-            placeholder="Search leads..."
-            value={filters.search || ""}
-            onChange={e => updateFilter("search", e.target.value || undefined)}
-            style={{ paddingLeft: 32, background: "#111827", border: "1px solid #2D333B", color: "#F9FAFB" }}
-          />
+      {/* ─── Filter Bar ─────────────────────────────────────────────────────── */}
+      <div className="flex flex-col gap-3">
+        {/* Primary filter row */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Search */}
+          <div className="relative flex-1 min-w-[180px] max-w-sm">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <Input
+              placeholder="Search leads..."
+              value={filters.search || ""}
+              onChange={e => updateFilter("search", e.target.value || undefined)}
+              className="pl-9 h-9 text-sm bg-card"
+            />
+          </div>
+
+          {/* Quick status filter */}
+          <Select value={filters.status || "_all"} onValueChange={v => updateFilter("status", v === "_all" ? undefined : v)}>
+            <SelectTrigger className="w-[130px] h-9 text-xs bg-card">
+              <SelectValue placeholder="All Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_all">All Status</SelectItem>
+              {STATUS_PIPELINE.map(s => (
+                <SelectItem key={s} value={s}>
+                  <span className="flex items-center gap-2 capitalize">
+                    <span className={cn("h-1.5 w-1.5 rounded-full", STATUS_META[s]?.dot)} />
+                    {s}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Channel filter */}
+          <Select value={filters.channel || "_all"} onValueChange={v => updateFilter("channel", v === "_all" ? undefined : v)}>
+            <SelectTrigger className="w-[140px] h-9 text-xs bg-card hidden sm:flex">
+              <SelectValue placeholder="All Channels" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_all">All Channels</SelectItem>
+              {Object.entries(CHANNEL_META).map(([key, meta]) => (
+                <SelectItem key={key} value={key}>
+                  {meta.icon} {meta.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Advanced filters toggle */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setFiltersOpen(!filtersOpen)}
+            className={cn(
+              "gap-1.5 h-9 text-xs",
+              filtersOpen && "bg-primary/10 border-primary/30 text-primary",
+            )}
+          >
+            <SlidersHorizontal size={13} />
+            <span className="hidden sm:inline">Filters</span>
+            {activeFilterCount > 0 && (
+              <span className="ml-0.5 h-4 min-w-[16px] rounded-full bg-primary/20 text-primary text-[10px] font-bold flex items-center justify-center px-1">
+                {activeFilterCount}
+              </span>
+            )}
+          </Button>
+
+          {activeFilterCount > 0 && (
+            <button
+              onClick={clearFilters}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Clear all
+            </button>
+          )}
         </div>
 
-        <Select value={filters.status || "_all"} onValueChange={v => updateFilter("status", v === "_all" ? undefined : v)}>
-          <SelectTrigger style={{ width: 140, background: "#111827", border: "1px solid #2D333B", color: "#F9FAFB" }}>
-            <SelectValue placeholder="All Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="_all">All Status</SelectItem>
-            <SelectItem value="new">New</SelectItem>
-            <SelectItem value="contacted">Contacted</SelectItem>
-            <SelectItem value="qualified">Qualified</SelectItem>
-            <SelectItem value="converted">Converted</SelectItem>
-            <SelectItem value="lost">Lost</SelectItem>
-          </SelectContent>
-        </Select>
+        {/* Expandable advanced filters */}
+        {filtersOpen && (
+          <div className="flex flex-wrap items-center gap-2 p-3 rounded-lg border bg-card/50 animate-fade-in">
+            <Select value={filters.channel || "_all"} onValueChange={v => updateFilter("channel", v === "_all" ? undefined : v)}>
+              <SelectTrigger className="w-[140px] h-9 text-xs bg-card sm:hidden">
+                <SelectValue placeholder="All Channels" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_all">All Channels</SelectItem>
+                {Object.entries(CHANNEL_META).map(([key, meta]) => (
+                  <SelectItem key={key} value={key}>
+                    {meta.icon} {meta.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-        <Select value={filters.channel || "_all"} onValueChange={v => updateFilter("channel", v === "_all" ? undefined : v)}>
-          <SelectTrigger style={{ width: 145, background: "#111827", border: "1px solid #2D333B", color: "#F9FAFB" }}>
-            <SelectValue placeholder="All Channels" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="_all">All Channels</SelectItem>
-            <SelectItem value="web">🌐 Web</SelectItem>
-            <SelectItem value="whatsapp">💬 WhatsApp</SelectItem>
-            <SelectItem value="instagram">📸 Instagram</SelectItem>
-            <SelectItem value="facebook">💙 Facebook</SelectItem>
-            <SelectItem value="email">📧 Email</SelectItem>
-            <SelectItem value="sms">📱 SMS</SelectItem>
-          </SelectContent>
-        </Select>
+            <div className="flex items-center gap-1.5">
+              <label className="text-[11px] font-medium text-muted-foreground shrink-0">From</label>
+              <input
+                type="date"
+                value={filters.date_from || ""}
+                onChange={e => updateFilter("date_from", e.target.value || undefined)}
+                className="h-9 px-2.5 text-xs rounded-md border bg-card text-foreground"
+              />
+            </div>
 
-        <input
-          type="date"
-          value={filters.date_from || ""}
-          onChange={e => updateFilter("date_from", e.target.value || undefined)}
-          style={{ background: "#111827", border: "1px solid #2D333B", color: "#F9FAFB", borderRadius: 8, padding: "7px 10px", fontSize: 13 }}
-        />
-        <input
-          type="date"
-          value={filters.date_to || ""}
-          onChange={e => updateFilter("date_to", e.target.value || undefined)}
-          style={{ background: "#111827", border: "1px solid #2D333B", color: "#F9FAFB", borderRadius: 8, padding: "7px 10px", fontSize: 13 }}
-        />
+            <div className="flex items-center gap-1.5">
+              <label className="text-[11px] font-medium text-muted-foreground shrink-0">To</label>
+              <input
+                type="date"
+                value={filters.date_to || ""}
+                onChange={e => updateFilter("date_to", e.target.value || undefined)}
+                className="h-9 px-2.5 text-xs rounded-md border bg-card text-foreground"
+              />
+            </div>
 
-        <Input
-          placeholder="/pricing (source page)"
-          value={filters.source_page || ""}
-          onChange={e => updateFilter("source_page", e.target.value || undefined)}
-          style={{ width: 190, background: "#111827", border: "1px solid #2D333B", color: "#F9FAFB" }}
-        />
-
-        {activeFilterCount > 0 && (
-          <>
-            <span style={{ background: "rgba(79,142,247,0.15)", color: "#4F8EF7", borderRadius: 999, padding: "3px 10px", fontSize: 12, fontWeight: 700 }}>
-              {activeFilterCount} active
-            </span>
-            <button onClick={clearFilters} style={{ background: "none", border: "none", color: "#9CA3AF", cursor: "pointer", fontSize: 13, fontWeight: 500 }}>
-              Clear
-            </button>
-          </>
+            <Input
+              placeholder="Source page (e.g. /pricing)"
+              value={filters.source_page || ""}
+              onChange={e => updateFilter("source_page", e.target.value || undefined)}
+              className="h-9 w-[200px] text-xs bg-card"
+            />
+          </div>
         )}
       </div>
 
-      {/* ── 7.5.3 / 7.5.5 Table OR Kanban ── */}
+      {/* ═══════════════════════════════════════════════════════════════════════
+         TABLE VIEW
+         ═══════════════════════════════════════════════════════════════════════ */}
       {view === "table" ? (
-        <div style={{ background: "#1C1F26", border: "1px solid #2D333B", borderRadius: 16, overflow: "hidden" }}>
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", minWidth: 900, borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid #2D333B" }}>
-                  <th style={{ width: 44, padding: "12px 16px" }}>
-                    <Checkbox
-                      checked={selectedIds.size === leads.length && leads.length > 0}
-                      onCheckedChange={toggleSelectAll}
-                    />
-                  </th>
-                  {["Name", "Email / Phone", "Channel", "First Message", "Status", "Score", "Date", ""].map(h => (
-                    <th key={h} style={{ padding: "12px 12px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.06em", whiteSpace: "nowrap" }}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {isLoading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <tr key={i} style={{ borderBottom: "1px solid #2D333B" }}>
-                      {Array.from({ length: 9 }).map((_, j) => (
-                        <td key={j} style={{ padding: "14px 12px" }}>
-                          <Skeleton className="h-4 w-full" />
-                        </td>
-                      ))}
-                    </tr>
-                  ))
-                ) : leads.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} style={{ padding: "56px 24px", textAlign: "center" }}>
-                      <Users size={32} style={{ color: "#2D333B", margin: "0 auto 12px" }} />
-                      <div style={{ color: "#6B7280", fontSize: 14 }}>No leads found</div>
-                      {activeFilterCount > 0 && (
-                        <button onClick={clearFilters} style={{ color: "#4F8EF7", background: "none", border: "none", cursor: "pointer", fontSize: 13, marginTop: 8 }}>
-                          Clear filters
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ) : leads.map(lead => (
-                  <tr
-                    key={lead.id}
-                    onClick={() => setActiveLead(lead.id)}
-                    style={{
-                      borderBottom: "1px solid #2D333B",
-                      cursor: "pointer",
-                      background: selectedIds.has(lead.id) ? "rgba(79,142,247,0.05)" : "transparent",
-                      transition: "background 0.1s",
-                    }}
-                    onMouseEnter={e => {
-                      (e.currentTarget as HTMLTableRowElement).style.background =
-                        selectedIds.has(lead.id) ? "rgba(79,142,247,0.08)" : "rgba(255,255,255,0.025)";
-                    }}
-                    onMouseLeave={e => {
-                      (e.currentTarget as HTMLTableRowElement).style.background =
-                        selectedIds.has(lead.id) ? "rgba(79,142,247,0.05)" : "transparent";
-                    }}
-                  >
-                    {/* Checkbox */}
-                    <td style={{ padding: "14px 16px" }} onClick={e => e.stopPropagation()}>
-                      <Checkbox checked={selectedIds.has(lead.id)} onCheckedChange={() => toggleSelect(lead.id)} />
-                    </td>
+        <div className="rounded-xl border bg-card overflow-hidden">
 
-                    {/* Name */}
-                    <td style={{ padding: "14px 12px", whiteSpace: "nowrap" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <LeadAvatar name={lead.contact_name} size={32} />
-                        <div>
-                          <div style={{ fontWeight: 600, fontSize: 13, color: "#F9FAFB" }}>
-                            {lead.contact_name || "Anonymous"}
-                          </div>
-                          {lead.contact_company && (
-                            <div style={{ fontSize: 11, color: "#6B7280" }}>{lead.contact_company}</div>
+          {/* ── DESKTOP / TABLET TABLE (sm+) ─────────────────────────────────
+               Progressive column disclosure: lower-priority columns hide at
+               smaller breakpoints so the table NEVER needs horizontal scroll.
+               Priority: Lead > Status > Score > Date > Contact > Channel > Msg > Actions
+               ────────────────────────────────────────────────────────────────── */}
+          <table className="w-full hidden sm:table">
+            <thead>
+              <tr className="border-b bg-muted/30">
+                <th className="w-10 p-3 pl-4">
+                  <Checkbox
+                    checked={selectedIds.size === leads.length && leads.length > 0}
+                    onCheckedChange={toggleSelectAll}
+                  />
+                </th>
+                <th className="px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-wider font-heading text-muted-foreground">Lead</th>
+                <th className="px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-wider font-heading text-muted-foreground hidden lg:table-cell">Contact</th>
+                <th className="px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-wider font-heading text-muted-foreground hidden xl:table-cell">Channel</th>
+                <th className="px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-wider font-heading text-muted-foreground hidden 2xl:table-cell">First Message</th>
+                <th className="px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-wider font-heading text-muted-foreground">Status</th>
+                <th className="px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-wider font-heading text-muted-foreground hidden md:table-cell">Score</th>
+                <th className="px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-wider font-heading text-muted-foreground">Date</th>
+                <th className="w-10 p-3 pr-4" />
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i}>
+                    <td className="p-3 pl-4"><Skeleton className="h-4 w-4" /></td>
+                    <td className="p-3"><Skeleton className="h-9 w-full" /></td>
+                    <td className="p-3 hidden lg:table-cell"><Skeleton className="h-4 w-full" /></td>
+                    <td className="p-3 hidden xl:table-cell"><Skeleton className="h-4 w-16" /></td>
+                    <td className="p-3 hidden 2xl:table-cell"><Skeleton className="h-4 w-full" /></td>
+                    <td className="p-3"><Skeleton className="h-5 w-16" /></td>
+                    <td className="p-3 hidden md:table-cell"><Skeleton className="h-5 w-14" /></td>
+                    <td className="p-3"><Skeleton className="h-4 w-12" /></td>
+                    <td className="p-3 pr-4"><Skeleton className="h-4 w-4" /></td>
+                  </tr>
+                ))
+              ) : leads.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="py-16 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
+                        <Users size={20} className="text-muted-foreground" />
+                      </div>
+                      <p className="text-sm text-muted-foreground font-medium">No leads found</p>
+                      {activeFilterCount > 0 && (
+                        <Button variant="link" size="sm" onClick={clearFilters} className="text-primary text-xs">
+                          Clear filters
+                        </Button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ) : leads.map(lead => (
+                <tr
+                  key={lead.id}
+                  onClick={() => setActiveLead(lead.id)}
+                  className={cn(
+                    "cursor-pointer transition-colors group",
+                    selectedIds.has(lead.id)
+                      ? "bg-primary/5 hover:bg-primary/8"
+                      : "hover:bg-muted/50",
+                  )}
+                >
+                  {/* Checkbox */}
+                  <td className="p-3 pl-4" onClick={e => e.stopPropagation()}>
+                    <Checkbox
+                      checked={selectedIds.has(lead.id)}
+                      onCheckedChange={() => toggleSelect(lead.id)}
+                    />
+                  </td>
+
+                  {/* Lead — always visible, combines name + company. On sm/md also
+                      shows inline contact & channel since those columns are hidden */}
+                  <td className="p-3">
+                    <div className="flex items-center gap-2.5">
+                      <LeadAvatar name={lead.contact_name} size="md" />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-heading font-semibold text-[13px] text-foreground truncate">
+                          {lead.contact_name || "Anonymous"}
+                        </p>
+
+                        {/* Company (always shown inline under name) */}
+                        {lead.contact_company && (
+                          <p className="text-[11px] text-muted-foreground truncate flex items-center gap-1 mt-0.5">
+                            <Building2 size={10} className="shrink-0" />
+                            {lead.contact_company}
+                          </p>
+                        )}
+
+                        {/* Contact info — inline when the Contact column is hidden (<lg) */}
+                        <div className="lg:hidden mt-1 space-y-0.5">
+                          {lead.contact_email && (
+                            <p className="text-[10px] text-muted-foreground/70 truncate flex items-center gap-1">
+                              <Mail size={9} className="shrink-0" />
+                              {lead.contact_email}
+                            </p>
                           )}
                         </div>
-                      </div>
-                    </td>
 
-                    {/* Email / Phone */}
-                    <td style={{ padding: "14px 12px" }}>
-                      <div style={{ fontSize: 12, color: "#9CA3AF" }}>
-                        {lead.contact_email || <span style={{ color: "#6B7280" }}>—</span>}
-                      </div>
-                      <div style={{ fontSize: 12, color: "#6B7280" }}>{lead.contact_phone || "—"}</div>
-                    </td>
-
-                    {/* Channel */}
-                    <td style={{ padding: "14px 12px", whiteSpace: "nowrap" }}>
-                      {lead.channel ? (
-                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <div style={{ width: 7, height: 7, borderRadius: "50%", background: CHANNEL_COLORS[lead.channel] || "#9CA3AF", flexShrink: 0 }} />
-                          <span style={{ fontSize: 12, color: "#9CA3AF" }}>
-                            {CHANNEL_ICONS[lead.channel] || "🌐"} {lead.channel}
-                          </span>
+                        {/* Channel — inline when the Channel column is hidden (<xl) */}
+                        <div className="xl:hidden mt-1">
+                          <ChannelPill channel={lead.channel} />
                         </div>
-                      ) : <span style={{ color: "#6B7280" }}>—</span>}
-                    </td>
-
-                    {/* First message */}
-                    <td style={{ padding: "14px 12px", maxWidth: 220 }}>
-                      <div style={{ fontSize: 12, color: "#9CA3AF", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {lead.first_message || "—"}
                       </div>
-                    </td>
+                    </div>
+                  </td>
 
-                    {/* Status — clickable dropdown */}
-                    <td style={{ padding: "14px 12px" }} onClick={e => e.stopPropagation()}>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}>
-                            <StatusPill status={lead.status} />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                          {STATUS_PIPELINE.map(s => (
-                            <DropdownMenuItem
-                              key={s}
-                              style={{ textTransform: "capitalize" }}
-                              onClick={() => updateStatus.mutate({ id: lead.id, status: s }, {
-                                onSuccess: () => { toast({ description: `Status → ${s}` }); void refetch(); },
-                              })}
-                            >
-                              {s}
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </td>
+                  {/* Contact — visible on lg+ */}
+                  <td className="p-3 hidden lg:table-cell">
+                    <div className="space-y-0.5">
+                      {lead.contact_email ? (
+                        <p className="text-[11px] text-muted-foreground truncate max-w-[180px] flex items-center gap-1">
+                          <Mail size={10} className="shrink-0 text-muted-foreground/60" />
+                          {lead.contact_email}
+                        </p>
+                      ) : (
+                        <p className="text-[11px] text-muted-foreground/50">--</p>
+                      )}
+                      {lead.contact_phone && (
+                        <p className="text-[10px] text-muted-foreground/70 flex items-center gap-1">
+                          <Phone size={9} className="shrink-0" />
+                          {lead.contact_phone}
+                        </p>
+                      )}
+                    </div>
+                  </td>
 
-                    {/* Lead score */}
-                    <td style={{ padding: "14px 12px" }}>
-                      <ScorePill score={lead.lead_score} />
-                    </td>
+                  {/* Channel — visible on xl+ */}
+                  <td className="p-3 hidden xl:table-cell whitespace-nowrap">
+                    <ChannelPill channel={lead.channel} />
+                  </td>
 
-                    {/* Date */}
-                    <td style={{ padding: "14px 12px", whiteSpace: "nowrap" }}>
-                      <span style={{ fontSize: 12, color: "#6B7280" }}>{relativeTime(lead.created_at)}</span>
-                    </td>
+                  {/* First message — visible on 2xl+ */}
+                  <td className="p-3 hidden 2xl:table-cell max-w-[220px]">
+                    <p className="text-[12px] text-muted-foreground truncate">
+                      {lead.first_message || "--"}
+                    </p>
+                  </td>
 
-                    {/* Actions */}
-                    <td style={{ padding: "14px 12px" }} onClick={e => e.stopPropagation()}>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" style={{ width: 28, height: 28 }}>
-                            <MoreHorizontal size={14} />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => setActiveLead(lead.id)}>
-                            View Detail
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => updateStatus.mutate({ id: lead.id, status: "qualified" }, {
-                            onSuccess: () => { toast({ description: "Marked as Qualified" }); void refetch(); },
-                          })}>
-                            Mark Qualified
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => updateStatus.mutate({ id: lead.id, status: "converted" }, {
-                            onSuccess: () => { toast({ description: "Marked as Converted" }); void refetch(); },
-                          })}>
-                            Mark Converted
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
+                  {/* Status — always visible */}
+                  <td className="p-3" onClick={e => e.stopPropagation()}>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="focus:outline-none">
+                          <StatusBadge status={lead.status} interactive />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="min-w-[140px]">
+                        {STATUS_PIPELINE.map(s => (
                           <DropdownMenuItem
-                            style={{ color: "#EF4444" }}
-                            onClick={() => { setSelectedIds(new Set([lead.id])); setConfirmDelete(true); }}
+                            key={s}
+                            className="capitalize text-xs gap-2"
+                            onClick={() => updateStatus.mutate({ id: lead.id, status: s }, {
+                              onSuccess: () => { toast({ description: `Status updated to ${s}` }); void refetch(); },
+                            })}
                           >
-                            Delete
+                            <span className={cn("h-1.5 w-1.5 rounded-full", STATUS_META[s]?.dot)} />
+                            {s}
                           </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </td>
+
+                  {/* Score — visible on md+ */}
+                  <td className="p-3 hidden md:table-cell">
+                    <ScoreBadge score={lead.lead_score} />
+                  </td>
+
+                  {/* Date — always visible */}
+                  <td className="p-3 whitespace-nowrap">
+                    <span className="text-[11px] text-muted-foreground font-mono">
+                      {relativeTime(lead.created_at)}
+                    </span>
+                  </td>
+
+                  {/* Actions */}
+                  <td className="p-3 pr-4" onClick={e => e.stopPropagation()}>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                        >
+                          <MoreHorizontal size={14} />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="min-w-[160px]">
+                        <DropdownMenuItem className="text-xs gap-2" onClick={() => setActiveLead(lead.id)}>
+                          <Eye size={13} /> View Detail
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="text-xs gap-2" onClick={() => updateStatus.mutate({ id: lead.id, status: "qualified" }, {
+                          onSuccess: () => { toast({ description: "Marked as Qualified" }); void refetch(); },
+                        })}>
+                          <CheckCircle2 size={13} /> Mark Qualified
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="text-xs gap-2" onClick={() => updateStatus.mutate({ id: lead.id, status: "converted" }, {
+                          onSuccess: () => { toast({ description: "Marked as Converted" }); void refetch(); },
+                        })}>
+                          <ArrowUpRight size={13} /> Mark Converted
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-xs gap-2 text-destructive focus:text-destructive"
+                          onClick={() => { setSelectedIds(new Set([lead.id])); setConfirmDelete(true); }}
+                        >
+                          <Trash2 size={13} /> Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* ── MOBILE CARD LIST (<sm) ─────────────────────────────────────── */}
+          <div className="sm:hidden divide-y">
+            {isLoading ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="p-4 space-y-3">
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-4 w-3/4" />
+                </div>
+              ))
+            ) : leads.length === 0 ? (
+              <div className="py-16 text-center">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
+                    <Users size={20} className="text-muted-foreground" />
+                  </div>
+                  <p className="text-sm text-muted-foreground font-medium">No leads found</p>
+                  {activeFilterCount > 0 && (
+                    <Button variant="link" size="sm" onClick={clearFilters} className="text-primary text-xs">
+                      Clear filters
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ) : leads.map(lead => (
+              <div
+                key={lead.id}
+                onClick={() => setActiveLead(lead.id)}
+                className="p-4 active:bg-muted/50 transition-colors cursor-pointer"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="pt-0.5" onClick={e => e.stopPropagation()}>
+                    <Checkbox
+                      checked={selectedIds.has(lead.id)}
+                      onCheckedChange={() => toggleSelect(lead.id)}
+                    />
+                  </div>
+                  <LeadAvatar name={lead.contact_name} size="md" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <p className="font-heading font-semibold text-[13px] text-foreground truncate">
+                        {lead.contact_name || "Anonymous"}
+                      </p>
+                      <span className="text-[10px] text-muted-foreground font-mono shrink-0">
+                        {relativeTime(lead.created_at)}
+                      </span>
+                    </div>
+                    {lead.contact_company && (
+                      <p className="text-[11px] text-muted-foreground mb-1.5 flex items-center gap-1">
+                        <Building2 size={10} /> {lead.contact_company}
+                      </p>
+                    )}
+                    {lead.first_message && (
+                      <p className="text-[12px] text-muted-foreground/80 line-clamp-2 mb-2 leading-relaxed">
+                        {lead.first_message}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <StatusBadge status={lead.status} />
+                      <ScoreBadge score={lead.lead_score} />
+                      <ChannelPill channel={lead.channel} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
 
           {/* Pagination */}
           {!isLoading && leads.length > 0 && (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 20px", borderTop: "1px solid #2D333B", flexWrap: "wrap", gap: 8 }}>
-              <span style={{ fontSize: 12, color: "#6B7280" }}>
-                Showing {fromIdx}–{toIdx} of {totalCount}
+            <div className="flex items-center justify-between px-4 py-3 border-t">
+              <span className="text-[11px] text-muted-foreground font-mono hidden sm:block">
+                {fromIdx}--{toIdx} of {totalCount}
               </span>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span className="text-[11px] text-muted-foreground font-mono sm:hidden">
+                {currentPage}/{totalPages || 1}
+              </span>
+              <div className="flex items-center gap-1.5">
                 <Button
                   variant="outline" size="sm"
                   onClick={() => setFilters(p => ({ ...p, page: (p.page || 1) - 1 }))}
                   disabled={currentPage <= 1}
-                  style={{ border: "1px solid #2D333B", background: "transparent" }}
+                  className="h-7 w-7 p-0"
                 >
                   <ChevronLeft size={14} />
                 </Button>
-                <span style={{ fontSize: 12, color: "#9CA3AF" }}>Page {currentPage} of {totalPages || 1}</span>
+                <span className="text-[11px] text-muted-foreground px-2 font-mono hidden sm:block">
+                  Page {currentPage} of {totalPages || 1}
+                </span>
                 <Button
                   variant="outline" size="sm"
                   onClick={() => setFilters(p => ({ ...p, page: (p.page || 1) + 1 }))}
                   disabled={currentPage >= totalPages}
-                  style={{ border: "1px solid #2D333B", background: "transparent" }}
+                  className="h-7 w-7 p-0"
                 >
                   <ChevronRight size={14} />
                 </Button>
@@ -707,100 +1035,168 @@ export default function Leads() {
           )}
         </div>
       ) : (
-        /* ── 7.5.5 Kanban View ── */
+        /* ═══════════════════════════════════════════════════════════════════════
+           KANBAN VIEW
+           ─────────────────────────────────────────────────────────────────────
+           Mobile (<sm): stacked accordion — each status is a collapsible section
+           Tablet (sm–lg): 2×3 or 3×2 fluid grid — no horizontal scroll
+           Desktop (lg+): 5-column fluid row — columns stretch to fill
+           ═══════════════════════════════════════════════════════════════════════ */
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 16, alignItems: "flex-start" }}>
-            {kanbanColumns.map(col => (
-              <div
-                key={col.status}
-                style={{ flexShrink: 0, width: 256, background: "#1C1F26", border: "1px solid #2D333B", borderRadius: 14, padding: 14 }}
-              >
-                {/* Column header */}
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: COLUMN_COLORS[col.status] || "#9CA3AF" }} />
-                  <span style={{ fontWeight: 700, fontSize: 13, color: "#F9FAFB", textTransform: "capitalize" }}>
-                    {col.status}
-                  </span>
-                  <span style={{ marginLeft: "auto", background: "rgba(255,255,255,0.07)", color: "#9CA3AF", borderRadius: 999, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>
-                    {col.leads.length}
-                  </span>
-                </div>
 
-                {/* Cards */}
-                <SortableContext
-                  items={[...col.leads.map(l => l.id), `__col__${col.status}`]}
-                  strategy={verticalListSortingStrategy}
+          {/* ── MOBILE: Stacked collapsible sections ──────────────────────── */}
+          <div className="flex flex-col gap-2 sm:hidden">
+            {kanbanColumns.map(col => {
+              const meta = STATUS_META[col.status] ?? STATUS_META.new;
+              const isExpanded = kanbanMobileOpen === col.status;
+              return (
+                <div key={col.status} className="rounded-xl border bg-card/60 overflow-hidden">
+                  {/* Tap to expand / collapse */}
+                  <button
+                    onClick={() => setKanbanMobileOpen(isExpanded ? null : col.status)}
+                    className="flex items-center gap-2.5 p-3.5 w-full text-left border-b border-transparent hover:bg-muted/30 transition-colors"
+                  >
+                    <span className={cn("h-2 w-2 rounded-full", meta.dot)} />
+                    <span className="font-heading font-bold text-[13px] text-foreground capitalize flex-1">
+                      {col.status}
+                    </span>
+                    <span className="text-[11px] font-mono font-semibold text-muted-foreground bg-muted rounded-full px-2 py-0.5">
+                      {col.leads.length}
+                    </span>
+                    <ChevronDown
+                      size={14}
+                      className={cn(
+                        "text-muted-foreground transition-transform duration-200",
+                        isExpanded && "rotate-180",
+                      )}
+                    />
+                  </button>
+
+                  {isExpanded && (
+                    <SortableContext
+                      items={[...col.leads.map(l => l.id), `__col__${col.status}`]}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      <div className="flex flex-col gap-2 p-2.5 border-t animate-fade-in">
+                        {col.leads.length === 0 && (
+                          <div className="py-5 text-center">
+                            <p className="text-[11px] text-muted-foreground/50">No leads in this stage</p>
+                          </div>
+                        )}
+                        {col.leads.map(lead => (
+                          <KanbanCard key={lead.id} lead={lead} onOpen={setActiveLead} />
+                        ))}
+                        <ColumnDropTarget columnId={col.status} />
+                      </div>
+                    </SortableContext>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* ── TABLET / DESKTOP: Fluid grid — no horizontal scrollbar ───── */}
+          <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+            {kanbanColumns.map(col => {
+              const meta = STATUS_META[col.status] ?? STATUS_META.new;
+              return (
+                <div
+                  key={col.status}
+                  className="rounded-xl border bg-card/60 flex flex-col min-w-0"
                 >
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10, minHeight: 48 }}>
-                    {col.leads.map(lead => (
-                      <KanbanCard key={lead.id} lead={lead} onOpen={setActiveLead} />
-                    ))}
-                    <ColumnDropTarget columnId={col.status} />
+                  {/* Column header */}
+                  <div className="flex items-center gap-2.5 p-3.5 border-b shrink-0">
+                    <span className={cn("h-2 w-2 rounded-full", meta.dot)} />
+                    <span className="font-heading font-bold text-[13px] text-foreground capitalize truncate">
+                      {col.status}
+                    </span>
+                    <span className="ml-auto text-[11px] font-mono font-semibold text-muted-foreground bg-muted rounded-full px-2 py-0.5 shrink-0">
+                      {col.leads.length}
+                    </span>
                   </div>
-                </SortableContext>
-              </div>
-            ))}
+
+                  {/* Cards */}
+                  <SortableContext
+                    items={[...col.leads.map(l => l.id), `__col__${col.status}`]}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="flex flex-col gap-2 p-2 min-h-[60px] flex-1">
+                      {col.leads.length === 0 && (
+                        <div className="py-6 text-center">
+                          <p className="text-[11px] text-muted-foreground/50">No leads</p>
+                        </div>
+                      )}
+                      {col.leads.map(lead => (
+                        <KanbanCard key={lead.id} lead={lead} onOpen={setActiveLead} />
+                      ))}
+                      <ColumnDropTarget columnId={col.status} />
+                    </div>
+                  </SortableContext>
+                </div>
+              );
+            })}
           </div>
         </DndContext>
       )}
 
-      {/* ── 7.5.4 Lead Detail Modal ── */}
+      {/* ═══════════════════════════════════════════════════════════════════════
+         LEAD DETAIL MODAL
+         ═══════════════════════════════════════════════════════════════════════ */}
       <Dialog open={!!activeLead} onOpenChange={open => { if (!open) setActiveLead(null); }}>
         <DialogContent
-          className="p-0 overflow-hidden"
-          style={{
-            maxWidth: 820,
-            width: "95vw",
-            maxHeight: "90vh",
-            background: "#1C1F26",
-            border: "1px solid #2D333B",
-            display: "flex",
-            flexDirection: "column",
-          }}
+          className={cn(
+            "p-0 overflow-hidden flex flex-col gap-0",
+            "max-w-[860px] w-[95vw] max-h-[92vh] sm:max-h-[88vh]",
+            "bg-card border rounded-2xl",
+          )}
         >
           {detailLoading || !detail ? (
-            <div style={{ padding: 28 }}>
-              <Skeleton className="h-20 w-full mb-4" />
-              <Skeleton className="h-12 w-full mb-4" />
-              <Skeleton className="h-48 w-full" />
+            <div className="p-6 space-y-4">
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-40 w-full" />
             </div>
           ) : (
             <>
-              {/* Contact header */}
-              <div style={{ padding: "20px 24px", borderBottom: "1px solid #2D333B", flexShrink: 0 }}>
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 16 }}>
-                  <LeadAvatar name={detail.contact?.full_name ?? null} size={52} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 4 }}>
-                      <h2 style={{ fontSize: 17, fontWeight: 700, color: "#F9FAFB", margin: 0 }}>
+              {/* ── Contact Header ── */}
+              <div className="shrink-0 p-5 sm:p-6 border-b space-y-5">
+                <div className="flex items-start gap-3.5">
+                  <LeadAvatar name={detail.contact?.full_name ?? null} size="lg" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2.5 flex-wrap mb-1.5">
+                      <h2 className="font-heading text-base sm:text-lg font-bold text-foreground leading-none">
                         {detail.contact?.full_name || "Anonymous"}
                       </h2>
-                      <ScorePill score={detail.lead_score} />
-                      {detail.channel && (
-                        <span style={{ fontSize: 12, color: "#9CA3AF", background: "rgba(255,255,255,0.06)", borderRadius: 6, padding: "2px 8px" }}>
-                          {CHANNEL_ICONS[detail.channel] || "🌐"} {detail.channel}
-                        </span>
-                      )}
+                      <ScoreBadge score={detail.lead_score} />
+                      <ChannelPill channel={detail.channel} />
                     </div>
+
                     {detail.contact?.company && (
-                      <div style={{ fontSize: 13, color: "#9CA3AF", marginBottom: 6 }}>{detail.contact.company}</div>
+                      <p className="text-[13px] text-muted-foreground mb-2 flex items-center gap-1.5">
+                        <Building2 size={12} /> {detail.contact.company}
+                      </p>
                     )}
-                    <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+
+                    <div className="flex gap-4 flex-wrap">
                       {detail.contact?.email && (
-                        <span style={{ fontSize: 12, color: "#6B7280", display: "flex", alignItems: "center", gap: 4 }}>
-                          <Mail size={12} />{detail.contact.email}
+                        <span className="text-[12px] text-muted-foreground flex items-center gap-1.5">
+                          <Mail size={12} className="text-muted-foreground/60" />{detail.contact.email}
                         </span>
                       )}
                       {detail.contact?.phone && (
-                        <span style={{ fontSize: 12, color: "#6B7280", display: "flex", alignItems: "center", gap: 4 }}>
-                          <Phone size={12} />{detail.contact.phone}
+                        <span className="text-[12px] text-muted-foreground flex items-center gap-1.5">
+                          <Phone size={12} className="text-muted-foreground/60" />{detail.contact.phone}
                         </span>
                       )}
                     </div>
+
                     {detail.contact?.tags && detail.contact.tags.length > 0 && (
-                      <div style={{ display: "flex", gap: 4, marginTop: 8, flexWrap: "wrap" }}>
+                      <div className="flex gap-1.5 mt-2.5 flex-wrap">
                         {detail.contact.tags.map(tag => (
-                          <span key={tag} style={{ background: "rgba(79,142,247,0.1)", border: "1px solid rgba(79,142,247,0.2)", color: "#4F8EF7", borderRadius: 6, padding: "2px 7px", fontSize: 11 }}>
+                          <span
+                            key={tag}
+                            className="inline-flex items-center rounded-md border border-primary/20 bg-primary/8 px-2 py-0.5 text-[10px] font-medium text-primary"
+                          >
                             {tag}
                           </span>
                         ))}
@@ -809,101 +1205,77 @@ export default function Leads() {
                   </div>
                 </div>
 
-                {/* Visual pipeline stepper */}
-                <div style={{ display: "flex", alignItems: "center" }}>
-                  {STATUS_PIPELINE.map((step, i) => {
-                    const currentIdx = STATUS_PIPELINE.indexOf(detail.status);
-                    const isLost = detail.status === "lost" && step === "lost";
-                    const isPast = i < currentIdx && detail.status !== "lost";
-                    const isCurrent = i === currentIdx;
-                    const dotBg = isLost ? "rgba(239,68,68,0.15)" : isCurrent ? "#4F8EF7" : isPast ? "#10B981" : "#111827";
-                    const dotBorder = isLost ? "#EF4444" : isCurrent ? "#4F8EF7" : isPast ? "#10B981" : "#2D333B";
-                    const textColor = isLost ? "#EF4444" : isCurrent ? "#4F8EF7" : isPast ? "#10B981" : "#6B7280";
-                    const lineBg = isPast && detail.status !== "lost" ? "#10B981" : "#2D333B";
-
-                    return (
-                      <div key={step} style={{ display: "flex", alignItems: "center", flex: step !== "lost" ? 1 : "none" }}>
-                        <button
-                          onClick={() => updateStatus.mutate({ id: detail.id, status: step }, {
-                            onSuccess: () => { toast({ description: `Status → ${step}` }); void refetch(); },
-                          })}
-                          style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, background: "none", border: "none", cursor: "pointer", padding: "0 2px" }}
-                        >
-                          <div style={{ width: 26, height: 26, borderRadius: "50%", background: dotBg, border: `2px solid ${dotBorder}`, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" }}>
-                            {(isPast || (isCurrent && !isLost)) && (
-                              <CheckCircle2 size={13} color={isCurrent ? "#fff" : "#10B981"} />
-                            )}
-                            {isLost && <X size={12} color="#EF4444" />}
-                          </div>
-                          <span style={{ fontSize: 10, color: textColor, fontWeight: 600, textTransform: "capitalize", whiteSpace: "nowrap" }}>
-                            {step}
-                          </span>
-                        </button>
-                        {step !== "lost" && (
-                          <div style={{ flex: 1, height: 2, background: lineBg, transition: "background 0.2s", margin: "0 2px", marginBottom: 16 }} />
-                        )}
-                      </div>
-                    );
-                  })}
+                {/* Pipeline stepper */}
+                <div className="px-1 sm:px-4">
+                  <PipelineStepper
+                    currentStatus={detail.status}
+                    onChangeStatus={(status) => updateStatus.mutate({ id: detail.id, status }, {
+                      onSuccess: () => { toast({ description: `Status updated to ${status}` }); void refetch(); },
+                    })}
+                  />
                 </div>
               </div>
 
-              {/* Two-column body */}
-              <div style={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden" }}>
-
+              {/* ── Two-column Body ── */}
+              <div className="flex flex-col sm:flex-row flex-1 min-h-0 overflow-hidden">
                 {/* LEFT: Transcript */}
-                <div style={{ flex: "1 1 60%", overflow: "auto", padding: 20, borderRight: "1px solid #2D333B" }}>
-                  <h3 style={{ fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 16 }}>
+                <div className="flex-1 overflow-auto p-4 sm:p-5 sm:border-r order-2 sm:order-1">
+                  <h3 className="text-[10px] font-bold uppercase tracking-wider font-heading text-muted-foreground mb-4">
                     Conversation Transcript
                   </h3>
+
                   {detail.messages.length === 0 ? (
-                    <div style={{ color: "#6B7280", fontSize: 13, textAlign: "center", padding: "32px 0" }}>
-                      No messages in this conversation.
+                    <div className="py-8 text-center">
+                      <MessageSquare size={20} className="text-muted-foreground/30 mx-auto mb-2" />
+                      <p className="text-xs text-muted-foreground">No messages in this conversation</p>
                     </div>
                   ) : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                    <div className="flex flex-col gap-3">
                       {detail.messages.map(msg => {
                         if (msg.role === "user") {
                           return (
-                            <div key={msg.id} style={{ display: "flex", justifyContent: "flex-end" }}>
-                              <div style={{ maxWidth: "80%" }}>
-                                <div style={{ background: "#4F8EF7", color: "#fff", padding: "10px 14px", borderRadius: "14px 14px 4px 14px", fontSize: 13, lineHeight: 1.55 }}>
+                            <div key={msg.id} className="flex justify-end">
+                              <div className="max-w-[85%] sm:max-w-[78%]">
+                                <div className="bg-primary text-primary-foreground rounded-2xl rounded-br-md px-3.5 py-2.5 text-[13px] leading-relaxed">
                                   {msg.content}
                                 </div>
-                                <div className="font-mono" style={{ fontSize: 10, color: "#6B7280", textAlign: "right", marginTop: 4 }}>
+                                <p className="text-[10px] text-muted-foreground text-right mt-1 font-mono">
                                   {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                                </div>
+                                </p>
                               </div>
                             </div>
                           );
                         }
                         if (msg.role === "assistant") {
                           return (
-                            <div key={msg.id} style={{ display: "flex", justifyContent: "flex-start" }}>
-                              <div style={{ maxWidth: "80%" }}>
-                                <div style={{ background: "#111827", border: "1px solid #2D333B", color: "#F9FAFB", padding: "10px 14px", borderRadius: "14px 14px 14px 4px", fontSize: 13, lineHeight: 1.55 }}>
+                            <div key={msg.id} className="flex justify-start">
+                              <div className="max-w-[85%] sm:max-w-[78%]">
+                                <div className="bg-muted border rounded-2xl rounded-bl-md px-3.5 py-2.5 text-[13px] text-foreground leading-relaxed">
                                   {msg.content}
                                 </div>
                                 {msg.sources && msg.sources.length > 0 && (
-                                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6 }}>
+                                  <div className="flex gap-1 flex-wrap mt-1.5">
                                     {msg.sources.map(src => (
-                                      <span key={src} style={{ background: "rgba(79,142,247,0.1)", border: "1px solid rgba(79,142,247,0.2)", color: "#4F8EF7", borderRadius: 6, padding: "2px 7px", fontSize: 11 }}>
-                                        📄 {src}
+                                      <span
+                                        key={src}
+                                        className="inline-flex items-center gap-1 rounded-md border border-primary/15 bg-primary/8 px-1.5 py-0.5 text-[10px] text-primary"
+                                      >
+                                        <FileText size={9} /> {src}
                                       </span>
                                     ))}
                                   </div>
                                 )}
-                                <div className="font-mono" style={{ fontSize: 10, color: "#6B7280", marginTop: 4 }}>
+                                <p className="text-[10px] text-muted-foreground mt-1 font-mono">
                                   {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                                </div>
+                                </p>
                               </div>
                             </div>
                           );
                         }
                         return (
-                          <div key={msg.id} style={{ textAlign: "center", fontSize: 12, color: "#6B7280", fontStyle: "italic" }}>
+                          <p key={msg.id} className="text-center text-xs text-muted-foreground italic py-1">
                             {msg.content}
-                          </div>
+                          </p>
                         );
                       })}
                     </div>
@@ -911,41 +1283,43 @@ export default function Leads() {
                 </div>
 
                 {/* RIGHT: Contact + Timeline + Notes */}
-                <div style={{ flex: "0 0 40%", overflow: "auto", padding: 20, display: "flex", flexDirection: "column", gap: 20 }}>
+                <div className="w-full sm:w-[40%] sm:max-w-[340px] overflow-auto p-4 sm:p-5 space-y-5 order-1 sm:order-2 border-b sm:border-b-0">
 
                   {/* Contact info card */}
-                  <div style={{ background: "#111827", border: "1px solid #2D333B", borderRadius: 10, padding: 14 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 12 }}>
+                  <div className="rounded-lg border bg-muted/30 p-3.5">
+                    <h4 className="text-[10px] font-bold uppercase tracking-wider font-heading text-muted-foreground mb-3">
                       Contact Info
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                    </h4>
+                    <div className="space-y-2.5">
                       {detail.contact?.email && (
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
-                          <Mail size={13} style={{ color: "#6B7280", flexShrink: 0 }} />
-                          <span style={{ color: "#9CA3AF" }}>{detail.contact.email}</span>
+                        <div className="flex items-center gap-2 text-[12px]">
+                          <Mail size={13} className="text-muted-foreground/60 shrink-0" />
+                          <span className="text-muted-foreground truncate">{detail.contact.email}</span>
                         </div>
                       )}
                       {detail.contact?.phone && (
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
-                          <Phone size={13} style={{ color: "#6B7280", flexShrink: 0 }} />
-                          <span style={{ color: "#9CA3AF" }}>{detail.contact.phone}</span>
+                        <div className="flex items-center gap-2 text-[12px]">
+                          <Phone size={13} className="text-muted-foreground/60 shrink-0" />
+                          <span className="text-muted-foreground">{detail.contact.phone}</span>
                         </div>
                       )}
                       {detail.contact?.company && (
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
-                          <Building2 size={13} style={{ color: "#6B7280", flexShrink: 0 }} />
-                          <span style={{ color: "#9CA3AF" }}>{detail.contact.company}</span>
+                        <div className="flex items-center gap-2 text-[12px]">
+                          <Building2 size={13} className="text-muted-foreground/60 shrink-0" />
+                          <span className="text-muted-foreground">{detail.contact.company}</span>
                         </div>
                       )}
                       {detail.contact?.channels_used && detail.contact.channels_used.length > 0 && (
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
-                          <Globe size={13} style={{ color: "#6B7280", flexShrink: 0 }} />
-                          <span style={{ color: "#9CA3AF" }}>{detail.contact.channels_used.join(", ")}</span>
+                        <div className="flex items-center gap-2 text-[12px]">
+                          <Globe size={13} className="text-muted-foreground/60 shrink-0" />
+                          <span className="text-muted-foreground">{detail.contact.channels_used.join(", ")}</span>
                         </div>
                       )}
                       {detail.source_page_url && (
-                        <div style={{ fontSize: 11, color: "#6B7280", paddingTop: 4 }}>
-                          Source: <span style={{ color: "#4F8EF7" }}>{detail.source_page_url}</span>
+                        <div className="flex items-center gap-2 text-[11px] pt-1 border-t border-dashed">
+                          <ExternalLink size={11} className="text-muted-foreground/50 shrink-0" />
+                          <span className="text-muted-foreground/70">Source:</span>
+                          <span className="text-primary font-medium">{detail.source_page_url}</span>
                         </div>
                       )}
                     </div>
@@ -953,24 +1327,22 @@ export default function Leads() {
 
                   {/* Timeline */}
                   <div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 12 }}>
+                    <h4 className="text-[10px] font-bold uppercase tracking-wider font-heading text-muted-foreground mb-3">
                       Timeline
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column" }}>
+                    </h4>
+                    <div className="flex flex-col">
                       {detail.timeline.map((event, i) => (
-                        <div key={i} style={{ display: "flex", gap: 12 }}>
-                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 20 }}>
-                            <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#4F8EF7", border: "2px solid #111827", flexShrink: 0, marginTop: 2 }} />
+                        <div key={i} className="flex gap-3">
+                          <div className="flex flex-col items-center w-4">
+                            <div className="h-2 w-2 rounded-full bg-primary border-2 border-background shrink-0 mt-1" />
                             {i < detail.timeline.length - 1 && (
-                              <div style={{ width: 2, flex: 1, background: "#2D333B", minHeight: 20, marginTop: 2 }} />
+                              <div className="w-px flex-1 bg-border min-h-[16px] mt-1" />
                             )}
                           </div>
-                          <div style={{ paddingBottom: 16 }}>
-                            <div style={{ fontSize: 12, fontWeight: 600, color: "#F9FAFB" }}>{event.event}</div>
-                            {event.detail && <div style={{ fontSize: 11, color: "#9CA3AF" }}>{event.detail}</div>}
-                            <div className="font-mono" style={{ fontSize: 10, color: "#6B7280", marginTop: 2 }}>
-                              {relativeTime(event.timestamp)}
-                            </div>
+                          <div className="pb-4">
+                            <p className="text-[12px] font-semibold text-foreground leading-tight">{event.event}</p>
+                            {event.detail && <p className="text-[11px] text-muted-foreground mt-0.5">{event.detail}</p>}
+                            <p className="text-[10px] text-muted-foreground/60 font-mono mt-0.5">{relativeTime(event.timestamp)}</p>
                           </div>
                         </div>
                       ))}
@@ -979,15 +1351,13 @@ export default function Leads() {
 
                   {/* Internal notes */}
                   <div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 12 }}>
+                    <h4 className="text-[10px] font-bold uppercase tracking-wider font-heading text-muted-foreground mb-3">
                       Internal Notes
-                    </div>
+                    </h4>
                     {detail.notes.map((note, i) => (
-                      <div key={i} style={{ background: "#111827", border: "1px solid #2D333B", borderRadius: 8, padding: "10px 12px", marginBottom: 8 }}>
-                        <div style={{ fontSize: 12, color: "#F9FAFB", lineHeight: 1.5 }}>{note.note}</div>
-                        <div className="font-mono" style={{ fontSize: 10, color: "#6B7280", marginTop: 4 }}>
-                          {relativeTime(note.created_at)}
-                        </div>
+                      <div key={i} className="rounded-lg border bg-muted/30 p-3 mb-2">
+                        <p className="text-[12px] text-foreground leading-relaxed">{note.note}</p>
+                        <p className="text-[10px] text-muted-foreground/60 font-mono mt-1.5">{relativeTime(note.created_at)}</p>
                       </div>
                     ))}
                     <Textarea
@@ -995,9 +1365,9 @@ export default function Leads() {
                       value={noteText}
                       onChange={e => setNoteText(e.target.value)}
                       rows={3}
-                      style={{ background: "#111827", border: "1px solid #2D333B", color: "#F9FAFB", fontSize: 13, resize: "none" }}
+                      className="text-[13px] bg-card resize-none mt-1"
                     />
-                    <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                    <div className="flex gap-2 mt-2">
                       <Button
                         size="sm"
                         disabled={!noteText.trim() || addNote.isPending}
@@ -1005,45 +1375,47 @@ export default function Leads() {
                           onSuccess: () => { setNoteText(""); toast({ description: "Note added" }); },
                           onError: () => toast({ variant: "destructive", description: "Failed to add note" }),
                         })}
-                        style={{ background: "#4F8EF7", color: "#fff", border: "none", flex: 1 }}
+                        className="flex-1 gap-1.5 text-xs h-8"
                       >
-                        <Send size={13} style={{ marginRight: 6 }} /> Add Note
+                        <Send size={12} /> Add Note
                       </Button>
                       <Button
                         size="sm"
                         variant="outline"
                         disabled={recalcScore.isPending}
                         onClick={() => recalcScore.mutate(detail.id, {
-                          onSuccess: data => toast({ description: `Score recalculated: ${data.lead_score || "unchanged"}` }),
+                          onSuccess: data => toast({ description: `Score: ${data.lead_score || "unchanged"}` }),
                           onError: () => toast({ variant: "destructive", description: "Score recalculation failed" }),
                         })}
-                        style={{ border: "1px solid #2D333B", background: "transparent", color: "#9CA3AF" }}
+                        className="gap-1.5 text-xs h-8"
                       >
-                        <Star size={13} style={{ marginRight: 4 }} /> Recalc Score
+                        <Sparkles size={12} /> Recalc
                       </Button>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Quick actions footer */}
-              <div style={{ padding: "14px 24px", borderTop: "1px solid #2D333B", display: "flex", gap: 10, flexShrink: 0, flexWrap: "wrap" }}>
+              {/* ── Footer Actions ── */}
+              <div className="shrink-0 border-t p-4 sm:px-6 flex gap-2.5 flex-wrap">
                 <Button
+                  size="sm"
                   onClick={() => updateStatus.mutate({ id: detail.id, status: "converted" }, {
                     onSuccess: () => { toast({ description: "Lead marked as Converted" }); void refetch(); setActiveLead(null); },
                   })}
-                  style={{ background: "#10B981", color: "#fff", border: "none" }}
+                  className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
                 >
-                  <CheckCircle2 size={14} style={{ marginRight: 6 }} /> Mark as Converted
+                  <CheckCircle2 size={13} /> Mark Converted
                 </Button>
                 <Button
+                  size="sm"
                   variant="outline"
                   onClick={() => updateStatus.mutate({ id: detail.id, status: "lost" }, {
                     onSuccess: () => { toast({ description: "Lead marked as Lost" }); void refetch(); setActiveLead(null); },
                   })}
-                  style={{ border: "1px solid #EF4444", color: "#EF4444", background: "transparent" }}
+                  className="gap-1.5 text-xs border-destructive/30 text-destructive hover:bg-destructive/10"
                 >
-                  Mark as Lost
+                  <X size={13} /> Mark Lost
                 </Button>
               </div>
             </>
@@ -1051,81 +1423,87 @@ export default function Leads() {
         </DialogContent>
       </Dialog>
 
-      {/* ── 7.5.7 Bulk Actions Bar ── */}
+      {/* ═══════════════════════════════════════════════════════════════════════
+         BULK ACTIONS BAR
+         ═══════════════════════════════════════════════════════════════════════ */}
       {selectedIds.size > 0 && (
-        <div style={{
-          position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)",
-          background: "#1C1F26", border: "1px solid #2D333B", borderRadius: 14,
-          padding: "12px 20px", display: "flex", alignItems: "center", gap: 10,
-          boxShadow: "0 8px 32px rgba(0,0,0,0.5)", zIndex: 100, flexWrap: "wrap",
-          maxWidth: "90vw",
-        }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: "#F9FAFB", marginRight: 4 }}>
+        <div className={cn(
+          "fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-50",
+          "bg-card border rounded-2xl shadow-strong",
+          "px-4 sm:px-5 py-3 flex items-center gap-2 sm:gap-3 flex-wrap justify-center",
+          "max-w-[95vw] animate-fade-in",
+        )}>
+          <span className="text-xs font-bold text-foreground font-heading mr-1">
             {selectedIds.size} selected
           </span>
+
           <Button
             size="sm"
             disabled={bulkAction.isPending}
             onClick={() => handleBulkStatus("qualified")}
-            style={{ background: "rgba(79,142,247,0.15)", color: "#4F8EF7", border: "1px solid rgba(79,142,247,0.3)" }}
+            className="gap-1.5 text-[11px] h-7 bg-blue-500/15 text-blue-400 border border-blue-500/25 hover:bg-blue-500/25"
           >
-            Mark Qualified
+            Qualified
           </Button>
+
           <Button
             size="sm"
             disabled={bulkAction.isPending}
             onClick={() => handleBulkStatus("converted")}
-            style={{ background: "rgba(16,185,129,0.15)", color: "#10B981", border: "1px solid rgba(16,185,129,0.3)" }}
+            className="gap-1.5 text-[11px] h-7 bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 hover:bg-emerald-500/25"
           >
-            Mark Converted
+            Converted
           </Button>
+
           <Button
             size="sm"
             disabled={bulkAction.isPending}
             onClick={() => void handleBulkExport()}
-            style={{ background: "rgba(255,255,255,0.06)", color: "#9CA3AF", border: "1px solid #2D333B" }}
+            variant="outline"
+            className="gap-1.5 text-[11px] h-7"
           >
-            <Download size={13} style={{ marginRight: 5 }} /> Export CSV
+            <Download size={12} /> CSV
           </Button>
+
           <Button
             size="sm"
             disabled={bulkAction.isPending}
             onClick={() => setConfirmDelete(true)}
-            style={{ background: "rgba(239,68,68,0.1)", color: "#EF4444", border: "1px solid rgba(239,68,68,0.3)" }}
+            className="gap-1.5 text-[11px] h-7 bg-red-500/15 text-red-400 border border-red-500/25 hover:bg-red-500/25"
           >
-            <Trash2 size={13} style={{ marginRight: 5 }} /> Delete
+            <Trash2 size={12} /> Delete
           </Button>
+
           <button
             onClick={() => setSelectedIds(new Set())}
-            style={{ background: "none", border: "none", cursor: "pointer", color: "#6B7280", display: "flex", alignItems: "center", padding: 4 }}
+            className="text-muted-foreground hover:text-foreground transition-colors p-1 ml-1"
           >
-            <X size={16} />
+            <X size={15} />
           </button>
         </div>
       )}
 
-      {/* Delete confirmation dialog */}
+      {/* ═══════════════════════════════════════════════════════════════════════
+         DELETE CONFIRMATION
+         ═══════════════════════════════════════════════════════════════════════ */}
       <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
-        <DialogContent style={{ background: "#1C1F26", border: "1px solid #2D333B", maxWidth: 420 }}>
+        <DialogContent className="max-w-[400px] bg-card rounded-2xl">
           <DialogHeader>
-            <DialogTitle style={{ color: "#F9FAFB" }}>Delete Leads</DialogTitle>
+            <DialogTitle className="font-heading text-base">Delete Leads</DialogTitle>
           </DialogHeader>
-          <p style={{ color: "#9CA3AF", fontSize: 14, lineHeight: 1.6 }}>
+          <p className="text-sm text-muted-foreground leading-relaxed">
             Are you sure you want to delete {selectedIds.size} lead{selectedIds.size !== 1 ? "s" : ""}?
-            This cannot be undone.
+            This action cannot be undone.
           </p>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setConfirmDelete(false)}
-              style={{ border: "1px solid #2D333B", background: "transparent", color: "#9CA3AF" }}
-            >
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" size="sm" onClick={() => setConfirmDelete(false)}>
               Cancel
             </Button>
             <Button
+              size="sm"
               disabled={bulkAction.isPending}
               onClick={handleBulkDelete}
-              style={{ background: "#EF4444", color: "#fff", border: "none" }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete
             </Button>

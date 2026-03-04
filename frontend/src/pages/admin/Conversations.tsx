@@ -1,6 +1,14 @@
 /**
  * Conversations — 7.4 (All 5 specs)
  * Filters, Stats Bar, Table, Detail Panel, Bulk Actions
+ *
+ * Redesigned with:
+ * - Proper Tailwind design tokens (no hardcoded hex colors)
+ * - Progressive column disclosure (no horizontal scrollbar)
+ * - Mobile card list for <sm screens
+ * - Collapsible advanced filters
+ * - Responsive detail panel using Dialog
+ * - Consistent aesthetic with the Leads page
  */
 
 import { useState, useCallback, useEffect, useMemo } from "react";
@@ -10,12 +18,11 @@ import {
   ThumbsUp, ThumbsDown, CheckCircle2,
   RefreshCw, ChevronLeft, ChevronRight,
   Flag, User, MoreHorizontal, Send,
-  Instagram, Facebook, Cpu, AlertCircle,
+  Mail, Phone, ExternalLink, FileText,
+  SlidersHorizontal, AlertCircle, Eye,
 } from "lucide-react";
-import { KPICard } from "@/components/dashboard/KPICard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
@@ -39,21 +46,14 @@ import {
   type ConversationListFilters,
 } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
-// ─── Design tokens ────────────────────────────────────────────────────────────
-const CARD_BG = "#1C1F26";
-const INPUT_BG = "#111827";
-const BORDER = "#2D333B";
-const TEXT = "#F9FAFB";
-const MUTED = "#9CA3AF";
-const DIM = "#6B7280";
-const BLUE = "#4F8EF7";
-const GREEN = "#10B981";
-const AMBER = "#F59E0B";
-const ROSE = "#EF4444";
+/* ═══════════════════════════════════════════════════════════════════════════════
+   MOCK DATA
+   ═══════════════════════════════════════════════════════════════════════════════ */
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
 const MOCK_STATS = { total: 1247, active: 312, resolved: 782, escalated: 89, abandoned: 64 };
+
 const MOCK_CONVERSATIONS: ConversationListItem[] = [
   { id: "1", channel: "web", contact_name: "Sarah Johnson", contact_phone: null, contact_email: "sarah@acme.com", first_message: "Hi, I need help with my subscription billing. The charge on my account doesn't match what I expected.", message_count: 8, status: "resolved", rating: "positive", duration_minutes: 12.3, started_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() },
   { id: "2", channel: "whatsapp", contact_name: "Marcus Williams", contact_phone: "+1 555 0102", contact_email: null, first_message: "What are your business hours? I need to speak to someone urgently.", message_count: 4, status: "escalated", rating: null, duration_minutes: 5.1, started_at: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString() },
@@ -66,7 +66,7 @@ const MOCK_CONVERSATIONS: ConversationListItem[] = [
 
 const MOCK_DETAIL = {
   id: "1",
-  channel: "web",
+  channel: "web" as const,
   status: "resolved",
   rating: "positive",
   message_count: 8,
@@ -84,20 +84,20 @@ const MOCK_DETAIL = {
     instagram_handle: null,
     company: "Acme Corp",
     lead_status: "qualified",
-    channels_used: ["web"],
+    channels_used: ["web"] as string[],
     first_seen_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
     last_active_at: new Date(Date.now() - 1.5 * 60 * 60 * 1000).toISOString(),
     notes: null,
   },
   messages: [
-    { id: "m1", role: "user", content: "Hi, I need help with my subscription billing. The charge on my account doesn't match what I expected.", citations: null, confidence_score: null, created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() },
-    { id: "m2", role: "assistant", content: "Hello Sarah! I'd be happy to help you with your billing question. Your current plan is the Growth plan at $99/month, billed on the 1st of each month. The charge you're seeing should reflect your most recent billing cycle.", citations: [{ source: "Billing FAQ.pdf" }], confidence_score: 0.94, created_at: new Date(Date.now() - 2 * 60 * 60 * 1000 + 30000).toISOString() },
-    { id: "m3", role: "user", content: "But I was charged $129. I thought I was on the $99 plan.", citations: null, confidence_score: null, created_at: new Date(Date.now() - 1.9 * 60 * 60 * 1000).toISOString() },
-    { id: "m4", role: "assistant", content: "I can see that your account was upgraded to the Pro plan on the 15th, which is why the charge was prorated to $129 for the month. Would you like me to show you the full breakdown of the proration calculation?", citations: [{ source: "Pricing Guide.pdf" }, { source: "Proration Policy.pdf" }], confidence_score: 0.91, created_at: new Date(Date.now() - 1.85 * 60 * 60 * 1000).toISOString() },
-    { id: "m5", role: "user", content: "Yes please, that would be helpful.", citations: null, confidence_score: null, created_at: new Date(Date.now() - 1.8 * 60 * 60 * 1000).toISOString() },
-    { id: "m6", role: "assistant", content: "Here's the breakdown: Growth plan ($99) × 15/30 days = $49.50 credit + Pro plan ($149) × 15/30 days = $74.50. Total: $124.00 + applicable taxes = $129.00. This is correct per our proration policy.", citations: [{ source: "Billing FAQ.pdf" }], confidence_score: 0.97, created_at: new Date(Date.now() - 1.75 * 60 * 60 * 1000).toISOString() },
-    { id: "m7", role: "user", content: "Ah that makes sense! Thank you for explaining.", citations: null, confidence_score: null, created_at: new Date(Date.now() - 1.7 * 60 * 60 * 1000).toISOString() },
-    { id: "m8", role: "assistant", content: "You're welcome, Sarah! If you have any other questions about your billing or account, feel free to ask anytime. Have a great day!", citations: null, confidence_score: 0.99, created_at: new Date(Date.now() - 1.65 * 60 * 60 * 1000).toISOString() },
+    { id: "m1", role: "user" as const, content: "Hi, I need help with my subscription billing. The charge on my account doesn't match what I expected.", citations: null, confidence_score: null, created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() },
+    { id: "m2", role: "assistant" as const, content: "Hello Sarah! I'd be happy to help you with your billing question. Your current plan is the Growth plan at $99/month, billed on the 1st of each month. The charge you're seeing should reflect your most recent billing cycle.", citations: [{ source: "Billing FAQ.pdf" }], confidence_score: 0.94, created_at: new Date(Date.now() - 2 * 60 * 60 * 1000 + 30000).toISOString() },
+    { id: "m3", role: "user" as const, content: "But I was charged $129. I thought I was on the $99 plan.", citations: null, confidence_score: null, created_at: new Date(Date.now() - 1.9 * 60 * 60 * 1000).toISOString() },
+    { id: "m4", role: "assistant" as const, content: "I can see that your account was upgraded to the Pro plan on the 15th, which is why the charge was prorated to $129 for the month. Would you like me to show you the full breakdown of the proration calculation?", citations: [{ source: "Pricing Guide.pdf" }, { source: "Proration Policy.pdf" }], confidence_score: 0.91, created_at: new Date(Date.now() - 1.85 * 60 * 60 * 1000).toISOString() },
+    { id: "m5", role: "user" as const, content: "Yes please, that would be helpful.", citations: null, confidence_score: null, created_at: new Date(Date.now() - 1.8 * 60 * 60 * 1000).toISOString() },
+    { id: "m6", role: "assistant" as const, content: "Here's the breakdown: Growth plan ($99) × 15/30 days = $49.50 credit + Pro plan ($149) × 15/30 days = $74.50. Total: $124.00 + applicable taxes = $129.00. This is correct per our proration policy.", citations: [{ source: "Billing FAQ.pdf" }], confidence_score: 0.97, created_at: new Date(Date.now() - 1.75 * 60 * 60 * 1000).toISOString() },
+    { id: "m7", role: "user" as const, content: "Ah that makes sense! Thank you for explaining.", citations: null, confidence_score: null, created_at: new Date(Date.now() - 1.7 * 60 * 60 * 1000).toISOString() },
+    { id: "m8", role: "assistant" as const, content: "You're welcome, Sarah! If you have any other questions about your billing or account, feel free to ask anytime. Have a great day!", citations: null, confidence_score: 0.99, created_at: new Date(Date.now() - 1.65 * 60 * 60 * 1000).toISOString() },
   ],
   timeline: [
     { event: "Conversation Started", timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), detail: "via web" },
@@ -106,14 +106,39 @@ const MOCK_DETAIL = {
   ],
 };
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+/* ═══════════════════════════════════════════════════════════════════════════════
+   CONSTANTS & STYLE MAPS
+   ═══════════════════════════════════════════════════════════════════════════════ */
 
-const CHANNEL_ICONS: Record<string, string> = {
-  web: "🌐", whatsapp: "💬", instagram: "📸", facebook: "💙", email: "📧", sms: "📱",
+const CHANNEL_META: Record<string, { icon: string; label: string; className: string }> = {
+  web:       { icon: "🌐", label: "Web",       className: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
+  whatsapp:  { icon: "💬", label: "WhatsApp",  className: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" },
+  instagram: { icon: "📸", label: "Instagram", className: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
+  facebook:  { icon: "💙", label: "Facebook",  className: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
+  email:     { icon: "📧", label: "Email",     className: "bg-violet-500/10 text-violet-400 border-violet-500/20" },
+  sms:       { icon: "📱", label: "SMS",       className: "bg-pink-500/10 text-pink-400 border-pink-500/20" },
 };
-const CHANNEL_COLORS: Record<string, string> = {
-  web: BLUE, whatsapp: GREEN, instagram: AMBER, facebook: "#3B82F6", email: "#8B5CF6", sms: "#EC4899",
+
+const STATUS_META: Record<string, { dot: string; badge: string; label: string }> = {
+  active:    { dot: "bg-blue-400",    badge: "bg-blue-500/10 text-blue-400 border-blue-500/20",       label: "Active" },
+  resolved:  { dot: "bg-emerald-400", badge: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", label: "Resolved" },
+  escalated: { dot: "bg-amber-400",   badge: "bg-amber-500/10 text-amber-400 border-amber-500/20",   label: "Escalated" },
+  abandoned: { dot: "bg-gray-400",    badge: "bg-gray-500/10 text-gray-400 border-gray-500/20",       label: "Abandoned" },
 };
+
+const STATUSES = ["active", "resolved", "escalated", "abandoned"] as const;
+
+const STAT_CARDS: { key: keyof typeof MOCK_STATS; label: string; icon: React.ReactNode; accent: string }[] = [
+  { key: "total",     label: "Total",     icon: <MessageSquare size={18} />, accent: "from-blue-500/20 to-blue-500/0" },
+  { key: "active",    label: "Active",    icon: <Clock size={18} />,         accent: "from-blue-500/20 to-blue-500/0" },
+  { key: "resolved",  label: "Resolved",  icon: <CheckCircle2 size={18} />,  accent: "from-emerald-500/20 to-emerald-500/0" },
+  { key: "escalated", label: "Escalated", icon: <AlertCircle size={18} />,   accent: "from-amber-500/20 to-amber-500/0" },
+  { key: "abandoned", label: "Abandoned", icon: <X size={18} />,             accent: "from-gray-500/20 to-gray-500/0" },
+];
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   HELPERS
+   ═══════════════════════════════════════════════════════════════════════════════ */
 
 function relativeTime(isoDate: string): string {
   const diff = Date.now() - new Date(isoDate).getTime();
@@ -128,7 +153,7 @@ function relativeTime(isoDate: string): string {
 }
 
 function formatDuration(mins: number | null): string {
-  if (!mins) return "—";
+  if (!mins) return "--";
   if (mins < 60) return `${Math.round(mins)}m`;
   return `${Math.floor(mins / 60)}h ${Math.round(mins % 60)}m`;
 }
@@ -140,36 +165,88 @@ function formatTimestamp(isoDate: string): string {
 
 function getInitials(name: string | null): string {
   if (!name) return "?";
-  const parts = name.trim().split(" ");
-  if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-  return name.substring(0, 2).toUpperCase();
+  return name.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase();
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, { label: string; bg: string; color: string }> = {
-    active: { label: "Active", bg: "rgba(79,142,247,0.15)", color: BLUE },
-    resolved: { label: "Resolved", bg: "rgba(16,185,129,0.15)", color: GREEN },
-    escalated: { label: "Escalated", bg: "rgba(245,158,11,0.15)", color: AMBER },
-    abandoned: { label: "Abandoned", bg: "rgba(107,114,128,0.15)", color: DIM },
-  };
-  const s = map[status] ?? map.active;
+/* ═══════════════════════════════════════════════════════════════════════════════
+   ATOMIC COMPONENTS
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+function ConversationAvatar({ name, size = "md" }: { name: string | null; size?: "sm" | "md" | "lg" }) {
+  const sizes = { sm: "h-7 w-7 text-[10px]", md: "h-9 w-9 text-xs", lg: "h-12 w-12 text-sm" };
   return (
-    <span
-      className="text-[11px] font-semibold px-2 py-0.5 rounded-full font-heading"
-      style={{ background: s.bg, color: s.color }}
-    >
-      {s.label}
+    <div className={cn(
+      sizes[size],
+      "rounded-full bg-gradient-to-br from-primary/80 to-violet-600/80",
+      "flex items-center justify-center font-bold text-white",
+      "ring-2 ring-background shrink-0 select-none tracking-wide",
+    )}>
+      {getInitials(name)}
+    </div>
+  );
+}
+
+function StatusBadge({ status, interactive }: { status: string; interactive?: boolean }) {
+  const meta = STATUS_META[status] ?? STATUS_META.active;
+  return (
+    <span className={cn(
+      "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5",
+      "text-[11px] font-semibold font-heading tracking-wide transition-colors",
+      meta.badge,
+      interactive && "cursor-pointer hover:brightness-125",
+    )}>
+      <span className={cn("h-1.5 w-1.5 rounded-full", meta.dot)} />
+      {meta.label}
     </span>
   );
 }
 
-// ─── Detail Panel ─────────────────────────────────────────────────────────────
+function ChannelPill({ channel }: { channel: string | null }) {
+  if (!channel) return <span className="text-muted-foreground text-xs">--</span>;
+  const meta = CHANNEL_META[channel] ?? CHANNEL_META.web;
+  return (
+    <span className={cn(
+      "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5",
+      "text-[11px] font-medium",
+      meta.className,
+    )}>
+      <span className="text-[10px]">{meta.icon}</span>
+      <span className="hidden sm:inline">{meta.label}</span>
+    </span>
+  );
+}
 
-function DetailPanel({
+function RatingIndicator({ rating }: { rating: string | null }) {
+  if (rating === "positive") {
+    return (
+      <span className="inline-flex items-center gap-1 text-emerald-400 text-[11px] font-medium">
+        <ThumbsUp size={12} />
+        <span className="hidden xl:inline">Positive</span>
+      </span>
+    );
+  }
+  if (rating === "negative") {
+    return (
+      <span className="inline-flex items-center gap-1 text-red-400 text-[11px] font-medium">
+        <ThumbsDown size={12} />
+        <span className="hidden xl:inline">Negative</span>
+      </span>
+    );
+  }
+  return <span className="text-muted-foreground/40 text-xs">--</span>;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   DETAIL PANEL (Dialog-based)
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+function DetailDialog({
   conversationId,
+  open,
   onClose,
 }: {
-  conversationId: string;
+  conversationId: string | null;
+  open: boolean;
   onClose: () => void;
 }) {
   const { data: rawDetail, isLoading } = useConversationDetail(conversationId);
@@ -188,7 +265,16 @@ function DetailPanel({
     if (detail) setIsFlagged(detail.is_flagged);
   }, [detail]);
 
+  // Reset state when opening a new conversation
+  useEffect(() => {
+    if (open) {
+      setNoteText("");
+      setLocalNotes([]);
+    }
+  }, [open, conversationId]);
+
   const handleStatusChange = async (newStatus: string) => {
+    if (!conversationId) return;
     try {
       await updateStatus.mutateAsync({ id: conversationId, status: newStatus });
       toast({ title: "Status updated", description: `Conversation marked as ${newStatus}` });
@@ -198,11 +284,15 @@ function DetailPanel({
   };
 
   const handleFlag = async () => {
+    if (!conversationId) return;
     const next = !isFlagged;
     setIsFlagged(next);
     try {
       await toggleFlag.mutateAsync(conversationId);
-      toast({ title: next ? "Flagged for training" : "Flag removed", description: next ? "Conversation added to training queue" : "Conversation removed from training queue" });
+      toast({
+        title: next ? "Flagged for training" : "Flag removed",
+        description: next ? "Conversation added to training queue" : "Removed from training queue",
+      });
     } catch {
       setIsFlagged(!next);
       toast({ title: "Error", description: "Failed to toggle flag", variant: "destructive" });
@@ -210,10 +300,13 @@ function DetailPanel({
   };
 
   const handleAddNote = async () => {
-    if (!noteText.trim()) return;
+    if (!noteText.trim() || !conversationId) return;
     try {
       await addNote.mutateAsync({ id: conversationId, note: noteText.trim() });
-      setLocalNotes(prev => [...prev, { text: noteText.trim(), time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }]);
+      setLocalNotes(prev => [...prev, {
+        text: noteText.trim(),
+        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      }]);
       setNoteText("");
       toast({ title: "Note added" });
     } catch {
@@ -224,280 +317,319 @@ function DetailPanel({
   const contact = detail?.contact;
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        right: 0,
-        bottom: 0,
-        width: "min(680px, 100vw)",
-        background: CARD_BG,
-        borderLeft: `1px solid ${BORDER}`,
-        zIndex: 80,
-        display: "flex",
-        flexDirection: "column",
-        boxShadow: "-8px 0 40px rgba(0,0,0,0.5)",
-      }}
-    >
-      {/* Header */}
-      <div
-        style={{
-          borderBottom: `1px solid ${BORDER}`,
-          padding: "12px 16px",
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          flexShrink: 0,
-          background: "#0D1117",
-        }}
+    <Dialog open={open} onOpenChange={o => { if (!o) onClose(); }}>
+      <DialogContent
+        className={cn(
+          "p-0 overflow-hidden flex flex-col gap-0",
+          "max-w-[860px] w-[95vw] max-h-[92vh] sm:max-h-[88vh]",
+          "bg-card border rounded-2xl",
+        )}
       >
-        <button
-          onClick={onClose}
-          className="flex items-center justify-center rounded-md transition-colors"
-          style={{ width: 28, height: 28, color: MUTED, flexShrink: 0 }}
-          onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.08)")}
-          onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-          aria-label="Close panel"
-        >
-          <X size={16} />
-        </button>
-
-        <span style={{ fontSize: 16, color: DIM }}>
-          {CHANNEL_ICONS[detail?.channel ?? "web"] ?? "🌐"}
-        </span>
-        <span className="text-sm font-semibold font-heading truncate flex-1" style={{ color: TEXT }}>
-          {contact?.full_name ?? detail?.contact?.phone ?? "Anonymous"}
-        </span>
-        {detail && <StatusBadge status={detail.status} />}
-
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <button
-            onClick={handleFlag}
-            className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-all font-description"
-            style={{
-              background: isFlagged ? "rgba(245,158,11,0.15)" : "rgba(255,255,255,0.05)",
-              color: isFlagged ? AMBER : MUTED,
-              border: `1px solid ${isFlagged ? "rgba(245,158,11,0.3)" : BORDER}`,
-            }}
-            title={isFlagged ? "Remove from training" : "Flag for training"}
-          >
-            <Flag size={12} fill={isFlagged ? AMBER : "none"} />
-            {isFlagged ? "Flagged" : "Flag"}
-          </button>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-all font-description"
-                style={{ background: "rgba(255,255,255,0.05)", color: MUTED, border: `1px solid ${BORDER}` }}
-              >
-                Status <ChevronDown size={11} />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent style={{ background: "#111827", border: `1px solid ${BORDER}` }} align="end">
-              {["active", "resolved", "escalated", "abandoned"].map(s => (
-                <DropdownMenuItem
-                  key={s}
-                  className="text-xs font-description capitalize cursor-pointer"
-                  style={{ color: TEXT }}
-                  onClick={() => handleStatusChange(s)}
-                >
-                  {s.charAt(0).toUpperCase() + s.slice(1)}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
-
-      {/* Body */}
-      {isLoading && !detail ? (
-        <div className="flex-1 p-4 space-y-3">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-14 rounded-xl" style={{ background: "#111827" }} />
-          ))}
-        </div>
-      ) : detail ? (
-        <div className="flex-1 overflow-hidden flex" style={{ minHeight: 0 }}>
-          {/* Left: Transcript */}
-          <div
-            className="flex-1 overflow-y-auto"
-            style={{ padding: "16px", scrollbarWidth: "none", borderRight: `1px solid ${BORDER}` } as React.CSSProperties}
-          >
-            <div className="text-xs font-semibold uppercase tracking-wider mb-4 font-heading" style={{ color: DIM }}>
-              Transcript
-            </div>
-            <div className="space-y-3">
-              {detail.messages.map(msg => {
-                if (msg.role === "system") {
-                  return (
-                    <div key={msg.id} className="text-center">
-                      <span className="text-xs italic font-description" style={{ color: DIM }}>
-                        {msg.content}
-                      </span>
-                    </div>
-                  );
-                }
-                const isUser = msg.role === "user";
-                return (
-                  <div key={msg.id} className={`flex flex-col ${isUser ? "items-end" : "items-start"}`}>
-                    <div
-                      style={{
-                        maxWidth: "82%",
-                        padding: "8px 12px",
-                        borderRadius: isUser ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
-                        background: isUser ? BLUE : "rgba(255,255,255,0.06)",
-                        border: isUser ? "none" : `1px solid ${BORDER}`,
-                        color: isUser ? "#fff" : TEXT,
-                        fontSize: 13,
-                        lineHeight: 1.5,
-                        fontFamily: "'Satoshi', sans-serif",
-                      }}
-                    >
-                      {msg.content}
-                    </div>
-                    {/* Citations */}
-                    {!isUser && msg.citations && msg.citations.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-1.5">
-                        {msg.citations.map((c, i) => (
-                          <span
-                            key={i}
-                            className="text-[10px] font-description px-2 py-0.5 rounded-full flex items-center gap-1"
-                            style={{ background: "rgba(79,142,247,0.12)", color: BLUE, border: `1px solid rgba(79,142,247,0.2)` }}
-                          >
-                            📄 {c.source ?? c.title ?? "Source"}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    <span className="text-[10px] mt-1 font-mono" style={{ color: DIM }}>
-                      {formatTimestamp(msg.created_at)}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
+        {isLoading || !detail ? (
+          <div className="p-6 space-y-4">
+            <Skeleton className="h-16 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-40 w-full" />
           </div>
+        ) : (
+          <>
+            {/* ── Contact Header ── */}
+            <div className="shrink-0 p-5 sm:p-6 border-b space-y-4">
+              <div className="flex items-start gap-3.5">
+                <ConversationAvatar name={contact?.full_name ?? null} size="lg" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2.5 flex-wrap mb-1.5">
+                    <h2 className="font-heading text-base sm:text-lg font-bold text-foreground leading-none">
+                      {contact?.full_name ?? "Anonymous"}
+                    </h2>
+                    <StatusBadge status={detail.status} />
+                    <ChannelPill channel={detail.channel} />
+                  </div>
 
-          {/* Right: Contact + Timeline + Notes */}
-          <div
-            className="overflow-y-auto flex-shrink-0"
-            style={{ width: 220, padding: "16px 14px", scrollbarWidth: "none" } as React.CSSProperties}
-          >
-            {/* Contact card */}
-            <div style={{ background: "#111827", borderRadius: 10, padding: 12, border: `1px solid ${BORDER}`, marginBottom: 16 }}>
-              <div
-                className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white mx-auto mb-2"
-                style={{ background: `linear-gradient(135deg, ${BLUE}, #7C3AED)` }}
-              >
-                {getInitials(contact?.full_name ?? null)}
-              </div>
-              <div className="text-center mb-2">
-                <div className="text-sm font-semibold font-heading truncate" style={{ color: TEXT }}>
-                  {contact?.full_name ?? "Anonymous"}
+                  {contact?.company && (
+                    <p className="text-[13px] text-muted-foreground mb-2 flex items-center gap-1.5">
+                      {contact.company}
+                    </p>
+                  )}
+
+                  <div className="flex gap-4 flex-wrap text-[12px] text-muted-foreground">
+                    {contact?.email && (
+                      <span className="flex items-center gap-1.5">
+                        <Mail size={12} className="text-muted-foreground/60" />{contact.email}
+                      </span>
+                    )}
+                    {contact?.phone && (
+                      <span className="flex items-center gap-1.5">
+                        <Phone size={12} className="text-muted-foreground/60" />{contact.phone}
+                      </span>
+                    )}
+                    {detail.duration_minutes && (
+                      <span className="flex items-center gap-1.5 font-mono">
+                        <Clock size={12} className="text-muted-foreground/60" />{formatDuration(detail.duration_minutes)}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                {contact?.company && (
-                  <div className="text-xs font-description" style={{ color: MUTED }}>{contact.company}</div>
+
+                {/* Header actions */}
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={handleFlag}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-all border",
+                      isFlagged
+                        ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
+                        : "bg-muted/50 text-muted-foreground border-border hover:bg-muted",
+                    )}
+                    title={isFlagged ? "Remove from training" : "Flag for training"}
+                  >
+                    <Flag size={12} fill={isFlagged ? "currentColor" : "none"} />
+                    <span className="hidden sm:inline">{isFlagged ? "Flagged" : "Flag"}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Quick stats row */}
+              <div className="flex items-center gap-4 text-[11px] text-muted-foreground/70 font-mono px-1">
+                <span>{detail.message_count} messages</span>
+                <span className="h-3 w-px bg-border" />
+                <span>{detail.rating === "positive" ? "Positive rating" : detail.rating === "negative" ? "Negative rating" : "No rating"}</span>
+                <span className="h-3 w-px bg-border" />
+                <span>Started {relativeTime(detail.started_at)}</span>
+                {detail.page_url && (
+                  <>
+                    <span className="h-3 w-px bg-border" />
+                    <span className="flex items-center gap-1 text-primary">
+                      <ExternalLink size={10} />
+                      {detail.page_url.replace(/^https?:\/\//, "")}
+                    </span>
+                  </>
                 )}
               </div>
-              {contact?.email && (
-                <div className="text-xs font-description truncate mb-1 flex items-center gap-1" style={{ color: MUTED }}>
-                  <span style={{ color: DIM }}>✉</span> {contact.email}
-                </div>
-              )}
-              {contact?.phone && (
-                <div className="text-xs font-description mb-1 flex items-center gap-1" style={{ color: MUTED }}>
-                  <span style={{ color: DIM }}>📞</span> {contact.phone}
-                </div>
-              )}
-              {contact?.lead_status && (
-                <div className="mt-2 text-center">
-                  <span
-                    className="text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase font-heading"
-                    style={{ background: "rgba(79,142,247,0.15)", color: BLUE }}
-                  >
-                    {contact.lead_status}
-                  </span>
-                </div>
-              )}
             </div>
 
-            {/* Timeline */}
-            <div className="mb-4">
-              <div className="text-xs font-semibold uppercase tracking-wider mb-3 font-heading" style={{ color: DIM }}>
-                Timeline
-              </div>
-              <div className="relative">
-                {detail.timeline.map((event, idx) => (
-                  <div key={idx} className="flex gap-2.5 mb-3 relative">
-                    <div className="flex flex-col items-center flex-shrink-0">
-                      <div
-                        className="w-2 h-2 rounded-full flex-shrink-0 mt-0.5"
-                        style={{ background: idx === detail.timeline.length - 1 ? GREEN : BLUE }}
-                      />
-                      {idx < detail.timeline.length - 1 && (
-                        <div className="w-px flex-1 mt-1" style={{ background: BORDER, minHeight: 12 }} />
-                      )}
-                    </div>
-                    <div style={{ minWidth: 0 }}>
-                      <div className="text-xs font-medium font-description" style={{ color: TEXT }}>{event.event}</div>
-                      {event.detail && (
-                        <div className="text-[10px] font-description" style={{ color: MUTED }}>{event.detail}</div>
-                      )}
-                      <div className="text-[10px] font-mono mt-0.5" style={{ color: DIM }}>
-                        {relativeTime(event.timestamp)}
-                      </div>
-                    </div>
+            {/* ── Two-column Body ── */}
+            <div className="flex flex-col sm:flex-row flex-1 min-h-0 overflow-hidden">
+              {/* LEFT: Transcript */}
+              <div className="flex-1 overflow-auto p-4 sm:p-5 sm:border-r order-2 sm:order-1">
+                <h3 className="text-[10px] font-bold uppercase tracking-wider font-heading text-muted-foreground mb-4">
+                  Transcript
+                </h3>
+
+                {detail.messages.length === 0 ? (
+                  <div className="py-8 text-center">
+                    <MessageSquare size={20} className="text-muted-foreground/30 mx-auto mb-2" />
+                    <p className="text-xs text-muted-foreground">No messages in this conversation</p>
                   </div>
-                ))}
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    {detail.messages.map(msg => {
+                      if (msg.role === "system") {
+                        return (
+                          <p key={msg.id} className="text-center text-xs text-muted-foreground italic py-1">
+                            {msg.content}
+                          </p>
+                        );
+                      }
+                      const isUser = msg.role === "user";
+                      return (
+                        <div key={msg.id} className={cn("flex", isUser ? "justify-end" : "justify-start")}>
+                          <div className="max-w-[85%] sm:max-w-[78%]">
+                            <div className={cn(
+                              "px-3.5 py-2.5 text-[13px] leading-relaxed",
+                              isUser
+                                ? "bg-primary text-primary-foreground rounded-2xl rounded-br-md"
+                                : "bg-muted border rounded-2xl rounded-bl-md text-foreground",
+                            )}>
+                              {msg.content}
+                            </div>
+                            {/* Citations */}
+                            {!isUser && msg.citations && msg.citations.length > 0 && (
+                              <div className="flex gap-1 flex-wrap mt-1.5">
+                                {msg.citations.map((c, i) => (
+                                  <span
+                                    key={i}
+                                    className="inline-flex items-center gap-1 rounded-md border border-primary/15 bg-primary/8 px-1.5 py-0.5 text-[10px] text-primary"
+                                  >
+                                    <FileText size={9} /> {c.source ?? "Source"}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                            {/* Confidence + timestamp */}
+                            <div className={cn(
+                              "flex items-center gap-2 mt-1",
+                              isUser ? "justify-end" : "justify-start",
+                            )}>
+                              {!isUser && msg.confidence_score != null && (
+                                <span className={cn(
+                                  "text-[9px] font-mono px-1 py-0.5 rounded",
+                                  msg.confidence_score >= 0.9
+                                    ? "text-emerald-400/70"
+                                    : msg.confidence_score >= 0.7
+                                      ? "text-amber-400/70"
+                                      : "text-red-400/70",
+                                )}>
+                                  {Math.round(msg.confidence_score * 100)}%
+                                </span>
+                              )}
+                              <span className="text-[10px] text-muted-foreground font-mono">
+                                {formatTimestamp(msg.created_at)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* RIGHT: Contact + Timeline + Notes */}
+              <div className="w-full sm:w-[40%] sm:max-w-[340px] overflow-auto p-4 sm:p-5 space-y-5 order-1 sm:order-2 border-b sm:border-b-0">
+
+                {/* Contact info card */}
+                <div className="rounded-lg border bg-muted/30 p-3.5">
+                  <h4 className="text-[10px] font-bold uppercase tracking-wider font-heading text-muted-foreground mb-3">
+                    Contact Info
+                  </h4>
+                  <div className="space-y-2.5">
+                    {contact?.email && (
+                      <div className="flex items-center gap-2 text-[12px]">
+                        <Mail size={13} className="text-muted-foreground/60 shrink-0" />
+                        <span className="text-muted-foreground truncate">{contact.email}</span>
+                      </div>
+                    )}
+                    {contact?.phone && (
+                      <div className="flex items-center gap-2 text-[12px]">
+                        <Phone size={13} className="text-muted-foreground/60 shrink-0" />
+                        <span className="text-muted-foreground">{contact.phone}</span>
+                      </div>
+                    )}
+                    {contact?.company && (
+                      <div className="flex items-center gap-2 text-[12px]">
+                        <User size={13} className="text-muted-foreground/60 shrink-0" />
+                        <span className="text-muted-foreground">{contact.company}</span>
+                      </div>
+                    )}
+                    {contact?.lead_status && (
+                      <div className="flex items-center gap-2 text-[12px] pt-1.5 border-t border-dashed">
+                        <span className="text-muted-foreground/70">Lead Status:</span>
+                        <span className={cn(
+                          "text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase font-heading",
+                          "bg-primary/10 text-primary border border-primary/20",
+                        )}>
+                          {contact.lead_status}
+                        </span>
+                      </div>
+                    )}
+                    {contact?.channels_used && contact.channels_used.length > 0 && (
+                      <div className="flex items-center gap-2 text-[12px]">
+                        <ExternalLink size={13} className="text-muted-foreground/60 shrink-0" />
+                        <span className="text-muted-foreground">{contact.channels_used.join(", ")}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Timeline */}
+                <div>
+                  <h4 className="text-[10px] font-bold uppercase tracking-wider font-heading text-muted-foreground mb-3">
+                    Timeline
+                  </h4>
+                  <div className="flex flex-col">
+                    {detail.timeline.map((event, i) => (
+                      <div key={i} className="flex gap-3">
+                        <div className="flex flex-col items-center w-4">
+                          <div className={cn(
+                            "h-2 w-2 rounded-full border-2 border-background shrink-0 mt-1",
+                            i === detail.timeline.length - 1 ? "bg-emerald-400" : "bg-primary",
+                          )} />
+                          {i < detail.timeline.length - 1 && (
+                            <div className="w-px flex-1 bg-border min-h-[16px] mt-1" />
+                          )}
+                        </div>
+                        <div className="pb-4">
+                          <p className="text-[12px] font-semibold text-foreground leading-tight">{event.event}</p>
+                          {event.detail && <p className="text-[11px] text-muted-foreground mt-0.5">{event.detail}</p>}
+                          <p className="text-[10px] text-muted-foreground/60 font-mono mt-0.5">{relativeTime(event.timestamp)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Internal Notes */}
+                <div>
+                  <h4 className="text-[10px] font-bold uppercase tracking-wider font-heading text-muted-foreground mb-3">
+                    Internal Notes
+                  </h4>
+                  {localNotes.map((note, i) => (
+                    <div key={i} className="rounded-lg border bg-muted/30 p-3 mb-2">
+                      <p className="text-[12px] text-foreground leading-relaxed">{note.text}</p>
+                      <p className="text-[10px] text-muted-foreground/60 font-mono mt-1.5">{note.time}</p>
+                    </div>
+                  ))}
+                  <Textarea
+                    value={noteText}
+                    onChange={e => setNoteText(e.target.value)}
+                    placeholder="Add an internal note..."
+                    rows={3}
+                    className="text-[13px] bg-card resize-none mt-1"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handleAddNote}
+                    disabled={!noteText.trim() || addNote.isPending}
+                    className="mt-2 w-full gap-1.5 text-xs h-8"
+                  >
+                    <Send size={12} />
+                    {addNote.isPending ? "Adding..." : "Add Note"}
+                  </Button>
+                </div>
               </div>
             </div>
 
-            {/* Internal Notes */}
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-wider mb-2 font-heading" style={{ color: DIM }}>
-                Notes
-              </div>
-              {localNotes.map((note, i) => (
-                <div key={i} style={{ background: "#111827", borderRadius: 8, padding: "8px 10px", border: `1px solid ${BORDER}`, marginBottom: 6 }}>
-                  <div className="text-xs font-description" style={{ color: TEXT }}>{note.text}</div>
-                  <div className="text-[10px] font-mono mt-1" style={{ color: DIM }}>{note.time}</div>
-                </div>
-              ))}
-              <Textarea
-                value={noteText}
-                onChange={e => setNoteText(e.target.value)}
-                placeholder="Add internal note..."
-                className="text-xs font-description resize-none"
-                style={{ background: "#111827", border: `1px solid ${BORDER}`, color: TEXT, minHeight: 60 }}
-                rows={3}
-              />
+            {/* ── Footer Actions ── */}
+            <div className="shrink-0 border-t p-4 sm:px-6 flex gap-2.5 flex-wrap">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" variant="outline" className="gap-1.5 text-xs">
+                    <ChevronDown size={12} /> Change Status
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="min-w-[140px]">
+                  {STATUSES.map(s => (
+                    <DropdownMenuItem
+                      key={s}
+                      className="capitalize text-xs gap-2"
+                      onClick={() => handleStatusChange(s)}
+                    >
+                      <span className={cn("h-1.5 w-1.5 rounded-full", STATUS_META[s]?.dot)} />
+                      {s}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
               <Button
                 size="sm"
-                onClick={handleAddNote}
-                disabled={!noteText.trim() || addNote.isPending}
-                className="mt-1.5 w-full text-xs font-description"
-                style={{ background: BLUE, color: "#fff", height: 30 }}
+                onClick={() => handleStatusChange("resolved")}
+                className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
               >
-                <Send size={11} className="mr-1" />
-                {addNote.isPending ? "Adding..." : "Add Note"}
+                <CheckCircle2 size={13} /> Mark Resolved
               </Button>
             </div>
-          </div>
-        </div>
-      ) : (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <MessageSquare size={32} style={{ color: DIM, margin: "0 auto 8px" }} />
-            <div className="text-sm font-description" style={{ color: MUTED }}>Conversation not found</div>
-          </div>
-        </div>
-      )}
-    </div>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
+/* ═══════════════════════════════════════════════════════════════════════════════
+   MAIN COMPONENT
+   ═══════════════════════════════════════════════════════════════════════════════ */
 
 export default function Conversations() {
   const [filters, setFilters] = useState<ConversationListFilters>({ page: 1, per_page: 20 });
@@ -506,6 +638,7 @@ export default function Conversations() {
   const [confirmDelete, setConfirmDelete] = useState<{ open: boolean; type: "single" | "bulk"; id?: string }>({ open: false, type: "bulk" });
   const [tagDialogOpen, setTagDialogOpen] = useState(false);
   const [tagInput, setTagInput] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const { toast } = useToast();
 
   const { data: listData, isLoading: listLoading, refetch } = useConversationsList(filters);
@@ -516,7 +649,8 @@ export default function Conversations() {
   const total = listData?.total ?? MOCK_CONVERSATIONS.length;
   const totalPages = Math.ceil(total / (filters.per_page ?? 20));
 
-  // Compute active filter count
+  /* ── Filter helpers ──────────────────────────────────────────────────────── */
+
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (filters.search) count++;
@@ -535,26 +669,29 @@ export default function Conversations() {
     setFilters(prev => ({ ...prev, [key]: value, page: 1 }));
   }, []);
 
-  // Select all/none
+  /* ── Selection helpers ───────────────────────────────────────────────────── */
+
   const allSelected = conversations.length > 0 && conversations.every(c => selectedIds.has(c.id));
-  const toggleSelectAll = () => {
+
+  const toggleSelectAll = useCallback(() => {
     if (allSelected) {
       setSelectedIds(new Set());
     } else {
       setSelectedIds(new Set(conversations.map(c => c.id)));
     }
-  };
-  const toggleSelect = (id: string) => {
+  }, [allSelected, conversations]);
+
+  const toggleSelect = useCallback((id: string) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
-  };
+  }, []);
 
-  // Bulk actions
-  const handleBulkResolve = async () => {
+  /* ── Bulk actions ────────────────────────────────────────────────────────── */
+
+  const handleBulkResolve = useCallback(async () => {
     try {
       await bulkAction.mutateAsync({ action: "resolve", conversation_ids: Array.from(selectedIds) });
       toast({ title: `${selectedIds.size} conversations resolved` });
@@ -562,9 +699,9 @@ export default function Conversations() {
     } catch {
       toast({ title: "Error", description: "Bulk resolve failed", variant: "destructive" });
     }
-  };
+  }, [bulkAction, selectedIds, toast]);
 
-  const handleBulkDelete = async () => {
+  const handleBulkDelete = useCallback(async () => {
     try {
       const ids = confirmDelete.id ? [confirmDelete.id] : Array.from(selectedIds);
       await bulkAction.mutateAsync({ action: "delete", conversation_ids: ids });
@@ -575,9 +712,9 @@ export default function Conversations() {
       toast({ title: "Error", description: "Delete failed", variant: "destructive" });
     }
     setConfirmDelete({ open: false, type: "bulk" });
-  };
+  }, [bulkAction, confirmDelete, selectedIds, toast, activeConversationId]);
 
-  const handleBulkTag = async () => {
+  const handleBulkTag = useCallback(async () => {
     if (!tagInput.trim()) return;
     try {
       await bulkAction.mutateAsync({ action: "tag", conversation_ids: Array.from(selectedIds), tag: tagInput.trim() });
@@ -588,9 +725,9 @@ export default function Conversations() {
     } catch {
       toast({ title: "Error", description: "Tagging failed", variant: "destructive" });
     }
-  };
+  }, [bulkAction, selectedIds, tagInput, toast]);
 
-  const handleBulkExport = async () => {
+  const handleBulkExport = useCallback(async () => {
     try {
       const result = await bulkAction.mutateAsync({ action: "export", conversation_ids: Array.from(selectedIds) });
       if (result.export_data) {
@@ -601,423 +738,531 @@ export default function Conversations() {
         const blob = new Blob([csv], { type: "text/csv" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
-        a.href = url; a.download = `conversations-export.csv`; a.click();
+        a.href = url; a.download = "conversations-export.csv"; a.click();
         URL.revokeObjectURL(url);
       }
       toast({ title: `${selectedIds.size} conversations exported` });
     } catch {
       toast({ title: "Error", description: "Export failed", variant: "destructive" });
     }
-  };
+  }, [bulkAction, selectedIds, toast]);
+
+  /* ── Pagination ──────────────────────────────────────────────────────────── */
 
   const currentPage = filters.page ?? 1;
   const perPage = filters.per_page ?? 20;
-  const startItem = (currentPage - 1) * perPage + 1;
-  const endItem = Math.min(currentPage * perPage, total);
+  const fromIdx = (currentPage - 1) * perPage + 1;
+  const toIdx = Math.min(currentPage * perPage, total);
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     RENDER
+     ═══════════════════════════════════════════════════════════════════════════ */
 
   return (
-    <div className="relative min-h-full" style={{ fontFamily: "'Satoshi', sans-serif" }}>
-      {/* ── 7.4.1 Page Header + Filters ─────────────────────────────────────── */}
-      <div className="mb-5">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-xl font-bold font-heading" style={{ color: TEXT }}>
-              Conversations
-            </h1>
-            <p className="text-sm font-description mt-0.5" style={{ color: MUTED }}>
-              Full conversation history and management
-            </p>
-          </div>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => refetch()}
-            className="font-description text-xs"
-            style={{ color: MUTED, border: `1px solid ${BORDER}` }}
-          >
-            <RefreshCw size={13} className="mr-1.5" />
-            Refresh
-          </Button>
+    <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8 pb-32 max-w-[1600px] mx-auto w-full">
+
+      {/* ─── Page Header ────────────────────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="font-heading text-xl sm:text-2xl font-bold text-foreground tracking-tight leading-none">
+            Conversations
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1 font-description">
+            Full conversation history and management
+          </p>
         </div>
 
-        {/* Filters row */}
-        <div className="flex flex-wrap gap-2 items-center">
+        <Button
+          variant="outline" size="sm"
+          onClick={() => void refetch()}
+          className="gap-1.5 text-xs"
+        >
+          <RefreshCw size={13} />
+          <span className="hidden sm:inline">Refresh</span>
+        </Button>
+      </div>
+
+      {/* ─── Stats Grid ─────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        {STAT_CARDS.map((card, i) => (
+          <div
+            key={card.key}
+            className={cn(
+              "relative overflow-hidden rounded-xl border bg-card p-3 sm:p-4",
+              "transition-all duration-200 hover:border-primary/20 hover:shadow-soft-sm group",
+            )}
+            style={{ animationDelay: `${i * 50}ms` }}
+          >
+            {/* Gradient accent */}
+            <div className={cn(
+              "absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-100 transition-opacity duration-300",
+              card.accent,
+            )} />
+            <div className="relative">
+              <div className="text-muted-foreground mb-2">
+                {card.icon}
+              </div>
+              <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider font-heading text-muted-foreground mb-1">
+                {card.label}
+              </p>
+              <p className="text-xl sm:text-2xl lg:text-3xl font-bold font-mono tracking-tight text-foreground">
+                {(stats[card.key] ?? 0).toLocaleString()}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ─── Filter Bar ─────────────────────────────────────────────────────── */}
+      <div className="flex flex-col gap-3">
+        {/* Primary filter row */}
+        <div className="flex flex-wrap items-center gap-2">
           {/* Search */}
-          <div className="relative flex-1" style={{ minWidth: 220, maxWidth: 280 }}>
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: DIM }} />
+          <div className="relative flex-1 min-w-[180px] max-w-sm">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             <Input
+              placeholder="Search conversations..."
               value={filters.search ?? ""}
               onChange={e => updateFilter("search", e.target.value || undefined)}
-              placeholder="Search contacts or messages..."
-              className="pl-8 text-sm font-description h-9"
-              style={{ background: INPUT_BG, border: `1px solid ${BORDER}`, color: TEXT }}
+              className="pl-9 h-9 text-sm bg-card"
             />
           </div>
 
-          {/* Channel */}
-          <Select
-            value={filters.channel ?? "all"}
-            onValueChange={v => updateFilter("channel", v === "all" ? undefined : v)}
-          >
-            <SelectTrigger className="h-9 text-sm font-description w-36" style={{ background: INPUT_BG, border: `1px solid ${BORDER}`, color: TEXT }}>
-              <SelectValue placeholder="Channel" />
+          {/* Quick status filter */}
+          <Select value={filters.status ?? "_all"} onValueChange={v => updateFilter("status", v === "_all" ? undefined : v)}>
+            <SelectTrigger className="w-[130px] h-9 text-xs bg-card">
+              <SelectValue placeholder="All Status" />
             </SelectTrigger>
-            <SelectContent style={{ background: "#111827", border: `1px solid ${BORDER}` }}>
-              <SelectItem value="all" className="text-sm font-description" style={{ color: TEXT }}>All Channels</SelectItem>
-              <SelectItem value="web" className="text-sm font-description" style={{ color: TEXT }}>🌐 Web</SelectItem>
-              <SelectItem value="whatsapp" className="text-sm font-description" style={{ color: TEXT }}>💬 WhatsApp</SelectItem>
-              <SelectItem value="instagram" className="text-sm font-description" style={{ color: TEXT }}>📸 Instagram</SelectItem>
-              <SelectItem value="facebook" className="text-sm font-description" style={{ color: TEXT }}>💙 Facebook</SelectItem>
-              <SelectItem value="email" className="text-sm font-description" style={{ color: TEXT }}>📧 Email</SelectItem>
-              <SelectItem value="sms" className="text-sm font-description" style={{ color: TEXT }}>📱 SMS</SelectItem>
+            <SelectContent>
+              <SelectItem value="_all">All Status</SelectItem>
+              {STATUSES.map(s => (
+                <SelectItem key={s} value={s}>
+                  <span className="flex items-center gap-2 capitalize">
+                    <span className={cn("h-1.5 w-1.5 rounded-full", STATUS_META[s]?.dot)} />
+                    {s}
+                  </span>
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
 
-          {/* Status */}
-          <Select
-            value={filters.status ?? "all"}
-            onValueChange={v => updateFilter("status", v === "all" ? undefined : v)}
-          >
-            <SelectTrigger className="h-9 text-sm font-description w-36" style={{ background: INPUT_BG, border: `1px solid ${BORDER}`, color: TEXT }}>
-              <SelectValue placeholder="Status" />
+          {/* Channel filter */}
+          <Select value={filters.channel ?? "_all"} onValueChange={v => updateFilter("channel", v === "_all" ? undefined : v)}>
+            <SelectTrigger className="w-[140px] h-9 text-xs bg-card hidden sm:flex">
+              <SelectValue placeholder="All Channels" />
             </SelectTrigger>
-            <SelectContent style={{ background: "#111827", border: `1px solid ${BORDER}` }}>
-              <SelectItem value="all" className="text-sm font-description" style={{ color: TEXT }}>All Status</SelectItem>
-              <SelectItem value="active" className="text-sm font-description" style={{ color: TEXT }}>Active</SelectItem>
-              <SelectItem value="resolved" className="text-sm font-description" style={{ color: TEXT }}>Resolved</SelectItem>
-              <SelectItem value="escalated" className="text-sm font-description" style={{ color: TEXT }}>Escalated</SelectItem>
-              <SelectItem value="abandoned" className="text-sm font-description" style={{ color: TEXT }}>Abandoned</SelectItem>
+            <SelectContent>
+              <SelectItem value="_all">All Channels</SelectItem>
+              {Object.entries(CHANNEL_META).map(([key, meta]) => (
+                <SelectItem key={key} value={key}>
+                  {meta.icon} {meta.label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
 
-          {/* Date range */}
-          <div className="flex items-center gap-1">
-            <Input
-              type="date"
-              value={filters.date_from ?? ""}
-              onChange={e => updateFilter("date_from", e.target.value || undefined)}
-              className="h-9 text-xs font-mono w-36"
-              style={{ background: INPUT_BG, border: `1px solid ${BORDER}`, color: TEXT }}
-            />
-            <span className="text-xs" style={{ color: DIM }}>–</span>
-            <Input
-              type="date"
-              value={filters.date_to ?? ""}
-              onChange={e => updateFilter("date_to", e.target.value || undefined)}
-              className="h-9 text-xs font-mono w-36"
-              style={{ background: INPUT_BG, border: `1px solid ${BORDER}`, color: TEXT }}
-            />
-          </div>
-
-          {/* Rating */}
-          <Select
-            value={filters.rating ?? "all"}
-            onValueChange={v => updateFilter("rating", v === "all" ? undefined : v)}
+          {/* Advanced filters toggle */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setFiltersOpen(!filtersOpen)}
+            className={cn(
+              "gap-1.5 h-9 text-xs",
+              filtersOpen && "bg-primary/10 border-primary/30 text-primary",
+            )}
           >
-            <SelectTrigger className="h-9 text-sm font-description w-32" style={{ background: INPUT_BG, border: `1px solid ${BORDER}`, color: TEXT }}>
-              <SelectValue placeholder="Rating" />
-            </SelectTrigger>
-            <SelectContent style={{ background: "#111827", border: `1px solid ${BORDER}` }}>
-              <SelectItem value="all" className="text-sm font-description" style={{ color: TEXT }}>All Ratings</SelectItem>
-              <SelectItem value="positive" className="text-sm font-description" style={{ color: TEXT }}>👍 Positive</SelectItem>
-              <SelectItem value="negative" className="text-sm font-description" style={{ color: TEXT }}>👎 Negative</SelectItem>
-              <SelectItem value="none" className="text-sm font-description" style={{ color: TEXT }}>No Rating</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* Active filter badge + clear */}
-          {activeFilterCount > 0 && (
-            <>
-              <span
-                className="text-xs font-semibold px-2 py-0.5 rounded-full font-heading"
-                style={{ background: "rgba(79,142,247,0.15)", color: BLUE }}
-              >
-                {activeFilterCount} active
+            <SlidersHorizontal size={13} />
+            <span className="hidden sm:inline">Filters</span>
+            {activeFilterCount > 0 && (
+              <span className="ml-0.5 h-4 min-w-[16px] rounded-full bg-primary/20 text-primary text-[10px] font-bold flex items-center justify-center px-1">
+                {activeFilterCount}
               </span>
-              <button
-                onClick={clearFilters}
-                className="text-xs font-description flex items-center gap-1 transition-colors"
-                style={{ color: MUTED }}
-                onMouseEnter={e => (e.currentTarget.style.color = TEXT)}
-                onMouseLeave={e => (e.currentTarget.style.color = MUTED)}
-              >
-                <X size={11} /> Clear
-              </button>
-            </>
+            )}
+          </Button>
+
+          {activeFilterCount > 0 && (
+            <button
+              onClick={clearFilters}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Clear all
+            </button>
           )}
         </div>
-      </div>
 
-      {/* ── 7.4.2 Stats Summary Bar ───────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
-        <KPICard
-          label="Total"
-          value={stats.total.toLocaleString()}
-          icon={<MessageSquare size={18} style={{ color: BLUE }} />}
-        />
-        <KPICard
-          label="Active"
-          value={stats.active.toLocaleString()}
-          icon={<CheckCircle2 size={18} style={{ color: GREEN }} />}
-        />
-        <KPICard
-          label="Resolved"
-          value={stats.resolved.toLocaleString()}
-          icon={<CheckCircle2 size={18} style={{ color: DIM }} />}
-        />
-        <KPICard
-          label="Escalated"
-          value={stats.escalated.toLocaleString()}
-          icon={<AlertCircle size={18} style={{ color: AMBER }} />}
-        />
-        <KPICard
-          label="Abandoned"
-          value={stats.abandoned.toLocaleString()}
-          icon={<X size={18} style={{ color: ROSE }} />}
-        />
-      </div>
-
-      {/* ── 7.4.3 Conversations Table ─────────────────────────────────────────── */}
-      <div
-        className="rounded-xl overflow-hidden"
-        style={{ background: CARD_BG, border: `1px solid ${BORDER}` }}
-      >
-        {/* Table wrapper for horizontal scroll on mobile */}
-        <div style={{ overflowX: "auto" }}>
-          <table className="w-full" style={{ minWidth: 800, borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ borderBottom: `1px solid ${BORDER}`, background: "#0D1117" }}>
-                <th className="p-3" style={{ width: 40 }}>
-                  <Checkbox
-                    checked={allSelected}
-                    onCheckedChange={toggleSelectAll}
-                    className="border-gray-600"
-                  />
-                </th>
-                {["Channel", "Contact", "First Message", "Msgs", "Status", "Rating", "Duration", "Date", ""].map((h, i) => (
-                  <th
-                    key={i}
-                    className="text-left px-3 py-3 text-xs font-semibold uppercase tracking-wider font-heading"
-                    style={{ color: DIM, whiteSpace: "nowrap" }}
-                  >
-                    {h}
-                  </th>
+        {/* Expandable advanced filters */}
+        {filtersOpen && (
+          <div className="flex flex-wrap items-center gap-2 p-3 rounded-lg border bg-card/50 animate-fade-in">
+            {/* Channel (mobile duplicate — only visible on <sm) */}
+            <Select value={filters.channel ?? "_all"} onValueChange={v => updateFilter("channel", v === "_all" ? undefined : v)}>
+              <SelectTrigger className="w-[140px] h-9 text-xs bg-card sm:hidden">
+                <SelectValue placeholder="All Channels" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_all">All Channels</SelectItem>
+                {Object.entries(CHANNEL_META).map(([key, meta]) => (
+                  <SelectItem key={key} value={key}>
+                    {meta.icon} {meta.label}
+                  </SelectItem>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
-              {listLoading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i} style={{ borderBottom: `1px solid ${BORDER}` }}>
-                    {Array.from({ length: 10 }).map((_, j) => (
-                      <td key={j} className="px-3 py-3">
-                        <Skeleton className="h-4 rounded" style={{ background: "#111827", width: j === 0 ? 20 : j === 3 ? 160 : 80 }} />
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              ) : conversations.length === 0 ? (
-                <tr>
-                  <td colSpan={10} className="py-16 text-center">
-                    <MessageSquare size={28} style={{ color: DIM, margin: "0 auto 8px" }} />
-                    <div className="text-sm font-description" style={{ color: MUTED }}>No conversations found</div>
-                    {activeFilterCount > 0 && (
-                      <button onClick={clearFilters} className="text-xs mt-2 font-description" style={{ color: BLUE }}>
-                        Clear filters
-                      </button>
-                    )}
-                  </td>
+              </SelectContent>
+            </Select>
+
+            {/* Rating */}
+            <Select value={filters.rating ?? "_all"} onValueChange={v => updateFilter("rating", v === "_all" ? undefined : v)}>
+              <SelectTrigger className="w-[130px] h-9 text-xs bg-card">
+                <SelectValue placeholder="All Ratings" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_all">All Ratings</SelectItem>
+                <SelectItem value="positive">Positive</SelectItem>
+                <SelectItem value="negative">Negative</SelectItem>
+                <SelectItem value="none">No Rating</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Date range */}
+            <div className="flex items-center gap-1.5">
+              <label className="text-[11px] font-medium text-muted-foreground shrink-0">From</label>
+              <input
+                type="date"
+                value={filters.date_from ?? ""}
+                onChange={e => updateFilter("date_from", e.target.value || undefined)}
+                className="h-9 px-2.5 text-xs rounded-md border bg-card text-foreground"
+              />
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <label className="text-[11px] font-medium text-muted-foreground shrink-0">To</label>
+              <input
+                type="date"
+                value={filters.date_to ?? ""}
+                onChange={e => updateFilter("date_to", e.target.value || undefined)}
+                className="h-9 px-2.5 text-xs rounded-md border bg-card text-foreground"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════════════
+         CONVERSATIONS TABLE
+         ─────────────────────────────────────────────────────────────────────
+         Progressive column disclosure: lower-priority columns hide at
+         smaller breakpoints so the table NEVER needs horizontal scroll.
+         Priority: Contact > Status > Channel > Msgs > Rating > Duration > Date > Actions
+         ═══════════════════════════════════════════════════════════════════════ */}
+      <div className="rounded-xl border bg-card overflow-hidden">
+
+        {/* ── DESKTOP / TABLET TABLE (sm+) ─────────────────────────────────── */}
+        <table className="w-full hidden sm:table">
+          <thead>
+            <tr className="border-b bg-muted/30">
+              <th className="w-10 p-3 pl-4">
+                <Checkbox
+                  checked={allSelected}
+                  onCheckedChange={toggleSelectAll}
+                />
+              </th>
+              <th className="px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-wider font-heading text-muted-foreground">Contact</th>
+              <th className="px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-wider font-heading text-muted-foreground hidden xl:table-cell">First Message</th>
+              <th className="px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-wider font-heading text-muted-foreground hidden lg:table-cell">Channel</th>
+              <th className="px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-wider font-heading text-muted-foreground">Status</th>
+              <th className="px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-wider font-heading text-muted-foreground hidden md:table-cell">Rating</th>
+              <th className="px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-wider font-heading text-muted-foreground hidden 2xl:table-cell">Duration</th>
+              <th className="px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-wider font-heading text-muted-foreground">Date</th>
+              <th className="w-10 p-3 pr-4" />
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {listLoading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <tr key={i}>
+                  <td className="p-3 pl-4"><Skeleton className="h-4 w-4" /></td>
+                  <td className="p-3"><Skeleton className="h-9 w-full" /></td>
+                  <td className="p-3 hidden xl:table-cell"><Skeleton className="h-4 w-full" /></td>
+                  <td className="p-3 hidden lg:table-cell"><Skeleton className="h-4 w-16" /></td>
+                  <td className="p-3"><Skeleton className="h-5 w-16" /></td>
+                  <td className="p-3 hidden md:table-cell"><Skeleton className="h-4 w-12" /></td>
+                  <td className="p-3 hidden 2xl:table-cell"><Skeleton className="h-4 w-12" /></td>
+                  <td className="p-3"><Skeleton className="h-4 w-12" /></td>
+                  <td className="p-3 pr-4"><Skeleton className="h-4 w-4" /></td>
                 </tr>
-              ) : (
-                conversations.map(conv => {
-                  const isSelected = selectedIds.has(conv.id);
-                  const isActive = activeConversationId === conv.id;
-                  return (
-                    <tr
-                      key={conv.id}
-                      onClick={() => setActiveConversationId(conv.id)}
-                      style={{
-                        borderBottom: `1px solid ${BORDER}`,
-                        background: isActive ? "rgba(79,142,247,0.06)" : isSelected ? "rgba(79,142,247,0.04)" : "transparent",
-                        cursor: "pointer",
-                        transition: "background 120ms ease",
-                      }}
-                      onMouseEnter={e => {
-                        if (!isActive) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.03)";
-                      }}
-                      onMouseLeave={e => {
-                        (e.currentTarget as HTMLElement).style.background = isActive ? "rgba(79,142,247,0.06)" : isSelected ? "rgba(79,142,247,0.04)" : "transparent";
-                      }}
-                    >
-                      {/* Checkbox */}
-                      <td className="px-3 py-3" onClick={e => { e.stopPropagation(); toggleSelect(conv.id); }}>
-                        <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={() => toggleSelect(conv.id)}
-                          className="border-gray-600"
-                        />
-                      </td>
+              ))
+            ) : conversations.length === 0 ? (
+              <tr>
+                <td colSpan={9} className="py-16 text-center">
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
+                      <MessageSquare size={20} className="text-muted-foreground" />
+                    </div>
+                    <p className="text-sm text-muted-foreground font-medium">No conversations found</p>
+                    {activeFilterCount > 0 && (
+                      <Button variant="link" size="sm" onClick={clearFilters} className="text-primary text-xs">
+                        Clear filters
+                      </Button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ) : conversations.map(conv => (
+              <tr
+                key={conv.id}
+                onClick={() => setActiveConversationId(conv.id)}
+                className={cn(
+                  "cursor-pointer transition-colors group",
+                  selectedIds.has(conv.id)
+                    ? "bg-primary/5 hover:bg-primary/8"
+                    : "hover:bg-muted/50",
+                )}
+              >
+                {/* Checkbox */}
+                <td className="p-3 pl-4" onClick={e => e.stopPropagation()}>
+                  <Checkbox
+                    checked={selectedIds.has(conv.id)}
+                    onCheckedChange={() => toggleSelect(conv.id)}
+                  />
+                </td>
 
-                      {/* Channel */}
-                      <td className="px-3 py-3" style={{ whiteSpace: "nowrap" }}>
-                        <div className="flex items-center gap-1.5">
-                          <span
-                            className="w-2 h-2 rounded-full flex-shrink-0"
-                            style={{ background: CHANNEL_COLORS[conv.channel] ?? BLUE }}
-                          />
-                          <span className="text-xs font-description" style={{ color: MUTED }}>
-                            {CHANNEL_ICONS[conv.channel] ?? "🌐"} {conv.channel.charAt(0).toUpperCase() + conv.channel.slice(1)}
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* Contact */}
-                      <td className="px-3 py-3" style={{ maxWidth: 140 }}>
-                        <div className="text-sm font-medium font-description truncate" style={{ color: TEXT }}>
+                {/* Contact — always visible. On smaller screens, absorbs
+                    hidden columns inline (channel, message preview) */}
+                <td className="p-3">
+                  <div className="flex items-center gap-2.5">
+                    <ConversationAvatar name={conv.contact_name} size="md" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-heading font-semibold text-[13px] text-foreground truncate">
                           {conv.contact_name ?? conv.contact_phone ?? "Anonymous"}
-                        </div>
-                        {conv.contact_email && (
-                          <div className="text-xs font-description truncate" style={{ color: DIM }}>
-                            {conv.contact_email}
-                          </div>
-                        )}
-                      </td>
-
-                      {/* First message */}
-                      <td className="px-3 py-3" style={{ maxWidth: 240 }}>
-                        <div
-                          className="text-xs font-description"
-                          style={{ color: MUTED, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 240 }}
-                        >
-                          {conv.first_message ?? "—"}
-                        </div>
-                      </td>
-
-                      {/* Message count */}
-                      <td className="px-3 py-3" style={{ whiteSpace: "nowrap" }}>
-                        <span
-                          className="text-xs font-mono px-1.5 py-0.5 rounded"
-                          style={{ background: "rgba(255,255,255,0.06)", color: MUTED }}
-                        >
+                        </p>
+                        {/* Inline msg count */}
+                        <span className="text-[10px] font-mono text-muted-foreground bg-muted rounded px-1.5 py-0.5 shrink-0">
                           {conv.message_count}
                         </span>
-                      </td>
+                      </div>
 
-                      {/* Status */}
-                      <td className="px-3 py-3" style={{ whiteSpace: "nowrap" }}>
-                        <StatusBadge status={conv.status} />
-                      </td>
+                      {conv.contact_email && (
+                        <p className="text-[11px] text-muted-foreground truncate flex items-center gap-1 mt-0.5">
+                          <Mail size={10} className="shrink-0" />
+                          {conv.contact_email}
+                        </p>
+                      )}
 
-                      {/* Rating */}
-                      <td className="px-3 py-3" style={{ whiteSpace: "nowrap" }}>
-                        {conv.rating === "positive" ? (
-                          <ThumbsUp size={14} style={{ color: GREEN }} />
-                        ) : conv.rating === "negative" ? (
-                          <ThumbsDown size={14} style={{ color: ROSE }} />
-                        ) : (
-                          <span style={{ color: DIM }}>—</span>
-                        )}
-                      </td>
+                      {/* Channel — inline when the Channel column is hidden (<lg) */}
+                      <div className="lg:hidden mt-1">
+                        <ChannelPill channel={conv.channel} />
+                      </div>
 
-                      {/* Duration */}
-                      <td className="px-3 py-3" style={{ whiteSpace: "nowrap" }}>
-                        <span className="text-xs font-mono" style={{ color: MUTED }}>
-                          {formatDuration(conv.duration_minutes)}
-                        </span>
-                      </td>
+                      {/* First message preview — inline when column is hidden (<xl) */}
+                      {conv.first_message && (
+                        <p className="xl:hidden text-[11px] text-muted-foreground/70 truncate mt-1 max-w-[280px]">
+                          {conv.first_message}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </td>
 
-                      {/* Date */}
-                      <td className="px-3 py-3" style={{ whiteSpace: "nowrap" }}>
-                        <span className="text-xs font-description" style={{ color: DIM }}>
-                          {relativeTime(conv.started_at)}
-                        </span>
-                      </td>
+                {/* First message — visible on xl+ */}
+                <td className="p-3 hidden xl:table-cell max-w-[240px]">
+                  <p className="text-[12px] text-muted-foreground truncate">
+                    {conv.first_message ?? "--"}
+                  </p>
+                </td>
 
-                      {/* Actions */}
-                      <td className="px-3 py-3" onClick={e => e.stopPropagation()}>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button
-                              className="flex items-center justify-center rounded-md transition-colors"
-                              style={{ width: 28, height: 28, color: DIM }}
-                              onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.08)")}
-                              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-                            >
-                              <MoreHorizontal size={15} />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent
-                            align="end"
-                            style={{ background: "#111827", border: `1px solid ${BORDER}` }}
-                          >
-                            <DropdownMenuItem
-                              className="text-xs font-description cursor-pointer"
-                              style={{ color: TEXT }}
-                              onClick={() => setActiveConversationId(conv.id)}
-                            >
-                              <MessageSquare size={12} className="mr-2" /> View Detail
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="text-xs font-description cursor-pointer"
-                              style={{ color: TEXT }}
-                              onClick={async () => {
-                                try {
-                                  await bulkAction.mutateAsync({ action: "resolve", conversation_ids: [conv.id] });
-                                  toast({ title: "Conversation resolved" });
-                                } catch {
-                                  toast({ title: "Error", variant: "destructive" });
-                                }
-                              }}
-                            >
-                              <CheckCircle2 size={12} className="mr-2" /> Mark Resolved
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator style={{ background: BORDER }} />
-                            <DropdownMenuItem
-                              className="text-xs font-description cursor-pointer"
-                              style={{ color: ROSE }}
-                              onClick={() => setConfirmDelete({ open: true, type: "single", id: conv.id })}
-                            >
-                              <Trash2 size={12} className="mr-2" /> Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                {/* Channel — visible on lg+ */}
+                <td className="p-3 hidden lg:table-cell whitespace-nowrap">
+                  <ChannelPill channel={conv.channel} />
+                </td>
+
+                {/* Status — always visible */}
+                <td className="p-3" onClick={e => e.stopPropagation()}>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="focus:outline-none">
+                        <StatusBadge status={conv.status} interactive />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="min-w-[140px]">
+                      {STATUSES.map(s => (
+                        <DropdownMenuItem
+                          key={s}
+                          className="capitalize text-xs gap-2"
+                          onClick={async () => {
+                            try {
+                              await bulkAction.mutateAsync({ action: "resolve", conversation_ids: [conv.id] });
+                              toast({ title: `Conversation marked as ${s}` });
+                            } catch {
+                              toast({ title: "Error", variant: "destructive" });
+                            }
+                          }}
+                        >
+                          <span className={cn("h-1.5 w-1.5 rounded-full", STATUS_META[s]?.dot)} />
+                          {s}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </td>
+
+                {/* Rating — visible on md+ */}
+                <td className="p-3 hidden md:table-cell">
+                  <RatingIndicator rating={conv.rating} />
+                </td>
+
+                {/* Duration — visible on 2xl+ */}
+                <td className="p-3 hidden 2xl:table-cell whitespace-nowrap">
+                  <span className="text-[11px] text-muted-foreground font-mono">
+                    {formatDuration(conv.duration_minutes)}
+                  </span>
+                </td>
+
+                {/* Date — always visible */}
+                <td className="p-3 whitespace-nowrap">
+                  <span className="text-[11px] text-muted-foreground font-mono">
+                    {relativeTime(conv.started_at)}
+                  </span>
+                </td>
+
+                {/* Actions */}
+                <td className="p-3 pr-4" onClick={e => e.stopPropagation()}>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                      >
+                        <MoreHorizontal size={14} />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="min-w-[160px]">
+                      <DropdownMenuItem className="text-xs gap-2" onClick={() => setActiveConversationId(conv.id)}>
+                        <Eye size={13} /> View Detail
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="text-xs gap-2"
+                        onClick={async () => {
+                          try {
+                            await bulkAction.mutateAsync({ action: "resolve", conversation_ids: [conv.id] });
+                            toast({ title: "Conversation resolved" });
+                          } catch {
+                            toast({ title: "Error", variant: "destructive" });
+                          }
+                        }}
+                      >
+                        <CheckCircle2 size={13} /> Mark Resolved
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-xs gap-2 text-destructive focus:text-destructive"
+                        onClick={() => setConfirmDelete({ open: true, type: "single", id: conv.id })}
+                      >
+                        <Trash2 size={13} /> Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {/* ── MOBILE CARD LIST (<sm) ───────────────────────────────────────── */}
+        <div className="sm:hidden divide-y">
+          {listLoading ? (
+            Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="p-4 space-y-3">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-4 w-3/4" />
+              </div>
+            ))
+          ) : conversations.length === 0 ? (
+            <div className="py-16 text-center">
+              <div className="flex flex-col items-center gap-3">
+                <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
+                  <MessageSquare size={20} className="text-muted-foreground" />
+                </div>
+                <p className="text-sm text-muted-foreground font-medium">No conversations found</p>
+                {activeFilterCount > 0 && (
+                  <Button variant="link" size="sm" onClick={clearFilters} className="text-primary text-xs">
+                    Clear filters
+                  </Button>
+                )}
+              </div>
+            </div>
+          ) : conversations.map(conv => (
+            <div
+              key={conv.id}
+              onClick={() => setActiveConversationId(conv.id)}
+              className="p-4 active:bg-muted/50 transition-colors cursor-pointer"
+            >
+              <div className="flex items-start gap-3">
+                <div className="pt-0.5" onClick={e => e.stopPropagation()}>
+                  <Checkbox
+                    checked={selectedIds.has(conv.id)}
+                    onCheckedChange={() => toggleSelect(conv.id)}
+                  />
+                </div>
+                <ConversationAvatar name={conv.contact_name} size="md" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <p className="font-heading font-semibold text-[13px] text-foreground truncate">
+                      {conv.contact_name ?? conv.contact_phone ?? "Anonymous"}
+                    </p>
+                    <span className="text-[10px] text-muted-foreground font-mono shrink-0">
+                      {relativeTime(conv.started_at)}
+                    </span>
+                  </div>
+                  {conv.contact_email && (
+                    <p className="text-[11px] text-muted-foreground mb-1 flex items-center gap-1">
+                      <Mail size={10} /> {conv.contact_email}
+                    </p>
+                  )}
+                  {conv.first_message && (
+                    <p className="text-[12px] text-muted-foreground/80 line-clamp-2 mb-2 leading-relaxed">
+                      {conv.first_message}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <StatusBadge status={conv.status} />
+                    <ChannelPill channel={conv.channel} />
+                    <RatingIndicator rating={conv.rating} />
+                    <span className="ml-auto text-[10px] font-mono text-muted-foreground bg-muted rounded px-1.5 py-0.5">
+                      {conv.message_count} msgs
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
 
         {/* Pagination */}
         {!listLoading && conversations.length > 0 && (
-          <div
-            className="flex items-center justify-between px-4 py-3"
-            style={{ borderTop: `1px solid ${BORDER}` }}
-          >
-            <div className="text-xs font-description" style={{ color: DIM }}>
-              Showing {startItem}–{endItem} of {total}
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-description" style={{ color: MUTED }}>
-                Page {currentPage} of {totalPages}
-              </span>
+          <div className="flex items-center justify-between px-4 py-3 border-t">
+            <span className="text-[11px] text-muted-foreground font-mono hidden sm:block">
+              {fromIdx}--{toIdx} of {total}
+            </span>
+            <span className="text-[11px] text-muted-foreground font-mono sm:hidden">
+              {currentPage}/{totalPages || 1}
+            </span>
+            <div className="flex items-center gap-1.5">
               <Button
-                size="sm"
-                variant="ghost"
-                disabled={currentPage <= 1}
+                variant="outline" size="sm"
                 onClick={() => setFilters(p => ({ ...p, page: (p.page ?? 1) - 1 }))}
-                style={{ height: 28, color: MUTED, border: `1px solid ${BORDER}`, padding: "0 8px" }}
+                disabled={currentPage <= 1}
+                className="h-7 w-7 p-0"
               >
                 <ChevronLeft size={14} />
               </Button>
+              <span className="text-[11px] text-muted-foreground px-2 font-mono hidden sm:block">
+                Page {currentPage} of {totalPages || 1}
+              </span>
               <Button
-                size="sm"
-                variant="ghost"
-                disabled={currentPage >= totalPages}
+                variant="outline" size="sm"
                 onClick={() => setFilters(p => ({ ...p, page: (p.page ?? 1) + 1 }))}
-                style={{ height: 28, color: MUTED, border: `1px solid ${BORDER}`, padding: "0 8px" }}
+                disabled={currentPage >= totalPages}
+                className="h-7 w-7 p-0"
               >
                 <ChevronRight size={14} />
               </Button>
@@ -1026,140 +1271,97 @@ export default function Conversations() {
         )}
       </div>
 
-      {/* ── 7.4.4 Detail Panel ────────────────────────────────────────────────── */}
-      {/* Backdrop overlay */}
-      {activeConversationId && (
-        <div
-          className="fixed inset-0 transition-opacity duration-200"
-          style={{ background: "rgba(0,0,0,0.35)", zIndex: 75 }}
-          onClick={() => setActiveConversationId(null)}
-        />
-      )}
-      {/* Slide-in panel */}
-      <div
-        style={{
-          position: "fixed",
-          top: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 80,
-          transform: activeConversationId ? "translateX(0)" : "translateX(100%)",
-          transition: "transform 250ms cubic-bezier(0.4, 0, 0.2, 1)",
-          width: "min(680px, 100vw)",
-        }}
-      >
-        {activeConversationId && (
-          <DetailPanel
-            conversationId={activeConversationId}
-            onClose={() => setActiveConversationId(null)}
-          />
-        )}
-      </div>
+      {/* ═══════════════════════════════════════════════════════════════════════
+         DETAIL DIALOG
+         ═══════════════════════════════════════════════════════════════════════ */}
+      <DetailDialog
+        conversationId={activeConversationId}
+        open={!!activeConversationId}
+        onClose={() => setActiveConversationId(null)}
+      />
 
-      {/* ── 7.4.5 Bulk Actions Bar ───────────────────────────────────────────── */}
-      <div
-        style={{
-          position: "fixed",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          zIndex: 90,
-          transform: selectedIds.size > 0 ? "translateY(0)" : "translateY(100%)",
-          transition: "transform 220ms cubic-bezier(0.4, 0, 0.2, 1)",
-          padding: "0 24px 16px",
-          pointerEvents: selectedIds.size > 0 ? "auto" : "none",
-        }}
-      >
-        <div
-          className="flex items-center gap-3 rounded-xl px-4 py-3 mx-auto"
-          style={{
-            background: "#1C1F26",
-            border: `1px solid ${BORDER}`,
-            boxShadow: "0 -4px 24px rgba(0,0,0,0.4)",
-            maxWidth: 640,
-          }}
-        >
-          <span className="text-sm font-semibold font-heading" style={{ color: TEXT, flexShrink: 0 }}>
+      {/* ═══════════════════════════════════════════════════════════════════════
+         BULK ACTIONS BAR
+         ═══════════════════════════════════════════════════════════════════════ */}
+      {selectedIds.size > 0 && (
+        <div className={cn(
+          "fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-50",
+          "bg-card border rounded-2xl shadow-strong",
+          "px-4 sm:px-5 py-3 flex items-center gap-2 sm:gap-3 flex-wrap justify-center",
+          "max-w-[95vw] animate-fade-in",
+        )}>
+          <span className="text-xs font-bold text-foreground font-heading mr-1">
             {selectedIds.size} selected
           </span>
-          <div className="flex items-center gap-2 flex-1 flex-wrap">
-            <Button
-              size="sm"
-              onClick={handleBulkResolve}
-              disabled={bulkAction.isPending}
-              className="text-xs font-description h-8"
-              style={{ background: "rgba(16,185,129,0.15)", color: GREEN, border: `1px solid rgba(16,185,129,0.3)` }}
-            >
-              <CheckCircle2 size={12} className="mr-1.5" /> Mark Resolved
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => setConfirmDelete({ open: true, type: "bulk" })}
-              disabled={bulkAction.isPending}
-              className="text-xs font-description h-8"
-              style={{ background: "rgba(239,68,68,0.12)", color: ROSE, border: `1px solid rgba(239,68,68,0.25)` }}
-            >
-              <Trash2 size={12} className="mr-1.5" /> Delete
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleBulkExport}
-              disabled={bulkAction.isPending}
-              className="text-xs font-description h-8"
-              style={{ background: "rgba(255,255,255,0.06)", color: MUTED, border: `1px solid ${BORDER}` }}
-            >
-              <Download size={12} className="mr-1.5" /> Export
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => setTagDialogOpen(true)}
-              disabled={bulkAction.isPending}
-              className="text-xs font-description h-8"
-              style={{ background: "rgba(124,58,237,0.12)", color: "#A78BFA", border: `1px solid rgba(124,58,237,0.25)` }}
-            >
-              <Tag size={12} className="mr-1.5" /> Tag
-            </Button>
-          </div>
+
+          <Button
+            size="sm"
+            disabled={bulkAction.isPending}
+            onClick={handleBulkResolve}
+            className="gap-1.5 text-[11px] h-7 bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 hover:bg-emerald-500/25"
+          >
+            <CheckCircle2 size={12} /> Resolve
+          </Button>
+
+          <Button
+            size="sm"
+            disabled={bulkAction.isPending}
+            onClick={() => setConfirmDelete({ open: true, type: "bulk" })}
+            className="gap-1.5 text-[11px] h-7 bg-red-500/15 text-red-400 border border-red-500/25 hover:bg-red-500/25"
+          >
+            <Trash2 size={12} /> Delete
+          </Button>
+
+          <Button
+            size="sm"
+            disabled={bulkAction.isPending}
+            onClick={() => void handleBulkExport()}
+            variant="outline"
+            className="gap-1.5 text-[11px] h-7"
+          >
+            <Download size={12} /> CSV
+          </Button>
+
+          <Button
+            size="sm"
+            disabled={bulkAction.isPending}
+            onClick={() => setTagDialogOpen(true)}
+            className="gap-1.5 text-[11px] h-7 bg-violet-500/15 text-violet-400 border border-violet-500/25 hover:bg-violet-500/25"
+          >
+            <Tag size={12} /> Tag
+          </Button>
+
           <button
             onClick={() => setSelectedIds(new Set())}
-            className="flex items-center justify-center rounded-md flex-shrink-0 transition-colors"
-            style={{ width: 28, height: 28, color: MUTED }}
-            onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.08)")}
-            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-            title="Clear selection"
+            className="text-muted-foreground hover:text-foreground transition-colors p-1 ml-1"
           >
             <X size={15} />
           </button>
         </div>
-      </div>
+      )}
 
-      {/* ── Delete Confirmation Dialog ────────────────────────────────────────── */}
-      <Dialog open={confirmDelete.open} onOpenChange={open => !open && setConfirmDelete({ open: false, type: "bulk" })}>
-        <DialogContent style={{ background: CARD_BG, border: `1px solid ${BORDER}`, color: TEXT }}>
+      {/* ═══════════════════════════════════════════════════════════════════════
+         DELETE CONFIRMATION DIALOG
+         ═══════════════════════════════════════════════════════════════════════ */}
+      <Dialog open={confirmDelete.open} onOpenChange={open => { if (!open) setConfirmDelete({ open: false, type: "bulk" }); }}>
+        <DialogContent className="max-w-[400px] bg-card rounded-2xl">
           <DialogHeader>
-            <DialogTitle className="font-heading" style={{ color: TEXT }}>
-              Confirm Delete
-            </DialogTitle>
+            <DialogTitle className="font-heading text-base">Confirm Delete</DialogTitle>
           </DialogHeader>
-          <p className="text-sm font-description" style={{ color: MUTED }}>
+          <p className="text-sm text-muted-foreground leading-relaxed">
             {confirmDelete.type === "bulk"
-              ? `Are you sure you want to delete ${selectedIds.size} conversation${selectedIds.size > 1 ? "s" : ""}? This cannot be undone.`
-              : "Are you sure you want to delete this conversation? This cannot be undone."}
+              ? `Are you sure you want to delete ${selectedIds.size} conversation${selectedIds.size > 1 ? "s" : ""}? This action cannot be undone.`
+              : "Are you sure you want to delete this conversation? This action cannot be undone."}
           </p>
-          <DialogFooter className="gap-2">
-            <Button
-              variant="ghost"
-              onClick={() => setConfirmDelete({ open: false, type: "bulk" })}
-              className="text-sm font-description"
-              style={{ color: MUTED, border: `1px solid ${BORDER}` }}
-            >
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" size="sm" onClick={() => setConfirmDelete({ open: false, type: "bulk" })}>
               Cancel
             </Button>
             <Button
-              onClick={handleBulkDelete}
+              size="sm"
               disabled={bulkAction.isPending}
-              className="text-sm font-description"
-              style={{ background: ROSE, color: "#fff" }}
+              onClick={handleBulkDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {bulkAction.isPending ? "Deleting..." : "Delete"}
             </Button>
@@ -1167,37 +1369,32 @@ export default function Conversations() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Tag Dialog ────────────────────────────────────────────────────────── */}
+      {/* ═══════════════════════════════════════════════════════════════════════
+         TAG DIALOG
+         ═══════════════════════════════════════════════════════════════════════ */}
       <Dialog open={tagDialogOpen} onOpenChange={open => { if (!open) { setTagDialogOpen(false); setTagInput(""); } }}>
-        <DialogContent style={{ background: CARD_BG, border: `1px solid ${BORDER}`, color: TEXT }}>
+        <DialogContent className="max-w-[400px] bg-card rounded-2xl">
           <DialogHeader>
-            <DialogTitle className="font-heading" style={{ color: TEXT }}>Tag Conversations</DialogTitle>
+            <DialogTitle className="font-heading text-base">Tag Conversations</DialogTitle>
           </DialogHeader>
-          <p className="text-sm font-description mb-3" style={{ color: MUTED }}>
+          <p className="text-sm text-muted-foreground mb-3">
             Enter a tag to apply to {selectedIds.size} selected conversation{selectedIds.size > 1 ? "s" : ""}:
           </p>
           <Input
             value={tagInput}
             onChange={e => setTagInput(e.target.value)}
             placeholder="e.g. billing, urgent, follow-up"
-            className="text-sm font-description"
-            style={{ background: INPUT_BG, border: `1px solid ${BORDER}`, color: TEXT }}
-            onKeyDown={e => { if (e.key === "Enter") handleBulkTag(); }}
+            className="text-sm bg-card"
+            onKeyDown={e => { if (e.key === "Enter") void handleBulkTag(); }}
           />
-          <DialogFooter className="gap-2 mt-4">
-            <Button
-              variant="ghost"
-              onClick={() => { setTagDialogOpen(false); setTagInput(""); }}
-              className="text-sm font-description"
-              style={{ color: MUTED, border: `1px solid ${BORDER}` }}
-            >
+          <DialogFooter className="gap-2 sm:gap-0 mt-4">
+            <Button variant="outline" size="sm" onClick={() => { setTagDialogOpen(false); setTagInput(""); }}>
               Cancel
             </Button>
             <Button
-              onClick={handleBulkTag}
+              size="sm"
               disabled={!tagInput.trim() || bulkAction.isPending}
-              className="text-sm font-description"
-              style={{ background: BLUE, color: "#fff" }}
+              onClick={() => void handleBulkTag()}
             >
               {bulkAction.isPending ? "Applying..." : "Apply Tag"}
             </Button>

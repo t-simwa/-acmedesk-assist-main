@@ -1,3 +1,15 @@
+/**
+ * Analytics Page
+ *
+ * Redesigned with:
+ * - Proper Tailwind design tokens (no hardcoded hex colors)
+ * - Inline KPI stat cards with gradient accents on hover
+ * - Responsive grid layout for all device sizes
+ * - Mobile card layouts for tables, progressive column disclosure
+ * - Consistent aesthetic with Dashboard, Leads, and Conversations pages
+ * - Refined editorial SaaS aesthetic
+ */
+
 import { useState, useCallback } from "react";
 import {
   BarChart3,
@@ -5,6 +17,8 @@ import {
   Users,
   Percent,
   TrendingUp,
+  TrendingDown,
+  Minus,
   Clock,
   Star,
   Download,
@@ -22,7 +36,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-import { KPICard } from "@/components/dashboard/KPICard";
 import { DateRangeFilter } from "@/components/dashboard/DateRangeFilter";
 import { ConversationVolumeChart } from "@/components/dashboard/ConversationVolumeChart";
 import { ConversationOutcomesDonut } from "@/components/dashboard/ConversationOutcomesDonut";
@@ -47,9 +60,9 @@ import { useToast } from "@/hooks/use-toast";
 import type { ApiError, UnansweredQuestion } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-// ============================================================================
-// Mock data — used when API is unavailable
-// ============================================================================
+/* ═══════════════════════════════════════════════════════════════════════════════
+   MOCK DATA — used when API is unavailable
+   ═══════════════════════════════════════════════════════════════════════════════ */
 
 const TODAY = new Date();
 const MOCK_DAYS = Array.from({ length: 7 }, (_, i) => {
@@ -127,38 +140,72 @@ const MOCK_SATISFACTION = {
   score_trend: 3.2,
 };
 
-// ============================================================================
-// Helper — section header component
-// ============================================================================
+/* ═══════════════════════════════════════════════════════════════════════════════
+   HELPERS
+   ═══════════════════════════════════════════════════════════════════════════════ */
 
-function SectionHeader({ icon: Icon, title }: { icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>; title: string }) {
+/** Section divider with icon and title */
+function SectionHeader({ icon: Icon, title }: { icon: React.ComponentType<{ className?: string }>; title: string }) {
   return (
     <div className="flex items-center gap-2 mb-4">
-      <Icon className="h-4 w-4 shrink-0" style={{ color: "#4F8EF7" }} />
-      <h2
-        className="text-xs font-semibold uppercase tracking-wider font-heading whitespace-nowrap"
-        style={{ color: "#9CA3AF" }}
-      >
+      <Icon className="h-4 w-4 shrink-0 text-primary" />
+      <h2 className="text-xs font-semibold uppercase tracking-wider font-heading text-muted-foreground whitespace-nowrap">
         {title}
       </h2>
-      <div className="flex-1 h-px" style={{ backgroundColor: "#2D333B" }} />
+      <div className="flex-1 h-px bg-border" />
     </div>
   );
 }
 
-// ============================================================================
-// Date range preset → days mapping
-// ============================================================================
-
+/** Date range preset to days */
 function presetToDays(preset: string): number {
   if (preset === "today") return 1;
   if (preset === "30days") return 30;
   return 7;
 }
 
-// ============================================================================
-// Main Analytics Page
-// ============================================================================
+/** Document bar color classes by index */
+const DOC_BAR_COLORS = [
+  "bg-blue-500",
+  "bg-violet-500",
+  "bg-emerald-500",
+  "bg-amber-500",
+];
+
+/** Inline stat card definitions matching Leads/Conversations pages */
+const STAT_CARDS: { key: string; label: string; icon: React.ReactNode; accent: string }[] = [
+  { key: "conversations", label: "Total Conversations", icon: <MessageSquare size={18} />, accent: "from-blue-500/20 to-blue-500/0" },
+  { key: "leads",         label: "Total Leads",         icon: <Users size={18} />,          accent: "from-emerald-500/20 to-emerald-500/0" },
+  { key: "resolution",    label: "Resolution Rate",     icon: <Percent size={18} />,        accent: "from-violet-500/20 to-violet-500/0" },
+  { key: "escalation",    label: "Escalation Rate",     icon: <TrendingUp size={18} />,     accent: "from-amber-500/20 to-amber-500/0" },
+  { key: "avg_messages",  label: "Avg Messages",        icon: <MessageSquare size={18} />,  accent: "from-pink-500/20 to-pink-500/0" },
+  { key: "satisfaction",  label: "Satisfaction",         icon: <Star size={18} />,           accent: "from-blue-500/20 to-blue-500/0" },
+];
+
+/** Trend direction indicator */
+function TrendIndicator({ value }: { value: number | null | undefined }) {
+  if (value === null || value === undefined) return null;
+  const isPositive = value > 0;
+  const isNegative = value < 0;
+
+  return (
+    <span className={cn(
+      "inline-flex items-center gap-0.5 text-xs font-mono font-medium",
+      isPositive && "text-emerald-500",
+      isNegative && "text-rose-500",
+      !isPositive && !isNegative && "text-muted-foreground",
+    )}>
+      {value > 0 && <TrendingUp className="h-3.5 w-3.5" />}
+      {value < 0 && <TrendingDown className="h-3.5 w-3.5" />}
+      {value === 0 && <Minus className="h-3.5 w-3.5" />}
+      {value > 0 ? "+" : ""}{value}%
+    </span>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   ANALYTICS PAGE
+   ═══════════════════════════════════════════════════════════════════════════════ */
 
 export default function Analytics() {
   const [dateRange, setDateRange] = useState("7days");
@@ -168,7 +215,7 @@ export default function Analytics() {
 
   const days = presetToDays(dateRange);
 
-  // API hooks
+  // ── API hooks ─────────────────────────────────────────────────────────────
   const { data: summaryData, isLoading: summaryLoading, error: summaryError, refetch: refetchSummary } = useAnalyticsSummary(days);
   const { data: leadsRaw, isLoading: leadsLoading } = useLeadsAnalytics(days);
   const { data: channelRaw, isLoading: channelsLoading } = useChannelAnalytics();
@@ -182,7 +229,7 @@ export default function Analytics() {
   const contentData = contentRaw ?? MOCK_CONTENT;
   const satisfactionData = satisfactionRaw ?? MOCK_SATISFACTION;
 
-  // Derived KPI values
+  // ── Derived KPI values ────────────────────────────────────────────────────
   const escalationRate =
     summary.resolution_rate.total > 0
       ? ((summary.resolution_rate.escalated || 0) / summary.resolution_rate.total) * 100
@@ -208,7 +255,7 @@ export default function Analytics() {
     { outcome: "abandoned", count: 0, percentage: 0 },
   ];
 
-  // Export handlers
+  // ── Export handlers ───────────────────────────────────────────────────────
   const handleExportCSV = useCallback(() => {
     try {
       const exportData = [
@@ -259,15 +306,15 @@ export default function Analytics() {
     setDateRange("7days");
   }, []);
 
-  // Hard error state (no data at all, API failed)
+  // ── Hard error state ──────────────────────────────────────────────────────
   if (summaryError && !summaryData) {
     return (
       <div className="flex flex-col w-full min-w-0">
         <header className="mb-6 sm:mb-8">
-          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight font-heading" style={{ color: "#F9FAFB" }}>
+          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground font-heading">
             Analytics
           </h1>
-          <p className="mt-1 text-sm font-description" style={{ color: "#9CA3AF" }}>
+          <p className="mt-1 text-sm font-description text-muted-foreground">
             Chatbot usage and performance metrics
           </p>
         </header>
@@ -281,23 +328,21 @@ export default function Analytics() {
     );
   }
 
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col w-full min-w-0 pb-10">
 
-      {/* ================================================================
-          7.3.1 — Page Header
-      ================================================================ */}
+      {/* ═══════════════════════════════════════════════════════════════════════
+          Page Header
+      ═══════════════════════════════════════════════════════════════════════ */}
       <header className="mb-6 sm:mb-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           {/* Title */}
-          <div>
-            <h1
-              className="text-xl sm:text-2xl font-semibold tracking-tight font-heading"
-              style={{ color: "#F9FAFB" }}
-            >
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground font-heading">
               Analytics
             </h1>
-            <p className="mt-1 text-[13px] sm:text-sm font-description" style={{ color: "#9CA3AF" }}>
+            <p className="mt-1 text-[13px] sm:text-sm font-description text-muted-foreground">
               Chatbot usage and performance metrics
             </p>
           </div>
@@ -312,11 +357,11 @@ export default function Analytics() {
               variant="outline"
               size="sm"
               onClick={() => setScheduleOpen(true)}
-              className="h-9 px-3 text-xs font-description border gap-1.5"
-              style={{ backgroundColor: "#1C1F26", borderColor: "#2D333B", color: "#F9FAFB" }}
+              className="h-9 px-3 text-xs font-description gap-1.5"
             >
-              <Calendar className="h-3.5 w-3.5" style={{ color: "#4F8EF7" }} />
-              Schedule Report
+              <Calendar className="h-3.5 w-3.5 text-primary" />
+              <span className="hidden sm:inline">Schedule Report</span>
+              <span className="sm:hidden">Schedule</span>
             </Button>
 
             {/* Export dropdown */}
@@ -325,36 +370,28 @@ export default function Analytics() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-9 px-3 text-xs font-description border gap-1.5"
-                  style={{ backgroundColor: "#1C1F26", borderColor: "#2D333B", color: "#F9FAFB" }}
+                  className="h-9 px-3 text-xs font-description gap-1.5"
                 >
-                  <Download className="h-3.5 w-3.5" style={{ color: "#9CA3AF" }} />
+                  <Download className="h-3.5 w-3.5 text-muted-foreground" />
                   Export
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                className="w-44 border"
-                style={{ backgroundColor: "#1C1F26", borderColor: "#2D333B" }}
-              >
+              <DropdownMenuContent align="end" className="w-44">
                 <DropdownMenuItem
                   onClick={handleExportCSV}
                   className="text-xs font-description cursor-pointer"
-                  style={{ color: "#F9FAFB" }}
                 >
                   Export CSV
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={handleExportExcel}
                   className="text-xs font-description cursor-pointer"
-                  style={{ color: "#F9FAFB" }}
                 >
                   Export Excel
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={handleGeneratePDF}
                   className="text-xs font-description cursor-pointer"
-                  style={{ color: "#F9FAFB" }}
                 >
                   Generate PDF Report
                 </DropdownMenuItem>
@@ -366,12 +403,12 @@ export default function Analytics() {
               variant="outline"
               size="sm"
               onClick={() => setAutoRefresh((v) => !v)}
-              className={cn("h-9 px-3 text-xs font-description border gap-1.5 transition-colors")}
-              style={{
-                backgroundColor: autoRefresh ? "rgba(79,142,247,0.15)" : "#1C1F26",
-                borderColor: autoRefresh ? "#4F8EF7" : "#2D333B",
-                color: autoRefresh ? "#4F8EF7" : "#9CA3AF",
-              }}
+              className={cn(
+                "h-9 px-3 text-xs font-description gap-1.5 transition-colors",
+                autoRefresh
+                  ? "bg-primary/15 border-primary text-primary hover:bg-primary/20 hover:text-primary"
+                  : "text-muted-foreground",
+              )}
               title={autoRefresh ? "Auto-refresh ON" : "Auto-refresh OFF"}
             >
               <RefreshCw className={cn("h-3.5 w-3.5", autoRefresh && "animate-spin")} />
@@ -384,8 +421,7 @@ export default function Analytics() {
                 variant="ghost"
                 size="sm"
                 onClick={handleClearFilters}
-                className="h-9 px-2 text-xs font-description"
-                style={{ color: "#9CA3AF" }}
+                className="h-9 px-2 text-xs font-description text-muted-foreground hover:text-foreground"
               >
                 Clear filters
               </Button>
@@ -394,57 +430,70 @@ export default function Analytics() {
         </div>
       </header>
 
-      {/* ================================================================
-          7.3.2 — Overview KPI Row (6 cards)
-      ================================================================ */}
+      {/* ═══════════════════════════════════════════════════════════════════════
+          Overview KPI Row (6 cards)
+      ═══════════════════════════════════════════════════════════════════════ */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
         {summaryLoading || leadsLoading || satisfactionLoading ? (
           Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-28 rounded-xl" />
           ))
         ) : (
-          <>
-            <KPICard
-              label="Total Conversations"
-              value={summary.total_conversations.toLocaleString()}
-              icon={<MessageSquare className="w-4 h-4" />}
-            />
-            <KPICard
-              label="Total Leads"
-              value={leadsData.total_leads.toLocaleString()}
-              trend={leadsData.leads_trend ?? null}
-              trendLabel="vs last period"
-              icon={<Users className="w-4 h-4" />}
-            />
-            <KPICard
-              label="Resolution Rate"
-              value={`${(summary.resolution_rate.percentage || 0).toFixed(1)}%`}
-              icon={<Percent className="w-4 h-4" />}
-            />
-            <KPICard
-              label="Escalation Rate"
-              value={`${escalationRate.toFixed(1)}%`}
-              icon={<TrendingUp className="w-4 h-4" />}
-            />
-            <KPICard
-              label="Avg Messages"
-              value={avgMessages}
-              icon={<MessageSquare className="w-4 h-4" />}
-            />
-            <KPICard
-              label="Satisfaction"
-              value={`${satisfactionData.current_score.toFixed(1)}%`}
-              trend={satisfactionData.score_trend ?? null}
-              trendLabel="vs last period"
-              icon={<Star className="w-4 h-4" />}
-            />
-          </>
+          (() => {
+            const kpiValues: Record<string, { value: string; trend?: number | null }> = {
+              conversations: { value: summary.total_conversations.toLocaleString() },
+              leads:         { value: leadsData.total_leads.toLocaleString(), trend: leadsData.leads_trend },
+              resolution:    { value: `${(summary.resolution_rate.percentage || 0).toFixed(1)}%` },
+              escalation:    { value: `${escalationRate.toFixed(1)}%` },
+              avg_messages:  { value: avgMessages },
+              satisfaction:  { value: `${satisfactionData.current_score.toFixed(1)}%`, trend: satisfactionData.score_trend },
+            };
+
+            return STAT_CARDS.map((card, i) => {
+              const kpi = kpiValues[card.key];
+              return (
+                <div
+                  key={card.key}
+                  className={cn(
+                    "relative overflow-hidden rounded-xl border bg-card p-3 sm:p-4",
+                    "transition-all duration-200 hover:border-primary/20 hover:shadow-soft-sm group",
+                  )}
+                  style={{ animationDelay: `${i * 50}ms` }}
+                >
+                  {/* Gradient accent on hover */}
+                  <div className={cn(
+                    "absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-100 transition-opacity duration-300",
+                    card.accent,
+                  )} />
+                  <div className="relative">
+                    <div className="text-muted-foreground mb-2">
+                      {card.icon}
+                    </div>
+                    <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider font-heading text-muted-foreground mb-1">
+                      {card.label}
+                    </p>
+                    <div className="flex items-end gap-2">
+                      <p className="text-xl sm:text-2xl lg:text-3xl font-bold font-mono tracking-tight text-foreground">
+                        {kpi.value}
+                      </p>
+                      <TrendIndicator value={kpi.trend} />
+                    </div>
+                    {kpi.trend != null && (
+                      <p className="text-[10px] mt-1.5 font-description text-muted-foreground">
+                        vs last period
+                      </p>
+                    )}
+                  </div>
+                </div>
+              );
+            });
+          })()
         )}
       </div>
 
-      {/* ================================================================
-          7.3.3 — Conversation Analytics Section
-      ================================================================ */}
+      {/* ═══════════════════════════════════════════════════════════════════════
+          Conversation Analytics Section
+      ═══════════════════════════════════════════════════════════════════════ */}
       <div className="mb-8">
         <SectionHeader icon={MessageSquare} title="Conversation Analytics" />
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -465,9 +514,9 @@ export default function Analytics() {
         </div>
       </div>
 
-      {/* ================================================================
-          7.3.4 — Channel Analytics Section
-      ================================================================ */}
+      {/* ═══════════════════════════════════════════════════════════════════════
+          Channel Analytics Section
+      ═══════════════════════════════════════════════════════════════════════ */}
       <div className="mb-8">
         <SectionHeader icon={BarChart3} title="Channel Analytics" />
         {channelsLoading ? (
@@ -480,21 +529,18 @@ export default function Analytics() {
         )}
       </div>
 
-      {/* ================================================================
-          7.3.5 — Content Analytics Section
-      ================================================================ */}
+      {/* ═══════════════════════════════════════════════════════════════════════
+          Content Analytics Section
+      ═══════════════════════════════════════════════════════════════════════ */}
       <div className="mb-8">
         <SectionHeader icon={FileText} title="Content Analytics" />
 
-        {/* Top questions + Unanswered */}
+        {/* Top Questions + Unanswered */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-          {/* Top Questions inline table */}
-          <div
-            className="rounded-xl border overflow-hidden"
-            style={{ backgroundColor: "#1C1F26", borderColor: "#2D333B" }}
-          >
-            <div className="px-4 sm:px-5 py-4 border-b" style={{ borderColor: "#2D333B" }}>
-              <h3 className="text-sm font-semibold font-heading" style={{ color: "#F9FAFB" }}>
+          {/* ─── Top Questions ─────────────────────────────────────────── */}
+          <div className="rounded-xl border border-border bg-card overflow-hidden">
+            <div className="px-4 sm:px-5 py-4 border-b border-border">
+              <h3 className="text-sm font-semibold font-heading text-foreground">
                 Top Questions
               </h3>
             </div>
@@ -506,72 +552,97 @@ export default function Analytics() {
               </div>
             ) : contentData.top_questions.length === 0 ? (
               <div className="px-5 py-8 text-center">
-                <p className="text-sm font-description" style={{ color: "#9CA3AF" }}>
+                <p className="text-sm font-description text-muted-foreground">
                   No questions data yet
                 </p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr style={{ borderBottom: "1px solid #2D333B" }}>
-                      {["Question", "Count", "Resolved"].map((col) => (
-                        <th
-                          key={col}
-                          className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider font-heading"
-                          style={{ color: "#9CA3AF" }}
-                        >
-                          {col}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {contentData.top_questions.slice(0, 10).map((q, i) => (
-                      <tr
-                        key={i}
-                        style={{ borderBottom: i < contentData.top_questions.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}
-                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#252A33")}
-                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
-                        className="transition-colors duration-150"
-                      >
-                        <td className="px-4 py-2.5 max-w-[200px]">
-                          <p
-                            className="font-description text-xs truncate"
-                            style={{ color: "#F9FAFB" }}
-                            title={q.query}
+              <>
+                {/* Desktop table (sm+) */}
+                <div className="hidden sm:block overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border">
+                        {["Question", "Count", "Resolved"].map((col) => (
+                          <th
+                            key={col}
+                            className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider font-heading text-muted-foreground"
                           >
-                            {q.query}
-                          </p>
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <span className="font-mono text-xs font-semibold" style={{ color: "#F9FAFB" }}>
-                            {q.count}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <span
-                            className="text-xs font-mono px-2 py-0.5 rounded-full"
-                            style={{
-                              backgroundColor:
-                                q.resolved_percentage >= 80
-                                  ? "rgba(16,185,129,0.15)"
-                                  : "rgba(239,68,68,0.15)",
-                              color: q.resolved_percentage >= 80 ? "#10B981" : "#EF4444",
-                            }}
-                          >
-                            {q.resolved_percentage.toFixed(0)}%
-                          </span>
-                        </td>
+                            {col}
+                          </th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-border/50">
+                      {contentData.top_questions.slice(0, 10).map((q, i) => (
+                        <tr
+                          key={i}
+                          className="transition-colors duration-150 hover:bg-muted/50"
+                        >
+                          <td className="px-4 py-2.5 max-w-[200px]">
+                            <p
+                              className="font-description text-xs truncate text-foreground"
+                              title={q.query}
+                            >
+                              {q.query}
+                            </p>
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <span className="font-mono text-xs font-semibold text-foreground">
+                              {q.count}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <span
+                              className={cn(
+                                "text-xs font-mono px-2 py-0.5 rounded-full",
+                                q.resolved_percentage >= 80
+                                  ? "bg-emerald-500/15 text-emerald-500"
+                                  : "bg-rose-500/15 text-rose-500",
+                              )}
+                            >
+                              {q.resolved_percentage.toFixed(0)}%
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile card layout (<sm) */}
+                <div className="sm:hidden divide-y divide-border/50">
+                  {contentData.top_questions.slice(0, 10).map((q, i) => (
+                    <div key={i} className="px-4 py-3 space-y-1.5">
+                      <p
+                        className="font-description text-sm text-foreground line-clamp-2"
+                        title={q.query}
+                      >
+                        {q.query}
+                      </p>
+                      <div className="flex items-center gap-3">
+                        <span className="font-mono text-xs font-semibold text-muted-foreground">
+                          {q.count} asked
+                        </span>
+                        <span
+                          className={cn(
+                            "text-xs font-mono px-2 py-0.5 rounded-full",
+                            q.resolved_percentage >= 80
+                              ? "bg-emerald-500/15 text-emerald-500"
+                              : "bg-rose-500/15 text-rose-500",
+                          )}
+                        >
+                          {q.resolved_percentage.toFixed(0)}% resolved
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </div>
 
-          {/* Unanswered Questions */}
+          {/* ─── Unanswered Questions ──────────────────────────────────── */}
           {contentLoading ? (
             <Skeleton className="h-[280px] rounded-xl" />
           ) : (
@@ -583,13 +654,10 @@ export default function Analytics() {
           )}
         </div>
 
-        {/* Most Referenced Documents — horizontal bar chart */}
+        {/* ─── Most Referenced Documents ─────────────────────────────────── */}
         {contentData.most_referenced_docs.length > 0 && (
-          <div
-            className="rounded-xl border p-4 sm:p-5"
-            style={{ backgroundColor: "#1C1F26", borderColor: "#2D333B" }}
-          >
-            <h3 className="text-sm font-semibold font-heading mb-4" style={{ color: "#F9FAFB" }}>
+          <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
+            <h3 className="text-sm font-semibold font-heading text-foreground mb-4">
               Most Referenced Documents
             </h3>
             {contentLoading ? (
@@ -604,20 +672,20 @@ export default function Analytics() {
                   return (
                     <div key={doc.document_id}>
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-description truncate max-w-[60%]" style={{ color: "#F9FAFB" }}>
+                        <span className="text-xs font-description truncate max-w-[60%] text-foreground">
                           {doc.filename}
                         </span>
-                        <span className="text-xs font-mono" style={{ color: "#9CA3AF" }}>
+                        <span className="text-xs font-mono text-muted-foreground">
                           {doc.reference_count} refs
                         </span>
                       </div>
-                      <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: "rgba(255,255,255,0.06)" }}>
+                      <div className="h-2 rounded-full overflow-hidden bg-muted">
                         <div
-                          className="h-full rounded-full transition-all duration-500"
-                          style={{
-                            width: `${pct}%`,
-                            backgroundColor: i === 0 ? "#4F8EF7" : i === 1 ? "#7C3AED" : i === 2 ? "#10B981" : "#F59E0B",
-                          }}
+                          className={cn(
+                            "h-full rounded-full transition-all duration-500",
+                            DOC_BAR_COLORS[i] || DOC_BAR_COLORS[DOC_BAR_COLORS.length - 1],
+                          )}
+                          style={{ width: `${pct}%` }}
                         />
                       </div>
                     </div>
@@ -629,9 +697,9 @@ export default function Analytics() {
         )}
       </div>
 
-      {/* ================================================================
-          7.3.6 — Lead Analytics Section
-      ================================================================ */}
+      {/* ═══════════════════════════════════════════════════════════════════════
+          Lead Analytics Section
+      ═══════════════════════════════════════════════════════════════════════ */}
       <div className="mb-8">
         <SectionHeader icon={Users} title="Lead Analytics" />
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -649,9 +717,9 @@ export default function Analytics() {
         </div>
       </div>
 
-      {/* ================================================================
-          7.3.7 — Satisfaction Analytics Section
-      ================================================================ */}
+      {/* ═══════════════════════════════════════════════════════════════════════
+          Satisfaction Analytics Section
+      ═══════════════════════════════════════════════════════════════════════ */}
       <div className="mb-8">
         <SectionHeader icon={Star} title="Satisfaction Analytics" />
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -661,92 +729,84 @@ export default function Analytics() {
             ))
           ) : (
             <>
-              {/* Current Satisfaction Score */}
-              <div
-                className="rounded-xl border p-5 relative overflow-hidden"
-                style={{ backgroundColor: "#1C1F26", borderColor: "#2D333B" }}
-              >
-                <div
-                  className="absolute inset-0 opacity-5"
-                  style={{ background: "radial-gradient(circle at top right, #4F8EF7, transparent 70%)" }}
-                />
-                <p className="text-xs font-semibold uppercase tracking-wider font-heading mb-2" style={{ color: "#9CA3AF" }}>
-                  Satisfaction Score
-                </p>
-                <p className="text-4xl font-bold font-mono" style={{ color: "#F9FAFB" }}>
-                  {satisfactionData.current_score.toFixed(1)}%
-                </p>
-                {satisfactionData.score_trend != null && (
-                  <div className="flex items-center gap-1 mt-2">
-                    <span
-                      className="text-xs font-mono px-2 py-0.5 rounded-full"
-                      style={{
-                        backgroundColor: satisfactionData.score_trend >= 0 ? "rgba(16,185,129,0.15)" : "rgba(239,68,68,0.15)",
-                        color: satisfactionData.score_trend >= 0 ? "#10B981" : "#EF4444",
-                      }}
-                    >
-                      {satisfactionData.score_trend >= 0 ? "+" : ""}{satisfactionData.score_trend.toFixed(1)}%
-                    </span>
-                    <span className="text-xs font-description" style={{ color: "#9CA3AF" }}>vs last period</span>
+              {/* ─── Current Satisfaction Score ──────────────────────── */}
+              <div className="relative overflow-hidden rounded-xl border border-border bg-card p-5 group transition-all duration-200 hover:border-primary/20 hover:shadow-soft-sm">
+                {/* Gradient accent */}
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/8 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <div className="relative">
+                  <p className="text-xs font-semibold uppercase tracking-wider font-heading text-muted-foreground mb-2">
+                    Satisfaction Score
+                  </p>
+                  <p className="text-4xl font-bold font-mono text-foreground">
+                    {satisfactionData.current_score.toFixed(1)}%
+                  </p>
+                  {satisfactionData.score_trend != null && (
+                    <div className="flex items-center gap-1 mt-2">
+                      <span
+                        className={cn(
+                          "text-xs font-mono px-2 py-0.5 rounded-full",
+                          satisfactionData.score_trend >= 0
+                            ? "bg-emerald-500/15 text-emerald-500"
+                            : "bg-rose-500/15 text-rose-500",
+                        )}
+                      >
+                        {satisfactionData.score_trend >= 0 ? "+" : ""}{satisfactionData.score_trend.toFixed(1)}%
+                      </span>
+                      <span className="text-xs font-description text-muted-foreground">vs last period</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* ─── Positive Feedback ──────────────────────────────── */}
+              <div className="relative overflow-hidden rounded-xl border border-border bg-card p-5 group transition-all duration-200 hover:border-emerald-500/20 hover:shadow-soft-sm">
+                {/* Gradient accent */}
+                <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/8 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <div className="relative">
+                  <div className="flex items-center gap-2 mb-2">
+                    <ThumbsUp className="h-4 w-4 text-emerald-500" />
+                    <p className="text-xs font-semibold uppercase tracking-wider font-heading text-muted-foreground">
+                      Positive Feedback
+                    </p>
                   </div>
-                )}
-              </div>
-
-              {/* Positive Feedback */}
-              <div
-                className="rounded-xl border p-5 relative overflow-hidden"
-                style={{ backgroundColor: "#1C1F26", borderColor: "#2D333B" }}
-              >
-                <div
-                  className="absolute inset-0 opacity-5"
-                  style={{ background: "radial-gradient(circle at top right, #10B981, transparent 70%)" }}
-                />
-                <div className="flex items-center gap-2 mb-2">
-                  <ThumbsUp className="h-4 w-4" style={{ color: "#10B981" }} />
-                  <p className="text-xs font-semibold uppercase tracking-wider font-heading" style={{ color: "#9CA3AF" }}>
-                    Positive Feedback
+                  <p className="text-4xl font-bold font-mono text-emerald-500">
+                    {satisfactionData.total_positive.toLocaleString()}
+                  </p>
+                  <p className="text-xs font-description mt-2 text-muted-foreground">
+                    {satisfactionData.total_positive + satisfactionData.total_negative > 0
+                      ? `${((satisfactionData.total_positive / (satisfactionData.total_positive + satisfactionData.total_negative)) * 100).toFixed(1)}% of all feedback`
+                      : "No feedback yet"}
                   </p>
                 </div>
-                <p className="text-4xl font-bold font-mono" style={{ color: "#10B981" }}>
-                  {satisfactionData.total_positive.toLocaleString()}
-                </p>
-                <p className="text-xs font-description mt-2" style={{ color: "#9CA3AF" }}>
-                  {satisfactionData.total_positive + satisfactionData.total_negative > 0
-                    ? `${((satisfactionData.total_positive / (satisfactionData.total_positive + satisfactionData.total_negative)) * 100).toFixed(1)}% of all feedback`
-                    : "No feedback yet"}
-                </p>
               </div>
 
-              {/* Negative Feedback */}
-              <div
-                className="rounded-xl border p-5 relative overflow-hidden"
-                style={{ backgroundColor: "#1C1F26", borderColor: "#2D333B" }}
-              >
-                <div
-                  className="absolute inset-0 opacity-5"
-                  style={{ background: "radial-gradient(circle at top right, #EF4444, transparent 70%)" }}
-                />
-                <div className="flex items-center gap-2 mb-2">
-                  <ThumbsDown className="h-4 w-4" style={{ color: "#EF4444" }} />
-                  <p className="text-xs font-semibold uppercase tracking-wider font-heading" style={{ color: "#9CA3AF" }}>
-                    Negative Feedback
+              {/* ─── Negative Feedback ─────────────────────────────── */}
+              <div className="relative overflow-hidden rounded-xl border border-border bg-card p-5 group transition-all duration-200 hover:border-rose-500/20 hover:shadow-soft-sm">
+                {/* Gradient accent */}
+                <div className="absolute inset-0 bg-gradient-to-br from-rose-500/8 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <div className="relative">
+                  <div className="flex items-center gap-2 mb-2">
+                    <ThumbsDown className="h-4 w-4 text-rose-500" />
+                    <p className="text-xs font-semibold uppercase tracking-wider font-heading text-muted-foreground">
+                      Negative Feedback
+                    </p>
+                  </div>
+                  <p className="text-4xl font-bold font-mono text-rose-500">
+                    {satisfactionData.total_negative.toLocaleString()}
+                  </p>
+                  <p className="text-xs font-description mt-2 text-muted-foreground">
+                    {satisfactionData.total_positive + satisfactionData.total_negative > 0
+                      ? `${((satisfactionData.total_negative / (satisfactionData.total_positive + satisfactionData.total_negative)) * 100).toFixed(1)}% of all feedback`
+                      : "No feedback yet"}
                   </p>
                 </div>
-                <p className="text-4xl font-bold font-mono" style={{ color: "#EF4444" }}>
-                  {satisfactionData.total_negative.toLocaleString()}
-                </p>
-                <p className="text-xs font-description mt-2" style={{ color: "#9CA3AF" }}>
-                  {satisfactionData.total_positive + satisfactionData.total_negative > 0
-                    ? `${((satisfactionData.total_negative / (satisfactionData.total_positive + satisfactionData.total_negative)) * 100).toFixed(1)}% of all feedback`
-                    : "No feedback yet"}
-                </p>
               </div>
             </>
           )}
         </div>
       </div>
 
-      {/* Schedule Report Modal */}
+      {/* ─── Schedule Report Modal ────────────────────────────────────────── */}
       <ScheduleReportModal open={scheduleOpen} onClose={() => setScheduleOpen(false)} />
     </div>
   );

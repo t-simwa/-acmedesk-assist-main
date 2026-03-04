@@ -6,21 +6,30 @@ interface ChannelBreakdownProps {
   className?: string;
 }
 
-const CHANNEL_CONFIG: Record<string, { icon: React.ElementType; color: string; label: string }> = {
-  web: { icon: Globe, color: "#4F8EF7", label: "Web Widget" },
-  whatsapp: { icon: MessageCircle, color: "#25D366", label: "WhatsApp" },
-  instagram: { icon: Instagram, color: "#E4405F", label: "Instagram" },
-  facebook: { icon: Facebook, color: "#1877F2", label: "Facebook" },
-  email: { icon: Mail, color: "#EA4335", label: "Email" },
-  sms: { icon: Smartphone, color: "#FFB800", label: "SMS" },
+const CHANNEL_CONFIG: Record<string, {
+  icon: React.ElementType;
+  label: string;
+  colorClass: string;
+  bgClass: string;
+  barClass: string;
+}> = {
+  web:       { icon: Globe,          label: "Web Widget", colorClass: "text-blue-400",    bgClass: "bg-blue-500/10",    barClass: "bg-blue-500" },
+  whatsapp:  { icon: MessageCircle,  label: "WhatsApp",   colorClass: "text-emerald-400", bgClass: "bg-emerald-500/10", barClass: "bg-emerald-500" },
+  instagram: { icon: Instagram,      label: "Instagram",  colorClass: "text-pink-400",    bgClass: "bg-pink-500/10",    barClass: "bg-pink-500" },
+  facebook:  { icon: Facebook,       label: "Facebook",   colorClass: "text-blue-400",    bgClass: "bg-blue-500/10",    barClass: "bg-blue-500" },
+  email:     { icon: Mail,           label: "Email",      colorClass: "text-violet-400",  bgClass: "bg-violet-500/10",  barClass: "bg-violet-500" },
+  sms:       { icon: Smartphone,     label: "SMS",        colorClass: "text-amber-400",   bgClass: "bg-amber-500/10",   barClass: "bg-amber-500" },
 };
 
 export function ChannelBreakdown({ data, className }: ChannelBreakdownProps) {
   const maxCount = Math.max(...data.map(d => d.count), 1);
 
   return (
-    <div className={cn("rounded-xl border p-4 sm:p-5", className)} style={{ backgroundColor: "#1C1F26", borderColor: "#2D333B" }}>
-      <h3 className="text-sm font-semibold font-heading mb-4" style={{ color: "#F9FAFB" }}>
+    <div className={cn(
+      "rounded-xl border border-border bg-card p-4 sm:p-5",
+      className
+    )}>
+      <h3 className="text-sm font-semibold font-heading text-foreground mb-4">
         Channel Breakdown
       </h3>
 
@@ -29,8 +38,10 @@ export function ChannelBreakdown({ data, className }: ChannelBreakdownProps) {
           data.map((item) => {
             const config = CHANNEL_CONFIG[item.channel] || {
               icon: Globe,
-              color: "#6B7280",
               label: item.channel,
+              colorClass: "text-muted-foreground",
+              bgClass: "bg-muted",
+              barClass: "bg-muted-foreground",
             };
             const Icon = config.icon;
             const percentage = (item.count / maxCount) * 100;
@@ -38,28 +49,31 @@ export function ChannelBreakdown({ data, className }: ChannelBreakdownProps) {
             return (
               <div
                 key={item.channel}
-                className="flex flex-col items-center p-3 rounded-lg transition-colors"
-                style={{ backgroundColor: "#252A33" }}
+                className={cn(
+                  "group flex flex-col items-center p-3 rounded-lg",
+                  "bg-muted/50 transition-colors duration-200",
+                  "hover:bg-muted",
+                )}
               >
-                <div
-                  className="w-10 h-10 rounded-lg flex items-center justify-center mb-2"
-                  style={{ backgroundColor: `${config.color}20` }}
-                >
-                  <Icon className="w-5 h-5" style={{ color: config.color }} />
+                <div className={cn(
+                  "w-10 h-10 rounded-lg flex items-center justify-center mb-2",
+                  config.bgClass,
+                )}>
+                  <Icon className={cn("w-5 h-5", config.colorClass)} />
                 </div>
-                <span className="text-xs font-medium font-description truncate w-full text-center" style={{ color: "#F9FAFB" }}>
+                <span className="text-xs font-medium font-description truncate w-full text-center text-foreground">
                   {config.label}
                 </span>
-                <span className="text-lg font-bold font-mono mt-1" style={{ color: "#F9FAFB" }}>
+                <span className="text-lg font-bold font-mono mt-1 text-foreground">
                   {item.count}
                 </span>
-                <div className="w-full h-1.5 rounded-full mt-2 overflow-hidden" style={{ backgroundColor: "#1C1F26" }}>
+                <div className="w-full h-1.5 rounded-full mt-2 overflow-hidden bg-muted">
                   <div
-                    className="h-full rounded-full transition-all duration-500"
-                    style={{
-                      width: `${percentage}%`,
-                      backgroundColor: config.color,
-                    }}
+                    className={cn(
+                      "h-full rounded-full transition-all duration-500",
+                      config.barClass,
+                    )}
+                    style={{ width: `${percentage}%` }}
                   />
                 </div>
               </div>
@@ -67,7 +81,9 @@ export function ChannelBreakdown({ data, className }: ChannelBreakdownProps) {
           })
         ) : (
           <div className="col-span-full py-6 text-center">
-            <p className="text-sm font-description" style={{ color: "#9CA3AF" }}>No channel data available</p>
+            <p className="text-sm font-description text-muted-foreground">
+              No channel data available
+            </p>
           </div>
         )}
       </div>

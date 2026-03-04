@@ -1,9 +1,11 @@
 /**
- * LeadSourceDonut — 7.3.6
- * Donut chart showing lead source breakdown by channel.
+ * LeadSourceDonut -- 7.3.6
+ *
+ * Donut chart showing lead source breakdown by channel with custom inline legend.
+ * Redesigned with proper Tailwind design tokens and theme-aware recharts colors.
  */
 
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { cn } from "@/lib/utils";
 import type { LeadSourceItem } from "@/lib/api";
 
@@ -12,16 +14,17 @@ interface LeadSourceDonutProps {
   className?: string;
 }
 
+/** Semantic channel colors -- these are fixed brand colors that don't change with theme */
 const CHANNEL_COLORS: Record<string, string> = {
-  web: "#4F8EF7",
+  web: "#3b82f6",
   whatsapp: "#10B981",
-  instagram: "#F59E0B",
-  facebook: "#7C3AED",
-  email: "#EF4444",
-  sms: "#EC4899",
+  instagram: "#f59e0b",
+  facebook: "#7c3aed",
+  email: "#ef4444",
+  sms: "#ec4899",
 };
 
-const DEFAULT_COLORS = ["#4F8EF7", "#10B981", "#F59E0B", "#7C3AED", "#EF4444", "#EC4899"];
+const DEFAULT_COLORS = ["#3b82f6", "#10B981", "#f59e0b", "#7c3aed", "#ef4444", "#ec4899"];
 
 export function LeadSourceDonut({ data, className }: LeadSourceDonutProps) {
   const chartData = data.map((item, i) => ({
@@ -34,15 +37,12 @@ export function LeadSourceDonut({ data, className }: LeadSourceDonutProps) {
   const total = chartData.reduce((sum, item) => sum + item.value, 0);
 
   return (
-    <div
-      className={cn("rounded-xl border p-4 sm:p-5", className)}
-      style={{ backgroundColor: "#1C1F26", borderColor: "#2D333B" }}
-    >
-      <h3 className="text-sm font-semibold font-heading mb-4" style={{ color: "#F9FAFB" }}>
+    <div className={cn("rounded-xl border border-border bg-card p-4 sm:p-5", className)}>
+      <h3 className="text-sm font-semibold font-heading text-foreground mb-4">
         Lead Sources by Channel
       </h3>
 
-      <div className="h-[200px] sm:h-[240px]">
+      <div className="h-[200px] sm:h-[210px]">
         {total > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
@@ -62,36 +62,52 @@ export function LeadSourceDonut({ data, className }: LeadSourceDonutProps) {
               </Pie>
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "rgba(17, 24, 39, 0.95)",
-                  border: "1px solid rgba(255,255,255,0.1)",
+                  backgroundColor: "hsl(var(--card))",
+                  border: "1px solid hsl(var(--border))",
                   borderRadius: "8px",
+                  boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
                 }}
-                labelStyle={{ color: "#F9FAFB", fontWeight: 600 }}
-                itemStyle={{ color: "#9CA3AF" }}
+                labelStyle={{
+                  color: "hsl(var(--foreground))",
+                  fontWeight: 600,
+                  fontFamily: "Plus Jakarta Sans",
+                }}
+                itemStyle={{
+                  color: "hsl(var(--muted-foreground))",
+                  fontFamily: "Geist Mono",
+                }}
                 formatter={(value: number, name: string) => {
                   const item = chartData.find((d) => d.name === name);
                   return [`${value} (${item?.percentage ?? 0}%)`, name];
                 }}
               />
-              <Legend
-                verticalAlign="bottom"
-                height={36}
-                formatter={(value) => (
-                  <span className="text-xs font-description" style={{ color: "#9CA3AF" }}>
-                    {value}
-                  </span>
-                )}
-              />
             </PieChart>
           </ResponsiveContainer>
         ) : (
           <div className="h-full flex items-center justify-center">
-            <p className="text-sm font-description" style={{ color: "#9CA3AF" }}>
+            <p className="text-sm font-description text-muted-foreground">
               No lead source data available
             </p>
           </div>
         )}
       </div>
+
+      {/* Custom inline legend */}
+      {total > 0 && (
+        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 mt-2">
+          {chartData.map((entry) => (
+            <div key={entry.name} className="flex items-center gap-1.5">
+              <div
+                className="h-2 w-2 rounded-full shrink-0"
+                style={{ backgroundColor: entry.color }}
+              />
+              <span className="text-xs font-description text-muted-foreground">
+                {entry.name}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

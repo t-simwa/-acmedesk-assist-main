@@ -1,6 +1,9 @@
 /**
- * ConversionFunnel — 7.3.6
- * Funnel visualization: Conversations → Leads → Contacted → Qualified → Converted
+ * ConversionFunnel -- 7.3.6
+ *
+ * Funnel visualization: Conversations -> Leads -> Contacted -> Qualified -> Converted
+ * Redesigned with proper Tailwind design tokens, semantic Tailwind color classes,
+ * and refined editorial SaaS aesthetic.
  */
 
 import { cn } from "@/lib/utils";
@@ -11,34 +14,24 @@ interface ConversionFunnelProps {
   className?: string;
 }
 
-const STAGE_COLORS = [
-  "#4F8EF7", // Conversations — blue
-  "#7C3AED", // Leads — violet
-  "#F59E0B", // Contacted — amber
-  "#10B981", // Qualified — emerald
-  "#EF4444", // Converted — but positive, so keep emerald variant
-];
-
-const STAGE_COLORS_BG = [
-  "rgba(79,142,247,0.1)",
-  "rgba(124,58,237,0.1)",
-  "rgba(245,158,11,0.1)",
-  "rgba(16,185,129,0.1)",
-  "rgba(16,185,129,0.15)",
+/** Semantic stage colors using Tailwind classes */
+const STAGE_STYLES = [
+  { bar: "bg-blue-500/10", border: "border-l-blue-500", text: "text-blue-500" },
+  { bar: "bg-violet-500/10", border: "border-l-violet-500", text: "text-violet-500" },
+  { bar: "bg-amber-500/10", border: "border-l-amber-500", text: "text-amber-500" },
+  { bar: "bg-emerald-500/10", border: "border-l-emerald-500", text: "text-emerald-500" },
+  { bar: "bg-emerald-500/15", border: "border-l-emerald-500", text: "text-emerald-500" },
 ];
 
 export function ConversionFunnel({ data, className }: ConversionFunnelProps) {
   if (!data || data.length === 0) {
     return (
-      <div
-        className={cn("rounded-xl border p-4 sm:p-5", className)}
-        style={{ backgroundColor: "#1C1F26", borderColor: "#2D333B" }}
-      >
-        <h3 className="text-sm font-semibold font-heading mb-4" style={{ color: "#F9FAFB" }}>
+      <div className={cn("rounded-xl border border-border bg-card p-4 sm:p-5", className)}>
+        <h3 className="text-sm font-semibold font-heading text-foreground mb-4">
           Conversion Funnel
         </h3>
         <div className="h-[180px] flex items-center justify-center">
-          <p className="text-sm font-description" style={{ color: "#9CA3AF" }}>
+          <p className="text-sm font-description text-muted-foreground">
             No funnel data available
           </p>
         </div>
@@ -49,59 +42,53 @@ export function ConversionFunnel({ data, className }: ConversionFunnelProps) {
   const maxCount = data[0]?.count || 1;
 
   return (
-    <div
-      className={cn("rounded-xl border p-4 sm:p-5", className)}
-      style={{ backgroundColor: "#1C1F26", borderColor: "#2D333B" }}
-    >
-      <h3 className="text-sm font-semibold font-heading mb-5" style={{ color: "#F9FAFB" }}>
+    <div className={cn("rounded-xl border border-border bg-card p-4 sm:p-5", className)}>
+      <h3 className="text-sm font-semibold font-heading text-foreground mb-5">
         Conversion Funnel
       </h3>
 
       <div className="space-y-2">
         {data.map((stage, i) => {
           const widthPct = maxCount > 0 ? Math.max((stage.count / maxCount) * 100, 8) : 8;
-          const color = STAGE_COLORS[i] || STAGE_COLORS[STAGE_COLORS.length - 1];
-          const bgColor = STAGE_COLORS_BG[i] || STAGE_COLORS_BG[STAGE_COLORS_BG.length - 1];
+          const styles = STAGE_STYLES[i] || STAGE_STYLES[STAGE_STYLES.length - 1];
 
           return (
             <div key={stage.stage}>
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-semibold font-heading" style={{ color: "#9CA3AF" }}>
+                <span className="text-xs font-semibold font-heading text-muted-foreground">
                   {stage.stage}
                 </span>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono" style={{ color }}>
+                  <span className={cn("text-xs font-mono", styles.text)}>
                     {stage.percentage.toFixed(1)}%
                   </span>
-                  <span className="text-xs font-mono font-semibold" style={{ color: "#F9FAFB" }}>
+                  <span className="text-xs font-mono font-semibold text-foreground">
                     {stage.count.toLocaleString()}
                   </span>
                 </div>
               </div>
-              {/* Funnel bar — centered to create funnel shape */}
-              <div
-                className="h-7 rounded-md overflow-hidden relative flex items-center"
-                style={{ backgroundColor: "rgba(255,255,255,0.04)" }}
-              >
+
+              {/* Funnel bar */}
+              <div className="h-7 rounded-md overflow-hidden relative flex items-center bg-muted/50">
                 <div
-                  className="h-full rounded-md flex items-center px-3 transition-all duration-500"
-                  style={{
-                    width: `${widthPct}%`,
-                    backgroundColor: bgColor,
-                    borderLeft: `3px solid ${color}`,
-                    minWidth: "60px",
-                  }}
+                  className={cn(
+                    "h-full rounded-md flex items-center px-3 transition-all duration-500 border-l-[3px]",
+                    styles.bar,
+                    styles.border,
+                  )}
+                  style={{ width: `${widthPct}%`, minWidth: "60px" }}
                 >
-                  <span className="text-xs font-mono font-medium" style={{ color }}>
+                  <span className={cn("text-xs font-mono font-medium", styles.text)}>
                     {stage.count.toLocaleString()}
                   </span>
                 </div>
               </div>
+
               {/* Drop arrow */}
               {i < data.length - 1 && (
                 <div className="flex items-center justify-start ml-3 mt-1 mb-0.5">
-                  <span className="text-[10px] font-description" style={{ color: "#6B7280" }}>
-                    ↓ {data[i + 1]?.percentage.toFixed(1)}% converted
+                  <span className="text-[10px] font-description text-muted-foreground/70">
+                    &darr; {data[i + 1]?.percentage.toFixed(1)}% converted
                   </span>
                 </div>
               )}

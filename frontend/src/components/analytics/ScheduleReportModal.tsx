@@ -1,7 +1,9 @@
 /**
- * ScheduleReportModal — 7.3.1
+ * ScheduleReportModal -- 7.3.1
+ *
  * Modal for scheduling automated analytics email reports.
  * Frequency: weekly (day of week) or monthly (day of month).
+ * Redesigned with proper Tailwind design tokens, no hardcoded hex.
  */
 
 import { useState } from "react";
@@ -78,33 +80,26 @@ export function ScheduleReportModal({ open, onClose }: ScheduleReportModalProps)
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent
-        className="max-w-md w-full border"
-        style={{ backgroundColor: "#1C1F26", borderColor: "#2D333B", color: "#F9FAFB" }}
-      >
+      <DialogContent className="max-w-md w-full border border-border bg-card text-foreground">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-base font-semibold font-heading" style={{ color: "#F9FAFB" }}>
-            <Calendar className="h-4 w-4" style={{ color: "#4F8EF7" }} />
+          <DialogTitle className="flex items-center gap-2 text-base font-semibold font-heading text-foreground">
+            <Calendar className="h-4 w-4 text-primary" />
             Schedule Automated Report
           </DialogTitle>
         </DialogHeader>
 
         {status === "success" ? (
           <div className="py-6 text-center">
-            <div
-              className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3"
-              style={{ backgroundColor: "rgba(16,185,129,0.15)" }}
-            >
-              <span className="text-xl">✓</span>
+            <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 bg-emerald-500/15">
+              <span className="text-xl">&#10003;</span>
             </div>
-            <p className="font-semibold font-heading" style={{ color: "#F9FAFB" }}>Report scheduled!</p>
-            <p className="text-sm mt-1 font-description" style={{ color: "#9CA3AF" }}>
-              You'll receive your report at <span style={{ color: "#4F8EF7" }}>{email}</span>
+            <p className="font-semibold font-heading text-foreground">Report scheduled!</p>
+            <p className="text-sm mt-1 font-description text-muted-foreground">
+              You'll receive your report at <span className="text-primary">{email}</span>
             </p>
             <Button
               onClick={handleClose}
-              className="mt-4"
-              style={{ backgroundColor: "#4F8EF7", color: "#fff" }}
+              className="mt-4 bg-primary text-primary-foreground hover:bg-primary/90"
             >
               Done
             </Button>
@@ -113,39 +108,33 @@ export function ScheduleReportModal({ open, onClose }: ScheduleReportModalProps)
           <form onSubmit={handleSubmit} className="space-y-4 mt-2">
             {/* Frequency */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold uppercase tracking-wider font-heading" style={{ color: "#9CA3AF" }}>
+              <Label className="text-xs font-semibold uppercase tracking-wider font-heading text-muted-foreground">
                 Frequency
               </Label>
               <Select value={frequency} onValueChange={(v) => setFrequency(v as "weekly" | "monthly")}>
-                <SelectTrigger
-                  className="border text-sm font-description"
-                  style={{ backgroundColor: "#111827", borderColor: "#2D333B", color: "#F9FAFB" }}
-                >
+                <SelectTrigger className="border border-border bg-muted text-sm font-description text-foreground">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent style={{ backgroundColor: "#1C1F26", borderColor: "#2D333B" }}>
-                  <SelectItem value="weekly" className="text-sm font-description" style={{ color: "#F9FAFB" }}>Weekly</SelectItem>
-                  <SelectItem value="monthly" className="text-sm font-description" style={{ color: "#F9FAFB" }}>Monthly</SelectItem>
+                <SelectContent className="bg-card border-border">
+                  <SelectItem value="weekly" className="text-sm font-description text-foreground">Weekly</SelectItem>
+                  <SelectItem value="monthly" className="text-sm font-description text-foreground">Monthly</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             {/* Day picker */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold uppercase tracking-wider font-heading" style={{ color: "#9CA3AF" }}>
+              <Label className="text-xs font-semibold uppercase tracking-wider font-heading text-muted-foreground">
                 {frequency === "weekly" ? "Day of Week" : "Day of Month"}
               </Label>
               {frequency === "weekly" ? (
                 <Select value={dayOfWeek} onValueChange={setDayOfWeek}>
-                  <SelectTrigger
-                    className="border text-sm font-description"
-                    style={{ backgroundColor: "#111827", borderColor: "#2D333B", color: "#F9FAFB" }}
-                  >
+                  <SelectTrigger className="border border-border bg-muted text-sm font-description text-foreground">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent style={{ backgroundColor: "#1C1F26", borderColor: "#2D333B" }}>
+                  <SelectContent className="bg-card border-border">
                     {DAYS_OF_WEEK.map((d) => (
-                      <SelectItem key={d.value} value={d.value} className="text-sm font-description" style={{ color: "#F9FAFB" }}>
+                      <SelectItem key={d.value} value={d.value} className="text-sm font-description text-foreground">
                         {d.label}
                       </SelectItem>
                     ))}
@@ -153,15 +142,12 @@ export function ScheduleReportModal({ open, onClose }: ScheduleReportModalProps)
                 </Select>
               ) : (
                 <Select value={dayOfMonth} onValueChange={setDayOfMonth}>
-                  <SelectTrigger
-                    className="border text-sm font-description"
-                    style={{ backgroundColor: "#111827", borderColor: "#2D333B", color: "#F9FAFB" }}
-                  >
+                  <SelectTrigger className="border border-border bg-muted text-sm font-description text-foreground">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent style={{ backgroundColor: "#1C1F26", borderColor: "#2D333B" }}>
+                  <SelectContent className="bg-card border-border">
                     {DAYS_OF_MONTH.map((d) => (
-                      <SelectItem key={d.value} value={d.value} className="text-sm font-description" style={{ color: "#F9FAFB" }}>
+                      <SelectItem key={d.value} value={d.value} className="text-sm font-description text-foreground">
                         {d.label}
                       </SelectItem>
                     ))}
@@ -172,7 +158,7 @@ export function ScheduleReportModal({ open, onClose }: ScheduleReportModalProps)
 
             {/* Time */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold uppercase tracking-wider font-heading" style={{ color: "#9CA3AF" }}>
+              <Label className="text-xs font-semibold uppercase tracking-wider font-heading text-muted-foreground">
                 <Clock className="h-3.5 w-3.5 inline mr-1" />
                 Send Time
               </Label>
@@ -180,14 +166,13 @@ export function ScheduleReportModal({ open, onClose }: ScheduleReportModalProps)
                 type="time"
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
-                className="border text-sm font-mono"
-                style={{ backgroundColor: "#111827", borderColor: "#2D333B", color: "#F9FAFB" }}
+                className="border border-border bg-muted text-sm font-mono text-foreground"
               />
             </div>
 
             {/* Email */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold uppercase tracking-wider font-heading" style={{ color: "#9CA3AF" }}>
+              <Label className="text-xs font-semibold uppercase tracking-wider font-heading text-muted-foreground">
                 <Mail className="h-3.5 w-3.5 inline mr-1" />
                 Recipient Email
               </Label>
@@ -197,19 +182,18 @@ export function ScheduleReportModal({ open, onClose }: ScheduleReportModalProps)
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="reports@company.com"
                 required
-                className="border text-sm font-description"
-                style={{ backgroundColor: "#111827", borderColor: "#2D333B", color: "#F9FAFB" }}
+                className="border border-border bg-muted text-sm font-description text-foreground placeholder:text-muted-foreground"
               />
             </div>
 
             {/* Enabled toggle */}
             <div className="flex items-center justify-between py-1">
-              <span className="text-sm font-description" style={{ color: "#F9FAFB" }}>Enable schedule</span>
+              <span className="text-sm font-description text-foreground">Enable schedule</span>
               <Switch checked={enabled} onCheckedChange={setEnabled} />
             </div>
 
             {errorMsg && (
-              <p className="text-xs text-rose-400 font-description">{errorMsg}</p>
+              <p className="text-xs text-destructive font-description">{errorMsg}</p>
             )}
 
             <div className="flex gap-2 pt-1">
@@ -217,16 +201,14 @@ export function ScheduleReportModal({ open, onClose }: ScheduleReportModalProps)
                 type="button"
                 variant="ghost"
                 onClick={handleClose}
-                className="flex-1 text-sm font-description border"
-                style={{ borderColor: "#2D333B", color: "#9CA3AF" }}
+                className="flex-1 text-sm font-description border border-border text-muted-foreground hover:text-foreground"
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
                 disabled={status === "submitting" || !email.trim()}
-                className="flex-1 text-sm font-description"
-                style={{ backgroundColor: "#4F8EF7", color: "#fff" }}
+                className="flex-1 text-sm font-description bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 {status === "submitting" ? "Scheduling..." : "Schedule Report"}
               </Button>

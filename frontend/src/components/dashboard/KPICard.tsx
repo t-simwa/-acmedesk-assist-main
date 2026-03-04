@@ -11,46 +11,46 @@ interface KPICardProps {
 }
 
 export function KPICard({ label, value, trend, trendLabel, icon, className }: KPICardProps) {
-  const trendDirection = trend === null || trend === undefined 
-    ? null 
-    : trend > 0 ? "up" 
-    : trend < 0 ? "down" 
+  const trendDirection = trend === null || trend === undefined
+    ? null
+    : trend > 0 ? "up"
+    : trend < 0 ? "down"
     : "neutral";
 
   return (
     <div
       className={cn(
         "relative overflow-hidden rounded-xl",
-        "bg-[#1C1F26] border border-[#2D333B]",
+        "bg-card border border-border",
         "p-4 sm:p-5 lg:p-6",
         "transition-all duration-200",
-        "hover:border-[#3D444B] hover:bg-[#252A33]",
+        "hover:border-primary/20 hover:shadow-soft-sm",
         "group",
         className
       )}
     >
-      {/* Background accent */}
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-      
+      {/* Gradient accent on hover */}
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/8 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
       <div className="relative">
         {/* Icon */}
         {icon && (
-          <div className="mb-3" style={{ color: "#9CA3AF" }}>
+          <div className="mb-3 text-muted-foreground">
             {icon}
           </div>
         )}
 
         {/* Label */}
-        <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider font-heading mb-2" style={{ color: "#9CA3AF" }}>
+        <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider font-heading mb-2 text-muted-foreground">
           {label}
         </p>
 
         {/* Value */}
         <div className="flex items-end gap-3">
-          <p className="text-2xl sm:text-3xl lg:text-4xl font-bold font-mono tracking-tight" style={{ color: "#F9FAFB" }}>
+          <p className="text-2xl sm:text-3xl lg:text-4xl font-bold font-mono tracking-tight text-foreground">
             {value}
           </p>
-          
+
           {/* Trend indicator */}
           {trend !== null && trend !== undefined && (
             <div className={cn(
@@ -71,7 +71,7 @@ export function KPICard({ label, value, trend, trendLabel, icon, className }: KP
 
         {/* Trend label */}
         {trendLabel && (
-          <p className="text-xs mt-2 font-description" style={{ color: "#9CA3AF" }}>
+          <p className="text-xs mt-2 font-description text-muted-foreground">
             {trendLabel}
           </p>
         )}

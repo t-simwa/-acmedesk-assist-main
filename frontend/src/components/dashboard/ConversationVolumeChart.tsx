@@ -7,6 +7,8 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  Area,
+  AreaChart,
 } from "recharts";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -56,79 +58,105 @@ export function ConversationVolumeChart({ data, className }: ConversationVolumeC
   };
 
   return (
-    <div className={cn("rounded-xl border p-4 sm:p-5", className)} style={{ backgroundColor: "#1C1F26", borderColor: "#2D333B" }}>
+    <div className={cn(
+      "rounded-xl border border-border bg-card p-4 sm:p-5",
+      className
+    )}>
+      {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-semibold font-heading" style={{ color: "#F9FAFB" }}>
+        <h3 className="text-sm font-semibold font-heading text-foreground">
           Conversation Volume
         </h3>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5 rounded-lg bg-muted p-0.5">
           {(["daily", "weekly", "monthly"] as ViewMode[]).map((mode) => (
-            <Button
+            <button
               key={mode}
-              variant={viewMode === mode ? "secondary" : "ghost"}
-              size="sm"
               onClick={() => setViewMode(mode)}
               className={cn(
-                "h-7 px-2.5 text-xs font-medium capitalize",
+                "h-7 px-2.5 rounded-md text-xs font-medium capitalize transition-all duration-150 font-description",
+                viewMode === mode
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
               )}
-              style={viewMode === mode ? { backgroundColor: "#4F8EF7", color: "#fff" } : { color: "#9CA3AF" }}
             >
               {mode}
-            </Button>
+            </button>
           ))}
         </div>
       </div>
 
+      {/* Chart */}
       <div className="h-[200px] sm:h-[250px] lg:h-[300px]">
         {processedData.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={processedData} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
-              <CartesianGrid 
-                strokeDasharray="3 3" 
-                stroke="rgba(255,255,255,0.06)" 
+            <AreaChart data={processedData} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
+              <defs>
+                <linearGradient id="volumeGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.2} />
+                  <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="hsl(var(--border))"
                 vertical={false}
               />
               <XAxis
                 dataKey="date"
                 tickFormatter={formatDate}
-                stroke="rgba(255,255,255,0.3)"
-                tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 11 }}
-                axisLine={{ stroke: "rgba(255,255,255,0.1)" }}
+                stroke="hsl(var(--border))"
+                tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+                axisLine={{ stroke: "hsl(var(--border))" }}
                 tickLine={false}
               />
               <YAxis
-                stroke="rgba(255,255,255,0.3)"
-                tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 11 }}
-                axisLine={{ stroke: "rgba(255,255,255,0.1)" }}
+                stroke="hsl(var(--border))"
+                tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+                axisLine={{ stroke: "hsl(var(--border))" }}
                 tickLine={false}
                 width={35}
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "rgba(17, 24, 39, 0.95)",
-                  border: "1px solid rgba(255,255,255,0.1)",
+                  backgroundColor: "hsl(var(--card))",
+                  border: "1px solid hsl(var(--border))",
                   borderRadius: "8px",
-                  boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
+                  boxShadow: "0 4px 16px hsl(var(--foreground) / 0.08)",
                 }}
-                labelStyle={{ color: "#F9FAFB", fontWeight: 600, fontFamily: "Plus Jakarta Sans" }}
-                itemStyle={{ color: "#4F8EF7", fontFamily: "Geist Mono" }}
+                labelStyle={{
+                  color: "hsl(var(--foreground))",
+                  fontWeight: 600,
+                  fontFamily: "Plus Jakarta Sans, sans-serif",
+                }}
+                itemStyle={{
+                  color: "hsl(var(--primary))",
+                  fontFamily: "Geist Mono, monospace",
+                }}
                 labelFormatter={(label) => formatDate(label)}
                 formatter={(value: number) => [value, "Conversations"]}
               />
-              <Line
+              <Area
                 type="monotone"
                 dataKey="count"
-                stroke="#4F8EF7"
+                stroke="hsl(var(--primary))"
                 strokeWidth={2.5}
-                dot={{ fill: "#4F8EF7", strokeWidth: 0, r: 4 }}
-                activeDot={{ fill: "#4F8EF7", strokeWidth: 0, r: 6, stroke: "#fff", strokeWidth: 2 }}
+                fill="url(#volumeGradient)"
+                dot={{ fill: "hsl(var(--primary))", strokeWidth: 0, r: 3 }}
+                activeDot={{
+                  fill: "hsl(var(--primary))",
+                  r: 5,
+                  stroke: "hsl(var(--background))",
+                  strokeWidth: 2,
+                }}
                 animationDuration={500}
               />
-            </LineChart>
+            </AreaChart>
           </ResponsiveContainer>
         ) : (
           <div className="h-full flex items-center justify-center">
-            <p className="text-sm font-description" style={{ color: "#9CA3AF" }}>No conversation data available</p>
+            <p className="text-sm font-description text-muted-foreground">
+              No conversation data available
+            </p>
           </div>
         )}
       </div>

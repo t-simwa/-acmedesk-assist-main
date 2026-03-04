@@ -18,28 +18,24 @@ export function UnansweredAlert({ count, className }: UnansweredAlertProps) {
     <div
       className={cn(
         "rounded-xl border overflow-hidden",
+        "bg-amber-500/5 border-amber-500/20",
         className
       )}
-      style={{ backgroundColor: "#2A1F1A", borderColor: "#3D2A1F" }}
     >
       <div className="flex items-start gap-3 p-4 sm:p-5">
-        <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: "#3D2A1F" }}>
-          <AlertTriangle className="w-5 h-5" style={{ color: "#F59E0B" }} />
+        <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-amber-500/10">
+          <AlertTriangle className="w-5 h-5 text-amber-500" />
         </div>
         <div className="flex-1">
-          <p className="text-sm font-semibold font-heading" style={{ color: "#F59E0B" }}>
+          <p className="text-sm font-semibold font-heading text-amber-500">
             {count} question{count > 1 ? "s" : ""} couldn't be answered this week
           </p>
-          <p className="text-xs mt-1 font-description" style={{ color: "#9CA3AF" }}>
+          <p className="text-xs mt-1 font-description text-muted-foreground">
             Add more documents to fill these knowledge gaps and improve your chatbot's responses.
           </p>
           <button
             onClick={() => navigate("/dashboard/documents")}
-            className={cn(
-              "inline-flex items-center gap-1 mt-3",
-              "text-xs font-medium transition-colors"
-            )}
-            style={{ color: "#F59E0B" }}
+            className="inline-flex items-center gap-1 mt-3 text-xs font-medium text-amber-500 hover:text-amber-400 transition-colors"
           >
             Add documents <ArrowRight className="h-3.5 w-3.5" />
           </button>

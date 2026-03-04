@@ -23,21 +23,24 @@ const STATUS_CONFIG = {
     iconClass: "text-emerald-500 fill-emerald-500",
     label: "Live",
     labelClass: "text-emerald-500",
-    bgClass: "bg-emerald-500/10 border-emerald-500/20",
+    bgClass: "bg-emerald-500/10",
+    pulseClass: "animate-pulse",
   },
   paused: {
     icon: Pause,
     iconClass: "text-amber-500",
     label: "Paused",
     labelClass: "text-amber-500",
-    bgClass: "bg-amber-500/10 border-amber-500/20",
+    bgClass: "bg-amber-500/10",
+    pulseClass: "",
   },
   not_installed: {
     icon: AlertCircle,
     iconClass: "text-rose-500",
     label: "Not Installed",
     labelClass: "text-rose-500",
-    bgClass: "bg-rose-500/10 border-rose-500/20",
+    bgClass: "bg-rose-500/10",
+    pulseClass: "",
   },
 };
 
@@ -70,32 +73,46 @@ export function ChatbotStatusCard({
   return (
     <div
       className={cn(
-        "rounded-xl border overflow-hidden",
+        "rounded-xl border border-border bg-card overflow-hidden",
         className
       )}
-      style={{ backgroundColor: "#1C1F26", borderColor: "#2D333B" }}
     >
+      {/* Status header */}
       <div className="flex items-center justify-between px-4 sm:px-5 py-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: config.bgClass }}>
+          <div className={cn(
+            "w-10 h-10 rounded-lg flex items-center justify-center",
+            config.bgClass,
+          )}>
             <StatusIcon className={cn("w-5 h-5", config.iconClass)} />
           </div>
           <div>
-            <p className="text-sm font-semibold font-heading" style={{ color: "#F9FAFB" }}>
+            <p className="text-sm font-semibold font-heading text-foreground">
               {chatbotName || "Chatbot"}
             </p>
-            <p className={cn("text-xs font-medium flex items-center gap-1.5", config.labelClass)}>
-              <Circle className={cn("w-2 h-2 fill-current", status === "live" && "animate-pulse")} />
+            <p className={cn(
+              "text-xs font-medium flex items-center gap-1.5",
+              config.labelClass,
+            )}>
+              <Circle className={cn(
+                "w-2 h-2 fill-current",
+                config.pulseClass,
+              )} />
               {config.label}
             </p>
           </div>
         </div>
         <div className="text-right">
-          <p className="text-[10px] uppercase tracking-wider" style={{ color: "#9CA3AF" }}>Last active</p>
-          <p className="text-xs font-mono" style={{ color: "#F9FAFB" }}>{formatLastActive(lastActive)}</p>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-heading">
+            Last active
+          </p>
+          <p className="text-xs font-mono text-foreground">
+            {formatLastActive(lastActive)}
+          </p>
         </div>
       </div>
 
+      {/* Action buttons */}
       <div className="flex items-center gap-2 px-4 sm:px-5 pb-4 flex-wrap">
         {status === "live" && (
           <Button
