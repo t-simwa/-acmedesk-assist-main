@@ -1,39 +1,44 @@
-import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
+import { useState, useRef, useCallback, useMemo, Fragment } from "react";
 import {
   FileText,
   Upload,
   Search,
   MoreHorizontal,
   CheckCircle2,
-  Clock,
   AlertCircle,
   RefreshCw,
   Loader2,
   X,
-  ChevronUp,
-  ChevronDown,
-  ChevronsUpDown,
   Eye,
-  EyeOff,
   Trash2,
-  Edit2,
-  Pause,
-  Play,
-  Check,
-  FileIcon,
-  FileCode,
+  Download,
+  Archive,
+  ArchiveRestore,
+  Replace,
+  CloudUpload,
+  Link2,
+  ChevronLeft,
+  ChevronRight,
+  FileType,
   File,
+  FileCode,
+  FileSpreadsheet,
+  Globe,
+  Lightbulb,
+  FolderOpen,
   Database,
   Plus,
   Settings,
   ToggleLeft,
   ToggleRight,
-  Filter,
-  FilterX,
-  ChevronRight,
-  ChevronLeft,
+  ChevronDown,
 } from "lucide-react";
-import { Document, ApiError, documentsApi } from "@/lib/api";
+import {
+  type Document,
+  type ApiError,
+  type StorageUsageResponse,
+  documentsApi,
+} from "@/lib/api";
 import {
   useDocuments,
   useUploadDocument,
@@ -55,28 +60,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
-  DropdownMenuCheckboxItem,
-  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import {
   Dialog,
   DialogContent,
@@ -84,14 +72,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { useToast } from "@/hooks/use-toast";
-import { EmptyState } from "@/components/error/EmptyState";
-import { NetworkErrorState } from "@/components/error/NetworkErrorState";
-import { ConfirmationDialog } from "@/components/feedback/ConfirmationDialog";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { useIsTablet } from "@/hooks/use-tablet";
 import {
   Select,
   SelectContent,
@@ -99,329 +79,180 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useCountUp } from "@/hooks/useCountUp";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import { ConfirmationDialog } from "@/components/feedback/ConfirmationDialog";
+import { cn } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
 
-const statusConfig = {
-  indexed: { icon: CheckCircle2, label: "Indexed", className: "text-green-600 dark:text-green-500", bgColor: "bg-green-50 dark:bg-green-950/20", borderColor: "border-green-200 dark:border-green-800" },
-  processing: { icon: Clock, label: "Processing", className: "text-amber-600 dark:text-amber-500", bgColor: "bg-amber-50 dark:bg-amber-950/20", borderColor: "border-amber-200 dark:border-amber-800" },
-  error: { icon: AlertCircle, label: "Error", className: "text-red-600 dark:text-red-500", bgColor: "bg-red-50 dark:bg-red-950/20", borderColor: "border-red-200 dark:border-red-800" },
+/* ═══════════════════════════════════════════════════════════════════════════════
+   CONSTANTS & STYLE MAPS
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+const STATUS_META: Record<string, { dot: string; badge: string; label: string; spinning?: boolean }> = {
+  ready:      { dot: "bg-emerald-400", badge: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", label: "Ready" },
+  processing: { dot: "bg-blue-400",    badge: "bg-blue-500/10 text-blue-400 border-blue-500/20",         label: "Processing", spinning: true },
+  archived:   { dot: "bg-gray-400",    badge: "bg-gray-500/10 text-gray-400 border-gray-500/20",         label: "Archived" },
+  failed:     { dot: "bg-rose-400",    badge: "bg-rose-500/10 text-rose-400 border-rose-500/20",         label: "Failed" },
 };
 
-type SortField = "name" | "type" | "status" | "chunk_count" | "updated_at";
+const FILE_TYPE_META: Record<string, { icon: typeof FileText; label: string }> = {
+  pdf:  { icon: FileText,        label: "PDF" },
+  docx: { icon: FileType,        label: "DOCX" },
+  doc:  { icon: FileType,        label: "DOC" },
+  txt:  { icon: File,            label: "TXT" },
+  csv:  { icon: FileSpreadsheet, label: "CSV" },
+  html: { icon: FileCode,        label: "HTML" },
+  htm:  { icon: FileCode,        label: "HTML" },
+  md:   { icon: FileText,        label: "MD" },
+  url:  { icon: Globe,           label: "URL" },
+};
+
+type SortField = "filename" | "file_type" | "status" | "file_size" | "chunk_count" | "upload_date";
 type SortDirection = "asc" | "desc";
+type UploadTab = "file" | "url";
 
 interface UploadFileItem {
   id: string;
   file: File;
   progress: number;
-  status: "pending" | "uploading" | "paused" | "completed" | "error";
+  stage: "uploading" | "processing" | "indexing" | "ready" | "error";
   error?: string;
-  preview?: string;
 }
 
-interface ColumnVisibility {
-  name: boolean;
-  type: boolean;
-  status: boolean;
-  chunks: boolean;
-  updated: boolean;
-}
+const ITEMS_PER_PAGE = 20;
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+const VALID_EXTENSIONS = [".pdf", ".docx", ".doc", ".txt", ".csv", ".html", ".htm", ".md"];
+const ACCEPT_STRING = ".pdf,.docx,.doc,.txt,.csv,.html,.htm,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/csv,text/plain,text/html,text/markdown";
 
-function formatDate(dateString: string): string {
+/* ═══════════════════════════════════════════════════════════════════════════════
+   HELPERS
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+function formatDate(dateString: string | null | undefined): string {
+  if (!dateString) return "—";
   const date = new Date(dateString);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffMins = Math.floor(diffMs / 60000);
   const diffHours = Math.floor(diffMs / 3600000);
   const diffDays = Math.floor(diffMs / 86400000);
-
   if (diffMins < 1) return "Just now";
-  if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? "s" : ""} ago`;
-  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
-  if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
-  return date.toLocaleDateString();
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined });
 }
 
-function formatFileSize(bytes: number): string {
+function formatFileSize(bytes: number | null | undefined): string {
+  if (!bytes) return "—";
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function getFileIcon(type: string) {
-  switch (type.toLowerCase()) {
-    case "pdf":
-      return FileText;
-    case "docx":
-      return FileText;
-    case "html":
-    case "htm":
-      return FileCode;
-    case "md":
-    case "markdown":
-      return FileText;
-    case "txt":
-      return File;
-    default:
-      return FileIcon;
-  }
+function formatStorageSize(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)}KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(0)}MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)}GB`;
 }
 
-function readFilePreview(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => resolve(e.target?.result as string);
-    reader.onerror = reject;
-    if (file.type.startsWith("text/") || file.name.endsWith(".md") || file.name.endsWith(".txt")) {
-      reader.readAsText(file);
-    } else {
-      resolve("");
-    }
-  });
+function getFileTypeMeta(type: string) {
+  return FILE_TYPE_META[type.toLowerCase()] || { icon: FileText, label: type.toUpperCase() };
 }
 
-// Mobile Document Card Component with Swipe Actions
-interface MobileDocumentCardProps {
-  doc: Document;
-  status: { icon: React.ComponentType<{ size?: number; className?: string }>; label: string; className: string };
-  StatusIcon: React.ComponentType<{ size?: number; className?: string }>;
-  FileIcon: React.ComponentType<{ size?: number; className?: string }>;
-  isSelected: boolean;
-  isReindexing: boolean;
-  onSelect: () => void;
-  onPreview: () => void;
-  onEdit: () => void;
-  onReindex: () => void;
-  onDelete: () => void;
-  formatDate: (dateString: string) => string;
+function getStatusMeta(status: string) {
+  return STATUS_META[status] || STATUS_META.processing;
 }
 
-function MobileDocumentCard({
-  doc,
-  status,
-  StatusIcon,
-  FileIcon,
-  isSelected,
-  isReindexing,
-  onSelect,
-  onPreview,
-  onEdit,
-  onReindex,
-  onDelete,
-  formatDate,
-}: MobileDocumentCardProps) {
-  const [swipeOffset, setSwipeOffset] = useState(0);
-  const [isSwiping, setIsSwiping] = useState(false);
-  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
-  const SWIPE_THRESHOLD = 100;
-  const ACTION_WIDTH = 80;
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartRef.current = {
-      x: e.touches[0].clientX,
-      y: e.touches[0].clientY,
-      time: Date.now(),
-    };
-    setIsSwiping(true);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!touchStartRef.current) return;
-    const deltaX = e.touches[0].clientX - touchStartRef.current.x;
-    const deltaY = Math.abs(e.touches[0].clientY - touchStartRef.current.y);
-
-    // Only allow horizontal swipe if it's more horizontal than vertical
-    if (Math.abs(deltaX) > deltaY && deltaX < 0) {
-      e.preventDefault();
-      setSwipeOffset(Math.max(-ACTION_WIDTH, deltaX));
-    }
-  };
-
-  const handleTouchEnd = () => {
-    if (!touchStartRef.current) return;
-    const shouldReveal = swipeOffset < -SWIPE_THRESHOLD / 2;
-
-    if (shouldReveal) {
-      setSwipeOffset(-ACTION_WIDTH);
-    } else {
-      setSwipeOffset(0);
-    }
-
-    setIsSwiping(false);
-    touchStartRef.current = null;
-  };
-
-  return (
-    <div className="relative overflow-hidden touch-pan-y">
-      {/* Swipe Actions Background */}
-      <div
-        className="absolute right-0 top-0 bottom-0 flex items-center bg-destructive/90 z-10 transition-all duration-200"
-        style={{ width: `${ACTION_WIDTH}px`, transform: `translateX(${ACTION_WIDTH + swipeOffset}px)` }}
-      >
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-full w-full text-destructive-foreground hover:bg-destructive rounded-none min-h-[44px]"
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete();
-            setSwipeOffset(0);
-          }}
-          aria-label={`Delete ${doc.name}`}
-        >
-          <Trash2 size={18} aria-hidden="true" />
-        </Button>
-      </div>
-
-      {/* Card Content */}
-      <div
-        className={`relative bg-background border border-border/50 rounded-2xl p-4 transition-transform duration-200 ${
-          isSelected ? "ring-2 ring-primary" : ""
-        }`}
-        style={{ transform: `translateX(${swipeOffset}px)` }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      >
-        <div className="flex items-start gap-3">
-          <Checkbox
-            checked={isSelected}
-            onCheckedChange={onSelect}
-            className="mt-1 min-w-[44px] min-h-[44px]"
-            aria-label={`Select ${doc.name}`}
-          />
-          <div className="flex-1 min-w-0">
-            <button
-              onClick={onPreview}
-              className="flex items-start gap-2 w-full text-left focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 rounded-sm"
-              aria-label={`Preview ${doc.name} document`}
-            >
-              <FileIcon size={20} className="text-muted-foreground flex-shrink-0 mt-0.5" aria-hidden="true" />
-              <div className="flex-1 min-w-0">
-                <h3 className="text-[15px] font-medium text-foreground truncate">{doc.name}</h3>
-                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                  <Badge variant="outline" className="text-[12px] uppercase">
-                    {doc.type}
-                  </Badge>
-                  <Badge
-                    variant="outline"
-                    className={`${status.className} ${status.bgColor} ${status.borderColor} border text-[12px] font-medium`}
-                  >
-                    <StatusIcon size={12} className="mr-1" aria-hidden="true" />
-                    {status.label}
-                  </Badge>
-                </div>
-                <div className="flex items-center gap-3 mt-2 text-[12px] text-muted-foreground">
-                  {doc.chunk_count !== null && doc.chunk_count !== undefined && (
-                    <span>{doc.chunk_count} chunks</span>
-                  )}
-                  <span>{formatDate(doc.updated_at)}</span>
-                </div>
-              </div>
-            </button>
-            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onPreview}
-                className="flex-1 min-h-[44px] text-[14px]"
-                aria-label={`Preview ${doc.name}`}
-              >
-                <Eye size={16} className="mr-2" aria-hidden="true" />
-                Preview
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onEdit}
-                className="flex-1 min-h-[44px] text-[14px]"
-                aria-label={`Edit ${doc.name}`}
-              >
-                <Edit2 size={16} className="mr-2" aria-hidden="true" />
-                Edit
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onReindex}
-                disabled={isReindexing}
-                className="flex-1 min-h-[44px] text-[14px]"
-                aria-label={isReindexing ? `Reindexing ${doc.name}` : `Reindex ${doc.name}`}
-              >
-                {isReindexing ? (
-                  <Loader2 size={16} className="mr-2 animate-spin" aria-hidden="true" />
-                ) : (
-                  <RefreshCw size={16} className="mr-2" aria-hidden="true" />
-                )}
-                Reindex
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+function getStorageBarColor(percent: number): string {
+  if (percent >= 90) return "bg-rose-500";
+  if (percent >= 75) return "bg-amber-500";
+  return "bg-emerald-500";
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   MAIN COMPONENT
+   ═══════════════════════════════════════════════════════════════════════════════ */
 
 export default function Documents() {
-  const isMobile = useIsMobile();
-  const isTablet = useIsTablet();
+  // ── State ──────────────────────────────────────────────────────────────────
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 300);
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [typeFilter, setTypeFilter] = useState<string | null>(null);
+  const [sortField, setSortField] = useState<SortField>("upload_date");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [page, setPage] = useState(1);
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [reindexing, setReindexing] = useState<Set<string>>(new Set());
+
+  // Upload
+  const [uploadTab, setUploadTab] = useState<UploadTab>("file");
   const [dragOver, setDragOver] = useState(false);
   const [uploadQueue, setUploadQueue] = useState<UploadFileItem[]>([]);
-  const [sortField, setSortField] = useState<SortField>("updated_at");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
-  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingName, setEditingName] = useState("");
-  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>({
-    name: true,
-    type: true,
-    status: true,
-    chunks: true,
-    updated: true,
-  });
-  const [previewDocument, setPreviewDocument] = useState<Document | null>(null);
+  const [urlInput, setUrlInput] = useState("");
+  const [urlImporting, setUrlImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Preview modal
+  const [previewDoc, setPreviewDoc] = useState<Document | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [chunksExpanded, setChunksExpanded] = useState(false);
+
+  // Delete confirmation
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
+  const [bulkArchiveDialogOpen, setBulkArchiveDialogOpen] = useState(false);
+
+  // Replace
+  const [replaceTargetId, setReplaceTargetId] = useState<string | null>(null);
+  const replaceInputRef = useRef<HTMLInputElement>(null);
+
+  // Knowledge bases
   const [selectedKnowledgeBaseId, setSelectedKnowledgeBaseId] = useState<string | undefined>(undefined);
+  const [kbSectionOpen, setKbSectionOpen] = useState(false);
   const [knowledgeBaseDialogOpen, setKnowledgeBaseDialogOpen] = useState(false);
   const [createKBDialogOpen, setCreateKBDialogOpen] = useState(false);
   const [newKBName, setNewKBName] = useState("");
   const [newKBDescription, setNewKBDescription] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string | null>(null);
-  const [typeFilter, setTypeFilter] = useState<string | null>(null);
-  const [kbSectionOpen, setKbSectionOpen] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const { toast } = useToast();
 
-  // Use React Query for documents fetching with caching
+  // ── Queries ────────────────────────────────────────────────────────────────
   const {
     data: documentsData,
     isLoading: loading,
     error: queryError,
     refetch,
-  } = useDocuments({ search: debouncedSearch || undefined });
+  } = useDocuments({
+    ...(debouncedSearch ? { search: debouncedSearch } : {}),
+    ...(statusFilter && statusFilter !== "all" ? { status: statusFilter } : {}),
+    ...(typeFilter && typeFilter !== "all" ? { type: typeFilter } : {}),
+  });
 
   const documents = documentsData?.documents || [];
-  const error = queryError?.message || null;
 
-  // Knowledge Bases
+  // Storage usage
+  const { data: storageUsage } = useQuery<StorageUsageResponse>({
+    queryKey: ["documents", "storage-usage"],
+    queryFn: () => documentsApi.getStorageUsage(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Knowledge bases
   const { knowledgeBases, loading: kbLoading, refetch: refetchKBs } = useKnowledgeBases();
   const { preferences, updatePreferences, refetch: refetchPrefs } = useKnowledgeBasePreferences();
   const { createKnowledgeBase, loading: creatingKB } = useCreateKnowledgeBase();
-  const { updateKnowledgeBase, loading: updatingKB } = useUpdateKnowledgeBase();
-  const { deleteKnowledgeBase, loading: deletingKB } = useDeleteKnowledgeBase();
+  const { updateKnowledgeBase } = useUpdateKnowledgeBase();
+  const { deleteKnowledgeBase } = useDeleteKnowledgeBase();
 
   // Mutations
   const uploadMutation = useUploadDocument();
@@ -429,316 +260,59 @@ export default function Documents() {
   const reindexMutation = useReindexDocument();
   const updateMutation = useUpdateDocument();
 
-  const handleFileSelect = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-
-    const validExtensions = [".md", ".html", ".htm", ".txt", ".pdf", ".docx"];
-    const MAX_FILE_SIZE = 10 * 1024 * 1024;
-
-    const newFiles: UploadFileItem[] = [];
-
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf("."));
-
-      if (!validExtensions.includes(fileExtension)) {
-        toast({
-          title: "Invalid file",
-          description: `${file.name} has unsupported format`,
-          variant: "destructive",
-        });
-        continue;
-      }
-
-      if (file.size > MAX_FILE_SIZE) {
-        toast({
-          title: "File too large",
-          description: `${file.name} exceeds 10MB limit`,
-          variant: "destructive",
-        });
-        continue;
-      }
-
-      const preview = await readFilePreview(file).catch(() => "");
-      const uploadItem: UploadFileItem = {
-        id: `${Date.now()}-${i}`,
-        file,
-        progress: 0,
-        status: "pending",
-        preview: preview.substring(0, 500),
-      };
-      newFiles.push(uploadItem);
-    }
-
-    setUploadQueue((prev) => [...prev, ...newFiles]);
-    processUploadQueue([...uploadQueue, ...newFiles]);
-  };
-
-  const processUploadQueue = async (queue: UploadFileItem[]) => {
-    for (const item of queue) {
-      if (item.status === "pending" || item.status === "paused") {
-        await uploadFile(item);
-      }
-    }
-  };
-
-  const uploadFile = async (item: UploadFileItem) => {
-    setUploadQueue((prev) =>
-      prev.map((i) => (i.id === item.id ? { ...i, status: "uploading", progress: 0 } : i))
-    );
-
-    try {
-      // Simulate progress for better UX
-      const progressInterval = setInterval(() => {
-        setUploadQueue((prev) =>
-          prev.map((i) => {
-            if (i.id === item.id && i.status === "uploading" && i.progress < 90) {
-              return { ...i, progress: i.progress + 10 };
-            }
-            return i;
-          })
-        );
-      }, 200);
-
-      await uploadMutation.mutateAsync({ file: item.file, knowledge_base_id: selectedKnowledgeBaseId });
-
-      clearInterval(progressInterval);
-      setUploadQueue((prev) =>
-        prev.map((i) =>
-          i.id === item.id ? { ...i, status: "completed", progress: 100 } : i
-        )
-      );
-
-      // React Query will automatically refetch documents list
-      setTimeout(() => {
-        setUploadQueue((prev) => prev.filter((i) => i.id !== item.id));
-      }, 2000);
-    } catch (err) {
-      const apiError = err as ApiError;
-      const errorMessage = apiError?.message || "Failed to upload document";
-      setUploadQueue((prev) =>
-        prev.map((i) =>
-          i.id === item.id
-            ? { ...i, status: "error", error: errorMessage, progress: 0 }
-            : i
-        )
-      );
-    }
-  };
-
-  const pauseUpload = (id: string) => {
-    setUploadQueue((prev) =>
-      prev.map((i) => (i.id === id && i.status === "uploading" ? { ...i, status: "paused" } : i))
-    );
-  };
-
-  const resumeUpload = (id: string) => {
-    const item = uploadQueue.find((i) => i.id === id);
-    if (item) {
-      uploadFile(item);
-    }
-  };
-
-  const cancelUpload = (id: string) => {
-    setUploadQueue((prev) => prev.filter((i) => i.id !== id));
-  };
-
-  const handleUploadClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    handleFileSelect(e.target.files);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setDragOver(false);
-    handleFileSelect(e.dataTransfer.files);
-  };
-
-  const handleReindex = async (docId: string) => {
-    try {
-      setReindexing((prev) => new Set(prev).add(docId));
-      await reindexMutation.mutateAsync(docId);
-      // React Query will automatically refetch documents list
-    } catch (err) {
-      // Error is handled by the mutation's onError
-    } finally {
-      setReindexing((prev) => {
-        const next = new Set(prev);
-        next.delete(docId);
-        return next;
-      });
-    }
-  };
-
-  const handleDeleteClick = (docId: string) => {
-    setDeleteTargetId(docId);
-    setDeleteDialogOpen(true);
-  };
-
-  const confirmDelete = async () => {
-    if (!deleteTargetId) return;
-    try {
-      await deleteMutation.mutateAsync(deleteTargetId);
-      setSelectedRows((prev) => {
-        const next = new Set(prev);
-        next.delete(deleteTargetId);
-        return next;
-      });
-      // React Query will automatically refetch documents list
-    } catch (err) {
-      // Error is handled by the mutation's onError
-    } finally {
-      setDeleteTargetId(null);
-    }
-  };
-
-  const handleBulkDeleteClick = () => {
-    if (selectedRows.size === 0) return;
-    setBulkDeleteDialogOpen(true);
-  };
-
-  const confirmBulkDelete = async () => {
-    const ids = Array.from(selectedRows);
-    try {
-      await Promise.all(ids.map((id) => deleteMutation.mutateAsync(id)));
-      setSelectedRows(new Set());
-      // React Query will automatically refetch documents list
-      toast({
-        title: "Success",
-        description: `${ids.length} document(s) deleted successfully`,
-        variant: "success",
-      });
-    } catch (err) {
-      toast({
-        title: "Error",
-        description: "Failed to delete some documents",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleBulkReindex = async () => {
-    const ids = Array.from(selectedRows);
-    try {
-      setReindexing(new Set(ids));
-      await Promise.all(ids.map((id) => reindexMutation.mutateAsync(id)));
-      setSelectedRows(new Set());
-      // React Query will automatically refetch documents list
-    } catch (err) {
-      toast({
-        title: "Error",
-        description: "Failed to reindex some documents",
-        variant: "destructive",
-      });
-    } finally {
-      setReindexing(new Set());
-    }
-  };
-
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
-    } else {
-      setSortField(field);
-      setSortDirection("asc");
-    }
-  };
-
-  const handleEditStart = (doc: Document) => {
-    setEditingId(doc.id);
-    setEditingName(doc.name);
-  };
-
-  const handleEditSave = async (id: string) => {
-    try {
-      await updateMutation.mutateAsync({ id, updates: { name: editingName } });
-      setEditingId(null);
-      setEditingName("");
-    } catch (err) {
-      // Error handled by mutation
-    }
-  };
-
-  const handleEditCancel = () => {
-    setEditingId(null);
-    setEditingName("");
-  };
-
-  const handlePreview = async (doc: Document) => {
-    try {
-      const detail = await documentsApi.get(doc.id);
-      setPreviewDocument(detail.document);
-      setPreviewOpen(true);
-    } catch (err) {
-      toast({
-        title: "Error",
-        description: "Failed to load document details",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const toggleRowSelection = (id: string) => {
-    setSelectedRows((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  };
-
-  const toggleAllSelection = () => {
-    if (selectedRows.size === filtered.length) {
-      setSelectedRows(new Set());
-    } else {
-      setSelectedRows(new Set(filtered.map((d) => d.id)));
-    }
-  };
-
-  // Calculate stats
+  // ── Computed ───────────────────────────────────────────────────────────────
   const stats = useMemo(() => {
     const total = documents.length;
-    const indexed = documents.filter((d) => d.status === "indexed").length;
+    const ready = documents.filter((d) => d.status === "ready").length;
     const processing = documents.filter((d) => d.status === "processing").length;
-    const error = documents.filter((d) => d.status === "error").length;
-    return { total, indexed, processing, error };
+    const archived = documents.filter((d) => d.status === "archived" || d.is_archived).length;
+    const failed = documents.filter((d) => d.status === "failed").length;
+    return { total, ready, processing, archived, failed };
   }, [documents]);
 
-  // Animated stats
-  const totalCount = useCountUp(stats.total, 800, 0, "");
-  const indexedCount = useCountUp(stats.indexed, 800, 0, "");
-  const processingCount = useCountUp(stats.processing, 800, 0, "");
-  const errorCount = useCountUp(stats.error, 800, 0, "");
-
   const filtered = useMemo(() => {
-    let result = documents.filter((d) => d.name.toLowerCase().includes(search.toLowerCase()));
+    let result = [...documents];
 
-    // Apply status filter
-    if (statusFilter && statusFilter !== "all") {
-      result = result.filter((d) => d.status === statusFilter);
+    // Client-side search (API may also filter, but we do local for instant feedback)
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter(
+        (d) =>
+          d.filename.toLowerCase().includes(q) ||
+          d.original_filename.toLowerCase().includes(q)
+      );
     }
 
-    // Apply type filter
-    if (typeFilter && typeFilter !== "all") {
-      result = result.filter((d) => d.type.toLowerCase() === typeFilter.toLowerCase());
-    }
-
+    // Sort
     result.sort((a, b) => {
-      let aVal: any = a[sortField];
-      let bVal: any = b[sortField];
+      let aVal: string | number = "";
+      let bVal: string | number = "";
 
-      if (sortField === "updated_at" || sortField === "name") {
-        aVal = sortField === "updated_at" ? new Date(aVal).getTime() : aVal.toLowerCase();
-        bVal = sortField === "updated_at" ? new Date(bVal).getTime() : bVal.toLowerCase();
+      switch (sortField) {
+        case "filename":
+          aVal = (a.original_filename || a.filename).toLowerCase();
+          bVal = (b.original_filename || b.filename).toLowerCase();
+          break;
+        case "file_type":
+          aVal = a.file_type.toLowerCase();
+          bVal = b.file_type.toLowerCase();
+          break;
+        case "status":
+          aVal = a.status;
+          bVal = b.status;
+          break;
+        case "file_size":
+          aVal = a.file_size || 0;
+          bVal = b.file_size || 0;
+          break;
+        case "chunk_count":
+          aVal = a.chunk_count || 0;
+          bVal = b.chunk_count || 0;
+          break;
+        case "upload_date":
+          aVal = new Date(a.upload_date || a.created_at).getTime();
+          bVal = new Date(b.upload_date || b.created_at).getTime();
+          break;
       }
 
       if (aVal < bVal) return sortDirection === "asc" ? -1 : 1;
@@ -747,595 +321,1308 @@ export default function Documents() {
     });
 
     return result;
-  }, [documents, search, sortField, sortDirection, statusFilter, typeFilter]);
+  }, [documents, search, sortField, sortDirection]);
 
-  const hasActiveFilters = statusFilter !== null && statusFilter !== "all" || (typeFilter !== null && typeFilter !== "all");
-  const clearFilters = () => {
+  const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
+  const paginated = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+
+  const hasActiveFilters = (statusFilter !== null && statusFilter !== "all") || (typeFilter !== null && typeFilter !== "all");
+
+  // ── Handlers ───────────────────────────────────────────────────────────────
+
+  const handleSort = useCallback((field: SortField) => {
+    setSortField((prev) => {
+      if (prev === field) {
+        setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
+        return prev;
+      }
+      setSortDirection("asc");
+      return field;
+    });
+  }, []);
+
+  const clearFilters = useCallback(() => {
     setStatusFilter(null);
     setTypeFilter(null);
+    setSearch("");
+    setPage(1);
+  }, []);
+
+  const toggleRowSelection = useCallback((id: string) => {
+    setSelectedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const toggleAllSelection = useCallback(() => {
+    if (selectedRows.size === paginated.length && paginated.length > 0) {
+      setSelectedRows(new Set());
+    } else {
+      setSelectedRows(new Set(paginated.map((d) => d.id)));
+    }
+  }, [selectedRows.size, paginated]);
+
+  // File upload
+  const handleFileSelect = useCallback(async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+
+    const newItems: UploadFileItem[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const ext = file.name.toLowerCase().substring(file.name.lastIndexOf("."));
+
+      if (!VALID_EXTENSIONS.includes(ext)) {
+        toast({ title: "Invalid file", description: `${file.name} has unsupported format. Accepts: PDF, DOCX, TXT, CSV`, variant: "destructive" });
+        continue;
+      }
+      if (file.size > MAX_FILE_SIZE) {
+        toast({ title: "File too large", description: `${file.name} exceeds 50MB limit`, variant: "destructive" });
+        continue;
+      }
+
+      newItems.push({
+        id: `${Date.now()}-${i}`,
+        file,
+        progress: 0,
+        stage: "uploading",
+      });
+    }
+
+    if (newItems.length === 0) return;
+    setUploadQueue((prev) => [...prev, ...newItems]);
+
+    // Upload each file
+    for (const item of newItems) {
+      try {
+        // Simulate stage progression
+        const progressInterval = setInterval(() => {
+          setUploadQueue((prev) =>
+            prev.map((u) => {
+              if (u.id !== item.id) return u;
+              if (u.progress < 30) return { ...u, progress: u.progress + 5, stage: "uploading" };
+              if (u.progress < 60) return { ...u, progress: u.progress + 3, stage: "processing" };
+              if (u.progress < 85) return { ...u, progress: u.progress + 2, stage: "indexing" };
+              return u;
+            })
+          );
+        }, 300);
+
+        await uploadMutation.mutateAsync({ file: item.file, knowledge_base_id: selectedKnowledgeBaseId });
+        clearInterval(progressInterval);
+
+        setUploadQueue((prev) =>
+          prev.map((u) => (u.id === item.id ? { ...u, progress: 100, stage: "ready" as const } : u))
+        );
+
+        // Remove completed after delay
+        setTimeout(() => {
+          setUploadQueue((prev) => prev.filter((u) => u.id !== item.id));
+        }, 2500);
+      } catch (err) {
+        const apiError = err as ApiError;
+        setUploadQueue((prev) =>
+          prev.map((u) =>
+            u.id === item.id
+              ? { ...u, stage: "error" as const, error: apiError?.message || "Upload failed", progress: 0 }
+              : u
+          )
+        );
+      }
+    }
+  }, [uploadMutation, selectedKnowledgeBaseId, toast]);
+
+  const handleUploadClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setDragOver(false);
+    handleFileSelect(e.dataTransfer.files);
+  }, [handleFileSelect]);
+
+  const cancelUpload = useCallback((id: string) => {
+    setUploadQueue((prev) => prev.filter((u) => u.id !== id));
+  }, []);
+
+  // URL import
+  const handleUrlImport = useCallback(async () => {
+    if (!urlInput.trim()) return;
+    setUrlImporting(true);
+    try {
+      await documentsApi.ingestUrl(urlInput.trim());
+      toast({ title: "URL imported", description: "Content is being processed from the URL.", variant: "success" });
+      setUrlInput("");
+      refetch();
+    } catch (err) {
+      const apiError = err as ApiError;
+      toast({ title: "Import failed", description: apiError?.message || "Failed to import URL", variant: "destructive" });
+    } finally {
+      setUrlImporting(false);
+    }
+  }, [urlInput, toast, refetch]);
+
+  // Document actions
+  const handlePreview = useCallback(async (doc: Document) => {
+    try {
+      const detail = await documentsApi.get(doc.id);
+      setPreviewDoc(detail.document);
+      setPreviewOpen(true);
+      setChunksExpanded(false);
+    } catch {
+      toast({ title: "Error", description: "Failed to load document details", variant: "destructive" });
+    }
+  }, [toast]);
+
+  const handleDownload = useCallback((doc: Document) => {
+    if (doc.storage_url) {
+      window.open(doc.storage_url, "_blank");
+    }
+  }, []);
+
+  const handleArchive = useCallback(async (doc: Document) => {
+    try {
+      if (doc.is_archived || doc.status === "archived") {
+        await documentsApi.restore(doc.id);
+        toast({ title: "Document restored", description: `"${doc.original_filename}" is now active in your knowledge base.`, variant: "success" });
+      } else {
+        await documentsApi.archive(doc.id);
+        toast({ title: "Document archived", description: `"${doc.original_filename}" has been archived.`, variant: "success" });
+      }
+      refetch();
+    } catch (err) {
+      const apiError = err as ApiError;
+      toast({ title: "Error", description: apiError?.message || "Action failed", variant: "destructive" });
+    }
+  }, [toast, refetch]);
+
+  const handleReplace = useCallback((docId: string) => {
+    setReplaceTargetId(docId);
+    setTimeout(() => replaceInputRef.current?.click(), 100);
+  }, []);
+
+  const handleReplaceFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !replaceTargetId) return;
+    try {
+      await documentsApi.replace(replaceTargetId, file);
+      toast({ title: "Document replaced", description: "New version uploaded successfully.", variant: "success" });
+      refetch();
+    } catch (err) {
+      const apiError = err as ApiError;
+      toast({ title: "Replace failed", description: apiError?.message || "Failed to replace document", variant: "destructive" });
+    } finally {
+      setReplaceTargetId(null);
+      if (replaceInputRef.current) replaceInputRef.current.value = "";
+    }
+  }, [replaceTargetId, toast, refetch]);
+
+  const handleReindex = useCallback(async (docId: string) => {
+    try {
+      setReindexing((prev) => new Set(prev).add(docId));
+      await reindexMutation.mutateAsync(docId);
+    } finally {
+      setReindexing((prev) => {
+        const next = new Set(prev);
+        next.delete(docId);
+        return next;
+      });
+    }
+  }, [reindexMutation]);
+
+  const handleDeleteClick = useCallback((docId: string) => {
+    setDeleteTargetId(docId);
+    setDeleteDialogOpen(true);
+  }, []);
+
+  const confirmDelete = useCallback(async () => {
+    if (!deleteTargetId) return;
+    try {
+      await deleteMutation.mutateAsync(deleteTargetId);
+      setSelectedRows((prev) => {
+        const next = new Set(prev);
+        next.delete(deleteTargetId);
+        return next;
+      });
+    } finally {
+      setDeleteTargetId(null);
+    }
+  }, [deleteTargetId, deleteMutation]);
+
+  const confirmBulkDelete = useCallback(async () => {
+    const ids = Array.from(selectedRows);
+    try {
+      await Promise.all(ids.map((id) => deleteMutation.mutateAsync(id)));
+      setSelectedRows(new Set());
+      toast({ title: "Documents deleted", description: `${ids.length} document(s) deleted successfully.`, variant: "success" });
+    } catch {
+      toast({ title: "Error", description: "Failed to delete some documents", variant: "destructive" });
+    }
+  }, [selectedRows, deleteMutation, toast]);
+
+  const confirmBulkArchive = useCallback(async () => {
+    const ids = Array.from(selectedRows);
+    try {
+      await Promise.all(ids.map((id) => documentsApi.archive(id)));
+      setSelectedRows(new Set());
+      refetch();
+      toast({ title: "Documents archived", description: `${ids.length} document(s) archived.`, variant: "success" });
+    } catch {
+      toast({ title: "Error", description: "Failed to archive some documents", variant: "destructive" });
+    }
+  }, [selectedRows, refetch, toast]);
+
+  // ── Stage label for upload pipeline ────────────────────────────────────────
+  const stageMeta: Record<string, { label: string; color: string }> = {
+    uploading:  { label: "Uploading",  color: "text-blue-400" },
+    processing: { label: "Processing", color: "text-amber-400" },
+    indexing:   { label: "Indexing",   color: "text-violet-400" },
+    ready:      { label: "Ready",      color: "text-emerald-400" },
+    error:      { label: "Failed",     color: "text-rose-400" },
   };
 
-  const SortIcon = ({ field }: { field: SortField }) => {
-    if (sortField !== field) return <ChevronsUpDown size={14} className="text-muted-foreground" />;
-    return sortDirection === "asc" ? (
-      <ChevronUp size={14} />
-    ) : (
-      <ChevronDown size={14} />
-    );
-  };
+  // ══════════════════════════════════════════════════════════════════════════
+  //  RENDER
+  // ══════════════════════════════════════════════════════════════════════════
 
   return (
-    <div className="flex flex-col w-full min-w-0 space-y-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-        <div className="min-w-0">
-          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">Documents</h1>
-          <p className="mt-1.5 text-[13px] sm:text-sm text-muted-foreground max-w-xl" id="documents-description">
-            Manage knowledge base documents for the chatbot
+    <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8 pb-32 max-w-[1600px] mx-auto w-full">
+
+      {/* ── PAGE HEADER ──────────────────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div>
+          <h1 className="font-heading text-xl sm:text-2xl font-bold text-foreground tracking-tight leading-none">
+            Knowledge Base
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1 font-description">
+            Manage documents that power your chatbot&apos;s intelligence.
           </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2">
           <Button
+            size="sm"
+            className="h-9 text-xs gap-1.5"
             onClick={handleUploadClick}
-            disabled={uploadQueue.some((u) => u.status === "uploading")}
-            className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-xl gap-2"
+            disabled={uploadQueue.some((u) => u.stage === "uploading")}
           >
-            <Upload className="h-4 w-4 shrink-0" />
-            Upload
+            <Upload className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Upload Documents</span>
+            <span className="sm:hidden">Upload</span>
           </Button>
           <input
             ref={fileInputRef}
             type="file"
             multiple
-            accept=".md,.html,.htm,.txt,.pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            onChange={handleFileInputChange}
+            accept={ACCEPT_STRING}
+            onChange={(e) => {
+              handleFileSelect(e.target.files);
+              if (fileInputRef.current) fileInputRef.current.value = "";
+            }}
             className="hidden"
             aria-label="Upload document files"
           />
-        </div>
-      </header>
-
-      {/* Quick Stats Cards */}
-      <div className={`grid grid-cols-1 ${isTablet ? "sm:grid-cols-2" : "sm:grid-cols-2 lg:grid-cols-4"} gap-4`}>
-        <div className="rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5 transition-colors hover:border-border/70">
-          {loading ? <Skeleton className="h-8 w-20 mb-2 rounded-lg" /> : <div className="text-xl sm:text-2xl font-semibold text-foreground tracking-tight mb-2">{totalCount}</div>}
-          <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Total Documents</div>
-        </div>
-        <div className="rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5 transition-colors hover:border-border/70">
-          {loading ? <Skeleton className="h-8 w-20 mb-2 rounded-lg" /> : <div className="text-xl sm:text-2xl font-semibold text-green-600 dark:text-green-500 tracking-tight mb-2">{indexedCount}</div>}
-          <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Indexed</div>
-        </div>
-        <div className="rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5 transition-colors hover:border-border/70">
-          {loading ? <Skeleton className="h-8 w-20 mb-2 rounded-lg" /> : <div className="text-xl sm:text-2xl font-semibold text-amber-600 dark:text-amber-500 tracking-tight mb-2">{processingCount}</div>}
-          <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Processing</div>
-        </div>
-        <div className="rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5 transition-colors hover:border-border/70">
-          {loading ? <Skeleton className="h-8 w-20 mb-2 rounded-lg" /> : <div className="text-xl sm:text-2xl font-semibold text-red-600 dark:text-red-500 tracking-tight mb-2">{errorCount}</div>}
-          <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Errors</div>
-        </div>
-      </div>
-
-      {error && (
-        <div className="flex items-center gap-2 rounded-xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-[13px] text-destructive">
-          <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
-          {error}
-        </div>
-      )}
-
-      {/* Search and Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-        <div className="flex-1 w-full min-w-0 sm:max-w-sm">
-          <Input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search documents…"
-            className={`rounded-xl ${isTablet ? "min-h-[44px] text-base" : ""}`}
-            aria-label="Search documents"
-            aria-describedby="documents-description"
+          {/* Hidden replace input */}
+          <input
+            ref={replaceInputRef}
+            type="file"
+            accept={ACCEPT_STRING}
+            onChange={handleReplaceFileChange}
+            className="hidden"
+            aria-label="Replace document file"
           />
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <Select value={statusFilter || "all"} onValueChange={(v) => setStatusFilter(v === "all" ? null : v)}>
-            <SelectTrigger className={`w-[140px] rounded-xl ${isTablet ? "min-h-[44px]" : ""}`}>
-              <SelectValue placeholder="All Statuses" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="indexed">Indexed</SelectItem>
-              <SelectItem value="processing">Processing</SelectItem>
-              <SelectItem value="error">Error</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={typeFilter || "all"} onValueChange={(v) => setTypeFilter(v === "all" ? null : v)}>
-            <SelectTrigger className={`w-[140px] rounded-xl ${isTablet ? "min-h-[44px]" : ""}`}>
-              <SelectValue placeholder="All Types" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="pdf">PDF</SelectItem>
-              <SelectItem value="docx">DOCX</SelectItem>
-              <SelectItem value="md">Markdown</SelectItem>
-              <SelectItem value="html">HTML</SelectItem>
-              <SelectItem value="txt">Text</SelectItem>
-            </SelectContent>
-          </Select>
-          {hasActiveFilters && (
-            <Button variant="outline" size="sm" onClick={clearFilters} className={`rounded-xl ${isTablet ? "min-h-[44px]" : ""}`}>
-              <FilterX size={14} className="mr-2" />
-              Clear
-            </Button>
-          )}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className={`rounded-xl ${isTablet ? "min-h-[44px]" : ""}`}>
-                <Eye size={14} className="mr-2" />
-                Columns
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {Object.entries(columnVisibility).map(([key, visible]) => (
-                <DropdownMenuCheckboxItem
-                  key={key}
-                  checked={visible}
-                  onCheckedChange={(checked) =>
-                    setColumnVisibility((prev) => ({ ...prev, [key]: checked }))
-                  }
-                >
-                  {key === "name" && "Name"}
-                  {key === "type" && "Type"}
-                  {key === "status" && "Status"}
-                  {key === "chunks" && "Chunks"}
-                  {key === "updated" && "Updated"}
-                </DropdownMenuCheckboxItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
       </div>
 
-      {/* Filter Chips */}
-      {hasActiveFilters && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm text-muted-foreground">Active filters:</span>
-          {statusFilter && statusFilter !== "all" && (
-            <Badge variant="secondary" className="gap-1">
-              Status: {statusConfig[statusFilter as keyof typeof statusConfig]?.label || statusFilter}
-              <button
-                onClick={() => setStatusFilter(null)}
-                className="ml-1 hover:bg-muted rounded-full p-0.5"
-                aria-label="Remove status filter"
-              >
-                <X size={12} />
-              </button>
-            </Badge>
-          )}
-          {typeFilter && typeFilter !== "all" && (
-            <Badge variant="secondary" className="gap-1">
-              Type: {typeFilter.toUpperCase()}
-              <button
-                onClick={() => setTypeFilter(null)}
-                className="ml-1 hover:bg-muted rounded-full p-0.5"
-                aria-label="Remove type filter"
-              >
-                <X size={12} />
-              </button>
-            </Badge>
-          )}
-        </div>
-      )}
-
-      {/* Enhanced Upload Drop Zone */}
-      <div
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragOver(true);
-        }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={handleDrop}
-        onClick={handleUploadClick}
-        role="button"
-        tabIndex={0}
-        aria-label="Drop zone for document uploads. Click or drag files here to upload."
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            handleUploadClick();
-          }
-        }}
-        className={`relative border-2 border-dashed rounded-2xl p-8 sm:p-12 text-center transition-all duration-200 cursor-pointer focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 min-h-[180px] sm:min-h-[200px] flex flex-col items-center justify-center ${
-          dragOver
-            ? "border-primary bg-primary/5 scale-[1.02] shadow-lg"
-            : "border-border/60 hover:border-primary/50 hover:bg-muted/20"
-        }`}
-      >
-        <div className={`absolute inset-0 rounded-xl transition-opacity duration-200 ${
-          dragOver ? "bg-primary/5 opacity-100" : "opacity-0"
-        }`} />
-        <div className="relative z-10">
-          <div className={`mb-4 transition-transform duration-200 ${dragOver ? "scale-110" : ""}`}>
-            <FileText size={48} className={`mx-auto ${dragOver ? "text-primary" : "text-muted-foreground"}`} aria-hidden="true" />
+      {/* ── STORAGE USAGE BAR ────────────────────────────────────────────── */}
+      {storageUsage && (
+        <div className="rounded-xl border bg-card p-3 sm:p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-medium text-muted-foreground font-heading">
+              Storage Usage
+            </span>
+            <span className="text-xs text-muted-foreground font-mono">
+              {formatStorageSize(storageUsage.used_bytes)} of {formatStorageSize(storageUsage.limit_bytes)} used ({Math.round(storageUsage.used_percent)}%)
+            </span>
           </div>
-          <p className="text-base font-medium text-foreground mb-1">
-            Drag and drop files here
-          </p>
-          <p className="text-sm text-muted-foreground mb-2">
-            or click to browse
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Supports .md, .txt, .html, .pdf, .docx — Max 10MB per file
-          </p>
-        </div>
-      </div>
-
-      {/* Upload Queue */}
-      {uploadQueue.length > 0 && (
-        <div className="space-y-3 rounded-2xl border border-border/50 bg-muted/10 p-4 sm:p-5">
-          <h3 className="text-[13px] font-semibold flex items-center gap-2">
-            <Upload size={16} className="shrink-0" />
-            Upload queue ({uploadQueue.length})
-          </h3>
-          <div className="space-y-2">
-            {uploadQueue.map((item) => (
-              <div
-                key={item.id}
-                className="rounded-xl border border-border/50 bg-background p-4 space-y-3 transition-colors hover:border-border/70"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <FileText size={18} className="text-muted-foreground flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <span className="text-sm font-medium truncate block">{item.file.name}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {formatFileSize(item.file.size)}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {item.status === "uploading" && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => pauseUpload(item.id)}
-                        className="h-8 w-8 p-0"
-                        aria-label="Pause upload"
-                      >
-                        <Pause size={14} />
-                      </Button>
-                    )}
-                    {item.status === "paused" && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => resumeUpload(item.id)}
-                        className="h-8 w-8 p-0"
-                        aria-label="Resume upload"
-                      >
-                        <Play size={14} />
-                      </Button>
-                    )}
-                    {item.status !== "completed" && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => cancelUpload(item.id)}
-                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                        aria-label="Cancel upload"
-                      >
-                        <X size={14} />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-                {item.status === "uploading" && (
-                  <div className="space-y-1">
-                    <Progress value={item.progress} className="h-2" />
-                    <span className="text-xs text-muted-foreground">{item.progress}%</span>
-                  </div>
-                )}
-                {item.status === "completed" && (
-                  <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-500">
-                    <CheckCircle2 size={16} />
-                    <span>Upload complete</span>
-                  </div>
-                )}
-                {item.status === "error" && (
-                  <div className="flex items-center gap-2 text-sm text-destructive">
-                    <AlertCircle size={16} />
-                    <span>{item.error || "Upload failed"}</span>
-                  </div>
-                )}
-              </div>
-            ))}
+          <div className="h-2 rounded-full bg-muted overflow-hidden">
+            <div
+              className={cn("h-full rounded-full transition-all duration-500", getStorageBarColor(storageUsage.used_percent))}
+              style={{ width: `${Math.min(100, storageUsage.used_percent)}%` }}
+            />
           </div>
         </div>
       )}
 
-      {/* Knowledge Base Management Section - Collapsible */}
-      <Collapsible open={kbSectionOpen} onOpenChange={setKbSectionOpen}>
-        <div className="rounded-2xl border border-border/50 bg-muted/10 overflow-hidden">
-          <CollapsibleTrigger asChild>
-            <button className="w-full flex items-center justify-between p-4 sm:p-5 hover:bg-muted/30 transition-colors rounded-2xl">
-              <div className="flex items-center gap-2">
-                <Database size={18} className="text-primary" />
-                <h3 className="text-[15px] font-semibold text-foreground">Knowledge Bases</h3>
-              </div>
-              <ChevronRight className={`h-5 w-5 text-muted-foreground transition-transform duration-200 ${kbSectionOpen ? "rotate-90" : ""}`} />
-            </button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="px-4 pb-4 space-y-4">
-            <div className="flex items-center justify-end">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setKnowledgeBaseDialogOpen(true)}
-                className={`rounded-xl ${isTablet ? "min-h-[44px]" : ""}`}
-              >
-                <Settings size={16} className="mr-2" />
-                Manage
-              </Button>
-            </div>
-
-            {/* Default KB Toggle */}
-        {kbLoading || (preferences === null && !error) ? (
-          <div className="flex items-center justify-center p-4">
-            <Loader2 size={16} className="animate-spin text-muted-foreground" />
-          </div>
-        ) : preferences ? (
-          <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg mb-3">
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <span className="font-medium">Default Knowledge Base</span>
-                <Badge variant="secondary">System</Badge>
-              </div>
-              <p className="text-sm text-muted-foreground mt-1">
-                Documentation from data/docs folder
+      {/* ── KPI STAT CARDS ───────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        {[
+          { label: "Total Documents", value: stats.total, accent: "from-primary/5" },
+          { label: "Ready", value: stats.ready, accent: "from-emerald-500/5" },
+          { label: "Processing", value: stats.processing, accent: "from-blue-500/5" },
+          { label: "Archived", value: stats.archived, accent: "from-gray-500/5" },
+          { label: "Failed", value: stats.failed, accent: "from-rose-500/5" },
+        ].map((card) => (
+          <div
+            key={card.label}
+            className="relative overflow-hidden rounded-xl border bg-card p-3 sm:p-4 transition-all duration-200 hover:border-primary/20 hover:shadow-soft-sm group"
+          >
+            <div className={cn("absolute inset-0 bg-gradient-to-br to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300", card.accent)} />
+            <div className="relative">
+              <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider font-heading text-muted-foreground mb-1">
+                {card.label}
               </p>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={async () => {
-                if (preferences) {
-                  await updatePreferences({
-                    ...preferences,
-                    use_default_kb: !preferences.use_default_kb,
-                  });
-                  refetchPrefs();
-                }
-              }}
-              className="flex items-center gap-2"
-            >
-              {preferences.use_default_kb ? (
-                <>
-                  <ToggleRight size={20} className="text-primary" />
-                  <span className="text-sm">Enabled</span>
-                </>
+              {loading ? (
+                <Skeleton className="h-8 w-16" />
               ) : (
-                <>
-                  <ToggleLeft size={20} className="text-muted-foreground" />
-                  <span className="text-sm">Disabled</span>
-                </>
+                <p className="text-xl sm:text-2xl lg:text-3xl font-bold font-mono tracking-tight text-foreground">
+                  {card.value}
+                </p>
               )}
-            </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── UPLOAD ZONE ──────────────────────────────────────────────────── */}
+      <div className="rounded-xl border bg-card overflow-hidden">
+        {/* Tabs: File / URL */}
+        <div className="flex border-b">
+          <button
+            onClick={() => setUploadTab("file")}
+            className={cn(
+              "flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold font-heading transition-colors border-b-2 -mb-px",
+              uploadTab === "file"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <CloudUpload className="h-3.5 w-3.5" />
+            File Upload
+          </button>
+          <button
+            onClick={() => setUploadTab("url")}
+            className={cn(
+              "flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold font-heading transition-colors border-b-2 -mb-px",
+              uploadTab === "url"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Link2 className="h-3.5 w-3.5" />
+            Import URL
+          </button>
+        </div>
+
+        {uploadTab === "file" ? (
+          <div
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleDrop}
+            onClick={handleUploadClick}
+            role="button"
+            tabIndex={0}
+            aria-label="Drop zone for document uploads. Click or drag files here to upload."
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleUploadClick(); }
+            }}
+            className={cn(
+              "p-8 sm:p-12 text-center cursor-pointer transition-all duration-200 flex flex-col items-center justify-center min-h-[180px]",
+              dragOver
+                ? "bg-primary/5 scale-[1.01]"
+                : "hover:bg-muted/30"
+            )}
+          >
+            <div className={cn("mb-4 transition-transform duration-200", dragOver && "scale-110")}>
+              <CloudUpload
+                size={48}
+                className={cn("mx-auto", dragOver ? "text-primary" : "text-muted-foreground")}
+                aria-hidden="true"
+              />
+            </div>
+            <p className="text-sm font-medium text-foreground mb-1">
+              Drop files here or click to browse
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Accepts: PDF, DOCX, TXT, CSV &middot; Max 50MB per file
+            </p>
           </div>
         ) : (
-          <div className="p-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-lg mb-3">
-            <p className="text-sm">Failed to load preferences. Please refresh the page.</p>
+          <div className="p-4 sm:p-6">
+            <div className="flex gap-2 max-w-lg">
+              <Input
+                value={urlInput}
+                onChange={(e) => setUrlInput(e.target.value)}
+                placeholder="https://example.com/docs/page"
+                className="h-9 text-xs flex-1"
+                onKeyDown={(e) => { if (e.key === "Enter") handleUrlImport(); }}
+              />
+              <Button
+                size="sm"
+                className="h-9 text-xs gap-1.5"
+                onClick={handleUrlImport}
+                disabled={urlImporting || !urlInput.trim()}
+              >
+                {urlImporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                Import
+              </Button>
+            </div>
           </div>
         )}
+      </div>
 
-        {/* Custom Knowledge Bases */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">Custom Knowledge Bases</span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCreateKBDialogOpen(true)}
-              className={`rounded-xl ${isTablet ? "min-h-[44px]" : ""}`}
-            >
-              <Plus size={16} className="mr-2" />
-              Create
-            </Button>
+      {/* ── UPLOAD QUEUE (processing pipeline) ───────────────────────────── */}
+      {uploadQueue.length > 0 && (
+        <div className="rounded-xl border bg-card overflow-hidden">
+          <div className="px-4 py-3 border-b bg-muted/30">
+            <span className="text-[10px] font-semibold uppercase tracking-wider font-heading text-muted-foreground">
+              Upload Progress ({uploadQueue.length})
+            </span>
           </div>
-          {kbLoading ? (
-            <div className="flex items-center justify-center p-4">
-              <Loader2 size={16} className="animate-spin text-muted-foreground" />
-            </div>
-          ) : knowledgeBases.filter((kb) => !kb.is_default).length === 0 ? (
-            <p className="text-sm text-muted-foreground p-3 bg-muted/30 rounded">
-              No custom knowledge bases. Create one to organize your documents.
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {knowledgeBases
-                .filter((kb) => !kb.is_default)
-                .map((kb) => (
-                  <div
-                    key={kb.id}
-                    className="flex items-center justify-between p-3 bg-muted/30 rounded-lg"
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{kb.name}</span>
-                        {kb.description && (
-                          <span className="text-xs text-muted-foreground">• {kb.description}</span>
+          <div className="divide-y">
+            {uploadQueue.map((item) => {
+              const meta = stageMeta[item.stage];
+              return (
+                <div key={item.id} className="px-4 py-3 flex items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="text-sm font-medium truncate">{item.file.name}</span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={cn("text-[11px] font-semibold font-heading", meta.color)}>
+                          {item.stage === "uploading" && <Loader2 className="inline h-3 w-3 animate-spin mr-1" />}
+                          {item.stage === "processing" && <Loader2 className="inline h-3 w-3 animate-spin mr-1" />}
+                          {item.stage === "indexing" && <Loader2 className="inline h-3 w-3 animate-spin mr-1" />}
+                          {item.stage === "ready" && <CheckCircle2 className="inline h-3 w-3 mr-1" />}
+                          {item.stage === "error" && <AlertCircle className="inline h-3 w-3 mr-1" />}
+                          {meta.label}
+                        </span>
+                        {item.stage !== "ready" && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => cancelUpload(item.id)}
+                            aria-label="Cancel upload"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        checked={preferences?.active_kb_ids.includes(kb.id) || false}
-                        onCheckedChange={async (checked) => {
-                          if (preferences) {
-                            const newActiveIds = checked
-                              ? [...preferences.active_kb_ids, kb.id]
-                              : preferences.active_kb_ids.filter((id) => id !== kb.id);
-                            await updatePreferences({
-                              ...preferences,
-                              active_kb_ids: newActiveIds,
-                            });
-                            refetchPrefs();
-                          }
-                        }}
-                      />
-                      <span className="text-xs text-muted-foreground">
-                        {preferences?.active_kb_ids.includes(kb.id) ? "Active" : "Inactive"}
-                      </span>
-                    </div>
+                    {item.stage !== "error" && (
+                      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className={cn(
+                            "h-full rounded-full transition-all duration-300",
+                            item.stage === "ready" ? "bg-emerald-500" : "bg-primary"
+                          )}
+                          style={{ width: `${item.progress}%` }}
+                        />
+                      </div>
+                    )}
+                    {item.stage === "error" && item.error && (
+                      <p className="text-xs text-rose-400 mt-0.5">{item.error}</p>
+                    )}
                   </div>
-                ))}
-            </div>
-          )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── FILTER BAR ───────────────────────────────────────────────────── */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            placeholder="Search documents..."
+            className="h-9 w-full sm:w-[220px] pl-8 text-xs"
+            aria-label="Search documents"
+          />
         </div>
 
-            {/* Knowledge Base Selection for Upload */}
-            <div className="pt-4 border-t border-border">
-              <label className="text-sm font-medium mb-2 block">Upload to Knowledge Base</label>
-              <Select
-                value={selectedKnowledgeBaseId || "none"}
-                onValueChange={(value) => setSelectedKnowledgeBaseId(value === "none" ? undefined : value)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select a knowledge base (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None (unassigned)</SelectItem>
+        <Select value={statusFilter || "all"} onValueChange={(v) => { setStatusFilter(v === "all" ? null : v); setPage(1); }}>
+          <SelectTrigger className="h-9 w-[140px] text-xs">
+            <SelectValue placeholder="All Statuses" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="ready">Ready</SelectItem>
+            <SelectItem value="processing">Processing</SelectItem>
+            <SelectItem value="archived">Archived</SelectItem>
+            <SelectItem value="failed">Failed</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select value={typeFilter || "all"} onValueChange={(v) => { setTypeFilter(v === "all" ? null : v); setPage(1); }}>
+          <SelectTrigger className="h-9 w-[140px] text-xs">
+            <SelectValue placeholder="All Types" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Types</SelectItem>
+            <SelectItem value="pdf">PDF</SelectItem>
+            <SelectItem value="docx">DOCX</SelectItem>
+            <SelectItem value="txt">TXT</SelectItem>
+            <SelectItem value="csv">CSV</SelectItem>
+            <SelectItem value="html">HTML</SelectItem>
+            <SelectItem value="md">Markdown</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {hasActiveFilters && (
+          <Button variant="link" size="sm" className="text-primary text-xs" onClick={clearFilters}>
+            Clear filters
+          </Button>
+        )}
+
+        <div className="flex-1" />
+
+        {/* Bulk actions */}
+        {selectedRows.size > 0 && (
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-muted-foreground font-mono">
+              {selectedRows.size} selected
+            </span>
+            <Button variant="outline" size="sm" className="h-9 text-xs gap-1.5" onClick={() => setBulkArchiveDialogOpen(true)}>
+              <Archive className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Archive</span>
+            </Button>
+            <Button variant="outline" size="sm" className="h-9 text-xs gap-1.5 text-rose-400 hover:text-rose-400" onClick={() => setBulkDeleteDialogOpen(true)}>
+              <Trash2 className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Delete</span>
+            </Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setSelectedRows(new Set())} aria-label="Clear selection">
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* ── DATA TABLE ───────────────────────────────────────────────────── */}
+      <div className="rounded-xl border bg-card overflow-hidden">
+        {loading ? (
+          /* Loading skeleton */
+          <div>
+            <table className="w-full hidden sm:table">
+              <thead>
+                <tr className="border-b bg-muted/30">
+                  <th className="px-3 py-3 w-10"><Skeleton className="h-3 w-3" /></th>
+                  <th className="px-3 py-3"><Skeleton className="h-3 w-12" /></th>
+                  <th className="px-3 py-3"><Skeleton className="h-3 w-16" /></th>
+                  <th className="px-3 py-3"><Skeleton className="h-3 w-8" /></th>
+                  <th className="px-3 py-3 hidden lg:table-cell"><Skeleton className="h-3 w-12" /></th>
+                  <th className="px-3 py-3 hidden lg:table-cell"><Skeleton className="h-3 w-16" /></th>
+                  <th className="px-3 py-3 hidden xl:table-cell"><Skeleton className="h-3 w-20" /></th>
+                  <th className="px-3 py-3 hidden xl:table-cell"><Skeleton className="h-3 w-16" /></th>
+                  <th className="px-3 py-3 w-10" />
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i}>
+                    <td className="px-3 py-3"><Skeleton className="h-4 w-4" /></td>
+                    <td className="px-3 py-3"><Skeleton className="h-4 w-6" /></td>
+                    <td className="px-3 py-3"><Skeleton className="h-4 w-32" /></td>
+                    <td className="px-3 py-3"><Skeleton className="h-5 w-16 rounded-full" /></td>
+                    <td className="px-3 py-3 hidden lg:table-cell"><Skeleton className="h-4 w-12" /></td>
+                    <td className="px-3 py-3 hidden lg:table-cell"><Skeleton className="h-4 w-20" /></td>
+                    <td className="px-3 py-3 hidden xl:table-cell"><Skeleton className="h-4 w-16" /></td>
+                    <td className="px-3 py-3 hidden xl:table-cell"><Skeleton className="h-4 w-16" /></td>
+                    <td className="px-3 py-3"><Skeleton className="h-6 w-6" /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {/* Mobile skeleton */}
+            <div className="sm:hidden divide-y">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="p-3 space-y-2">
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-3 w-1/2" />
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : queryError ? (
+          <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+            <div className="h-12 w-12 rounded-full bg-rose-500/10 flex items-center justify-center mb-3">
+              <AlertCircle className="h-5 w-5 text-rose-400" />
+            </div>
+            <p className="text-sm text-muted-foreground font-medium">Failed to load documents</p>
+            <p className="text-xs text-muted-foreground/60 mt-1">{queryError.message}</p>
+            <Button variant="link" size="sm" className="text-primary text-xs mt-2" onClick={() => refetch()}>
+              Try again
+            </Button>
+          </div>
+        ) : filtered.length === 0 ? (
+          /* Empty state */
+          <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+            <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-3">
+              {documents.length === 0 ? (
+                <FolderOpen className="h-5 w-5 text-muted-foreground" />
+              ) : (
+                <Search className="h-5 w-5 text-muted-foreground" />
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground font-medium">
+              {documents.length === 0 ? "No documents uploaded yet" : "No documents match your filters"}
+            </p>
+            <p className="text-xs text-muted-foreground/60 mt-1">
+              {documents.length === 0
+                ? "Upload PDF, DOCX, TXT, or CSV files to build your chatbot's knowledge base."
+                : "Try adjusting your search or filters."}
+            </p>
+            {documents.length === 0 ? (
+              <Button size="sm" className="h-8 text-xs gap-1.5 mt-3" onClick={handleUploadClick}>
+                <Upload className="h-3.5 w-3.5" />
+                Upload Document
+              </Button>
+            ) : (
+              <Button variant="link" size="sm" className="text-primary text-xs mt-2" onClick={clearFilters}>
+                Clear filters
+              </Button>
+            )}
+          </div>
+        ) : (
+          <>
+            {/* Desktop table */}
+            <table className="w-full hidden sm:table">
+              <thead>
+                <tr className="border-b bg-muted/30">
+                  <th className="px-3 py-3 w-10">
+                    <Checkbox
+                      checked={selectedRows.size === paginated.length && paginated.length > 0}
+                      onCheckedChange={toggleAllSelection}
+                      aria-label="Select all documents"
+                    />
+                  </th>
+                  <th className="px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-wider font-heading text-muted-foreground w-10">
+                    Type
+                  </th>
+                  <th className="px-3 py-3 text-left">
+                    <button onClick={() => handleSort("filename")} className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider font-heading text-muted-foreground hover:text-foreground transition-colors">
+                      Filename
+                      {sortField === "filename" && <ChevronDown className={cn("h-3 w-3 transition-transform", sortDirection === "asc" && "rotate-180")} />}
+                    </button>
+                  </th>
+                  <th className="px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-wider font-heading text-muted-foreground">
+                    Status
+                  </th>
+                  <th className="px-3 py-3 text-left hidden lg:table-cell">
+                    <button onClick={() => handleSort("file_size")} className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider font-heading text-muted-foreground hover:text-foreground transition-colors">
+                      Size
+                      {sortField === "file_size" && <ChevronDown className={cn("h-3 w-3 transition-transform", sortDirection === "asc" && "rotate-180")} />}
+                    </button>
+                  </th>
+                  <th className="px-3 py-3 text-left hidden lg:table-cell">
+                    <button onClick={() => handleSort("chunk_count")} className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider font-heading text-muted-foreground hover:text-foreground transition-colors">
+                      Chunks
+                      {sortField === "chunk_count" && <ChevronDown className={cn("h-3 w-3 transition-transform", sortDirection === "asc" && "rotate-180")} />}
+                    </button>
+                  </th>
+                  <th className="px-3 py-3 text-left hidden xl:table-cell">
+                    <button onClick={() => handleSort("upload_date")} className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider font-heading text-muted-foreground hover:text-foreground transition-colors">
+                      Upload Date
+                      {sortField === "upload_date" && <ChevronDown className={cn("h-3 w-3 transition-transform", sortDirection === "asc" && "rotate-180")} />}
+                    </button>
+                  </th>
+                  <th className="px-3 py-3 text-left hidden xl:table-cell text-[10px] font-semibold uppercase tracking-wider font-heading text-muted-foreground">
+                    Last Used
+                  </th>
+                  <th className="px-3 py-3 w-10" />
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {paginated.map((doc) => {
+                  const typeMeta = getFileTypeMeta(doc.source_url ? "url" : doc.file_type);
+                  const TypeIcon = typeMeta.icon;
+                  const statusMeta = getStatusMeta(doc.status);
+                  const isSelected = selectedRows.has(doc.id);
+                  const isReindexingDoc = reindexing.has(doc.id);
+
+                  return (
+                    <tr
+                      key={doc.id}
+                      className={cn(
+                        "cursor-pointer transition-colors hover:bg-muted/50",
+                        isSelected && "bg-primary/5 hover:bg-primary/8"
+                      )}
+                    >
+                      <td className="px-3 py-3">
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => toggleRowSelection(doc.id)}
+                          aria-label={`Select ${doc.original_filename}`}
+                        />
+                      </td>
+                      <td className="px-3 py-3">
+                        <TypeIcon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                      </td>
+                      <td className="px-3 py-3">
+                        <button
+                          onClick={() => handlePreview(doc)}
+                          className="text-sm font-medium text-foreground hover:text-primary transition-colors truncate max-w-[300px] block text-left"
+                        >
+                          {doc.original_filename || doc.filename}
+                        </button>
+                      </td>
+                      <td className="px-3 py-3">
+                        <span className={cn(
+                          "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold font-heading tracking-wide",
+                          statusMeta.badge
+                        )}>
+                          {statusMeta.spinning && <Loader2 className="h-3 w-3 animate-spin" />}
+                          {!statusMeta.spinning && <span className={cn("h-1.5 w-1.5 rounded-full", statusMeta.dot)} />}
+                          {statusMeta.label}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 hidden lg:table-cell">
+                        <span className="text-xs text-muted-foreground font-mono">{formatFileSize(doc.file_size)}</span>
+                      </td>
+                      <td className="px-3 py-3 hidden lg:table-cell">
+                        <span className="text-xs text-muted-foreground font-mono">
+                          {doc.page_count ? `${doc.page_count}p / ` : ""}{doc.chunk_count || "—"} chunks
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 hidden xl:table-cell">
+                        <span className="text-[10px] text-muted-foreground/60 font-mono">
+                          {formatDate(doc.upload_date || doc.created_at)}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 hidden xl:table-cell">
+                        <span className="text-[10px] text-muted-foreground/60 font-mono">
+                          {formatDate(doc.last_retrieved_at)}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" disabled={isReindexingDoc} aria-label={`Actions for ${doc.original_filename}`}>
+                              <MoreHorizontal className="h-3.5 w-3.5" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handlePreview(doc)}>
+                              <Eye className="h-3.5 w-3.5 mr-2" />
+                              Preview
+                            </DropdownMenuItem>
+                            {doc.storage_url && (
+                              <DropdownMenuItem onClick={() => handleDownload(doc)}>
+                                <Download className="h-3.5 w-3.5 mr-2" />
+                                Download original
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => handleArchive(doc)}>
+                              {doc.is_archived || doc.status === "archived" ? (
+                                <>
+                                  <ArchiveRestore className="h-3.5 w-3.5 mr-2" />
+                                  Restore
+                                </>
+                              ) : (
+                                <>
+                                  <Archive className="h-3.5 w-3.5 mr-2" />
+                                  Archive
+                                </>
+                              )}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleReplace(doc.id)}>
+                              <Replace className="h-3.5 w-3.5 mr-2" />
+                              Replace
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleReindex(doc.id)}
+                              disabled={isReindexingDoc}
+                            >
+                              {isReindexingDoc ? (
+                                <>
+                                  <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                                  Reindexing...
+                                </>
+                              ) : (
+                                <>
+                                  <RefreshCw className="h-3.5 w-3.5 mr-2" />
+                                  Reindex
+                                </>
+                              )}
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => handleDeleteClick(doc.id)}
+                              className="text-rose-400 focus:text-rose-400"
+                            >
+                              <Trash2 className="h-3.5 w-3.5 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+
+            {/* Mobile card list */}
+            <div className="sm:hidden divide-y">
+              {paginated.map((doc) => {
+                const typeMeta = getFileTypeMeta(doc.source_url ? "url" : doc.file_type);
+                const TypeIcon = typeMeta.icon;
+                const statusMeta = getStatusMeta(doc.status);
+                const isSelected = selectedRows.has(doc.id);
+
+                return (
+                  <div
+                    key={doc.id}
+                    className={cn(
+                      "p-3 flex items-start gap-3 cursor-pointer hover:bg-muted/50 transition-colors",
+                      isSelected && "bg-primary/5"
+                    )}
+                  >
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={() => toggleRowSelection(doc.id)}
+                      className="mt-1 shrink-0"
+                      aria-label={`Select ${doc.original_filename}`}
+                    />
+                    <TypeIcon className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" aria-hidden="true" />
+                    <div className="flex-1 min-w-0" onClick={() => handlePreview(doc)}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-medium truncate">{doc.original_filename || doc.filename}</span>
+                        <span className={cn(
+                          "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold font-heading shrink-0",
+                          statusMeta.badge
+                        )}>
+                          {statusMeta.spinning && <Loader2 className="h-2.5 w-2.5 animate-spin" />}
+                          {!statusMeta.spinning && <span className={cn("h-1 w-1 rounded-full", statusMeta.dot)} />}
+                          {statusMeta.label}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                        {formatFileSize(doc.file_size)} &middot; {doc.chunk_count || 0} chunks &middot; {formatDate(doc.upload_date || doc.created_at)}
+                      </p>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" aria-label="Actions">
+                          <MoreHorizontal className="h-3.5 w-3.5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handlePreview(doc)}>
+                          <Eye className="h-3.5 w-3.5 mr-2" />
+                          Preview
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleArchive(doc)}>
+                          {doc.is_archived ? <><ArchiveRestore className="h-3.5 w-3.5 mr-2" />Restore</> : <><Archive className="h-3.5 w-3.5 mr-2" />Archive</>}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => handleDeleteClick(doc.id)} className="text-rose-400 focus:text-rose-400">
+                          <Trash2 className="h-3.5 w-3.5 mr-2" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t">
+                <span className="text-[11px] text-muted-foreground font-mono">
+                  Showing {(page - 1) * ITEMS_PER_PAGE + 1}-{Math.min(page * ITEMS_PER_PAGE, filtered.length)} of {filtered.length}
+                </span>
+                <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="icon" className="h-7 w-7" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" disabled={page === totalPages} onClick={() => setPage((p) => p + 1)}>
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* ── KNOWLEDGE BASE MANAGEMENT (collapsible) ──────────────────────── */}
+      <Collapsible open={kbSectionOpen} onOpenChange={setKbSectionOpen}>
+        <div className="rounded-xl border bg-card overflow-hidden">
+          <CollapsibleTrigger asChild>
+            <button className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors">
+              <div className="flex items-center gap-2">
+                <Database className="h-4 w-4 text-primary" aria-hidden="true" />
+                <span className="text-xs font-semibold uppercase tracking-wider font-heading text-muted-foreground">
+                  Knowledge Bases
+                </span>
+              </div>
+              <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform duration-200", kbSectionOpen && "rotate-180")} />
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="border-t px-4 py-4 space-y-4">
+              <div className="flex items-center justify-end gap-2">
+                <Button variant="outline" size="sm" className="h-9 text-xs gap-1.5" onClick={() => setCreateKBDialogOpen(true)}>
+                  <Plus className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Create</span>
+                </Button>
+                <Button variant="outline" size="sm" className="h-9 text-xs gap-1.5" onClick={() => setKnowledgeBaseDialogOpen(true)}>
+                  <Settings className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Manage</span>
+                </Button>
+              </div>
+
+              {/* Default KB Toggle */}
+              {kbLoading ? (
+                <Skeleton className="h-14 w-full rounded-lg" />
+              ) : preferences ? (
+                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">Default Knowledge Base</span>
+                      <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold font-heading bg-gray-500/10 text-gray-400 border-gray-500/20">
+                        System
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">Documentation from data/docs folder</p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 text-xs gap-1.5"
+                    onClick={async () => {
+                      if (preferences) {
+                        await updatePreferences({
+                          ...preferences,
+                          use_default_kb: !preferences.use_default_kb,
+                        });
+                        refetchPrefs();
+                      }
+                    }}
+                  >
+                    {preferences.use_default_kb ? (
+                      <><ToggleRight className="h-4 w-4 text-primary" /><span>Enabled</span></>
+                    ) : (
+                      <><ToggleLeft className="h-4 w-4 text-muted-foreground" /><span>Disabled</span></>
+                    )}
+                  </Button>
+                </div>
+              ) : null}
+
+              {/* Custom KBs */}
+              {!kbLoading && knowledgeBases.filter((kb) => !kb.is_default).length > 0 && (
+                <div className="space-y-2">
                   {knowledgeBases
-                    .filter((kb) => kb.is_active && (!kb.is_default || preferences?.use_default_kb))
+                    .filter((kb) => !kb.is_default)
                     .map((kb) => (
-                      <SelectItem key={kb.id} value={kb.id}>
-                        {kb.name} {kb.is_default && "(Default)"}
-                      </SelectItem>
+                      <div key={kb.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm font-medium">{kb.name}</span>
+                          {kb.description && <span className="text-xs text-muted-foreground ml-2">{kb.description}</span>}
+                        </div>
+                        <Checkbox
+                          checked={preferences?.active_kb_ids.includes(kb.id) || false}
+                          onCheckedChange={async (checked) => {
+                            if (preferences) {
+                              const newActiveIds = checked
+                                ? [...preferences.active_kb_ids, kb.id]
+                                : preferences.active_kb_ids.filter((id) => id !== kb.id);
+                              await updatePreferences({ ...preferences, active_kb_ids: newActiveIds });
+                              refetchPrefs();
+                            }
+                          }}
+                          aria-label={`Toggle ${kb.name}`}
+                        />
+                      </div>
                     ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground mt-2">
-                Documents uploaded without a selection will not be assigned to any knowledge base.
-              </p>
+                </div>
+              )}
+
+              {/* Upload target KB */}
+              <div className="pt-3 border-t">
+                <label className="text-xs font-medium text-muted-foreground block mb-1.5 font-heading">Upload to Knowledge Base</label>
+                <Select
+                  value={selectedKnowledgeBaseId || "none"}
+                  onValueChange={(v) => setSelectedKnowledgeBaseId(v === "none" ? undefined : v)}
+                >
+                  <SelectTrigger className="h-9 text-xs w-full sm:w-[280px]">
+                    <SelectValue placeholder="None (unassigned)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None (unassigned)</SelectItem>
+                    {knowledgeBases
+                      .filter((kb) => kb.is_active && (!kb.is_default || preferences?.use_default_kb))
+                      .map((kb) => (
+                        <SelectItem key={kb.id} value={kb.id}>
+                          {kb.name} {kb.is_default ? "(Default)" : ""}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CollapsibleContent>
         </div>
       </Collapsible>
 
-      {/* Knowledge Base Management Dialog */}
-      <Dialog open={knowledgeBaseDialogOpen} onOpenChange={setKnowledgeBaseDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto rounded-2xl p-4 sm:p-6">
-          <DialogHeader>
-            <DialogTitle>Manage Knowledge Bases</DialogTitle>
-            <DialogDescription>
-              Create, edit, and manage your custom knowledge bases
+      {/* ── TIPS SECTION ─────────────────────────────────────────────────── */}
+      {!loading && documents.length > 0 && (
+        <div className="rounded-xl border bg-card p-4 sm:p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <Lightbulb className="h-4 w-4 shrink-0 text-amber-400" aria-hidden="true" />
+            <span className="text-xs font-semibold uppercase tracking-wider font-heading text-muted-foreground">
+              Improve your chatbot&apos;s accuracy
+            </span>
+          </div>
+          <ul className="space-y-1.5 text-xs text-muted-foreground font-description">
+            <li className="flex items-start gap-2">
+              <span className="text-primary mt-0.5 shrink-0">&bull;</span>
+              Upload specific, detailed documents
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-primary mt-0.5 shrink-0">&bull;</span>
+              Keep documents focused on one topic
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-primary mt-0.5 shrink-0">&bull;</span>
+              Update documents when your business information changes
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-primary mt-0.5 shrink-0">&bull;</span>
+              Check Analytics &rarr; Unanswered Questions for knowledge gaps
+            </li>
+          </ul>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          DIALOGS & MODALS
+         ══════════════════════════════════════════════════════════════════════ */}
+
+      {/* ── DOCUMENT PREVIEW MODAL ───────────────────────────────────────── */}
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto p-0">
+          {/* Sticky header */}
+          <div className="sticky top-0 bg-card/95 backdrop-blur-sm border-b px-6 py-4 z-10">
+            <DialogTitle className="font-heading text-base font-semibold text-foreground">
+              {previewDoc?.original_filename || previewDoc?.filename || "Document Preview"}
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+              This is what your chatbot can read
             </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            {knowledgeBases
-              .filter((kb) => !kb.is_default)
-              .map((kb) => (
-                <div key={kb.id} className="flex items-center justify-between p-4 rounded-xl border border-border/50 bg-muted/5">
-                  <div className="flex-1">
-                    <div className="font-medium">{kb.name}</div>
-                    {kb.description && (
-                      <div className="text-sm text-muted-foreground mt-1">{kb.description}</div>
-                    )}
+          </div>
+
+          {previewDoc && (
+            <div className="px-6 py-5 space-y-5">
+              {/* Metadata grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                {[
+                  { label: "Type", value: (previewDoc.file_type || "—").toUpperCase() },
+                  { label: "Status", value: getStatusMeta(previewDoc.status).label },
+                  { label: "Size", value: formatFileSize(previewDoc.file_size) },
+                  { label: "Pages", value: previewDoc.page_count ?? "—" },
+                  { label: "Chunks", value: previewDoc.chunk_count || 0 },
+                  { label: "Uploaded", value: formatDate(previewDoc.upload_date || previewDoc.created_at) },
+                ].map((item) => (
+                  <div key={item.label}>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider font-heading text-muted-foreground mb-0.5">
+                      {item.label}
+                    </p>
+                    <p className="text-sm font-medium text-foreground font-mono">{item.value}</p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={async () => {
-                        try {
-                          await updateKnowledgeBase(kb.id, { is_active: !kb.is_active });
-                          refetchKBs();
-                        } catch (err) {
-                          // Error handled by hook
-                        }
-                      }}
-                    >
-                      {kb.is_active ? "Deactivate" : "Activate"}
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={async () => {
-                        if (confirm(`Delete knowledge base "${kb.name}"?`)) {
-                          try {
-                            await deleteKnowledgeBase(kb.id);
-                            refetchKBs();
-                          } catch (err) {
-                            // Error handled by hook
-                          }
-                        }
-                      }}
-                    >
-                      <Trash2 size={14} />
-                    </Button>
+                ))}
+              </div>
+
+              {/* Status badge */}
+              {previewDoc.status && (
+                <div className="flex items-center gap-2">
+                  <span className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold font-heading tracking-wide",
+                    getStatusMeta(previewDoc.status).badge
+                  )}>
+                    <span className={cn("h-1.5 w-1.5 rounded-full", getStatusMeta(previewDoc.status).dot)} />
+                    {getStatusMeta(previewDoc.status).label}
+                  </span>
+                </div>
+              )}
+
+              {/* Error message */}
+              {previewDoc.error_message && (
+                <div className="rounded-lg border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-xs text-rose-400 flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold mb-0.5">Error</p>
+                    <p>{previewDoc.error_message}</p>
                   </div>
                 </div>
-              ))}
+              )}
+
+              {/* Chunk info */}
+              <div className="rounded-lg bg-muted/30 border p-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    {previewDoc.chunk_count || 0} chunks extracted
+                  </p>
+                  <button
+                    onClick={() => setChunksExpanded(!chunksExpanded)}
+                    className="text-xs text-primary hover:underline font-medium"
+                  >
+                    {chunksExpanded ? "Hide chunks" : "View all chunks"}
+                  </button>
+                </div>
+                {chunksExpanded && (
+                  <div className="mt-3 pt-3 border-t">
+                    <p className="text-xs text-muted-foreground/60 italic">
+                      Chunk data will be loaded from the API when available.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Last retrieved */}
+              {previewDoc.last_retrieved_at && (
+                <p className="text-xs text-muted-foreground">
+                  Last used in conversation: <span className="font-mono">{formatDate(previewDoc.last_retrieved_at)}</span>
+                </p>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── KB MANAGEMENT DIALOG ─────────────────────────────────────────── */}
+      <Dialog open={knowledgeBaseDialogOpen} onOpenChange={setKnowledgeBaseDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto p-0">
+          <div className="sticky top-0 bg-card/95 backdrop-blur-sm border-b px-6 py-4 z-10">
+            <DialogTitle className="font-heading text-base font-semibold text-foreground">
+              Manage Knowledge Bases
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+              Create, edit, and manage your custom knowledge bases
+            </DialogDescription>
+          </div>
+          <div className="px-6 py-5 space-y-3">
+            {knowledgeBases.filter((kb) => !kb.is_default).length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">No custom knowledge bases yet.</p>
+            ) : (
+              knowledgeBases
+                .filter((kb) => !kb.is_default)
+                .map((kb) => (
+                  <div key={kb.id} className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">{kb.name}</p>
+                      {kb.description && <p className="text-xs text-muted-foreground mt-0.5">{kb.description}</p>}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs"
+                        onClick={async () => {
+                          try {
+                            await updateKnowledgeBase(kb.id, { is_active: !kb.is_active });
+                            refetchKBs();
+                          } catch {
+                            // handled by hook
+                          }
+                        }}
+                      >
+                        {kb.is_active ? "Deactivate" : "Activate"}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-rose-400 hover:text-rose-400"
+                        onClick={async () => {
+                          if (confirm(`Delete knowledge base "${kb.name}"?`)) {
+                            try {
+                              await deleteKnowledgeBase(kb.id);
+                              refetchKBs();
+                            } catch {
+                              // handled by hook
+                            }
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))
+            )}
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Create Knowledge Base Dialog */}
+      {/* ── CREATE KB DIALOG ─────────────────────────────────────────────── */}
       <Dialog open={createKBDialogOpen} onOpenChange={setCreateKBDialogOpen}>
-        <DialogContent className="rounded-2xl p-4 sm:p-6">
-          <DialogHeader>
-            <DialogTitle className="text-lg">Create knowledge base</DialogTitle>
-            <DialogDescription className="text-[13px]">
-              Create a new knowledge base to organize your documents
+        <DialogContent className="max-w-md p-0">
+          <div className="sticky top-0 bg-card/95 backdrop-blur-sm border-b px-6 py-4 z-10">
+            <DialogTitle className="font-heading text-base font-semibold text-foreground">
+              Create Knowledge Base
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+              Organize your documents into separate knowledge bases.
             </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label className="text-[13px] font-medium block">Name</label>
-              <Input value={newKBName} onChange={(e) => setNewKBName(e.target.value)} placeholder="My Knowledge Base" className="rounded-xl" />
+          </div>
+          <div className="px-6 py-5 space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium font-heading">Name</label>
+              <Input
+                value={newKBName}
+                onChange={(e) => setNewKBName(e.target.value)}
+                placeholder="My Knowledge Base"
+                className="h-9 text-xs"
+              />
             </div>
-            <div className="space-y-2">
-              <label className="text-[13px] font-medium block">Description (optional)</label>
-              <Input value={newKBDescription} onChange={(e) => setNewKBDescription(e.target.value)} placeholder="Description of this knowledge base" className="rounded-xl" />
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium font-heading">Description (optional)</label>
+              <Input
+                value={newKBDescription}
+                onChange={(e) => setNewKBDescription(e.target.value)}
+                placeholder="What this knowledge base is for"
+                className="h-9 text-xs"
+              />
             </div>
-            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-2">
+            <div className="flex justify-end gap-2 pt-2">
               <Button
                 variant="outline"
+                size="sm"
+                className="h-9 text-xs"
                 onClick={() => { setCreateKBDialogOpen(false); setNewKBName(""); setNewKBDescription(""); }}
-                className="rounded-xl w-full sm:w-auto min-h-[44px] sm:min-h-[40px]"
               >
                 Cancel
               </Button>
               <Button
+                size="sm"
+                className="h-9 text-xs gap-1.5"
+                disabled={creatingKB || !newKBName.trim()}
                 onClick={async () => {
-                  if (!newKBName.trim()) {
-                    toast({
-                      title: "Error",
-                      description: "Name is required",
-                      variant: "destructive",
-                    });
-                    return;
-                  }
+                  if (!newKBName.trim()) return;
                   try {
                     await createKnowledgeBase({
                       name: newKBName.trim(),
-                      description: newKBDescription.trim() || undefined,
+                      ...(newKBDescription.trim() ? { description: newKBDescription.trim() } : {}),
                     });
                     setCreateKBDialogOpen(false);
                     setNewKBName("");
                     setNewKBDescription("");
                     refetchKBs();
-                    // Auto-select the new KB
-                    const newKB = knowledgeBases.find((kb) => kb.name === newKBName.trim());
-                    if (newKB) {
-                      setSelectedKnowledgeBaseId(newKB.id);
-                    }
-                  } catch (err) {
-                    // Error handled by hook
+                  } catch {
+                    // handled by hook
                   }
                 }}
-                disabled={creatingKB || !newKBName.trim()}
-                className="rounded-xl w-full sm:w-auto min-h-[44px] sm:min-h-[40px] gap-2"
               >
-                {creatingKB ? <Loader2 size={16} className="animate-spin shrink-0" /> : null}
+                {creatingKB && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 Create
               </Button>
             </div>
@@ -1343,425 +1630,12 @@ export default function Documents() {
         </DialogContent>
       </Dialog>
 
-
-      {/* Bulk Action Floating Bar */}
-      {selectedRows.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-2xl border border-border/50 bg-background shadow-lg p-4 flex flex-col sm:flex-row items-center gap-3 animate-in slide-in-from-bottom-5 w-[calc(100%-2rem)] max-w-md">
-          <span className="text-[13px] font-medium">
-            {selectedRows.size} document{selectedRows.size > 1 ? "s" : ""} selected
-          </span>
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-            <Button variant="outline" size="sm" onClick={handleBulkReindex} disabled={Array.from(selectedRows).some((id) => reindexing.has(id))} className="rounded-xl gap-2">
-              <RefreshCw size={14} />
-              Reindex
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleBulkDeleteClick} className="rounded-xl gap-2 text-destructive hover:text-destructive">
-              <Trash2 size={14} />
-              Delete
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => setSelectedRows(new Set())} className="rounded-xl" aria-label="Clear selection">
-              <X size={14} />
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Table */}
-      <div className="rounded-2xl border border-border/50 bg-muted/10 overflow-hidden min-w-0">
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 size={24} className="animate-spin text-muted-foreground" />
-          </div>
-        ) : queryError ? (
-          <div className="p-6">
-            <NetworkErrorState
-              error={queryError as ApiError}
-              onRetry={() => refetch()}
-              variant="compact"
-            />
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="p-6">
-            <EmptyState
-              icon={documents.length === 0 ? FileText : Search}
-              title={documents.length === 0 ? "No documents uploaded yet" : "No documents match your search"}
-              description={
-                documents.length === 0
-                  ? "Get started by uploading your first document. Supported formats include Markdown, HTML, Text, PDF, and DOCX."
-                  : "Try adjusting your search or filters to find what you're looking for."
-              }
-              action={
-                documents.length === 0
-                  ? {
-                      label: "Upload Document",
-                      onClick: () => fileInputRef.current?.click(),
-                      variant: "default",
-                    }
-                  : undefined
-              }
-              secondaryAction={
-                documents.length > 0
-                  ? {
-                      label: "Clear Search",
-                      onClick: () => setSearch(""),
-                      variant: "outline",
-                    }
-                  : undefined
-              }
-              size="md"
-            />
-          </div>
-        ) : isMobile ? (
-          // Mobile Card View with Swipe Actions
-          <div className="space-y-3 max-h-[600px] overflow-y-auto">
-            {filtered.map((doc) => {
-              const status = statusConfig[doc.status as keyof typeof statusConfig] || statusConfig.processing;
-              const StatusIcon = status.icon;
-              const isReindexing = reindexing.has(doc.id);
-              const isSelected = selectedRows.has(doc.id);
-              const FileIcon = getFileIcon(doc.type);
-
-              return (
-                <MobileDocumentCard
-                  key={doc.id}
-                  doc={doc}
-                  status={status}
-                  StatusIcon={StatusIcon}
-                  FileIcon={FileIcon}
-                  isSelected={isSelected}
-                  isReindexing={isReindexing}
-                  onSelect={() => toggleRowSelection(doc.id)}
-                  onPreview={() => handlePreview(doc)}
-                  onEdit={() => handleEditStart(doc)}
-                  onReindex={() => handleReindex(doc.id)}
-                  onDelete={() => handleDeleteClick(doc.id)}
-                  formatDate={formatDate}
-                />
-              );
-            })}
-          </div>
-        ) : (
-          // Desktop & Tablet Table View
-          <div className={`max-h-[600px] overflow-y-auto ${isTablet ? "overflow-x-auto" : ""}`}>
-            <Table className={isTablet ? "min-w-[800px]" : ""}>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12">
-                  <Checkbox
-                    checked={selectedRows.size === filtered.length && filtered.length > 0}
-                    onCheckedChange={toggleAllSelection}
-                    aria-label="Select all documents"
-                  />
-                </TableHead>
-                {columnVisibility.name && (
-                  <TableHead>
-                    <button
-                      onClick={() => handleSort("name")}
-                      className="flex items-center gap-2 hover:text-foreground"
-                    >
-                      Name
-                      <SortIcon field="name" />
-                    </button>
-                  </TableHead>
-                )}
-                {columnVisibility.type && (
-                  <TableHead>
-                    <button
-                      onClick={() => handleSort("type")}
-                      className="flex items-center gap-2 hover:text-foreground"
-                    >
-                      Type
-                      <SortIcon field="type" />
-                    </button>
-                  </TableHead>
-                )}
-                {columnVisibility.status && (
-                  <TableHead>
-                    <button
-                      onClick={() => handleSort("status")}
-                      className="flex items-center gap-2 hover:text-foreground"
-                    >
-                      Status
-                      <SortIcon field="status" />
-                    </button>
-                  </TableHead>
-                )}
-                {columnVisibility.chunks && (
-                  <TableHead>
-                    <button
-                      onClick={() => handleSort("chunk_count")}
-                      className="flex items-center gap-2 hover:text-foreground"
-                    >
-                      Chunks
-                      <SortIcon field="chunk_count" />
-                    </button>
-                  </TableHead>
-                )}
-                {columnVisibility.updated && (
-                  <TableHead>
-                    <button
-                      onClick={() => handleSort("updated_at")}
-                      className="flex items-center gap-2 hover:text-foreground"
-                    >
-                      Updated
-                      <SortIcon field="updated_at" />
-                    </button>
-                  </TableHead>
-                )}
-                <TableHead className="w-10" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((doc) => {
-                const status = statusConfig[doc.status as keyof typeof statusConfig] || statusConfig.processing;
-                const StatusIcon = status.icon;
-                const isReindexing = reindexing.has(doc.id);
-                const isSelected = selectedRows.has(doc.id);
-                const isEditing = editingId === doc.id;
-                const FileIcon = getFileIcon(doc.type);
-
-                return (
-                  <TableRow
-                    key={doc.id}
-                    className={`transition-colors hover:bg-muted/50 ${
-                      isSelected ? "bg-primary/5 border-l-2 border-l-primary" : ""
-                    }`}
-                    data-state={isSelected ? "selected" : undefined}
-                  >
-                    <TableCell>
-                      <Checkbox
-                        checked={isSelected}
-                        onCheckedChange={() => toggleRowSelection(doc.id)}
-                        aria-label={`Select ${doc.name}`}
-                      />
-                    </TableCell>
-                    {columnVisibility.name && (
-                      <TableCell>
-                        {isEditing ? (
-                          <div className="flex items-center gap-2">
-                            <Input
-                              value={editingName}
-                              onChange={(e) => setEditingName(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") handleEditSave(doc.id);
-                                if (e.key === "Escape") handleEditCancel();
-                              }}
-                              className="h-8"
-                              autoFocus
-                            />
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEditSave(doc.id)}
-                              className="h-8 w-8 p-0"
-                            >
-                              <Check size={14} />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={handleEditCancel}
-                              className="h-8 w-8 p-0"
-                            >
-                              <X size={14} />
-                            </Button>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => handlePreview(doc)}
-                            className="flex items-center gap-2 text-left hover:text-primary transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
-                            aria-label={`Preview ${doc.name} document`}
-                          >
-                            <FileIcon size={16} className="text-muted-foreground" aria-hidden="true" />
-                            <span className="text-[14px] font-medium text-foreground">{doc.name}</span>
-                          </button>
-                        )}
-                      </TableCell>
-                    )}
-                    {columnVisibility.type && (
-                      <TableCell>
-                        <Badge variant="outline" className="uppercase">
-                          {doc.type}
-                        </Badge>
-                      </TableCell>
-                    )}
-                    {columnVisibility.status && (
-                      <TableCell>
-                        <Badge
-                          variant="outline"
-                          className={`${status.className} ${status.bgColor} ${status.borderColor} border font-medium`}
-                        >
-                          <StatusIcon size={12} className="mr-1.5" />
-                          {status.label}
-                        </Badge>
-                      </TableCell>
-                    )}
-                    {columnVisibility.chunks && (
-                      <TableCell>
-                        <span className="text-[13px] text-muted-foreground">{doc.chunk_count || "—"}</span>
-                      </TableCell>
-                    )}
-                    {columnVisibility.updated && (
-                      <TableCell>
-                        <span className="text-[13px] text-muted-foreground">{formatDate(doc.updated_at)}</span>
-                      </TableCell>
-                    )}
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            disabled={isReindexing}
-                            aria-label={`More options for ${doc.name}`}
-                            aria-haspopup="true"
-                          >
-                            <MoreHorizontal size={16} aria-hidden="true" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handlePreview(doc)} aria-label={`Preview ${doc.name}`}>
-                            <Eye size={14} className="mr-2" aria-hidden="true" />
-                            Preview
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleEditStart(doc)} aria-label={`Edit name of ${doc.name}`}>
-                            <Edit2 size={14} className="mr-2" aria-hidden="true" />
-                            Edit Name
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleReindex(doc.id)}
-                            disabled={isReindexing}
-                            aria-label={isReindexing ? `Reindexing ${doc.name}` : `Reindex ${doc.name}`}
-                          >
-                            {isReindexing ? (
-                              <>
-                                <Loader2 size={14} className="mr-2 animate-spin" aria-hidden="true" />
-                                Reindexing...
-                              </>
-                            ) : (
-                              <>
-                                <RefreshCw size={14} className="mr-2" aria-hidden="true" />
-                                Reindex
-                              </>
-                            )}
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() => handleDeleteClick(doc.id)}
-                            className="text-destructive"
-                            aria-label={`Delete ${doc.name}`}
-                          >
-                            <Trash2 size={14} className="mr-2" aria-hidden="true" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-          </div>
-        )}
-      </div>
-
-      {/* Document Preview Sheet */}
-      <Sheet open={previewOpen} onOpenChange={setPreviewOpen}>
-        <SheetContent className="w-full sm:max-w-2xl overflow-y-auto rounded-l-2xl sm:rounded-l-2xl">
-          <SheetHeader>
-            <SheetTitle>{previewDocument?.name}</SheetTitle>
-            <SheetDescription>
-              Document details and preview
-            </SheetDescription>
-          </SheetHeader>
-          {previewDocument && (
-            <div className="mt-6 space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Type</p>
-                  <p className="text-sm font-medium">{previewDocument.type.toUpperCase()}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Status</p>
-                  <div className="flex items-center gap-2">
-                    {(() => {
-                      const status = statusConfig[previewDocument.status as keyof typeof statusConfig] || statusConfig.processing;
-                      const StatusIcon = status.icon;
-                      return (
-                        <>
-                          <StatusIcon size={14} className={status.className} />
-                          <span className={`text-sm ${status.className}`}>{status.label}</span>
-                        </>
-                      );
-                    })()}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Chunk Count</p>
-                  <p className="text-sm font-medium">{previewDocument.chunk_count || 0}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">File Size</p>
-                  <p className="text-sm font-medium">{formatFileSize(previewDocument.file_size)}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Created</p>
-                  <p className="text-sm font-medium">{formatDate(previewDocument.created_at)}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Last Indexed</p>
-                  <p className="text-sm font-medium">
-                    {previewDocument.last_indexed_at
-                      ? formatDate(previewDocument.last_indexed_at)
-                      : "Never"}
-                  </p>
-                </div>
-              </div>
-              {previewDocument.error_message && (
-                <div className="rounded-xl border border-destructive/20 bg-destructive/10 text-destructive px-4 py-3 text-[13px] flex items-start gap-2">
-                  <AlertCircle size={16} className="flex-shrink-0 mt-0.5" aria-hidden="true" />
-                  <div>
-                    <p className="font-medium">Error:</p>
-                    <p>{previewDocument.error_message}</p>
-                  </div>
-                </div>
-              )}
-              <div>
-                <p className="text-sm font-medium text-muted-foreground mb-2">Document Statistics</p>
-                <div className="rounded-xl bg-muted/20 border border-border/50 p-4 space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Total Chunks:</span>
-                    <span className="text-sm font-medium">{previewDocument.chunk_count || 0}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">File Size:</span>
-                    <span className="text-sm font-medium">{formatFileSize(previewDocument.file_size)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Last Updated:</span>
-                    <span className="text-sm font-medium">{formatDate(previewDocument.updated_at)}</span>
-                  </div>
-                  {previewDocument.last_indexed_at && (
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">Last Indexed:</span>
-                      <span className="text-sm font-medium">{formatDate(previewDocument.last_indexed_at)}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-        </SheetContent>
-      </Sheet>
-
-      {/* Confirmation Dialogs */}
+      {/* ── CONFIRMATION DIALOGS ─────────────────────────────────────────── */}
       <ConfirmationDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         title="Delete Document"
-        description="Are you sure you want to delete this document? This action cannot be undone."
+        description="Deleting this removes it from your chatbot's knowledge. This cannot be undone."
         confirmLabel="Delete"
         cancelLabel="Cancel"
         confirmVariant="destructive"
@@ -1773,12 +1647,24 @@ export default function Documents() {
         open={bulkDeleteDialogOpen}
         onOpenChange={setBulkDeleteDialogOpen}
         title="Delete Documents"
-        description={`Are you sure you want to delete ${selectedRows.size} document(s)? This action cannot be undone.`}
+        description={`Deleting ${selectedRows.size} document(s) removes them from your chatbot's knowledge. This cannot be undone.`}
         confirmLabel="Delete All"
         cancelLabel="Cancel"
         confirmVariant="destructive"
         onConfirm={confirmBulkDelete}
         isLoading={deleteMutation.isPending}
+      />
+
+      <ConfirmationDialog
+        open={bulkArchiveDialogOpen}
+        onOpenChange={setBulkArchiveDialogOpen}
+        title="Archive Documents"
+        description={`Archive ${selectedRows.size} document(s)? They will be removed from your chatbot's active knowledge but can be restored later.`}
+        confirmLabel="Archive"
+        cancelLabel="Cancel"
+        confirmVariant="default"
+        onConfirm={confirmBulkArchive}
+        isLoading={false}
       />
     </div>
   );
