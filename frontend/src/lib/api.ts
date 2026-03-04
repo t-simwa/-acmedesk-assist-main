@@ -1063,9 +1063,11 @@ export const documentsApi = {
     status?: string;
     type?: string;
   }): Promise<DocumentListResponse> {
-    return apiClient<DocumentListResponse>("/api/documents", {
-      params: params as Record<string, string | number> | undefined,
-    });
+    const options: ApiClientOptions = {};
+    if (params) {
+      options.params = params as Record<string, string | number>;
+    }
+    return apiClient<DocumentListResponse>("/api/documents", options);
   },
 
   /**
@@ -1241,7 +1243,7 @@ export const analyticsApi = {
   async scheduleReport(config: ScheduleReportRequest): Promise<ScheduleReportResponse> {
     return apiClient<ScheduleReportResponse>("/api/analytics/schedule-report", {
       method: "POST",
-      body: config,
+      body: JSON.stringify(config),
     });
   },
 
@@ -2162,9 +2164,11 @@ export const adminApi = {
    * List audit logs with optional filters
    */
   async listAuditLogs(filters?: AuditLogFilters): Promise<AuditLogListResponse> {
-    return apiClient<AuditLogListResponse>("/api/admin/audit-logs", {
-      params: filters as Record<string, string | number> | undefined,
-    });
+    const options: ApiClientOptions = {};
+    if (filters) {
+      options.params = filters as Record<string, string | number>;
+    }
+    return apiClient<AuditLogListResponse>("/api/admin/audit-logs", options);
   },
 
   /**
@@ -2188,10 +2192,13 @@ export const adminApi = {
    * Revoke API key
    */
   async revokeAPIKey(keyId: string, reason?: string): Promise<{ message: string; id: string }> {
-    return apiClient<{ message: string; id: string }>(`/api/admin/api-keys/${keyId}`, {
+    const options: ApiClientOptions = {
       method: "DELETE",
-      body: reason ? JSON.stringify({ reason }) : undefined,
-    });
+    };
+    if (reason) {
+      options.body = JSON.stringify({ reason });
+    }
+    return apiClient<{ message: string; id: string }>(`/api/admin/api-keys/${keyId}`, options);
   },
 
   /**
@@ -2623,23 +2630,59 @@ export const onboardingApi = {
 
 export interface ChatbotConfig {
   id: string;
+  status: string;
+  // Tab1
   name: string;
   avatar_url?: string;
   brand_color: string;
   secondary_color: string;
-  greeting_message?: string;
-  fallback_message?: string;
-  escalation_message?: string;
-  offline_message?: string;
+  user_message_color: string;
+  widget_position: string;
+  show_powered_by: boolean;
+  font_size: string;
+  // Tab2
+  response_language: string;
   response_tone: string;
   response_length: string;
-  show_citations: boolean;
+  greeting_message?: string;
+  farewell_message?: string;
+  fallback_message?: string;
+  escalation_message?: string;
   show_typing: boolean;
-  show_powered_by: boolean;
-  widget_position: string;
-  allowed_domains: string[];
-  status: string;
+  show_citations: boolean;
+  read_receipts: boolean;
+  suggested_starter_questions?: string[];
+  conversation_starters_display: string;
+  // Tab3
+  business_hours_enabled: boolean;
+  timezone?: string;
+  weekly_schedule?: any;
+  outside_hours_behavior: string;
+  offline_message?: string;
+  back_online_message?: string;
+  holiday_hours?: any;
+  // Tab4
+  auto_escalation_enabled: boolean;
+  confidence_threshold: number;
+  unanswered_questions_threshold: string;
+  sentiment_escalation_enabled: boolean;
+  keyword_triggers?: string[];
+  escalation_email_addresses?: string[];
+  escalation_slack_webhook?: string;
+  escalation_whatsapp_notification: boolean;
+  // Tab5
+  lead_capture_enabled: boolean;
+  lead_capture_trigger: string;
+  lead_capture_fields_config?: any;
+  lead_capture_message?: string;
+  lead_capture_thank_you_message?: string;
+  lead_capture_skip_enabled: boolean;
+  lead_capture_skip_button_text?: string;
+  // Tab6
+  notifications_config?: any;
+  notification_email_addresses?: string[];
 }
+
 
 export const chatbotApi = {
   /**

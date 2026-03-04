@@ -48,6 +48,7 @@ const EmailChannel = lazy(() => import("./pages/admin/EmailChannel"));
 const Inbox = lazy(() => import("./pages/admin/Inbox"));
 const Conversations = lazy(() => import("./pages/admin/Conversations"));
 const Leads = lazy(() => import("./pages/admin/Leads"));
+const Chatbot = lazy(() => import("./pages/admin/Chatbot"));
 const Install = lazy(() => import("./pages/admin/Install"));
 const Privacy = lazy(() => import("./pages/Privacy"));
 const Terms = lazy(() => import("./pages/Terms"));
@@ -219,6 +220,26 @@ const App = () => (
                     <PageTransition>
                       <Suspense fallback={<DashboardSkeleton />}>
                         <Conversations />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="chatbot"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <Chatbot />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="chatbot"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <Chatbot />
                       </Suspense>
                     </PageTransition>
                   }

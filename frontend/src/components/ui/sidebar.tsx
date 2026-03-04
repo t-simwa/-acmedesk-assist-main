@@ -465,9 +465,22 @@ const SidebarMenuButton = React.forwardRef<
     };
   }
 
+  // When the underlying button is rendered via a Radix Slot (asChild prop),
+  // passing it back through TooltipTrigger with `asChild` causes Radix to
+  // clone a Slot component. The clone (`Primitive.button.SlotClone`) is a
+  // function component that does not forward refs, triggering the warning
+  // "Function components cannot be given refs". To avoid that we only use
+  // `asChild` on the tooltip trigger when we're not already using a Slot.
+  const usesSlot = asChild;
+  const triggerElement = usesSlot ? (
+    <TooltipTrigger>{button}</TooltipTrigger>
+  ) : (
+    <TooltipTrigger asChild>{button}</TooltipTrigger>
+  );
+
   return (
     <Tooltip>
-      <TooltipTrigger asChild>{button}</TooltipTrigger>
+      {triggerElement}
       <TooltipContent side="right" align="center" hidden={state !== "collapsed" || isMobile} {...tooltip} />
     </Tooltip>
   );

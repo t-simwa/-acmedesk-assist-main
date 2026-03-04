@@ -179,13 +179,69 @@ async def _ensure_schema_updates(conn):
     try:
         result = await conn.execute(text("PRAGMA table_info(documents)"))
         columns = [col[1] for col in result.fetchall()]
-        if "user_id" not in columns:
-            await conn.execute(
-                text("ALTER TABLE documents ADD COLUMN user_id VARCHAR(36)")
-            )
+        
+        missing_columns = {
+            "user_id": "VARCHAR(36)",
+            "original_filename": "VARCHAR(255) NOT NULL DEFAULT ''",
+        }
+        for col_name, col_type in missing_columns.items():
+            if col_name not in columns:
+                await conn.execute(
+                    text(f"ALTER TABLE documents ADD COLUMN {col_name} {col_type}")
+                )
+        
         await conn.execute(
             text("CREATE INDEX IF NOT EXISTS idx_documents_user_id ON documents(user_id)")
         )
+    except Exception:
+        pass
+
+    # chatbot_instances table additional columns (from Milestone 7.6)
+    try:
+        result = await conn.execute(text("PRAGMA table_info(chatbot_instances)"))
+        columns = [col[1] for col in result.fetchall()]
+        
+        missing_columns = {
+            "user_message_color": "VARCHAR(7) NOT NULL DEFAULT '#4F8EF7'",
+            "widget_position": "VARCHAR(50) NOT NULL DEFAULT 'bottom-right'",
+            "response_language": "VARCHAR(20) NOT NULL DEFAULT 'auto'",
+            "response_tone": "VARCHAR(50) NOT NULL DEFAULT 'professional'",
+            "response_length": "VARCHAR(50) NOT NULL DEFAULT 'concise'",
+            "show_typing": "BOOLEAN NOT NULL DEFAULT 1",
+            "show_citations": "BOOLEAN NOT NULL DEFAULT 1",
+            "read_receipts": "BOOLEAN NOT NULL DEFAULT 0",
+            "suggested_starter_questions": "JSON",
+            "conversation_starters_display": "VARCHAR(50) NOT NULL DEFAULT 'buttons'",
+            "business_hours_enabled": "BOOLEAN NOT NULL DEFAULT 0",
+            "timezone": "VARCHAR(100)",
+            "weekly_schedule": "JSON",
+            "outside_hours_behavior": "VARCHAR(100) NOT NULL DEFAULT 'continue_answering'",
+            "offline_message": "TEXT",
+            "back_online_message": "TEXT",
+            "holiday_hours": "JSON",
+            "auto_escalation_enabled": "BOOLEAN NOT NULL DEFAULT 0",
+            "confidence_threshold": "FLOAT NOT NULL DEFAULT 50",
+            "unanswered_questions_threshold": "VARCHAR(50) NOT NULL DEFAULT '3'",
+            "sentiment_escalation_enabled": "BOOLEAN NOT NULL DEFAULT 0",
+            "keyword_triggers": "JSON",
+            "escalation_email_addresses": "JSON",
+            "escalation_slack_webhook": "TEXT",
+            "escalation_whatsapp_notification": "BOOLEAN NOT NULL DEFAULT 0",
+            "lead_capture_enabled": "BOOLEAN NOT NULL DEFAULT 0",
+            "lead_capture_trigger": "VARCHAR(100) NOT NULL DEFAULT 'never'",
+            "lead_capture_fields_config": "JSON",
+            "lead_capture_message": "TEXT",
+            "lead_capture_thank_you_message": "TEXT",
+            "lead_capture_skip_enabled": "BOOLEAN NOT NULL DEFAULT 0",
+            "lead_capture_skip_button_text": "VARCHAR(255)",
+            "notifications_config": "JSON",
+            "notification_email_addresses": "JSON",
+        }
+        for col_name, col_type in missing_columns.items():
+            if col_name not in columns:
+                await conn.execute(
+                    text(f"ALTER TABLE chatbot_instances ADD COLUMN {col_name} {col_type}")
+                )
     except Exception:
         pass
 
