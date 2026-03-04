@@ -178,24 +178,22 @@ export default function ChatbotPage() {
   if (queryLoading) return <LoadingSkeleton />;
 
   return (
-    <div className="flex flex-col w-full min-w-0 pb-24">
+    <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8 pb-32 max-w-[1600px] mx-auto w-full">
 
-      {/* ── Page Header ── */}
-      <header className="mb-5 sm:mb-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight font-heading text-foreground">
-              Chatbot Configuration
-            </h1>
-            <p className="mt-1 text-[13px] sm:text-sm font-description text-muted-foreground">
-              Customize your AI assistant appearance, behavior, and features
-            </p>
-          </div>
+      {/* ─── Page Header ────────────────────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="font-heading text-xl sm:text-2xl font-bold text-foreground tracking-tight leading-none">
+            Chatbot Configuration
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1 font-description">
+            Customize your AI assistant appearance, behavior, and features
+          </p>
         </div>
-      </header>
+      </div>
 
       {/* ── Tabs Navigation ── */}
-      <div className="mb-6 rounded-xl overflow-hidden border border-border bg-card">
+      <div className="rounded-xl overflow-hidden border border-border bg-card">
         <div className="flex overflow-x-auto [scrollbar-width:none] [-webkit-overflow-scrolling:touch]">
           {TABS.map(tab => {
             const isActive = currentTab === tab.id;
@@ -221,7 +219,7 @@ export default function ChatbotPage() {
       </div>
 
       {/* ── Content Area ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 sm:gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content */}
         <div className={currentTab === "appearance" ? "lg:col-span-2" : "lg:col-span-3"}>
           {currentTab === "appearance" && (
@@ -1508,15 +1506,15 @@ function EmailPreviewModal({ config, isOpen, onClose }: { config: Partial<Chatbo
 
 function LoadingSkeleton() {
   return (
-    <div className="flex flex-col w-full min-w-0">
+    <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8 pb-32 max-w-[1600px] mx-auto w-full">
       {/* Header skeleton */}
-      <div className="mb-6">
+      <div>
         <Skeleton className="h-7 w-56 mb-2 rounded" />
         <Skeleton className="h-4 w-80 rounded" />
       </div>
 
       {/* Tabs skeleton */}
-      <div className="mb-6 rounded-xl p-1 flex gap-2 border border-border bg-card">
+      <div className="rounded-xl p-1 flex gap-2 border border-border bg-card">
         {Array.from({ length: 6 }).map((_, i) => (
           <Skeleton key={i} className="h-9 flex-1 rounded-lg" />
         ))}

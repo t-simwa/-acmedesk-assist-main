@@ -4,7 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Wifi, WifiOff, Radio, Settings } from "lucide-react";
+import { Wifi, WifiOff, Settings } from "lucide-react";
 import { CHANNEL_META, ChannelIcon } from "@/lib/channelMeta";
 
 // ---------------------------------------------------------------------------
@@ -81,21 +81,20 @@ export default function Channels() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
+    <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8 pb-32 max-w-[1600px] mx-auto w-full">
       {/* ----------------------------------------------------------------- */}
       {/* Header                                                            */}
       {/* ----------------------------------------------------------------- */}
-      <div className="space-y-1">
-        <div className="flex items-center gap-2.5">
-          <Radio className="h-5 w-5 text-muted-foreground" />
-          <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="font-heading text-xl sm:text-2xl font-bold text-foreground tracking-tight leading-none">
             Channels
           </h1>
+          <p className="text-sm text-muted-foreground mt-1 font-description">
+            Configure your communication channels. Enable or disable channels to
+            manage how customers reach you.
+          </p>
         </div>
-        <p className="max-w-2xl font-description text-sm leading-relaxed text-muted-foreground">
-          Configure your communication channels. Enable or disable channels to
-          manage how customers reach you.
-        </p>
       </div>
 
       {/* ----------------------------------------------------------------- */}

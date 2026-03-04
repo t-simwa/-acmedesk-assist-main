@@ -201,7 +201,7 @@ function getInitials(name: string | null): string {
    ═══════════════════════════════════════════════════════════════════════════════ */
 
 function ContactAvatar({ name, size = "md" }: { name: string | null; size?: "sm" | "md" | "lg" }) {
-  const sizes = { sm: "h-8 w-8 text-[10px]", md: "h-9 w-9 text-xs", lg: "h-10 w-10 text-sm" };
+  const sizes = { sm: "h-9 w-9 text-xs", md: "h-10 w-10 text-sm", lg: "h-11 w-11 text-sm" };
   return (
     <div className={cn(
       sizes[size],
@@ -219,10 +219,10 @@ function ChannelBadge({ channel }: { channel: string }) {
   return (
     <span className={cn(
       "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5",
-      "text-[10px] font-medium shrink-0",
+      "text-[11px] font-medium shrink-0",
       meta.className,
     )}>
-      <ChannelIcon channel={channel} size={9} />
+      <ChannelIcon channel={channel} size={11} />
       {meta.label}
     </span>
   );
@@ -259,23 +259,12 @@ function FilterSidebar({
 }) {
   return (
     <aside className={cn(
-      "hidden md:flex flex-col shrink-0 w-[200px] border-r",
+      "hidden md:flex flex-col shrink-0 w-[220px] border-r",
       "bg-card/50 overflow-y-auto",
     )}>
-      {/* Logo/Title area */}
-      <div className="p-4 pb-3 border-b">
-        <div className="flex items-center gap-2">
-          <InboxIcon size={16} className="text-primary" />
-          <h2 className="font-heading text-sm font-bold text-foreground tracking-tight">Inbox</h2>
-        </div>
-        <p className="text-[11px] text-muted-foreground mt-1 font-description leading-relaxed">
-          Omnichannel messages
-        </p>
-      </div>
-
       {/* Channel filters */}
-      <div className="p-3 space-y-0.5">
-        <p className="text-[9px] font-bold uppercase tracking-widest font-heading text-muted-foreground/60 px-2 mb-2">
+      <div className="p-3.5 space-y-0.5">
+        <p className="text-[10px] font-bold uppercase tracking-widest font-heading text-muted-foreground/60 px-2.5 mb-2.5">
           Channels
         </p>
         {ALL_CHANNELS.map(ch => {
@@ -291,24 +280,24 @@ function FilterSidebar({
               key={ch}
               onClick={() => onChannelChange(ch)}
               className={cn(
-                "flex items-center gap-2.5 w-full rounded-lg px-2.5 py-2",
-                "text-[12px] font-medium transition-all",
+                "flex items-center gap-2.5 w-full rounded-lg px-2.5 py-2.5",
+                "text-[13px] font-medium transition-all",
                 isActive
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
               )}
             >
               {isAll ? (
-                <Hash size={13} className="shrink-0" />
+                <Hash size={14} className="shrink-0" />
               ) : (
-                <ChannelIcon channel={ch} size={13} />
+                <ChannelIcon channel={ch} size={14} />
               )}
               <span className="flex-1 text-left truncate">
                 {isAll ? "All Channels" : meta?.label}
               </span>
               {count > 0 && (
                 <span className={cn(
-                  "text-[10px] font-mono tabular-nums",
+                  "text-[11px] font-mono tabular-nums",
                   isActive ? "text-primary/70" : "text-muted-foreground/50",
                 )}>
                   {count}
@@ -323,8 +312,8 @@ function FilterSidebar({
       <div className="mx-4 border-t" />
 
       {/* Status filters */}
-      <div className="p-3 space-y-0.5">
-        <p className="text-[9px] font-bold uppercase tracking-widest font-heading text-muted-foreground/60 px-2 mb-2">
+      <div className="p-3.5 space-y-0.5">
+        <p className="text-[10px] font-bold uppercase tracking-widest font-heading text-muted-foreground/60 px-2.5 mb-2.5">
           Status
         </p>
         {STATUS_FILTERS.map(status => {
@@ -335,19 +324,19 @@ function FilterSidebar({
               key={status}
               onClick={() => onStatusChange(status)}
               className={cn(
-                "flex items-center gap-2.5 w-full rounded-lg px-2.5 py-2",
-                "text-[12px] font-medium transition-all",
+                "flex items-center gap-2.5 w-full rounded-lg px-2.5 py-2.5",
+                "text-[13px] font-medium transition-all",
                 isActive
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
               )}
             >
               {status === "all" ? (
-                <InboxIcon size={13} className="shrink-0" />
+                <InboxIcon size={14} className="shrink-0" />
               ) : status === "active" ? (
-                <Circle size={13} className="shrink-0" />
+                <Circle size={14} className="shrink-0" />
               ) : (
-                <CheckCircle2 size={13} className="shrink-0" />
+                <CheckCircle2 size={14} className="shrink-0" />
               )}
               <span className="flex-1 text-left">{labels[status]}</span>
             </button>
@@ -374,7 +363,7 @@ function MobileFilterBar({
   onStatusChange: (status: string) => void;
 }) {
   return (
-    <div className="md:hidden border-b bg-card/50 px-3 py-2.5 space-y-2">
+    <div className="md:hidden border-b bg-card/50 px-4 py-3 space-y-2.5">
       {/* Channel pills — horizontally scrollable */}
       <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {ALL_CHANNELS.map(ch => {
@@ -386,8 +375,8 @@ function MobileFilterBar({
               key={ch}
               onClick={() => onChannelChange(ch)}
               className={cn(
-                "flex items-center gap-1 rounded-full border px-2.5 py-1 shrink-0",
-                "text-[11px] font-medium transition-all whitespace-nowrap",
+                "flex items-center gap-1.5 rounded-full border px-3 py-1.5 shrink-0",
+                "text-xs font-medium transition-all whitespace-nowrap",
                 isActive
                   ? "bg-primary/10 border-primary/30 text-primary"
                   : "border-border text-muted-foreground hover:border-foreground/20 hover:text-foreground",
@@ -395,7 +384,7 @@ function MobileFilterBar({
             >
               {isAll ? "All" : (
                 <>
-                  <ChannelIcon channel={ch} size={10} />
+                  <ChannelIcon channel={ch} size={12} />
                   {meta?.label}
                 </>
               )}
@@ -414,7 +403,7 @@ function MobileFilterBar({
               key={status}
               onClick={() => onStatusChange(status)}
               className={cn(
-                "flex-1 rounded-md py-1.5 text-[11px] font-semibold font-heading transition-all",
+                "flex-1 rounded-md py-2 text-xs font-semibold font-heading transition-all",
                 isActive
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:text-foreground",
@@ -451,14 +440,14 @@ function ThreadListPanel({
   return (
     <div className="flex flex-col flex-1 min-w-0 border-r">
       {/* Search bar */}
-      <div className="shrink-0 p-3 border-b">
+      <div className="shrink-0 p-3.5 border-b">
         <div className="relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
           <Input
             placeholder="Search conversations..."
             value={searchQuery}
             onChange={e => onSearchChange(e.target.value)}
-            className="pl-9 h-9 text-sm bg-card"
+            className="pl-9 h-10 text-sm bg-card"
           />
         </div>
       </div>
@@ -466,24 +455,24 @@ function ThreadListPanel({
       {/* Thread list */}
       <div className="flex-1 overflow-y-auto">
         {isLoading ? (
-          <div className="p-3 space-y-2">
+          <div className="p-4 space-y-2">
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="flex items-start gap-3 p-3 rounded-lg">
                 <Skeleton className="h-9 w-9 rounded-full shrink-0" />
                 <div className="flex-1 space-y-2">
                   <Skeleton className="h-4 w-2/3" />
-                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="h-3.5 w-full" />
                 </div>
               </div>
             ))}
           </div>
         ) : threads.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-            <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-3">
-              <MessageSquare size={20} className="text-muted-foreground" />
+            <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center mb-3">
+              <MessageSquare size={22} className="text-muted-foreground" />
             </div>
             <p className="text-sm font-medium text-muted-foreground">No conversations found</p>
-            <p className="text-[12px] text-muted-foreground/60 mt-1">
+            <p className="text-xs text-muted-foreground/60 mt-1">
               Try adjusting your filters or search query
             </p>
           </div>
@@ -519,7 +508,7 @@ function ThreadRow({
     <button
       onClick={onSelect}
       className={cn(
-        "flex items-start gap-3 w-full text-left p-3.5 transition-all",
+        "flex items-start gap-3 w-full text-left p-4 transition-all",
         "hover:bg-muted/50 focus-visible:outline-none focus-visible:bg-muted/50",
         isSelected && "bg-primary/5 hover:bg-primary/8 border-l-2 border-l-primary",
         !isSelected && "border-l-2 border-l-transparent",
@@ -537,37 +526,37 @@ function ThreadRow({
       {/* Content */}
       <div className="flex-1 min-w-0">
         {/* Top row: name + time */}
-        <div className="flex items-center justify-between gap-2 mb-0.5">
+        <div className="flex items-center justify-between gap-2 mb-1">
           <span className={cn(
-            "text-[13px] truncate",
+            "text-sm truncate",
             thread.is_unread ? "font-bold text-foreground" : "font-medium text-foreground/90",
           )}>
             {thread.contact_name || "Anonymous Visitor"}
           </span>
-          <span className="text-[10px] text-muted-foreground font-mono tabular-nums shrink-0">
+          <span className="text-[11px] text-muted-foreground font-mono tabular-nums shrink-0">
             {relativeTime(thread.last_message_at)}
           </span>
         </div>
 
         {/* Middle row: channel badge + message count */}
-        <div className="flex items-center gap-1.5 mb-1">
+        <div className="flex items-center gap-2 mb-1.5">
           <span className={cn(
-            "inline-flex items-center gap-0.5 rounded border px-1 py-px",
-            "text-[9px] font-medium",
+            "inline-flex items-center gap-1 rounded border px-1.5 py-0.5",
+            "text-[11px] font-medium",
             meta.className,
           )}>
-            <ChannelIcon channel={thread.channel} size={8} />
+            <ChannelIcon channel={thread.channel} size={10} />
             {meta.label}
           </span>
           <StatusDot status={thread.status} />
-          <span className="text-[10px] text-muted-foreground/50 font-mono">
+          <span className="text-[11px] text-muted-foreground/50 font-mono">
             {thread.message_count} msg{thread.message_count !== 1 ? "s" : ""}
           </span>
         </div>
 
         {/* Last message preview */}
         <p className={cn(
-          "text-[12px] leading-relaxed line-clamp-1",
+          "text-[13px] leading-relaxed line-clamp-1",
           thread.is_unread ? "text-foreground/80" : "text-muted-foreground",
         )}>
           {thread.last_message || "No messages yet"}
@@ -635,7 +624,7 @@ function DetailPanel({
     return (
       <div className={cn(
         "hidden md:flex flex-col items-center justify-center",
-        "w-[40%] min-w-[320px] bg-card/30",
+        "w-[40%] min-w-[340px] bg-card/30",
       )}>
         <div className="text-center px-6">
           <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
@@ -644,7 +633,7 @@ function DetailPanel({
           <p className="text-sm font-heading font-semibold text-foreground/70 mb-1">
             No conversation selected
           </p>
-          <p className="text-[12px] text-muted-foreground/60 max-w-[240px] leading-relaxed">
+          <p className="text-xs text-muted-foreground/60 max-w-[260px] leading-relaxed">
             Select a conversation from the list to view messages and reply
           </p>
         </div>
@@ -657,7 +646,7 @@ function DetailPanel({
     return (
       <div className={cn(
         "flex flex-col",
-        showBackButton ? "flex-1" : "hidden md:flex w-[40%] min-w-[320px]",
+        showBackButton ? "flex-1" : "hidden md:flex w-[40%] min-w-[340px]",
       )}>
         <div className="p-4 border-b">
           <Skeleton className="h-10 w-full" />
@@ -676,7 +665,7 @@ function DetailPanel({
   return (
     <div className={cn(
       "flex flex-col",
-      showBackButton ? "flex-1" : "hidden md:flex w-[40%] min-w-[320px]",
+      showBackButton ? "flex-1" : "hidden md:flex w-[40%] min-w-[340px]",
     )}>
       {/* ── Contact header ── */}
       <div className="shrink-0 border-b p-4">
@@ -686,7 +675,7 @@ function DetailPanel({
               onClick={onBack}
               className="shrink-0 rounded-md p-1.5 hover:bg-muted transition-colors"
             >
-              <ArrowLeft size={16} className="text-muted-foreground" />
+              <ArrowLeft size={18} className="text-muted-foreground" />
             </button>
           )}
           <ContactAvatar name={detail.contact_name} size="lg" />
@@ -696,17 +685,17 @@ function DetailPanel({
                 {detail.contact_name || "Anonymous Visitor"}
               </h3>
               <span className={cn(
-                "inline-flex items-center gap-0.5 rounded-md border px-1.5 py-0.5",
-                "text-[10px] font-medium",
+                "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5",
+                "text-[11px] font-medium",
                 channelMeta.className,
               )}>
-                <ChannelIcon channel={detail.channel} size={9} />
+                <ChannelIcon channel={detail.channel} size={11} />
                 {channelMeta.label}
               </span>
               <Badge
                 variant="outline"
                 className={cn(
-                  "text-[10px] py-0 h-5 font-heading",
+                  "text-[11px] py-0 h-5 font-heading",
                   detail.status === "active"
                     ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/5"
                     : "border-gray-500/30 text-gray-400 bg-gray-500/5",
@@ -719,20 +708,20 @@ function DetailPanel({
             {/* Contact details */}
             <div className="flex items-center gap-3 mt-1.5 flex-wrap">
               {detail.contact_email && (
-                <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                  <Mail size={10} className="text-muted-foreground/60" />
-                  <span className="truncate max-w-[160px]">{detail.contact_email}</span>
+                <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Mail size={12} className="text-muted-foreground/60" />
+                  <span className="truncate max-w-[180px]">{detail.contact_email}</span>
                 </span>
               )}
               {detail.contact_phone && (
-                <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                  <Phone size={10} className="text-muted-foreground/60" />
+                <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Phone size={12} className="text-muted-foreground/60" />
                   {detail.contact_phone}
                 </span>
               )}
               {!detail.contact_email && !detail.contact_phone && (
-                <span className="flex items-center gap-1 text-[11px] text-muted-foreground/50">
-                  <User size={10} />
+                <span className="flex items-center gap-1.5 text-xs text-muted-foreground/50">
+                  <User size={12} />
                   No contact info
                 </span>
               )}
@@ -742,14 +731,14 @@ function DetailPanel({
       </div>
 
       {/* ── Messages ── */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {detail.messages.map(msg => {
           const isUser = msg.role === "user";
           return (
             <div key={msg.id} className={cn("flex", isUser ? "justify-end" : "justify-start")}>
               <div className="max-w-[85%]">
                 <div className={cn(
-                  "px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap",
+                  "px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap",
                   isUser
                     ? "bg-primary text-primary-foreground rounded-2xl rounded-br-md"
                     : "bg-muted border rounded-2xl rounded-bl-md text-foreground",
@@ -757,7 +746,7 @@ function DetailPanel({
                   {msg.content}
                 </div>
                 <p className={cn(
-                  "text-[10px] text-muted-foreground/60 font-mono mt-1",
+                  "text-[11px] text-muted-foreground/60 font-mono mt-1",
                   isUser ? "text-right" : "text-left",
                 )}>
                   {formatTimestamp(msg.created_at)}
@@ -770,7 +759,7 @@ function DetailPanel({
       </div>
 
       {/* ── Reply composer ── */}
-      <div className="shrink-0 border-t p-3">
+      <div className="shrink-0 border-t p-4">
         <div className="flex gap-2">
           <Textarea
             placeholder="Type your reply... (Ctrl+Enter to send)"
@@ -778,7 +767,7 @@ function DetailPanel({
             onChange={e => setReplyText(e.target.value)}
             onKeyDown={handleKeyDown}
             rows={2}
-            className="flex-1 text-[13px] bg-card resize-none min-h-[60px]"
+            className="flex-1 text-sm bg-card resize-none min-h-[68px]"
           />
           <Button
             size="sm"
@@ -786,7 +775,7 @@ function DetailPanel({
             disabled={!replyText.trim() || reply.isPending}
             className="self-end gap-1.5 h-9 px-4"
           >
-            <Send size={13} />
+            <Send size={14} />
             <span className="hidden sm:inline">
               {reply.isPending ? "Sending..." : "Send"}
             </span>
@@ -890,13 +879,17 @@ export default function Inbox() {
 
   return (
     <div className="flex flex-col w-full min-w-0 h-full">
-      {/* Page header — only shown on md+ (sidebar has its own branding on desktop) */}
-      <header className="md:hidden px-4 pt-4 pb-2">
-        <h1 className="font-heading text-lg font-bold text-foreground tracking-tight">Inbox</h1>
-        <p className="text-[12px] text-muted-foreground font-description">
-          All conversations, one place
-        </p>
-      </header>
+      {/* ─── Page Header ────────────────────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 sm:p-6 lg:px-8 lg:pt-8 lg:pb-0 pb-0">
+        <div>
+          <h1 className="font-heading text-xl sm:text-2xl font-bold text-foreground tracking-tight leading-none">
+            Inbox
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1 font-description">
+            Unified conversations across all channels
+          </p>
+        </div>
+      </div>
 
       {/* Mobile filter bar */}
       {!mobileShowDetail && (
@@ -909,7 +902,7 @@ export default function Inbox() {
       )}
 
       {/* 3-Column layout */}
-      <div className="flex flex-1 min-h-0 overflow-hidden rounded-xl md:rounded-none border md:border-0 md:border-t mx-4 mb-4 md:mx-0 md:mb-0 bg-card">
+      <div className="flex flex-1 min-h-0 overflow-hidden rounded-xl border mx-4 mb-4 sm:mx-6 lg:mx-8 bg-card">
         {/* LEFT: Filter sidebar (md+) */}
         <FilterSidebar
           channelFilter={channelFilter}
