@@ -1,5 +1,5 @@
-import { Globe, MessageCircle, Instagram, Facebook, Mail, Smartphone } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CHANNEL_META, ChannelIcon } from "@/lib/channelMeta";
 
 interface ChannelBreakdownProps {
   data: Array<{ channel: string; count: number; icon: string }>;
@@ -7,18 +7,17 @@ interface ChannelBreakdownProps {
 }
 
 const CHANNEL_CONFIG: Record<string, {
-  icon: React.ElementType;
   label: string;
   colorClass: string;
   bgClass: string;
   barClass: string;
 }> = {
-  web:       { icon: Globe,          label: "Web Widget", colorClass: "text-blue-400",    bgClass: "bg-blue-500/10",    barClass: "bg-blue-500" },
-  whatsapp:  { icon: MessageCircle,  label: "WhatsApp",   colorClass: "text-emerald-400", bgClass: "bg-emerald-500/10", barClass: "bg-emerald-500" },
-  instagram: { icon: Instagram,      label: "Instagram",  colorClass: "text-pink-400",    bgClass: "bg-pink-500/10",    barClass: "bg-pink-500" },
-  facebook:  { icon: Facebook,       label: "Facebook",   colorClass: "text-blue-400",    bgClass: "bg-blue-500/10",    barClass: "bg-blue-500" },
-  email:     { icon: Mail,           label: "Email",      colorClass: "text-violet-400",  bgClass: "bg-violet-500/10",  barClass: "bg-violet-500" },
-  sms:       { icon: Smartphone,     label: "SMS",        colorClass: "text-amber-400",   bgClass: "bg-amber-500/10",   barClass: "bg-amber-500" },
+  web:       { label: "Web Widget", colorClass: "text-blue-400",    bgClass: "bg-blue-500/10",    barClass: "bg-blue-500" },
+  whatsapp:  { label: "WhatsApp",   colorClass: "text-emerald-400", bgClass: "bg-emerald-500/10", barClass: "bg-emerald-500" },
+  instagram: { label: "Instagram",  colorClass: "text-pink-400",    bgClass: "bg-pink-500/10",    barClass: "bg-pink-500" },
+  facebook:  { label: "Facebook",   colorClass: "text-blue-400",    bgClass: "bg-blue-500/10",    barClass: "bg-blue-500" },
+  email:     { label: "Email",      colorClass: "text-violet-400",  bgClass: "bg-violet-500/10",  barClass: "bg-violet-500" },
+  sms:       { label: "SMS",        colorClass: "text-amber-400",   bgClass: "bg-amber-500/10",   barClass: "bg-amber-500" },
 };
 
 export function ChannelBreakdown({ data, className }: ChannelBreakdownProps) {
@@ -37,13 +36,11 @@ export function ChannelBreakdown({ data, className }: ChannelBreakdownProps) {
         {data.length > 0 ? (
           data.map((item) => {
             const config = CHANNEL_CONFIG[item.channel] || {
-              icon: Globe,
               label: item.channel,
               colorClass: "text-muted-foreground",
               bgClass: "bg-muted",
               barClass: "bg-muted-foreground",
             };
-            const Icon = config.icon;
             const percentage = (item.count / maxCount) * 100;
 
             return (
@@ -59,7 +56,7 @@ export function ChannelBreakdown({ data, className }: ChannelBreakdownProps) {
                   "w-10 h-10 rounded-lg flex items-center justify-center mb-2",
                   config.bgClass,
                 )}>
-                  <Icon className={cn("w-5 h-5", config.colorClass)} />
+                  <ChannelIcon channel={item.channel} size={20} />
                 </div>
                 <span className="text-xs font-medium font-description truncate w-full text-center text-foreground">
                   {config.label}

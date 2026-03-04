@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Wifi, WifiOff, Radio, Settings } from "lucide-react";
+import { CHANNEL_META, ChannelIcon } from "@/lib/channelMeta";
 
 // ---------------------------------------------------------------------------
 // Mock data & visual config
@@ -48,12 +49,12 @@ const MOCK_CHANNELS: ChannelConfigItem[] = [
   },
 ];
 
-const CHANNEL_VISUAL: Record<string, { emoji: string; gradient: string }> = {
-  whatsapp: { emoji: "💬", gradient: "from-emerald-500/20 to-emerald-500/5" },
-  email: { emoji: "📧", gradient: "from-violet-500/20 to-violet-500/5" },
-  sms: { emoji: "📱", gradient: "from-pink-500/20 to-pink-500/5" },
-  messenger: { emoji: "💙", gradient: "from-blue-500/20 to-blue-500/5" },
-  instagram: { emoji: "📸", gradient: "from-amber-500/20 to-amber-500/5" },
+const CHANNEL_GRADIENT: Record<string, string> = {
+  whatsapp: "from-emerald-500/20 to-emerald-500/5",
+  email: "from-violet-500/20 to-violet-500/5",
+  sms: "from-pink-500/20 to-pink-500/5",
+  messenger: "from-blue-500/20 to-blue-500/5",
+  instagram: "from-pink-500/20 to-pink-500/5",
 };
 
 // ---------------------------------------------------------------------------
@@ -129,10 +130,7 @@ export default function Channels() {
       {/* ----------------------------------------------------------------- */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {channels.map((ch) => {
-          const visual = CHANNEL_VISUAL[ch.channel] ?? {
-            emoji: "📡",
-            gradient: "from-gray-500/20 to-gray-500/5",
-          };
+          const gradient = CHANNEL_GRADIENT[ch.channel] ?? "from-gray-500/20 to-gray-500/5";
 
           return (
             <div
@@ -146,7 +144,7 @@ export default function Channels() {
               <div
                 className={cn(
                   "pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r",
-                  visual.gradient,
+                  gradient,
                 )}
                 aria-hidden
               />
@@ -155,12 +153,12 @@ export default function Channels() {
               <div className="flex items-start justify-between">
                 <div
                   className={cn(
-                    "flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br text-lg",
-                    visual.gradient,
+                    "flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br",
+                    gradient,
                   )}
                   aria-hidden
                 >
-                  {visual.emoji}
+                  <ChannelIcon channel={ch.channel} size={20} />
                 </div>
 
                 <Switch

@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CHANNEL_META, ChannelIcon } from "@/lib/channelMeta";
 
 interface RecentLeadsProps {
   data: Array<{
@@ -13,15 +14,6 @@ interface RecentLeadsProps {
   }>;
   className?: string;
 }
-
-const CHANNEL_META: Record<string, { icon: string; label: string }> = {
-  web:       { icon: "🌐", label: "Web" },
-  whatsapp:  { icon: "💬", label: "WhatsApp" },
-  instagram: { icon: "📸", label: "Instagram" },
-  facebook:  { icon: "💙", label: "Facebook" },
-  email:     { icon: "📧", label: "Email" },
-  sms:       { icon: "📱", label: "SMS" },
-};
 
 const STATUS_META: Record<string, { dot: string; badge: string; label: string }> = {
   new:       { dot: "bg-amber-400",   badge: "bg-amber-500/10 text-amber-400 border-amber-500/20",       label: "New" },
@@ -61,7 +53,7 @@ export function RecentLeads({ data, className }: RecentLeadsProps) {
       <div className="divide-y divide-border">
         {data.length > 0 ? (
           data.map((item) => {
-            const channel = CHANNEL_META[item.channel] || { icon: "🌐", label: item.channel };
+            const channel = CHANNEL_META[item.channel] || CHANNEL_META.web;
             const status = STATUS_META[item.status] || STATUS_META.new;
 
             return (
@@ -86,7 +78,7 @@ export function RecentLeads({ data, className }: RecentLeadsProps) {
                     <p className="text-sm font-medium truncate font-description text-foreground">
                       {item.name || "Anonymous"}
                     </p>
-                    <span className="text-[10px] shrink-0">{channel.icon}</span>
+                    <ChannelIcon channel={item.channel} size={10} />
                   </div>
                   <p className="text-xs truncate text-muted-foreground">
                     {item.email || "No email"}

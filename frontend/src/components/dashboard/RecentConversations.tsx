@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CHANNEL_META, ChannelIcon } from "@/lib/channelMeta";
 
 interface RecentConversationsProps {
   data: Array<{
@@ -13,15 +14,6 @@ interface RecentConversationsProps {
   }>;
   className?: string;
 }
-
-const CHANNEL_META: Record<string, { icon: string; label: string }> = {
-  web:       { icon: "🌐", label: "Web" },
-  whatsapp:  { icon: "💬", label: "WhatsApp" },
-  instagram: { icon: "📸", label: "Instagram" },
-  facebook:  { icon: "💙", label: "Facebook" },
-  email:     { icon: "📧", label: "Email" },
-  sms:       { icon: "📱", label: "SMS" },
-};
 
 const STATUS_META: Record<string, { dot: string; badge: string }> = {
   active:    { dot: "bg-blue-400",    badge: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
@@ -55,7 +47,7 @@ export function RecentConversations({ data, className }: RecentConversationsProp
       <div className="divide-y divide-border">
         {data.length > 0 ? (
           data.map((item) => {
-            const channel = CHANNEL_META[item.channel] || { icon: "🌐", label: item.channel };
+            const channel = CHANNEL_META[item.channel] || CHANNEL_META.web;
             const status = STATUS_META[item.status] || STATUS_META.active;
 
             return (
@@ -66,7 +58,7 @@ export function RecentConversations({ data, className }: RecentConversationsProp
               >
                 {/* Channel icon */}
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-muted">
-                  <span className="text-sm">{channel.icon}</span>
+                  <ChannelIcon channel={item.channel} size={16} />
                 </div>
 
                 {/* Content */}

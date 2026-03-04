@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useContactDetail } from "@/hooks/useContacts";
 import { type ContactDetailResponse } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { CHANNEL_META, ChannelIcon } from "@/lib/channelMeta";
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    MOCK DATA
@@ -42,15 +43,6 @@ const MOCK_CONTACT_DETAIL: ContactDetailResponse = {
 /* ═══════════════════════════════════════════════════════════════════════════════
    CONSTANTS & STYLE MAPS
    ═══════════════════════════════════════════════════════════════════════════════ */
-
-const CHANNEL_META: Record<string, { icon: string; label: string; className: string }> = {
-  web:       { icon: "🌐", label: "Web",       className: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
-  whatsapp:  { icon: "💬", label: "WhatsApp",  className: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" },
-  instagram: { icon: "📸", label: "Instagram", className: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
-  facebook:  { icon: "💙", label: "Facebook",  className: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
-  email:     { icon: "📧", label: "Email",     className: "bg-violet-500/10 text-violet-400 border-violet-500/20" },
-  sms:       { icon: "📱", label: "SMS",       className: "bg-pink-500/10 text-pink-400 border-pink-500/20" },
-};
 
 const STATUS_META: Record<string, { dot: string; badge: string; label: string }> = {
   new:       { dot: "bg-amber-400",   badge: "bg-amber-500/10 text-amber-400 border-amber-500/20",       label: "New" },
@@ -172,7 +164,7 @@ function ChannelPill({ channel }: { channel: string }) {
         meta.className,
       )}
     >
-      <span className="text-[10px]">{meta.icon}</span>
+      <ChannelIcon channel={channel} size={10} />
       {meta.label}
     </span>
   );

@@ -28,6 +28,7 @@ import {
 } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { CHANNEL_META, ChannelIcon, CHANNEL_KEYS } from "@/lib/channelMeta";
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    MOCK DATA
@@ -61,15 +62,6 @@ const STATUS_META: Record<string, { dot: string; badge: string; label: string }>
   cancelled: { dot: "bg-red-400", badge: "bg-red-500/10 text-red-400 border-red-500/20", label: "Cancelled" },
 };
 
-const CHANNEL_META: Record<string, { icon: string; label: string; className: string }> = {
-  web:       { icon: "\u{1F310}", label: "Web",       className: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
-  whatsapp:  { icon: "\u{1F4AC}", label: "WhatsApp",  className: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" },
-  instagram: { icon: "\u{1F4F8}", label: "Instagram", className: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
-  facebook:  { icon: "\u{1F499}", label: "Facebook",  className: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
-  email:     { icon: "\u{1F4E7}", label: "Email",     className: "bg-violet-500/10 text-violet-400 border-violet-500/20" },
-  sms:       { icon: "\u{1F4F1}", label: "SMS",       className: "bg-pink-500/10 text-pink-400 border-pink-500/20" },
-};
-
 const STAT_CARDS: { key: keyof typeof MOCK_STATS; label: string; icon: React.ReactNode; accent: string }[] = [
   { key: "total",     label: "Total",     icon: <CalendarCheck size={18} />, accent: "from-blue-500/20 to-blue-500/0" },
   { key: "requested", label: "Requested", icon: <AlertCircle size={18} />,   accent: "from-amber-500/20 to-amber-500/0" },
@@ -77,8 +69,6 @@ const STAT_CARDS: { key: keyof typeof MOCK_STATS; label: string; icon: React.Rea
   { key: "completed", label: "Completed", icon: <FileText size={18} />,      accent: "from-emerald-500/20 to-emerald-500/0" },
   { key: "cancelled", label: "Cancelled", icon: <X size={18} />,             accent: "from-red-500/20 to-red-500/0" },
 ];
-
-const CHANNEL_KEYS = Object.keys(CHANNEL_META);
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    HELPERS
@@ -148,7 +138,7 @@ function ChannelPill({ channel }: { channel: string | null }) {
       "text-[11px] font-medium",
       meta.className,
     )}>
-      <span className="text-[10px]">{meta.icon}</span>
+      <ChannelIcon channel={channel} size={10} />
       <span className="hidden sm:inline">{meta.label}</span>
     </span>
   );
@@ -417,7 +407,10 @@ export default function Bookings() {
             <SelectItem value="_all">All Channels</SelectItem>
             {CHANNEL_KEYS.map(key => (
               <SelectItem key={key} value={key}>
-                {CHANNEL_META[key].icon} {CHANNEL_META[key].label}
+                <span className="inline-flex items-center gap-2">
+                  <ChannelIcon channel={key} size={12} />
+                  {CHANNEL_META[key].label}
+                </span>
               </SelectItem>
             ))}
           </SelectContent>
@@ -971,7 +964,10 @@ export default function Bookings() {
                     <SelectItem value="_none">None</SelectItem>
                     {CHANNEL_KEYS.map(key => (
                       <SelectItem key={key} value={key}>
-                        {CHANNEL_META[key].icon} {CHANNEL_META[key].label}
+                        <span className="inline-flex items-center gap-2">
+                          <ChannelIcon channel={key} size={12} />
+                          {CHANNEL_META[key].label}
+                        </span>
                       </SelectItem>
                     ))}
                   </SelectContent>

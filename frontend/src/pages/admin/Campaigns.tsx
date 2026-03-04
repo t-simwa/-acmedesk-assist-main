@@ -28,6 +28,7 @@ import {
 } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { CHANNEL_META, ChannelIcon, CAMPAIGN_CHANNEL_KEYS } from "@/lib/channelMeta";
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    MOCK DATA
@@ -116,14 +117,6 @@ const MOCK_CAMPAIGNS: CampaignItem[] = [
    CONSTANTS & STYLE MAPS
    ═══════════════════════════════════════════════════════════════════════════════ */
 
-const CHANNEL_META: Record<string, { icon: string; label: string; className: string }> = {
-  whatsapp:  { icon: "💬", label: "WhatsApp",  className: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" },
-  instagram: { icon: "📸", label: "Instagram", className: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
-  facebook:  { icon: "💙", label: "Facebook",  className: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
-  email:     { icon: "📧", label: "Email",     className: "bg-violet-500/10 text-violet-400 border-violet-500/20" },
-  sms:       { icon: "📱", label: "SMS",       className: "bg-pink-500/10 text-pink-400 border-pink-500/20" },
-};
-
 const STATUS_META: Record<string, { dot: string; badge: string; label: string }> = {
   draft:     { dot: "bg-gray-400",    badge: "bg-gray-500/10 text-gray-400 border-gray-500/20",       label: "Draft" },
   scheduled: { dot: "bg-blue-400",    badge: "bg-blue-500/10 text-blue-400 border-blue-500/20",       label: "Scheduled" },
@@ -133,7 +126,6 @@ const STATUS_META: Record<string, { dot: string; badge: string; label: string }>
 };
 
 const STATUS_LIST = ["draft", "scheduled", "sending", "sent", "cancelled"] as const;
-const CHANNEL_LIST = ["whatsapp", "instagram", "facebook", "email", "sms"] as const;
 
 type StatKey = keyof typeof MOCK_STATS;
 
@@ -211,7 +203,7 @@ function ChannelPill({ channel }: { channel: string }) {
       "text-[11px] font-medium",
       meta.className,
     )}>
-      <span className="text-[10px]">{meta.icon}</span>
+      <ChannelIcon channel={channel} size={10} />
       <span className="hidden sm:inline">{meta.label}</span>
     </span>
   );
@@ -508,9 +500,12 @@ export default function Campaigns() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="_all">All Channels</SelectItem>
-            {CHANNEL_LIST.map(ch => (
+            {CAMPAIGN_CHANNEL_KEYS.map(ch => (
               <SelectItem key={ch} value={ch}>
-                {CHANNEL_META[ch].icon} {CHANNEL_META[ch].label}
+                <span className="inline-flex items-center gap-2">
+                  <ChannelIcon channel={ch} size={12} />
+                  {CHANNEL_META[ch].label}
+                </span>
               </SelectItem>
             ))}
           </SelectContent>
@@ -604,7 +599,7 @@ export default function Campaigns() {
                         "h-9 w-9 rounded-lg flex items-center justify-center shrink-0 text-base border",
                         channelMeta.className,
                       )}>
-                        {channelMeta.icon}
+                        <ChannelIcon channel={campaign.channel} size={16} />
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="font-heading font-semibold text-[13px] text-foreground truncate">
@@ -759,7 +754,7 @@ export default function Campaigns() {
                     "h-9 w-9 rounded-lg flex items-center justify-center shrink-0 text-base border mt-0.5",
                     channelMeta.className,
                   )}>
-                    {channelMeta.icon}
+                    <ChannelIcon channel={campaign.channel} size={16} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2 mb-1">
@@ -904,10 +899,10 @@ export default function Campaigns() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {CHANNEL_LIST.map(ch => (
+                  {CAMPAIGN_CHANNEL_KEYS.map(ch => (
                     <SelectItem key={ch} value={ch}>
-                      <span className="flex items-center gap-2">
-                        <span>{CHANNEL_META[ch].icon}</span>
+                      <span className="inline-flex items-center gap-2">
+                        <ChannelIcon channel={ch} size={12} />
                         {CHANNEL_META[ch].label}
                       </span>
                     </SelectItem>
@@ -1002,7 +997,7 @@ export default function Campaigns() {
                     "h-11 w-11 rounded-xl flex items-center justify-center text-lg border shrink-0",
                     (CHANNEL_META[detailCampaign.channel] ?? CHANNEL_META.email).className,
                   )}>
-                    {(CHANNEL_META[detailCampaign.channel] ?? CHANNEL_META.email).icon}
+                    <ChannelIcon channel={detailCampaign.channel} size={20} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2.5 flex-wrap mb-1.5">

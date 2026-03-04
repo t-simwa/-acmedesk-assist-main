@@ -32,6 +32,7 @@ import type {
   InboxThreadDetailResponse,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { CHANNEL_META, ChannelIcon } from "@/lib/channelMeta";
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    MOCK DATA
@@ -155,15 +156,6 @@ function buildMockDetail(thread: InboxThreadItem): InboxThreadDetailResponse {
    CONSTANTS & STYLE MAPS
    ═══════════════════════════════════════════════════════════════════════════════ */
 
-const CHANNEL_META: Record<string, { icon: string; label: string; className: string }> = {
-  web:       { icon: "🌐", label: "Web",       className: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
-  whatsapp:  { icon: "💬", label: "WhatsApp",  className: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" },
-  instagram: { icon: "📸", label: "Instagram", className: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
-  facebook:  { icon: "💙", label: "Facebook",  className: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
-  email:     { icon: "📧", label: "Email",     className: "bg-violet-500/10 text-violet-400 border-violet-500/20" },
-  sms:       { icon: "📱", label: "SMS",       className: "bg-pink-500/10 text-pink-400 border-pink-500/20" },
-};
-
 const ALL_CHANNELS = ["all", "whatsapp", "email", "sms", "facebook", "instagram", "web"] as const;
 const STATUS_FILTERS = ["all", "active", "resolved"] as const;
 
@@ -230,7 +222,7 @@ function ChannelBadge({ channel }: { channel: string }) {
       "text-[10px] font-medium shrink-0",
       meta.className,
     )}>
-      <span className="text-[9px] leading-none">{meta.icon}</span>
+      <ChannelIcon channel={channel} size={9} />
       {meta.label}
     </span>
   );
@@ -309,7 +301,7 @@ function FilterSidebar({
               {isAll ? (
                 <Hash size={13} className="shrink-0" />
               ) : (
-                <span className="text-[12px] shrink-0 leading-none">{meta?.icon}</span>
+                <ChannelIcon channel={ch} size={13} />
               )}
               <span className="flex-1 text-left truncate">
                 {isAll ? "All Channels" : meta?.label}
@@ -403,7 +395,7 @@ function MobileFilterBar({
             >
               {isAll ? "All" : (
                 <>
-                  <span className="text-[10px]">{meta?.icon}</span>
+                  <ChannelIcon channel={ch} size={10} />
                   {meta?.label}
                 </>
               )}
@@ -564,7 +556,7 @@ function ThreadRow({
             "text-[9px] font-medium",
             meta.className,
           )}>
-            <span className="text-[8px] leading-none">{meta.icon}</span>
+            <ChannelIcon channel={thread.channel} size={8} />
             {meta.label}
           </span>
           <StatusDot status={thread.status} />
@@ -708,7 +700,7 @@ function DetailPanel({
                 "text-[10px] font-medium",
                 channelMeta.className,
               )}>
-                <span className="text-[9px]">{channelMeta.icon}</span>
+                <ChannelIcon channel={detail.channel} size={9} />
                 {channelMeta.label}
               </span>
               <Badge
