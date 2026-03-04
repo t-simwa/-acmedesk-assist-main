@@ -2,7 +2,7 @@
  * Sidebar — Client Dashboard Navigation
  *
  * Spec 7.1.1: Fixed left, 240px expanded / 64px collapsed
- * Background #0D1117 | Border 1px solid rgba(255,255,255,0.08) | Z-index 50
+ * Uses Tailwind design tokens from tailwind.config.ts / index.css
  * Collapse state persisted to localStorage key "nexachat-sidebar-collapsed"
  */
 
@@ -50,6 +50,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { cn } from "@/lib/utils";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -57,7 +58,7 @@ interface NavItem {
   label: string;
   icon: React.ElementType;
   path: string;
-  /** "unread" = blue #4F8EF7 | "newLeads" = blue #4F8EF7 | "urgent" = red #EF4444 */
+  /** "unread" = primary badge | "newLeads" = primary badge | "urgent" = destructive badge */
   badge?: "unread" | "newLeads" | "urgent";
   external?: boolean;
 }
@@ -126,25 +127,13 @@ const AGENT_NAV: NavSection[] = [
 
 const MOCK_USAGE = { current: 412, limit: 500 };
 
-// ─── Design tokens ────────────────────────────────────────────────────────────
-
-const SIDEBAR_BG =
-  "radial-gradient(ellipse 140% 30% at 50% 0%, rgba(79,142,247,0.07) 0%, transparent 70%), #0D1117";
-const ACCENT = "#4F8EF7";
-const ACCENT_ALT = "#7C3AED";
-const ACTIVE_BG = "linear-gradient(90deg, rgba(79,142,247,0.18) 0%, rgba(79,142,247,0.05) 100%)";
-
 // ─── Logo mark ────────────────────────────────────────────────────────────────
 
 function LogoMark({ size = 28 }: { size?: number }) {
   return (
     <div
-      className="sidebar-logo-mark flex items-center justify-center rounded-lg flex-shrink-0"
-      style={{
-        width: size,
-        height: size,
-        background: `linear-gradient(135deg, ${ACCENT} 0%, ${ACCENT_ALT} 100%)`,
-      }}
+      className="sidebar-logo-mark flex items-center justify-center rounded-lg flex-shrink-0 bg-gradient-to-br from-primary to-purple-500"
+      style={{ width: size, height: size }}
     >
       <Zap size={Math.round(size * 0.55)} className="text-white" strokeWidth={2.5} />
     </div>
@@ -156,13 +145,10 @@ function LogoMark({ size = 28 }: { size?: number }) {
 function SidebarHeader({ isCollapsed }: { isCollapsed: boolean }) {
   return (
     <div
-      className="flex items-center flex-shrink-0"
-      style={{
-        height: 64,
-        borderBottom: "1px solid rgba(255,255,255,0.08)",
-        padding: isCollapsed ? "0 18px" : "0 16px",
-        minWidth: 0,
-      }}
+      className={cn(
+        "flex items-center flex-shrink-0 h-16 min-w-0 border-b border-sidebar-border",
+        isCollapsed ? "px-[18px]" : "px-4"
+      )}
     >
       {isCollapsed ? (
         <Tooltip>
@@ -179,16 +165,7 @@ function SidebarHeader({ isCollapsed }: { isCollapsed: boolean }) {
           className="flex items-center gap-2.5 min-w-0 focus:outline-none"
         >
           <LogoMark size={28} />
-          <span
-            className="font-bold text-[16px] truncate"
-            style={{
-              fontFamily: "'Plus Jakarta Sans', sans-serif",
-              background: `linear-gradient(135deg, ${ACCENT} 0%, ${ACCENT_ALT} 100%)`,
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              backgroundClip: "text",
-            }}
-          >
+          <span className="font-bold text-[15px] truncate font-heading bg-gradient-to-br from-primary to-purple-500 bg-clip-text text-transparent">
             NexaChat
           </span>
         </Link>
@@ -210,14 +187,8 @@ function BusinessSelector({ isCollapsed }: { isCollapsed: boolean }) {
     return (
       <Tooltip>
         <TooltipTrigger asChild>
-          <div
-            className="flex justify-center items-center cursor-pointer rounded-lg mx-auto"
-            style={{ height: 44, width: 40, margin: "6px auto" }}
-          >
-            <div
-              className="w-6 h-6 rounded flex items-center justify-center text-[10px] font-bold text-white"
-              style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_ALT})` }}
-            >
+          <div className="flex justify-center items-center cursor-pointer rounded-lg h-11 w-10 mx-auto my-1.5">
+            <div className="w-6 h-6 rounded flex items-center justify-center text-[10px] font-bold text-white bg-gradient-to-br from-primary to-purple-500">
               {initials}
             </div>
           </div>
@@ -236,97 +207,59 @@ function BusinessSelector({ isCollapsed }: { isCollapsed: boolean }) {
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <button
-          className="flex items-center gap-2.5 rounded-lg text-left focus:outline-none transition-colors duration-150"
-          style={{
-            margin: "6px 8px",
-            width: "calc(100% - 16px)",
-            padding: "8px 10px",
-            background: open ? "rgba(255,255,255,0.06)" : "transparent",
-          }}
-          onMouseEnter={(e) =>
-            ((e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)")
-          }
-          onMouseLeave={(e) =>
-            ((e.currentTarget as HTMLElement).style.background = open
-              ? "rgba(255,255,255,0.06)"
-              : "transparent")
-          }
+          className={cn(
+            "flex items-center gap-2.5 rounded-lg text-left focus:outline-none transition-colors duration-150 mx-2 my-1.5 w-[calc(100%-16px)] px-2.5 py-2",
+            open ? "bg-white/[0.06]" : "hover:bg-white/[0.06]"
+          )}
         >
-          <div
-            className="w-7 h-7 rounded-md flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0"
-            style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_ALT})` }}
-          >
+          <div className="w-7 h-7 rounded-md flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0 bg-gradient-to-br from-primary to-purple-500">
             {initials}
           </div>
           <div className="flex-1 min-w-0">
-            <div
-              className="text-[13px] font-semibold truncate"
-              style={{ color: "#F9FAFB" }}
-            >
+            <div className="text-[12px] font-semibold truncate text-sidebar-foreground">
               {name}
             </div>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span
-                className="text-[10px] font-medium px-1.5 py-0.5 rounded"
-                style={{ background: `rgba(79,142,247,0.15)`, color: ACCENT }}
-              >
+              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-primary/15 text-primary">
                 {plan}
               </span>
-              <span className="flex items-center gap-1 text-[10px]" style={{ color: "#9CA3AF" }}>
-                <span
-                  className="w-1.5 h-1.5 rounded-full"
-                  style={{ background: "#10B981" }}
-                />
+              <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                <span className="w-1.5 h-1.5 rounded-full bg-success" />
                 Live
               </span>
             </div>
           </div>
           <ChevronDown
             size={14}
-            style={{
-              color: "#6B7280",
-              transform: open ? "rotate(180deg)" : "rotate(0deg)",
-              transition: "transform 200ms ease",
-              flexShrink: 0,
-            }}
+            className={cn(
+              "text-gray-500 flex-shrink-0 transition-transform duration-200 ease-in-out",
+              open && "rotate-180"
+            )}
           />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"
-        className="w-56"
-        style={{ background: "#111827", border: "1px solid rgba(255,255,255,0.12)" }}
+        className="w-56 bg-popover border-border"
       >
-        <div
-          className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wider"
-          style={{ color: "#6B7280" }}
-        >
+        <div className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
           Your Chatbots
         </div>
-        <DropdownMenuSeparator style={{ background: "rgba(255,255,255,0.08)" }} />
-        <DropdownMenuItem
-          className="flex items-center gap-2.5 cursor-pointer rounded-md"
-          style={{ color: "#F9FAFB" }}
-        >
-          <div
-            className="w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0"
-            style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_ALT})` }}
-          >
+        <DropdownMenuSeparator className="bg-sidebar-border" />
+        <DropdownMenuItem className="flex items-center gap-2.5 cursor-pointer rounded-md text-foreground">
+          <div className="w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0 bg-gradient-to-br from-primary to-purple-500">
             {initials}
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-[13px] font-medium truncate">{name}</div>
-            <div className="text-[10px]" style={{ color: "#6B7280" }}>
+            <div className="text-[10px] text-gray-500">
               {plan} · Live
             </div>
           </div>
-          <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#10B981" }} />
+          <span className="w-1.5 h-1.5 rounded-full bg-success" />
         </DropdownMenuItem>
-        <DropdownMenuSeparator style={{ background: "rgba(255,255,255,0.08)" }} />
-        <DropdownMenuItem
-          className="flex items-center gap-2 cursor-pointer rounded-md"
-          style={{ color: "#9CA3AF" }}
-        >
+        <DropdownMenuSeparator className="bg-sidebar-border" />
+        <DropdownMenuItem className="flex items-center gap-2 cursor-pointer rounded-md text-muted-foreground">
           <Plus size={14} />
           <span className="text-[13px]">Add New Chatbot</span>
         </DropdownMenuItem>
@@ -350,81 +283,41 @@ function NavItemRow({
   badgeCount: number;
   index?: number;
 }) {
-  const badgeBg = item.badge === "urgent" ? "#EF4444" : ACCENT;
-
-  const sharedStyle: React.CSSProperties = {
-    height: 40,
-    borderRadius: 8,
-    display: "flex",
-    alignItems: "center",
-    position: "relative",
-    textDecoration: "none",
-    transition: "background 150ms ease",
-    animationDelay: `${index * 28}ms`,
-    ...(isActive ? { background: ACTIVE_BG } : {}),
-  };
-
-  const expandedStyle: React.CSSProperties = {
-    ...sharedStyle,
-    padding: "0 12px 0 16px",
-    margin: "2px 8px",
-    width: "calc(100% - 16px)",
-    gap: 12,
-  };
-
-  const collapsedStyle: React.CSSProperties = {
-    ...sharedStyle,
-    padding: 0,
-    margin: "2px auto",
-    width: 40,
-    justifyContent: "center",
-  };
+  const navClasses = cn(
+    "sidebar-nav-item h-10 rounded-lg flex items-center relative no-underline transition-[background] duration-150",
+    isCollapsed
+      ? "p-0 mx-auto w-10 justify-center"
+      : "pl-4 pr-3 mx-2 w-[calc(100%-16px)] gap-3",
+    isActive
+      ? "bg-sidebar-primary/10"
+      : "hover:bg-white/5"
+  );
 
   // Gradient active indicator (replaces plain left border)
   const activeIndicator = isActive && !isCollapsed ? (
     <span
       aria-hidden="true"
-      style={{
-        position: "absolute",
-        left: 0,
-        top: 6,
-        bottom: 6,
-        width: 3,
-        borderRadius: "0 2px 2px 0",
-        background: `linear-gradient(to bottom, ${ACCENT}, ${ACCENT_ALT})`,
-      }}
+      className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-sm bg-gradient-to-b from-primary to-purple-500"
     />
   ) : null;
 
   const iconEl = (
     <item.icon
       size={18}
-      className="sidebar-icon"
-      style={{
-        color: isActive ? ACCENT : "#6B7280",
-        flexShrink: 0,
-      }}
+      className={cn(
+        "sidebar-icon flex-shrink-0",
+        isActive ? "text-sidebar-primary" : "text-gray-500"
+      )}
       aria-hidden="true"
     />
   );
 
   const badgeEl = badgeCount > 0 ? (
     <span
-      style={{
-        background: badgeBg,
-        color: "#FFFFFF",
-        fontSize: 10,
-        fontFamily: "'Plus Jakarta Sans', sans-serif",
-        fontWeight: 700,
-        height: 18,
-        minWidth: 18,
-        borderRadius: 9999,
-        padding: "0 5px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        flexShrink: 0,
-      }}
+      className={cn(
+        "text-[10px] font-heading font-bold h-[18px] min-w-[18px] rounded-full px-[5px] flex items-center justify-center flex-shrink-0 text-white",
+        item.badge === "urgent" ? "bg-destructive" : "bg-sidebar-primary"
+      )}
     >
       {badgeCount}
     </span>
@@ -432,37 +325,28 @@ function NavItemRow({
 
   const collapsedBadgeEl = badgeCount > 0 ? (
     <span
-      style={{
-        position: "absolute",
-        top: 3,
-        right: 3,
-        background: badgeBg,
-        color: "#FFFFFF",
-        fontSize: 9,
-        fontWeight: 700,
-        height: 14,
-        minWidth: 14,
-        borderRadius: 9999,
-        padding: "0 3px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
+      className={cn(
+        "absolute top-[3px] right-[3px] text-[9px] font-bold h-3.5 min-w-[14px] rounded-full px-[3px] flex items-center justify-center text-white",
+        item.badge === "urgent" ? "bg-destructive" : "bg-sidebar-primary"
+      )}
     >
       {badgeCount}
     </span>
   ) : null;
 
-  const hoverHandlers = !isActive
-    ? {
-        onMouseEnter: (e: React.MouseEvent<HTMLElement>) => {
-          (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)";
-        },
-        onMouseLeave: (e: React.MouseEvent<HTMLElement>) => {
-          (e.currentTarget as HTMLElement).style.background = "transparent";
-        },
-      }
-    : {};
+  const labelEl = !isCollapsed && (
+    <>
+      <span
+        className={cn(
+          "flex-1 text-[13px] truncate font-heading",
+          isActive ? "font-semibold text-sidebar-foreground" : "font-medium text-muted-foreground"
+        )}
+      >
+        {item.label}
+      </span>
+      {badgeEl}
+    </>
+  );
 
   if (item.external) {
     const el = (
@@ -470,27 +354,12 @@ function NavItemRow({
         href={item.path}
         target="_blank"
         rel="noopener noreferrer"
-        className="sidebar-nav-item"
-        style={isCollapsed ? collapsedStyle : expandedStyle}
-        {...hoverHandlers}
+        className={navClasses}
+        style={{ animationDelay: `${index * 28}ms` }}
       >
         {activeIndicator}
         {iconEl}
-        {!isCollapsed && (
-          <>
-            <span
-              className="flex-1 text-[14px] truncate"
-              style={{
-                fontFamily: "'Plus Jakarta Sans', sans-serif",
-                fontWeight: isActive ? 600 : 500,
-                color: isActive ? "#F9FAFB" : "#9CA3AF",
-              }}
-            >
-              {item.label}
-            </span>
-            {badgeEl}
-          </>
-        )}
+        {labelEl}
         {isCollapsed && collapsedBadgeEl}
       </a>
     );
@@ -508,27 +377,12 @@ function NavItemRow({
   const el = (
     <Link
       to={item.path}
-      className="sidebar-nav-item"
-      style={isCollapsed ? collapsedStyle : expandedStyle}
-      {...hoverHandlers}
+      className={navClasses}
+      style={{ animationDelay: `${index * 28}ms` }}
     >
       {activeIndicator}
       {iconEl}
-      {!isCollapsed && (
-        <>
-          <span
-            className="flex-1 text-[14px] truncate"
-            style={{
-              fontFamily: "'Plus Jakarta Sans', sans-serif",
-              fontWeight: isActive ? 600 : 500,
-              color: isActive ? "#F9FAFB" : "#9CA3AF",
-            }}
-          >
-            {item.label}
-          </span>
-          {badgeEl}
-        </>
-      )}
+      {labelEl}
       {isCollapsed && collapsedBadgeEl}
     </Link>
   );
@@ -548,36 +402,13 @@ function NavItemRow({
 
 function SectionLabel({ label }: { label: string }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        padding: "0 16px",
-        marginBottom: 4,
-      }}
-    >
-      <span
-        style={{
-          fontSize: 11,
-          fontWeight: 600,
-          textTransform: "uppercase",
-          letterSpacing: "0.08em",
-          color: "#4B5563",
-          fontFamily: "'Plus Jakarta Sans', sans-serif",
-          flexShrink: 0,
-        }}
-      >
+    <div className="flex items-center gap-2 px-4 mb-1">
+      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-600 font-heading flex-shrink-0">
         {label}
       </span>
       <span
         aria-hidden="true"
-        style={{
-          flex: 1,
-          height: 1,
-          background:
-            "linear-gradient(90deg, rgba(255,255,255,0.07) 0%, transparent 100%)",
-        }}
+        className="flex-1 h-px bg-gradient-to-r from-white/[0.07] to-transparent"
       />
     </div>
   );
@@ -591,35 +422,29 @@ function UsageBar({ isCollapsed }: { isCollapsed: boolean }) {
 
   if (pct <= 70) return null;
 
-  const barColor =
+  const barColorClass =
     pct >= 95
-      ? "#EF4444"
+      ? "bg-destructive"
       : pct >= 80
-      ? "#F59E0B"
-      : ACCENT;
+      ? "bg-warning"
+      : "bg-sidebar-primary";
+
+  const gradientBarClass =
+    pct >= 95
+      ? "bg-gradient-to-r from-warning to-destructive"
+      : pct >= 80
+      ? "bg-gradient-to-r from-sidebar-primary to-warning"
+      : "bg-gradient-to-r from-primary to-purple-500";
 
   if (isCollapsed) {
     return (
       <Tooltip>
         <TooltipTrigger asChild>
           <div className="flex justify-center py-2">
-            <div
-              style={{
-                width: 28,
-                height: 4,
-                borderRadius: 9999,
-                background: "rgba(255,255,255,0.1)",
-                overflow: "hidden",
-              }}
-            >
+            <div className="w-7 h-1 rounded-full bg-white/10 overflow-hidden">
               <div
-                className="sidebar-usage-fill"
-                style={{
-                  width: `${pct}%`,
-                  height: "100%",
-                  borderRadius: 9999,
-                  background: barColor,
-                }}
+                className={cn("sidebar-usage-fill h-full rounded-full", barColorClass)}
+                style={{ width: `${pct}%` }}
               />
             </div>
           </div>
@@ -632,56 +457,26 @@ function UsageBar({ isCollapsed }: { isCollapsed: boolean }) {
   }
 
   return (
-    <div
-      style={{
-        margin: "0 12px 8px",
-        padding: "10px 12px",
-        borderRadius: 8,
-        background: "rgba(255,255,255,0.04)",
-        border: "1px solid rgba(255,255,255,0.05)",
-      }}
-    >
+    <div className="mx-3 mb-2 p-2.5 px-3 rounded-lg bg-white/[0.04] border border-white/5">
       <div className="flex items-center justify-between mb-1.5">
-        <span
-          className="text-[11px]"
-          style={{ color: "#9CA3AF", fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-        >
+        <span className="text-[11px] text-muted-foreground font-heading">
           Conversations
         </span>
-        <span
-          className="text-[11px] font-semibold"
-          style={{ color: "#F9FAFB", fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-        >
+        <span className="text-[11px] font-semibold text-sidebar-foreground font-heading">
           {current}/{limit}
         </span>
       </div>
-      <div
-        style={{
-          height: 6,
-          borderRadius: 9999,
-          background: "rgba(255,255,255,0.08)",
-          overflow: "hidden",
-          marginBottom: 8,
-        }}
-      >
+      <div className="h-1.5 rounded-full bg-sidebar-border overflow-hidden mb-2">
         <div
-          className="sidebar-usage-fill"
-          style={{
-            width: `${pct}%`,
-            height: "100%",
-            borderRadius: 9999,
-            background:
-              pct >= 95
-                ? "linear-gradient(90deg, #F59E0B, #EF4444)"
-                : pct >= 80
-                ? "linear-gradient(90deg, #4F8EF7, #F59E0B)"
-                : `linear-gradient(90deg, ${ACCENT}, ${ACCENT_ALT})`,
-          }}
+          className={cn("sidebar-usage-fill h-full rounded-full", gradientBarClass)}
+          style={{ width: `${pct}%` }}
         />
       </div>
       <span
-        className="text-[11px]"
-        style={{ color: pct >= 95 ? "#EF4444" : "#9CA3AF" }}
+        className={cn(
+          "text-[11px]",
+          pct >= 95 ? "text-destructive" : "text-muted-foreground"
+        )}
       >
         {pct >= 95
           ? "⚠ Upgrade Now to avoid service interruption"
@@ -726,15 +521,9 @@ function UserBlock({
     : "Starter Plan";
 
   const avatar = (
-    <Avatar className="flex-shrink-0" style={{ width: 32, height: 32 }}>
+    <Avatar className="flex-shrink-0 w-8 h-8">
       <AvatarImage src={undefined} />
-      <AvatarFallback
-        className="text-[12px] font-semibold text-white"
-        style={{
-          background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_ALT})`,
-          fontSize: 12,
-        }}
-      >
+      <AvatarFallback className="text-[12px] font-semibold text-white bg-gradient-to-br from-primary to-purple-500">
         {initials}
       </AvatarFallback>
     </Avatar>
@@ -742,65 +531,56 @@ function UserBlock({
 
   const menuItems = (
     <DropdownMenuContent
-      align={isCollapsed ? "end" : "end"}
+      align="end"
       side={isCollapsed ? "right" : "top"}
-      className="w-52"
-      style={{ background: "#111827", border: "1px solid rgba(255,255,255,0.12)" }}
+      className="w-52 bg-popover border-border"
     >
       <div className="px-3 py-2">
-        <div className="text-[13px] font-semibold" style={{ color: "#F9FAFB" }}>
+        <div className="text-[13px] font-semibold text-foreground">
           {user.name || "User"}
         </div>
-        <div className="text-[11px] mt-0.5" style={{ color: "#6B7280" }}>
+        <div className="text-[11px] mt-0.5 text-gray-500">
           {user.email}
         </div>
-        <span
-          className="inline-block mt-1.5 text-[10px] font-medium px-1.5 py-0.5 rounded"
-          style={{ background: "rgba(79,142,247,0.15)", color: ACCENT }}
-        >
+        <span className="inline-block mt-1.5 text-[10px] font-medium px-1.5 py-0.5 rounded bg-primary/15 text-primary">
           {planLabel}
         </span>
       </div>
-      <DropdownMenuSeparator style={{ background: "rgba(255,255,255,0.08)" }} />
+      <DropdownMenuSeparator className="bg-sidebar-border" />
       <DropdownMenuItem
-        className="cursor-pointer text-[13px]"
-        style={{ color: "#9CA3AF" }}
+        className="cursor-pointer text-[13px] text-muted-foreground"
         onClick={() => navigate("/dashboard/profile")}
       >
         <User size={14} className="mr-2" /> View Profile
       </DropdownMenuItem>
       <DropdownMenuItem
-        className="cursor-pointer text-[13px]"
-        style={{ color: "#9CA3AF" }}
+        className="cursor-pointer text-[13px] text-muted-foreground"
         onClick={() => navigate("/dashboard/settings")}
       >
         <Settings size={14} className="mr-2" /> Account Settings
       </DropdownMenuItem>
       <DropdownMenuItem
-        className="cursor-pointer text-[13px]"
-        style={{ color: "#9CA3AF" }}
+        className="cursor-pointer text-[13px] text-muted-foreground"
         onClick={() => navigate("/dashboard/settings/billing")}
       >
         <CreditCard size={14} className="mr-2" /> Billing
       </DropdownMenuItem>
-      <DropdownMenuSeparator style={{ background: "rgba(255,255,255,0.08)" }} />
-      <DropdownMenuItem className="cursor-pointer text-[13px]" style={{ color: "#9CA3AF" }}>
+      <DropdownMenuSeparator className="bg-sidebar-border" />
+      <DropdownMenuItem className="cursor-pointer text-[13px] text-muted-foreground">
         <Newspaper size={14} className="mr-2" /> What&apos;s New
       </DropdownMenuItem>
       <DropdownMenuItem
-        className="cursor-pointer text-[13px]"
-        style={{ color: "#9CA3AF" }}
+        className="cursor-pointer text-[13px] text-muted-foreground"
         onClick={() => navigate("/dashboard/support")}
       >
         <HelpCircle size={14} className="mr-2" /> Help &amp; Documentation
       </DropdownMenuItem>
-      <DropdownMenuItem className="cursor-pointer text-[13px]" style={{ color: "#9CA3AF" }}>
+      <DropdownMenuItem className="cursor-pointer text-[13px] text-muted-foreground">
         <MessageCircle size={14} className="mr-2" /> Send Feedback
       </DropdownMenuItem>
-      <DropdownMenuSeparator style={{ background: "rgba(255,255,255,0.08)" }} />
+      <DropdownMenuSeparator className="bg-sidebar-border" />
       <DropdownMenuItem
-        className="cursor-pointer text-[13px]"
-        style={{ color: "#EF4444" }}
+        className="cursor-pointer text-[13px] text-destructive"
         onClick={onLogout}
       >
         <LogOut size={14} className="mr-2" /> Sign Out
@@ -813,8 +593,7 @@ function UserBlock({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
-            className="flex items-center justify-center focus:outline-none"
-            style={{ width: 40, height: 40 }}
+            className="flex items-center justify-center w-10 h-10 focus:outline-none"
             aria-label="User menu"
           >
             {avatar}
@@ -826,36 +605,20 @@ function UserBlock({
   }
 
   return (
-    <div
-      className="flex items-center gap-2.5 flex-shrink-0"
-      style={{
-        borderTop: "1px solid rgba(255,255,255,0.08)",
-        padding: "10px 12px",
-      }}
-    >
+    <div className="flex items-center gap-2.5 flex-shrink-0 border-t border-sidebar-border px-3 py-2.5">
       {avatar}
       <div className="flex-1 min-w-0">
-        <div
-          className="text-[13px] font-semibold truncate"
-          style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "#F9FAFB" }}
-        >
+        <div className="text-[12px] font-semibold truncate font-heading text-sidebar-foreground">
           {user.name || "User"}
         </div>
-        <div className="text-[11px] truncate" style={{ color: "#6B7280" }}>
+        <div className="text-[11px] truncate text-gray-500">
           {user.email}
         </div>
       </div>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
-            className="flex-shrink-0 flex items-center justify-center rounded-md transition-colors duration-150 focus:outline-none"
-            style={{ width: 28, height: 28, color: "#6B7280" }}
-            onMouseEnter={(e) =>
-              ((e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.08)")
-            }
-            onMouseLeave={(e) =>
-              ((e.currentTarget as HTMLElement).style.background = "transparent")
-            }
+            className="flex-shrink-0 flex items-center justify-center w-7 h-7 rounded-md transition-colors duration-150 focus:outline-none text-gray-500 hover:bg-white/[0.08]"
             aria-label="User menu"
           >
             <MoreHorizontal size={16} />
@@ -917,32 +680,12 @@ export function Sidebar({ isCollapsed, onToggle, mobile = false }: SidebarProps)
   return (
     <aside
       aria-label="Main navigation"
-      style={
+      className={cn(
         mobile
-          ? {
-              position: "relative",
-              width: "100%",
-              height: "100%",
-              background: SIDEBAR_BG,
-              display: "flex",
-              flexDirection: "column",
-              overflow: "hidden",
-            }
-          : {
-              position: "fixed",
-              top: 0,
-              left: 0,
-              bottom: 0,
-              width: collapsed ? 64 : 240,
-              background: SIDEBAR_BG,
-              borderRight: "1px solid rgba(255,255,255,0.07)",
-              zIndex: 50,
-              display: "flex",
-              flexDirection: "column",
-              transition: "width 200ms cubic-bezier(0.4,0,0.2,1)",
-              overflow: "hidden",
-            }
-      }
+          ? "relative w-full h-full bg-sidebar flex flex-col overflow-hidden"
+          : "fixed top-0 left-0 bottom-0 bg-sidebar border-r border-sidebar-border z-50 flex flex-col overflow-hidden transition-[width] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]"
+      )}
+      style={mobile ? undefined : { width: collapsed ? 64 : 240 }}
     >
       {/* 1. Header — 64px */}
       <SidebarHeader isCollapsed={collapsed} />
@@ -957,18 +700,11 @@ export function Sidebar({ isCollapsed, onToggle, mobile = false }: SidebarProps)
       >
         {collapsed ? (
           /* Collapsed: icons only, thin dividers between sections */
-          <div style={{ paddingTop: 4, paddingBottom: 4 }}>
+          <div className="py-1">
             {navSections.map((section, idx) => (
               <div key={section.section}>
                 {idx > 0 && (
-                  <div
-                    style={{
-                      height: 1,
-                      margin: "6px 16px",
-                      background:
-                        "linear-gradient(90deg, transparent, rgba(255,255,255,0.08) 30%, rgba(255,255,255,0.08) 70%, transparent)",
-                    }}
-                  />
+                  <div className="h-px mx-4 my-1.5 bg-gradient-to-r from-transparent via-sidebar-border to-transparent" />
                 )}
                 {section.items.map((item) => (
                   <NavItemRow
@@ -985,9 +721,9 @@ export function Sidebar({ isCollapsed, onToggle, mobile = false }: SidebarProps)
           </div>
         ) : (
           /* Expanded: section labels + items */
-          <div style={{ paddingTop: 4, paddingBottom: 4 }}>
+          <div className="py-1">
             {navSections.map((section, idx) => (
-              <div key={section.section} style={{ marginTop: idx > 0 ? 16 : 0 }}>
+              <div key={section.section} className={idx > 0 ? "mt-4" : ""}>
                 <SectionLabel label={section.section} />
                 {section.items.map((item) => (
                   <NavItemRow
@@ -1014,32 +750,19 @@ export function Sidebar({ isCollapsed, onToggle, mobile = false }: SidebarProps)
       {/* 6. Collapse Toggle — hidden on mobile */}
       {!mobile && (
         <div
-          style={{
-            borderTop: "1px solid rgba(255,255,255,0.08)",
-            padding: "6px 8px 8px",
-            display: "flex",
-            justifyContent: collapsed ? "center" : "flex-end",
-          }}
+          className={cn(
+            "border-t border-sidebar-border px-2 pt-1.5 pb-2 flex",
+            collapsed ? "justify-center" : "justify-end"
+          )}
         >
           <Tooltip>
             <TooltipTrigger asChild>
               <button
                 onClick={onToggle}
-                className="flex items-center justify-center rounded-md transition-colors duration-150 focus:outline-none"
-                style={{
-                  width: collapsed ? 40 : "auto",
-                  height: 32,
-                  padding: collapsed ? 0 : "0 10px",
-                  color: "#6B7280",
-                  gap: 6,
-                }}
-                onMouseEnter={(e) =>
-                  ((e.currentTarget as HTMLElement).style.background =
-                    "rgba(255,255,255,0.06)")
-                }
-                onMouseLeave={(e) =>
-                  ((e.currentTarget as HTMLElement).style.background = "transparent")
-                }
+                className={cn(
+                  "flex items-center justify-center rounded-md transition-colors duration-150 focus:outline-none text-gray-500 hover:bg-white/[0.06] h-8 gap-1.5",
+                  collapsed ? "w-10" : "w-auto px-2.5"
+                )}
                 aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
               >
                 {collapsed ? (
@@ -1047,12 +770,7 @@ export function Sidebar({ isCollapsed, onToggle, mobile = false }: SidebarProps)
                 ) : (
                   <>
                     <ChevronLeft size={14} />
-                    <span
-                      style={{
-                        fontSize: 12,
-                        fontFamily: "'Plus Jakarta Sans', sans-serif",
-                      }}
-                    >
+                    <span className="text-[11px] font-heading">
                       Collapse
                     </span>
                   </>

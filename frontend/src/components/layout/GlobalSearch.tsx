@@ -17,6 +17,7 @@ import {
   Clock,
   X,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -32,12 +33,42 @@ interface SearchResult {
 
 const CATEGORY_META: Record<
   SearchResult["type"],
-  { icon: React.ElementType; label: string; color: string }
+  {
+    icon: React.ElementType;
+    label: string;
+    colorClass: string;
+    bgClass: string;
+    borderClass: string;
+  }
 > = {
-  conversation: { icon: MessagesSquare, label: "Conversations", color: "#4F8EF7" },
-  lead: { icon: UserCheck, label: "Leads", color: "#10B981" },
-  document: { icon: FileText, label: "Documents", color: "#F59E0B" },
-  contact: { icon: Users, label: "Contacts", color: "#7C3AED" },
+  conversation: {
+    icon: MessagesSquare,
+    label: "Conversations",
+    colorClass: "text-primary",
+    bgClass: "bg-primary/20",
+    borderClass: "border-l-primary",
+  },
+  lead: {
+    icon: UserCheck,
+    label: "Leads",
+    colorClass: "text-success",
+    bgClass: "bg-success/20",
+    borderClass: "border-l-success",
+  },
+  document: {
+    icon: FileText,
+    label: "Documents",
+    colorClass: "text-warning",
+    bgClass: "bg-warning/20",
+    borderClass: "border-l-warning",
+  },
+  contact: {
+    icon: Users,
+    label: "Contacts",
+    colorClass: "text-purple-400",
+    bgClass: "bg-purple-400/20",
+    borderClass: "border-l-purple-400",
+  },
 };
 
 // ─── Mock search results (replace with real API calls when backend ready) ─────
@@ -101,42 +132,30 @@ function ResultRow({
     <button
       ref={ref}
       onClick={onSelect}
-      className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors duration-100 focus:outline-none"
-      style={{
-        background: isActive ? "rgba(79,142,247,0.1)" : "transparent",
-        borderLeft: isActive ? `3px solid ${meta.color}` : "3px solid transparent",
-      }}
-      onMouseEnter={(e) =>
-        !isActive &&
-        ((e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)")
-      }
-      onMouseLeave={(e) =>
-        !isActive &&
-        ((e.currentTarget as HTMLElement).style.background = "transparent")
-      }
+      className={cn(
+        "w-full flex items-center gap-3 px-4 py-3 text-left transition-colors duration-100 focus:outline-none border-l-[3px]",
+        isActive
+          ? cn("bg-primary/10", meta.borderClass)
+          : "border-l-transparent hover:bg-white/[0.04]"
+      )}
     >
       <div
-        className="flex-shrink-0 flex items-center justify-center rounded-md"
-        style={{
-          width: 32,
-          height: 32,
-          background: `${meta.color}20`,
-        }}
+        className={cn(
+          "flex-shrink-0 flex items-center justify-center rounded-md w-8 h-8",
+          meta.bgClass
+        )}
       >
-        <IconEl size={15} style={{ color: meta.color }} />
+        <IconEl size={15} className={meta.colorClass} />
       </div>
       <div className="flex-1 min-w-0">
-        <div
-          className="text-[13px] font-medium truncate"
-          style={{ color: "#F9FAFB", fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-        >
+        <div className="text-[13px] font-medium truncate text-foreground font-heading">
           {result.title}
         </div>
-        <div className="text-[11px] truncate" style={{ color: "#6B7280" }}>
+        <div className="text-[11px] truncate text-gray-500">
           {result.subtitle}
         </div>
       </div>
-      <ArrowRight size={14} style={{ color: "#4B5563", flexShrink: 0 }} />
+      <ArrowRight size={14} className="text-gray-600 flex-shrink-0" />
     </button>
   );
 }
@@ -244,58 +263,33 @@ export function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
   return (
     /* Backdrop */
     <div
-      className="fixed inset-0 flex items-start justify-center pt-[10vh]"
-      style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", zIndex: 200 }}
+      className="fixed inset-0 flex items-start justify-center pt-[10vh] bg-black/60 backdrop-blur-sm z-[200]"
       onClick={onClose}
     >
       {/* Modal */}
       <div
-        className="w-full max-w-[640px] mx-4 rounded-2xl overflow-hidden flex flex-col"
-        style={{
-          background: "#0D1117",
-          border: "1px solid rgba(255,255,255,0.12)",
-          boxShadow: "0 20px 60px rgba(0,0,0,0.7)",
-          maxHeight: "60vh",
-        }}
+        className="w-full max-w-[640px] mx-4 rounded-2xl overflow-hidden flex flex-col bg-popover border border-border shadow-strong max-h-[60vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Search input row */}
-        <div
-          className="flex items-center gap-3 px-4"
-          style={{
-            height: 56,
-            borderBottom: "1px solid rgba(255,255,255,0.08)",
-          }}
-        >
-          <Search size={18} style={{ color: "#6B7280", flexShrink: 0 }} />
+        <div className="flex items-center gap-3 px-4 h-14 border-b border-border">
+          <Search size={18} className="text-gray-500 flex-shrink-0" />
           <input
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search conversations, leads, documents…"
-            className="flex-1 bg-transparent border-none outline-none text-[14px]"
-            style={{
-              color: "#F9FAFB",
-              fontFamily: "'Plus Jakarta Sans', sans-serif",
-            }}
+            className="flex-1 bg-transparent border-none outline-none text-[14px] text-foreground font-heading placeholder:text-muted-foreground"
           />
           {query && (
             <button
               onClick={() => setQuery("")}
-              className="flex-shrink-0 focus:outline-none"
-              style={{ color: "#6B7280" }}
+              className="flex-shrink-0 focus:outline-none text-gray-500 hover:text-foreground transition-colors"
             >
               <X size={16} />
             </button>
           )}
-          <kbd
-            className="flex-shrink-0 hidden sm:flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px]"
-            style={{
-              border: "1px solid rgba(255,255,255,0.15)",
-              color: "#6B7280",
-              background: "rgba(255,255,255,0.05)",
-            }}
-          >
+          <kbd className="flex-shrink-0 hidden sm:flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] border border-white/15 text-gray-500 bg-white/5">
             Esc
           </kbd>
         </div>
@@ -306,27 +300,17 @@ export function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
             /* Show recent searches or suggestions */
             recentSearches.length > 0 ? (
               <div>
-                <div
-                  className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wider"
-                  style={{ color: "#4B5563" }}
-                >
+                <div className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-gray-600">
                   Recent Searches
                 </div>
                 {recentSearches.map((term) => (
                   <button
                     key={term}
                     onClick={() => handleRecentClick(term)}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left focus:outline-none transition-colors duration-100"
-                    onMouseEnter={(e) =>
-                      ((e.currentTarget as HTMLElement).style.background =
-                        "rgba(255,255,255,0.04)")
-                    }
-                    onMouseLeave={(e) =>
-                      ((e.currentTarget as HTMLElement).style.background = "transparent")
-                    }
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left focus:outline-none transition-colors duration-100 hover:bg-white/[0.04]"
                   >
-                    <Clock size={14} style={{ color: "#4B5563", flexShrink: 0 }} />
-                    <span className="text-[13px]" style={{ color: "#9CA3AF" }}>
+                    <Clock size={14} className="text-gray-600 flex-shrink-0" />
+                    <span className="text-[13px] text-muted-foreground">
                       {term}
                     </span>
                   </button>
@@ -334,8 +318,8 @@ export function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
               </div>
             ) : (
               <div className="px-4 py-8 text-center">
-                <Search size={32} className="mx-auto mb-3" style={{ color: "#374151" }} />
-                <p className="text-[13px]" style={{ color: "#6B7280" }}>
+                <Search size={32} className="mx-auto mb-3 text-gray-700" />
+                <p className="text-[13px] text-gray-500">
                   Search across conversations, leads, documents, and contacts
                 </p>
                 <div className="flex justify-center gap-4 mt-4">
@@ -345,18 +329,15 @@ export function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
                     return (
                       <div
                         key={type}
-                        className="flex flex-col items-center gap-1"
-                        style={{ color: "#4B5563" }}
+                        className="flex flex-col items-center gap-1 text-gray-600"
                       >
                         <div
-                          className="flex items-center justify-center rounded-lg"
-                          style={{
-                            width: 36,
-                            height: 36,
-                            background: `${meta.color}15`,
-                          }}
+                          className={cn(
+                            "flex items-center justify-center rounded-lg w-9 h-9",
+                            meta.bgClass.replace("/20", "/10")
+                          )}
                         >
-                          <IconEl size={16} style={{ color: meta.color }} />
+                          <IconEl size={16} className={meta.colorClass} />
                         </div>
                         <span className="text-[10px]">{meta.label}</span>
                       </div>
@@ -367,10 +348,10 @@ export function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
             )
           ) : results.length === 0 ? (
             <div className="px-4 py-8 text-center">
-              <p className="text-[13px]" style={{ color: "#6B7280" }}>
-                No results for &quot;<strong style={{ color: "#9CA3AF" }}>{query}</strong>&quot;
+              <p className="text-[13px] text-gray-500">
+                No results for &quot;<strong className="text-muted-foreground">{query}</strong>&quot;
               </p>
-              <p className="text-[12px] mt-1" style={{ color: "#4B5563" }}>
+              <p className="text-[12px] mt-1 text-gray-600">
                 Try different keywords
               </p>
             </div>
@@ -380,10 +361,7 @@ export function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
               const meta = CATEGORY_META[type as SearchResult["type"]];
               return (
                 <div key={type}>
-                  <div
-                    className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wider"
-                    style={{ color: "#4B5563" }}
-                  >
+                  <div className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-gray-600">
                     {meta.label}
                   </div>
                   {items.map((result) => {
@@ -404,27 +382,17 @@ export function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
         </div>
 
         {/* Footer shortcuts */}
-        <div
-          className="flex items-center gap-4 px-4 py-2.5"
-          style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
-        >
+        <div className="flex items-center gap-4 px-4 py-2.5 border-t border-border">
           {[
             { key: "↑↓", desc: "Navigate" },
             { key: "↵", desc: "Select" },
             { key: "Esc", desc: "Close" },
           ].map(({ key, desc }) => (
             <div key={key} className="flex items-center gap-1.5">
-              <kbd
-                className="flex items-center px-1.5 py-0.5 rounded text-[10px]"
-                style={{
-                  border: "1px solid rgba(255,255,255,0.15)",
-                  color: "#6B7280",
-                  background: "rgba(255,255,255,0.05)",
-                }}
-              >
+              <kbd className="flex items-center px-1.5 py-0.5 rounded text-[10px] border border-white/15 text-gray-500 bg-white/5">
                 {key}
               </kbd>
-              <span className="text-[11px]" style={{ color: "#4B5563" }}>
+              <span className="text-[11px] text-gray-600">
                 {desc}
               </span>
             </div>
