@@ -44,10 +44,14 @@ const TeamManagement = lazy(() => import("./pages/admin/TeamManagement"));
 const AuditLogs = lazy(() => import("./pages/admin/AuditLogs"));
 const APIKeys = lazy(() => import("./pages/admin/APIKeys"));
 const HelpCenter = lazy(() => import("./pages/admin/HelpCenter"));
-const EmailChannel = lazy(() => import("./pages/admin/EmailChannel"));
 const Inbox = lazy(() => import("./pages/admin/Inbox"));
 const Conversations = lazy(() => import("./pages/admin/Conversations"));
 const Leads = lazy(() => import("./pages/admin/Leads"));
+const Contacts = lazy(() => import("./pages/admin/Contacts"));
+const ContactProfile = lazy(() => import("./pages/admin/ContactProfile"));
+const Campaigns = lazy(() => import("./pages/admin/Campaigns"));
+const Bookings = lazy(() => import("./pages/admin/Bookings"));
+const Channels = lazy(() => import("./pages/admin/Channels"));
 const Chatbot = lazy(() => import("./pages/admin/Chatbot"));
 const Install = lazy(() => import("./pages/admin/Install"));
 const Privacy = lazy(() => import("./pages/Privacy"));
@@ -235,21 +239,61 @@ const App = () => (
                   }
                 />
                 <Route
-                  path="chatbot"
-                  element={
-                    <PageTransition>
-                      <Suspense fallback={<DashboardSkeleton />}>
-                        <Chatbot />
-                      </Suspense>
-                    </PageTransition>
-                  }
-                />
-                <Route
                   path="leads"
                   element={
                     <PageTransition>
                       <Suspense fallback={<DashboardSkeleton />}>
                         <Leads />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="contacts"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <Contacts />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="contacts/:id"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <ContactProfile />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="campaigns"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <Campaigns />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="bookings"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <Bookings />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="channels"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <Channels />
                       </Suspense>
                     </PageTransition>
                   }
@@ -396,21 +440,61 @@ const App = () => (
                   }
                 />
                 <Route
-                  path="email"
-                  element={
-                    <PageTransition>
-                      <Suspense fallback={<DashboardSkeleton />}>
-                        <EmailChannel />
-                      </Suspense>
-                    </PageTransition>
-                  }
-                />
-                <Route
                   path="leads"
                   element={
                     <PageTransition>
                       <Suspense fallback={<DashboardSkeleton />}>
                         <Leads />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="contacts"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <Contacts />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="contacts/:id"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <ContactProfile />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="campaigns"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <Campaigns />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="bookings"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <Bookings />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="channels"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <Channels />
                       </Suspense>
                     </PageTransition>
                   }

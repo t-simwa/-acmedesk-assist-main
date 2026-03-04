@@ -108,11 +108,17 @@ class Settings(BaseSettings):
     messenger_outbound_webhook_url: Optional[str] = None  # Optional HTTP endpoint to call for outbound Messenger delivery
     messenger_outbound_webhook_token: Optional[str] = None  # Optional token/secret for outbound webhook auth
 
-    # Twitter/X channel configuration (J3.2)
-    twitter_channel_enabled: bool = False  # Master toggle for Twitter/X channel
-    twitter_account_id: Optional[str] = None  # Twitter account ID / handle
-    twitter_outbound_webhook_url: Optional[str] = None  # Optional HTTP endpoint to call for outbound Twitter DM delivery
-    twitter_outbound_webhook_token: Optional[str] = None  # Optional token/secret for outbound webhook auth
+    # Twitter/X channel configuration (J3.2) — LEGACY, kept for backward compat
+    twitter_channel_enabled: bool = False
+    twitter_account_id: Optional[str] = None
+    twitter_outbound_webhook_url: Optional[str] = None
+    twitter_outbound_webhook_token: Optional[str] = None
+
+    # Instagram DM channel configuration (9.4)
+    instagram_channel_enabled: bool = False  # Master toggle for Instagram DM channel
+    instagram_account_id: Optional[str] = None  # Instagram business account ID
+    instagram_outbound_webhook_url: Optional[str] = None  # Optional HTTP endpoint for outbound Instagram DM delivery
+    instagram_outbound_webhook_token: Optional[str] = None  # Optional token/secret for outbound webhook auth
     
     # Google OAuth configuration (3.3.5)
     google_client_id: Optional[str] = None  # Google OAuth Client ID

@@ -33,11 +33,16 @@ from .routers import (
     user_preferences,
     whatsapp,
     messenger,
-    twitter,
+    instagram,
     security,
     oauth,
     team,
     onboarding,
+    contacts,
+    campaigns,
+    bookings,
+    channels,
+    inbox,
 )
 
 
@@ -104,12 +109,17 @@ app.include_router(email.router)
 app.include_router(sms.router)
 app.include_router(whatsapp.router)
 app.include_router(messenger.router)
-app.include_router(twitter.router)
+app.include_router(instagram.router)
 app.include_router(security.router)
 app.include_router(oauth.router)
 app.include_router(team.router)
 app.include_router(onboarding.router)
 app.include_router(dashboard.router)
+app.include_router(contacts.router)
+app.include_router(campaigns.router)
+app.include_router(bookings.router)
+app.include_router(channels.router)
+app.include_router(inbox.router)
 
 
 @app.get("/")

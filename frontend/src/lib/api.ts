@@ -2866,3 +2866,426 @@ export const leadsApi = {
     });
   },
 };
+
+// ============================================================================
+// Contacts API (Milestone 9.8)
+// ============================================================================
+
+export interface ContactItem {
+  id: string;
+  tenant_id: string;
+  full_name: string | null;
+  email: string | null;
+  phone: string | null;
+  instagram_handle: string | null;
+  company: string | null;
+  channels_used: string[] | null;
+  first_seen_channel: string | null;
+  first_seen_at: string | null;
+  last_active_at: string | null;
+  lead_status: string | null;
+  lead_score: string | null;
+  tags: string[] | null;
+  notes: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface ContactListResponse {
+  contacts: ContactItem[];
+  total: number;
+  page: number;
+  per_page: number;
+}
+
+export interface ContactCreateRequest {
+  full_name?: string;
+  email?: string;
+  phone?: string;
+  instagram_handle?: string;
+  company?: string;
+  lead_status?: string;
+  lead_score?: string;
+  tags?: string[];
+  notes?: string;
+}
+
+export interface ContactUpdateRequest {
+  full_name?: string;
+  email?: string;
+  phone?: string;
+  instagram_handle?: string;
+  company?: string;
+  lead_status?: string;
+  lead_score?: string;
+  tags?: string[];
+  notes?: string;
+}
+
+export interface ContactDetailResponse {
+  contact: ContactItem;
+  conversations_count: number;
+  bookings_count: number;
+}
+
+export interface ContactListFilters {
+  page?: number;
+  per_page?: number;
+  search?: string;
+  lead_status?: string;
+  channel?: string;
+}
+
+export const contactsApi = {
+  async list(filters: ContactListFilters = {}): Promise<ContactListResponse> {
+    const params = new URLSearchParams();
+    if (filters.page) params.set("page", String(filters.page));
+    if (filters.per_page) params.set("per_page", String(filters.per_page));
+    if (filters.search) params.set("search", filters.search);
+    if (filters.lead_status) params.set("lead_status", filters.lead_status);
+    if (filters.channel) params.set("channel", filters.channel);
+    return apiClient<ContactListResponse>(`/api/contacts?${params.toString()}`);
+  },
+
+  async get(id: string): Promise<ContactDetailResponse> {
+    return apiClient<ContactDetailResponse>(`/api/contacts/${id}`);
+  },
+
+  async create(data: ContactCreateRequest): Promise<ContactItem> {
+    return apiClient<ContactItem>("/api/contacts", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async update(id: string, data: ContactUpdateRequest): Promise<ContactItem> {
+    return apiClient<ContactItem>(`/api/contacts/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async remove(id: string): Promise<{ message: string }> {
+    return apiClient<{ message: string }>(`/api/contacts/${id}`, {
+      method: "DELETE",
+    });
+  },
+};
+
+// ============================================================================
+// Campaigns API (Milestone 9.9)
+// ============================================================================
+
+export interface CampaignItem {
+  id: string;
+  tenant_id: string;
+  name: string;
+  channel: string;
+  status: string;
+  audience_filter: Record<string, unknown> | null;
+  message_template: string | null;
+  scheduled_at: string | null;
+  sent_at: string | null;
+  sent_count: number;
+  delivered_count: number;
+  read_count: number;
+  reply_count: number;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface CampaignListResponse {
+  campaigns: CampaignItem[];
+  total: number;
+  page: number;
+  per_page: number;
+}
+
+export interface CampaignCreateRequest {
+  name: string;
+  channel: string;
+  message_template?: string;
+  audience_filter?: Record<string, unknown>;
+  scheduled_at?: string;
+}
+
+export interface CampaignUpdateRequest {
+  name?: string;
+  channel?: string;
+  status?: string;
+  message_template?: string;
+  audience_filter?: Record<string, unknown>;
+  scheduled_at?: string;
+}
+
+export interface CampaignStats {
+  total: number;
+  draft: number;
+  scheduled: number;
+  sending: number;
+  sent: number;
+  cancelled: number;
+}
+
+export interface CampaignListFilters {
+  page?: number;
+  per_page?: number;
+  status?: string;
+  channel?: string;
+}
+
+export const campaignsApi = {
+  async list(filters: CampaignListFilters = {}): Promise<CampaignListResponse> {
+    const params = new URLSearchParams();
+    if (filters.page) params.set("page", String(filters.page));
+    if (filters.per_page) params.set("per_page", String(filters.per_page));
+    if (filters.status) params.set("status", filters.status);
+    if (filters.channel) params.set("channel", filters.channel);
+    return apiClient<CampaignListResponse>(`/api/campaigns?${params.toString()}`);
+  },
+
+  async get(id: string): Promise<CampaignItem> {
+    return apiClient<CampaignItem>(`/api/campaigns/${id}`);
+  },
+
+  async create(data: CampaignCreateRequest): Promise<CampaignItem> {
+    return apiClient<CampaignItem>("/api/campaigns", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async update(id: string, data: CampaignUpdateRequest): Promise<CampaignItem> {
+    return apiClient<CampaignItem>(`/api/campaigns/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async remove(id: string): Promise<{ message: string }> {
+    return apiClient<{ message: string }>(`/api/campaigns/${id}`, {
+      method: "DELETE",
+    });
+  },
+
+  async stats(): Promise<CampaignStats> {
+    return apiClient<CampaignStats>("/api/campaigns/stats");
+  },
+
+  async send(id: string): Promise<{ message: string }> {
+    return apiClient<{ message: string }>(`/api/campaigns/${id}/send`, {
+      method: "POST",
+    });
+  },
+};
+
+// ============================================================================
+// Bookings API (Milestone 9.10)
+// ============================================================================
+
+export interface BookingItem {
+  id: string;
+  tenant_id: string;
+  contact_id: string | null;
+  conversation_id: string | null;
+  service: string;
+  preferred_date: string | null;
+  preferred_time: string | null;
+  status: string;
+  notes: string | null;
+  source_channel: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface BookingListResponse {
+  bookings: BookingItem[];
+  total: number;
+  page: number;
+  per_page: number;
+}
+
+export interface BookingCreateRequest {
+  contact_id?: string;
+  conversation_id?: string;
+  service: string;
+  preferred_date?: string;
+  preferred_time?: string;
+  notes?: string;
+  source_channel?: string;
+}
+
+export interface BookingUpdateRequest {
+  contact_id?: string;
+  service?: string;
+  preferred_date?: string;
+  preferred_time?: string;
+  status?: string;
+  notes?: string;
+}
+
+export interface BookingStats {
+  total: number;
+  requested: number;
+  confirmed: number;
+  completed: number;
+  cancelled: number;
+}
+
+export interface BookingListFilters {
+  page?: number;
+  per_page?: number;
+  status?: string;
+  channel?: string;
+}
+
+export const bookingsApi = {
+  async list(filters: BookingListFilters = {}): Promise<BookingListResponse> {
+    const params = new URLSearchParams();
+    if (filters.page) params.set("page", String(filters.page));
+    if (filters.per_page) params.set("per_page", String(filters.per_page));
+    if (filters.status) params.set("status", filters.status);
+    if (filters.channel) params.set("channel", filters.channel);
+    return apiClient<BookingListResponse>(`/api/bookings?${params.toString()}`);
+  },
+
+  async get(id: string): Promise<BookingItem> {
+    return apiClient<BookingItem>(`/api/bookings/${id}`);
+  },
+
+  async create(data: BookingCreateRequest): Promise<BookingItem> {
+    return apiClient<BookingItem>("/api/bookings", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async update(id: string, data: BookingUpdateRequest): Promise<BookingItem> {
+    return apiClient<BookingItem>(`/api/bookings/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async remove(id: string): Promise<{ message: string }> {
+    return apiClient<{ message: string }>(`/api/bookings/${id}`, {
+      method: "DELETE",
+    });
+  },
+
+  async stats(): Promise<BookingStats> {
+    return apiClient<BookingStats>("/api/bookings/stats");
+  },
+};
+
+// ============================================================================
+// Unified Inbox API (Milestone 9.7)
+// ============================================================================
+
+export interface InboxThreadItem {
+  id: string;
+  channel: string;
+  contact_name: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  last_message: string | null;
+  last_message_at: string | null;
+  message_count: number;
+  status: string;
+  is_unread: boolean;
+}
+
+export interface InboxListResponse {
+  threads: InboxThreadItem[];
+  total: number;
+  page: number;
+  per_page: number;
+}
+
+export interface InboxMessageItem {
+  id: string;
+  role: string;
+  content: string;
+  created_at: string | null;
+  metadata: Record<string, unknown> | null;
+}
+
+export interface InboxThreadDetailResponse {
+  conversation_id: string;
+  channel: string;
+  status: string;
+  contact_name: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  messages: InboxMessageItem[];
+}
+
+export interface InboxReplyResponse {
+  message: InboxMessageItem;
+}
+
+export interface InboxListFilters {
+  page?: number;
+  per_page?: number;
+  channel?: string;
+  status?: string;
+  search?: string;
+}
+
+export const inboxApi = {
+  async list(filters: InboxListFilters = {}): Promise<InboxListResponse> {
+    const params = new URLSearchParams();
+    if (filters.page) params.set("page", String(filters.page));
+    if (filters.per_page) params.set("per_page", String(filters.per_page));
+    if (filters.channel) params.set("channel", filters.channel);
+    if (filters.status) params.set("status", filters.status);
+    if (filters.search) params.set("search", filters.search);
+    return apiClient<InboxListResponse>(`/api/inbox?${params.toString()}`);
+  },
+
+  async getThread(conversationId: string): Promise<InboxThreadDetailResponse> {
+    return apiClient<InboxThreadDetailResponse>(`/api/inbox/${conversationId}`);
+  },
+
+  async reply(conversationId: string, body: string): Promise<InboxReplyResponse> {
+    return apiClient<InboxReplyResponse>(`/api/inbox/${conversationId}/reply`, {
+      method: "POST",
+      body: JSON.stringify({ body }),
+    });
+  },
+};
+
+// ============================================================================
+// Channels Config API (Milestone 9.1)
+// ============================================================================
+
+export interface ChannelConfigItem {
+  channel: string;
+  enabled: boolean;
+  connected: boolean;
+  display_name: string;
+  description: string;
+}
+
+export interface ChannelConfigListResponse {
+  channels: ChannelConfigItem[];
+}
+
+export interface ChannelToggleResponse {
+  channel: string;
+  enabled: boolean;
+  message: string;
+}
+
+export const channelsApi = {
+  async list(): Promise<ChannelConfigListResponse> {
+    return apiClient<ChannelConfigListResponse>("/api/channels");
+  },
+
+  async toggle(channel: string, enabled: boolean): Promise<ChannelToggleResponse> {
+    return apiClient<ChannelToggleResponse>(`/api/channels/${channel}/toggle`, {
+      method: "POST",
+      body: JSON.stringify({ enabled }),
+    });
+  },
+};
