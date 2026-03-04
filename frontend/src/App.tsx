@@ -54,6 +54,7 @@ const Bookings = lazy(() => import("./pages/admin/Bookings"));
 const Channels = lazy(() => import("./pages/admin/Channels"));
 const Chatbot = lazy(() => import("./pages/admin/Chatbot"));
 const Install = lazy(() => import("./pages/admin/Install"));
+const Integrations = lazy(() => import("./pages/admin/Integrations"));
 const Privacy = lazy(() => import("./pages/Privacy"));
 const Terms = lazy(() => import("./pages/Terms"));
 
@@ -334,6 +335,16 @@ const App = () => (
                     <PageTransition>
                       <Suspense fallback={<DashboardSkeleton />}>
                         <TeamManagement />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="integrations"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <Integrations />
                       </Suspense>
                     </PageTransition>
                   }
