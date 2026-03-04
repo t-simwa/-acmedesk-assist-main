@@ -163,15 +163,15 @@ export default function Dashboard() {
   /* ─── Error State ──────────────────────────────────────────────────────── */
   if (error && !data) {
     return (
-      <div className="flex flex-col w-full min-w-0">
-        <header className="mb-6 sm:mb-8">
-          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground font-heading">
+      <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8 pb-32 max-w-[1600px] mx-auto w-full">
+        <div>
+          <h1 className="font-heading text-xl sm:text-2xl font-bold text-foreground tracking-tight leading-none">
             Dashboard
           </h1>
-          <p className="mt-1.5 text-[13px] sm:text-sm text-muted-foreground font-description max-w-xl">
+          <p className="text-sm text-muted-foreground mt-1 font-description">
             Overview of your chatbot performance
           </p>
-        </header>
+        </div>
         <NetworkErrorState
           error={error as ApiError}
           onRetry={() => refetch()}
@@ -204,32 +204,30 @@ export default function Dashboard() {
 
   /* ─── Render ───────────────────────────────────────────────────────────── */
   return (
-    <div className="flex flex-col w-full min-w-0 gap-6">
+    <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8 pb-32 max-w-[1600px] mx-auto w-full">
       {/* ─── Header ─────────────────────────────────────────────────────── */}
-      <header>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground font-heading">
-              Dashboard
-            </h1>
-            <p className="mt-1 text-[13px] sm:text-sm text-muted-foreground font-description">
-              Overview of your chatbot performance
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void refetch()}
-              className="gap-1.5 text-xs"
-            >
-              <RefreshCw size={13} />
-              <span className="hidden sm:inline">Refresh</span>
-            </Button>
-            <DateRangeFilter value={dateRange} onChange={setDateRange} />
-          </div>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="font-heading text-xl sm:text-2xl font-bold text-foreground tracking-tight leading-none">
+            Dashboard
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1 font-description">
+            Overview of your chatbot performance
+          </p>
         </div>
-      </header>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void refetch()}
+            className="gap-1.5 text-xs"
+          >
+            <RefreshCw size={13} />
+            <span className="hidden sm:inline">Refresh</span>
+          </Button>
+          <DateRangeFilter value={dateRange} onChange={setDateRange} />
+        </div>
+      </div>
 
       {/* ─── Setup Checklist Banner ─────────────────────────────────────── */}
       <SetupChecklistBanner />

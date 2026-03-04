@@ -878,9 +878,9 @@ export default function Inbox() {
      ═══════════════════════════════════════════════════════════════════════════ */
 
   return (
-    <div className="flex flex-col w-full min-w-0 h-full">
+    <div className="flex flex-col gap-6 w-full min-w-0 h-full">
       {/* ─── Page Header ────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 sm:p-6 lg:px-8 lg:pt-8 lg:pb-0 pb-0">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-4 pt-4 sm:px-6 sm:pt-6 lg:px-8 lg:pt-8">
         <div>
           <h1 className="font-heading text-xl sm:text-2xl font-bold text-foreground tracking-tight leading-none">
             Inbox

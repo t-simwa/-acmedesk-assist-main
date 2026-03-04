@@ -110,13 +110,13 @@ const KEYWORD_TRIGGER_PRESETS = [
   "help", "problem", "issue", "emergency", "angry",
 ];
 
-const TABS: { id: TabType; label: string; icon: React.ReactNode }[] = [
-  { id: "appearance", label: "Appearance", icon: <Palette size={14} /> },
-  { id: "behavior", label: "Behavior", icon: <Settings size={14} /> },
-  { id: "business-hours", label: "Business Hours", icon: <Clock size={14} /> },
-  { id: "escalation", label: "Escalation", icon: <AlertTriangle size={14} /> },
-  { id: "lead-capture", label: "Lead Capture", icon: <UserPlus size={14} /> },
-  { id: "notifications", label: "Notifications", icon: <BellRing size={14} /> },
+const TABS: { id: TabType; label: string; shortLabel: string; icon: React.ReactNode }[] = [
+  { id: "appearance", label: "Appearance", shortLabel: "Appearance", icon: <Palette size={14} /> },
+  { id: "behavior", label: "Behavior", shortLabel: "Behavior", icon: <Settings size={14} /> },
+  { id: "business-hours", label: "Business Hours", shortLabel: "Hours", icon: <Clock size={14} /> },
+  { id: "escalation", label: "Escalation", shortLabel: "Escalation", icon: <AlertTriangle size={14} /> },
+  { id: "lead-capture", label: "Lead Capture", shortLabel: "Leads", icon: <UserPlus size={14} /> },
+  { id: "notifications", label: "Notifications", shortLabel: "Alerts", icon: <BellRing size={14} /> },
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════════════
@@ -193,29 +193,70 @@ export default function ChatbotPage() {
       </div>
 
       {/* ── Tabs Navigation ── */}
-      <div className="rounded-xl overflow-hidden border border-border bg-card">
-        <div className="flex overflow-x-auto [scrollbar-width:none] [-webkit-overflow-scrolling:touch]">
-          {TABS.map(tab => {
-            const isActive = currentTab === tab.id;
-            return (
+      {/* Mobile (<sm): 3×2 grid with short labels — all visible, no scrolling */}
+      <div className="grid grid-cols-3 gap-1.5 sm:hidden">
+        {TABS.map(tab => {
+          const isActive = currentTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setCurrentTab(tab.id)}
+              className={cn(
+                "flex items-center justify-center gap-1.5 px-2 py-2.5 text-xs font-semibold font-heading rounded-lg border transition-all",
+                isActive
+                  ? "bg-primary/10 text-primary border-primary/30 shadow-sm"
+                  : "bg-card text-muted-foreground border-border hover:text-foreground hover:border-border/80 hover:bg-accent/50",
+              )}
+            >
+              {tab.icon}
+              {tab.shortLabel}
+            </button>
+          );
+        })}
+      </div>
+      {/* Small tablet / half-desktop (sm–lg): 3×2 grid with full labels */}
+      <div className="hidden sm:grid lg:hidden grid-cols-3 gap-1.5">
+        {TABS.map(tab => {
+          const isActive = currentTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setCurrentTab(tab.id)}
+              className={cn(
+                "flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-semibold font-heading rounded-lg border transition-all",
+                isActive
+                  ? "bg-primary/10 text-primary border-primary/30 shadow-sm"
+                  : "bg-card text-muted-foreground border-border hover:text-foreground hover:border-border/80 hover:bg-accent/50",
+              )}
+            >
+              {tab.icon}
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+      {/* Desktop (lg+): single inline row with vertical dividers, sized to content */}
+      <div className="hidden lg:inline-flex rounded-lg border bg-card overflow-hidden w-fit">
+        {TABS.map((tab, i) => {
+          const isActive = currentTab === tab.id;
+          return (
+            <div key={tab.id} className="flex items-stretch">
+              {i > 0 && <div className="w-px self-stretch bg-border" />}
               <button
-                key={tab.id}
                 onClick={() => setCurrentTab(tab.id)}
                 className={cn(
-                  "flex items-center gap-2 px-4 sm:px-5 py-3.5 text-xs sm:text-sm font-semibold font-heading",
-                  "transition-all duration-150 whitespace-nowrap flex-shrink-0 relative border-b-2",
+                  "flex items-center gap-1.5 px-4 py-2 text-xs font-semibold font-heading transition-all whitespace-nowrap",
                   isActive
-                    ? "text-primary bg-primary/[0.08] border-primary"
-                    : "text-muted-foreground/60 border-transparent hover:text-foreground hover:bg-muted/30"
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent/50",
                 )}
               >
                 {tab.icon}
-                <span className="hidden sm:inline">{tab.label}</span>
-                <span className="sm:hidden">{tab.label.split(" ")[0]}</span>
+                {tab.label}
               </button>
-            );
-          })}
-        </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* ── Content Area ── */}
@@ -264,7 +305,7 @@ export default function ChatbotPage() {
       </div>
 
       {/* ── Sticky Save Bar ── */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 px-4 sm:px-6 py-3 sm:py-4 bg-background/92 backdrop-blur-md border-t border-border">
+      <div className="sticky bottom-0 z-40 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3 sm:py-4 bg-background/92 backdrop-blur-md border-t border-border">
         <div className="max-w-7xl mx-auto flex items-center justify-between sm:justify-end gap-3">
           <span className="text-xs font-description text-muted-foreground/60 sm:hidden">
             {isSaving ? "Saving changes..." : "Unsaved changes"}
@@ -1514,9 +1555,22 @@ function LoadingSkeleton() {
       </div>
 
       {/* Tabs skeleton */}
-      <div className="rounded-xl p-1 flex gap-2 border border-border bg-card">
+      <div className="grid grid-cols-3 gap-1.5 sm:hidden">
         {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-9 flex-1 rounded-lg" />
+          <Skeleton key={i} className="h-10 rounded-lg" />
+        ))}
+      </div>
+      <div className="hidden sm:grid lg:hidden grid-cols-3 gap-1.5">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Skeleton key={i} className="h-10 rounded-lg" />
+        ))}
+      </div>
+      <div className="hidden lg:inline-flex rounded-lg border bg-card overflow-hidden w-fit">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="flex items-stretch">
+            {i > 0 && <div className="w-px self-stretch bg-border" />}
+            <Skeleton className="h-9 w-28 rounded-none" />
+          </div>
         ))}
       </div>
 

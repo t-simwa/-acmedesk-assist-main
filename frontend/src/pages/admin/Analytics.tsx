@@ -309,15 +309,15 @@ export default function Analytics() {
   // ── Hard error state ──────────────────────────────────────────────────────
   if (summaryError && !summaryData) {
     return (
-      <div className="flex flex-col w-full min-w-0">
-        <header className="mb-6 sm:mb-8">
-          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground font-heading">
+      <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8 pb-32 max-w-[1600px] mx-auto w-full">
+        <div>
+          <h1 className="font-heading text-xl sm:text-2xl font-bold text-foreground tracking-tight leading-none">
             Analytics
           </h1>
-          <p className="mt-1 text-sm font-description text-muted-foreground">
+          <p className="text-sm text-muted-foreground mt-1 font-description">
             Chatbot usage and performance metrics
           </p>
-        </header>
+        </div>
         <NetworkErrorState
           error={summaryError as ApiError}
           onRetry={() => refetchSummary()}
@@ -330,110 +330,107 @@ export default function Analytics() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col w-full min-w-0 pb-10">
+    <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8 pb-32 max-w-[1600px] mx-auto w-full">
 
       {/* ═══════════════════════════════════════════════════════════════════════
           Page Header
       ═══════════════════════════════════════════════════════════════════════ */}
-      <header className="mb-6 sm:mb-8">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          {/* Title */}
-          <div className="min-w-0">
-            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground font-heading">
-              Analytics
-            </h1>
-            <p className="mt-1 text-[13px] sm:text-sm font-description text-muted-foreground">
-              Chatbot usage and performance metrics
-            </p>
-          </div>
-
-          {/* Controls row */}
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Date range */}
-            <DateRangeFilter value={dateRange} onChange={setDateRange} />
-
-            {/* Schedule Report */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setScheduleOpen(true)}
-              className="h-9 px-3 text-xs font-description gap-1.5"
-            >
-              <Calendar className="h-3.5 w-3.5 text-primary" />
-              <span className="hidden sm:inline">Schedule Report</span>
-              <span className="sm:hidden">Schedule</span>
-            </Button>
-
-            {/* Export dropdown */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-9 px-3 text-xs font-description gap-1.5"
-                >
-                  <Download className="h-3.5 w-3.5 text-muted-foreground" />
-                  Export
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-44">
-                <DropdownMenuItem
-                  onClick={handleExportCSV}
-                  className="text-xs font-description cursor-pointer"
-                >
-                  Export CSV
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={handleExportExcel}
-                  className="text-xs font-description cursor-pointer"
-                >
-                  Export Excel
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={handleGeneratePDF}
-                  className="text-xs font-description cursor-pointer"
-                >
-                  Generate PDF Report
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            {/* Auto-refresh toggle */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setAutoRefresh((v) => !v)}
-              className={cn(
-                "h-9 px-3 text-xs font-description gap-1.5 transition-colors",
-                autoRefresh
-                  ? "bg-primary/15 border-primary text-primary hover:bg-primary/20 hover:text-primary"
-                  : "text-muted-foreground",
-              )}
-              title={autoRefresh ? "Auto-refresh ON" : "Auto-refresh OFF"}
-            >
-              <RefreshCw className={cn("h-3.5 w-3.5", autoRefresh && "animate-spin")} />
-              {autoRefresh ? "Live" : "Refresh"}
-            </Button>
-
-            {/* Clear Filters */}
-            {dateRange !== "7days" && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleClearFilters}
-                className="h-9 px-2 text-xs font-description text-muted-foreground hover:text-foreground"
-              >
-                Clear filters
-              </Button>
-            )}
-          </div>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="font-heading text-xl sm:text-2xl font-bold text-foreground tracking-tight leading-none">
+            Analytics
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1 font-description">
+            Chatbot usage and performance metrics
+          </p>
         </div>
-      </header>
+      </div>
+
+      {/* ─── Filter Bar ─────────────────────────────────────────────────────── */}
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Date range */}
+        <DateRangeFilter value={dateRange} onChange={setDateRange} />
+
+        {/* Schedule Report */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setScheduleOpen(true)}
+          className="h-9 px-3 text-xs gap-1.5"
+        >
+          <Calendar className="h-3.5 w-3.5 text-primary" />
+          <span className="hidden sm:inline">Schedule Report</span>
+          <span className="sm:hidden">Schedule</span>
+        </Button>
+
+        {/* Export dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 px-3 text-xs gap-1.5"
+            >
+              <Download className="h-3.5 w-3.5 text-muted-foreground" />
+              Export
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuItem
+              onClick={handleExportCSV}
+              className="text-xs font-description cursor-pointer"
+            >
+              Export CSV
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={handleExportExcel}
+              className="text-xs font-description cursor-pointer"
+            >
+              Export Excel
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={handleGeneratePDF}
+              className="text-xs font-description cursor-pointer"
+            >
+              Generate PDF Report
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Auto-refresh toggle */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setAutoRefresh((v) => !v)}
+          className={cn(
+            "h-9 px-3 text-xs gap-1.5 transition-colors",
+            autoRefresh
+              ? "bg-primary/15 border-primary text-primary hover:bg-primary/20 hover:text-primary"
+              : "text-muted-foreground",
+          )}
+          title={autoRefresh ? "Auto-refresh ON" : "Auto-refresh OFF"}
+        >
+          <RefreshCw className={cn("h-3.5 w-3.5", autoRefresh && "animate-spin")} />
+          {autoRefresh ? "Live" : "Refresh"}
+        </Button>
+
+        {/* Clear Filters */}
+        {dateRange !== "7days" && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleClearFilters}
+            className="h-9 px-2 text-xs text-muted-foreground hover:text-foreground"
+          >
+            Clear filters
+          </Button>
+        )}
+      </div>
 
       {/* ═══════════════════════════════════════════════════════════════════════
           Overview KPI Row (6 cards)
       ═══════════════════════════════════════════════════════════════════════ */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {summaryLoading || leadsLoading || satisfactionLoading ? (
           Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-28 rounded-xl" />
@@ -494,7 +491,7 @@ export default function Analytics() {
       {/* ═══════════════════════════════════════════════════════════════════════
           Conversation Analytics Section
       ═══════════════════════════════════════════════════════════════════════ */}
-      <div className="mb-8">
+      <div>
         <SectionHeader icon={MessageSquare} title="Conversation Analytics" />
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2">
@@ -517,7 +514,7 @@ export default function Analytics() {
       {/* ═══════════════════════════════════════════════════════════════════════
           Channel Analytics Section
       ═══════════════════════════════════════════════════════════════════════ */}
-      <div className="mb-8">
+      <div>
         <SectionHeader icon={BarChart3} title="Channel Analytics" />
         {channelsLoading ? (
           <Skeleton className="h-[220px] rounded-xl" />
@@ -532,7 +529,7 @@ export default function Analytics() {
       {/* ═══════════════════════════════════════════════════════════════════════
           Content Analytics Section
       ═══════════════════════════════════════════════════════════════════════ */}
-      <div className="mb-8">
+      <div>
         <SectionHeader icon={FileText} title="Content Analytics" />
 
         {/* Top Questions + Unanswered */}
@@ -700,7 +697,7 @@ export default function Analytics() {
       {/* ═══════════════════════════════════════════════════════════════════════
           Lead Analytics Section
       ═══════════════════════════════════════════════════════════════════════ */}
-      <div className="mb-8">
+      <div>
         <SectionHeader icon={Users} title="Lead Analytics" />
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {leadsLoading ? (
@@ -720,7 +717,7 @@ export default function Analytics() {
       {/* ═══════════════════════════════════════════════════════════════════════
           Satisfaction Analytics Section
       ═══════════════════════════════════════════════════════════════════════ */}
-      <div className="mb-8">
+      <div>
         <SectionHeader icon={Star} title="Satisfaction Analytics" />
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {satisfactionLoading ? (
