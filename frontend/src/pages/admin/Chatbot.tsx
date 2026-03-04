@@ -2,16 +2,22 @@
  * Chatbot Configuration — Milestone 7.6
  * Six tabs: Appearance, Behavior, Business Hours, Escalation, Lead Capture, Notifications
  *
- * Design-aligned with Leads, Analytics, and Conversations pages:
- *   - Hardcoded hex design tokens (CARD_BG, INPUT_BG, BORDER, TEXT, MUTED, DIM, BLUE, etc.)
- *   - font-heading / font-description / font-mono class system
- *   - Consistent card, input, and section patterns
- *   - Elite responsive: mobile-first, tablet, desktop
+ * Redesigned with:
+ * - Proper Tailwind design tokens (no hardcoded hex colors)
+ * - CSS variable-based theming for light/dark mode support
+ * - Hover states via Tailwind classes (no JS onMouseEnter/Leave)
+ * - Radix Checkbox with onCheckedChange (not onChange)
+ * - Responsive: mobile-first, tablet, desktop
+ * - Consistent aesthetic with Dashboard, Leads, Conversations, Analytics pages
+ * - Refined editorial SaaS aesthetic
  */
 
 import { useState, useEffect, useCallback } from "react";
 import { useChatbotConfig, useUpdateChatbotConfig } from "@/hooks/useChatbot";
-import { Eye, EyeOff, Upload, GripVertical, X, Plus, Mail, Bell, Settings, Palette, Clock, AlertTriangle, UserPlus, BellRing, Save } from "lucide-react";
+import {
+  Eye, EyeOff, Upload, GripVertical, X, Plus, Mail, Bell, Settings,
+  Palette, Clock, AlertTriangle, UserPlus, BellRing, Save,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,16 +25,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-
-/* ─── Design tokens (matching Leads, Conversations, Analytics) ──────────── */
-const CARD_BG = "#1C1F26";
-const INPUT_BG = "#111827";
-const BORDER = "#2D333B";
-const TEXT = "#F9FAFB";
-const MUTED = "#9CA3AF";
-const DIM = "#6B7280";
-const BLUE = "#4F8EF7";
-const ROSE = "#EF4444";
+import { cn } from "@/lib/utils";
 
 type TabType = "appearance" | "behavior" | "business-hours" | "escalation" | "lead-capture" | "notifications";
 
@@ -122,6 +119,10 @@ const TABS: { id: TabType; label: string; icon: React.ReactNode }[] = [
   { id: "notifications", label: "Notifications", icon: <BellRing size={14} /> },
 ];
 
+/* ═══════════════════════════════════════════════════════════════════════════════
+   Main Page
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
 export default function ChatbotPage() {
   const { toast } = useToast();
   const [currentTab, setCurrentTab] = useState<TabType>("appearance");
@@ -131,7 +132,6 @@ export default function ChatbotPage() {
   const [showPreview, setShowPreview] = useState(true);
   const [showEmailPreview, setShowEmailPreview] = useState(false);
 
-  // mutation hook
   const updateMutation = useUpdateChatbotConfig();
   const saving = updateMutation.status === "pending";
 
@@ -180,17 +180,14 @@ export default function ChatbotPage() {
   return (
     <div className="flex flex-col w-full min-w-0 pb-24">
 
-      {/* ── Page Header (matches Analytics / Leads / Conversations) ── */}
+      {/* ── Page Header ── */}
       <header className="mb-5 sm:mb-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1
-              className="text-xl sm:text-2xl font-bold tracking-tight font-heading"
-              style={{ color: TEXT }}
-            >
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight font-heading text-foreground">
               Chatbot Configuration
             </h1>
-            <p className="mt-1 text-[13px] sm:text-sm font-description" style={{ color: MUTED }}>
+            <p className="mt-1 text-[13px] sm:text-sm font-description text-muted-foreground">
               Customize your AI assistant appearance, behavior, and features
             </p>
           </div>
@@ -198,35 +195,21 @@ export default function ChatbotPage() {
       </header>
 
       {/* ── Tabs Navigation ── */}
-      <div
-        className="mb-6 rounded-xl overflow-hidden"
-        style={{ background: CARD_BG, border: `1px solid ${BORDER}` }}
-      >
-        <div className="flex overflow-x-auto" style={{ scrollbarWidth: "none" } as React.CSSProperties}>
+      <div className="mb-6 rounded-xl overflow-hidden border border-border bg-card">
+        <div className="flex overflow-x-auto [scrollbar-width:none] [-webkit-overflow-scrolling:touch]">
           {TABS.map(tab => {
             const isActive = currentTab === tab.id;
             return (
               <button
                 key={tab.id}
                 onClick={() => setCurrentTab(tab.id)}
-                className="flex items-center gap-2 px-4 sm:px-5 py-3.5 text-xs sm:text-sm font-semibold font-heading transition-all duration-150 whitespace-nowrap flex-shrink-0 relative"
-                style={{
-                  color: isActive ? BLUE : DIM,
-                  background: isActive ? "rgba(79,142,247,0.08)" : "transparent",
-                  borderBottom: isActive ? `2px solid ${BLUE}` : "2px solid transparent",
-                }}
-                onMouseEnter={e => {
-                  if (!isActive) {
-                    (e.currentTarget as HTMLElement).style.color = TEXT;
-                    (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.03)";
-                  }
-                }}
-                onMouseLeave={e => {
-                  if (!isActive) {
-                    (e.currentTarget as HTMLElement).style.color = DIM;
-                    (e.currentTarget as HTMLElement).style.background = "transparent";
-                  }
-                }}
+                className={cn(
+                  "flex items-center gap-2 px-4 sm:px-5 py-3.5 text-xs sm:text-sm font-semibold font-heading",
+                  "transition-all duration-150 whitespace-nowrap flex-shrink-0 relative border-b-2",
+                  isActive
+                    ? "text-primary bg-primary/[0.08] border-primary"
+                    : "text-muted-foreground/60 border-transparent hover:text-foreground hover:bg-muted/30"
+                )}
               >
                 {tab.icon}
                 <span className="hidden sm:inline">{tab.label}</span>
@@ -266,18 +249,12 @@ export default function ChatbotPage() {
           <div className="lg:col-span-1">
             <div className="sticky top-6 space-y-4">
               <div className="flex items-center justify-between">
-                <h3
-                  className="text-sm font-semibold font-heading"
-                  style={{ color: TEXT }}
-                >
+                <h3 className="text-sm font-semibold font-heading text-foreground">
                   Live Preview
                 </h3>
                 <button
                   onClick={() => setShowPreview(!showPreview)}
-                  className="flex items-center justify-center rounded-md transition-colors"
-                  style={{ width: 32, height: 32, color: MUTED }}
-                  onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.08)")}
-                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                  className="flex items-center justify-center w-8 h-8 rounded-md text-muted-foreground transition-colors hover:bg-muted/50"
                 >
                   {showPreview ? <Eye size={16} /> : <EyeOff size={16} />}
                 </button>
@@ -289,16 +266,9 @@ export default function ChatbotPage() {
       </div>
 
       {/* ── Sticky Save Bar ── */}
-      <div
-        className="fixed bottom-0 left-0 right-0 z-40 px-4 sm:px-6 py-3 sm:py-4"
-        style={{
-          background: "rgba(13,17,23,0.92)",
-          backdropFilter: "blur(12px)",
-          borderTop: `1px solid ${BORDER}`,
-        }}
-      >
+      <div className="fixed bottom-0 left-0 right-0 z-40 px-4 sm:px-6 py-3 sm:py-4 bg-background/92 backdrop-blur-md border-t border-border">
         <div className="max-w-7xl mx-auto flex items-center justify-between sm:justify-end gap-3">
-          <span className="text-xs font-description sm:hidden" style={{ color: DIM }}>
+          <span className="text-xs font-description text-muted-foreground/60 sm:hidden">
             {isSaving ? "Saving changes..." : "Unsaved changes"}
           </span>
           <div className="flex gap-2">
@@ -307,7 +277,6 @@ export default function ChatbotPage() {
               size="sm"
               disabled={isSaving}
               className="text-xs sm:text-sm font-description h-8 sm:h-9 px-3 sm:px-4"
-              style={{ border: `1px solid ${BORDER}`, background: "transparent", color: MUTED }}
             >
               Cancel
             </Button>
@@ -316,7 +285,6 @@ export default function ChatbotPage() {
               onClick={handleSave}
               disabled={isSaving}
               className="text-xs sm:text-sm font-description h-8 sm:h-9 px-3 sm:px-5 gap-1.5"
-              style={{ background: BLUE, color: "#fff" }}
             >
               <Save size={14} />
               {isSaving ? "Saving..." : "Save Changes"}
@@ -337,18 +305,9 @@ export default function ChatbotPage() {
 
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div
-      className="rounded-xl overflow-hidden transition-all duration-200"
-      style={{ background: CARD_BG, border: `1px solid ${BORDER}` }}
-      onMouseEnter={e => {
-        (e.currentTarget as HTMLElement).style.borderColor = "#3D444B";
-      }}
-      onMouseLeave={e => {
-        (e.currentTarget as HTMLElement).style.borderColor = BORDER;
-      }}
-    >
-      <div className="px-4 sm:px-6 py-4 sm:py-5" style={{ borderBottom: `1px solid ${BORDER}` }}>
-        <h2 className="text-sm sm:text-base font-semibold font-heading" style={{ color: TEXT }}>
+    <div className="rounded-xl overflow-hidden transition-all duration-200 border border-border bg-card hover:border-border/80">
+      <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-border">
+        <h2 className="text-sm sm:text-base font-semibold font-heading text-foreground">
           {title}
         </h2>
       </div>
@@ -375,12 +334,12 @@ function StyledSelect({ id, value, onChange, children, className = "" }: {
       id={id}
       value={value}
       onChange={onChange}
-      className={`w-full px-3 h-9 sm:h-10 rounded-lg text-sm font-description transition-colors duration-150 focus:outline-none focus:ring-1 ${className}`}
-      style={{
-        background: INPUT_BG,
-        border: `1px solid ${BORDER}`,
-        color: TEXT,
-      }}
+      className={cn(
+        "w-full px-3 h-9 sm:h-10 rounded-lg text-sm font-description transition-colors duration-150",
+        "bg-muted/50 border border-border text-foreground",
+        "focus:outline-none focus:ring-1 focus:ring-ring",
+        className
+      )}
     >
       {children}
     </select>
@@ -388,20 +347,14 @@ function StyledSelect({ id, value, onChange, children, className = "" }: {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   Reusable: Styled input wrapper
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-const inputStyle = { background: INPUT_BG, border: `1px solid ${BORDER}`, color: TEXT };
-
-/* ═══════════════════════════════════════════════════════════════════════════
    Reusable: Toggle row
    ═══════════════════════════════════════════════════════════════════════════ */
 
 function ToggleRow({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: any) => void }) {
   return (
-    <label className="flex items-center justify-between py-3 cursor-pointer group" style={{ borderBottom: `1px solid rgba(45,51,59,0.5)` }}>
-      <span className="text-xs sm:text-sm font-description" style={{ color: MUTED }}>{label}</span>
-      <Checkbox checked={checked} onChange={onChange} />
+    <label className="flex items-center justify-between py-3 cursor-pointer group border-b border-border/50">
+      <span className="text-xs sm:text-sm font-description text-muted-foreground">{label}</span>
+      <Checkbox checked={checked} onCheckedChange={onChange} />
     </label>
   );
 }
@@ -413,20 +366,24 @@ function ToggleRow({ label, checked, onChange }: { label: string; checked: boole
 function RadioOption({ label, checked, onChange, description }: { label: string; checked: boolean; onChange: () => void; description?: string }) {
   return (
     <label
-      className="flex items-start gap-3 cursor-pointer rounded-lg px-3 py-2.5 transition-all duration-150"
-      style={{
-        background: checked ? "rgba(79,142,247,0.06)" : "transparent",
-        border: checked ? `1px solid rgba(79,142,247,0.2)` : `1px solid transparent`,
-      }}
+      className={cn(
+        "flex items-start gap-3 cursor-pointer rounded-lg px-3 py-2.5 transition-all duration-150 border",
+        checked
+          ? "bg-primary/[0.06] border-primary/20"
+          : "bg-transparent border-transparent hover:bg-muted/30"
+      )}
       onClick={onChange}
     >
-      <Checkbox checked={checked} onChange={onChange} className="mt-0.5" />
+      <Checkbox checked={checked} onCheckedChange={() => onChange()} className="mt-0.5" />
       <div>
-        <span className="text-xs sm:text-sm font-description capitalize" style={{ color: checked ? TEXT : MUTED }}>
+        <span className={cn(
+          "text-xs sm:text-sm font-description capitalize",
+          checked ? "text-foreground" : "text-muted-foreground"
+        )}>
           {label}
         </span>
         {description && (
-          <p className="text-[11px] font-description mt-0.5" style={{ color: DIM }}>{description}</p>
+          <p className="text-[11px] font-description mt-0.5 text-muted-foreground/60">{description}</p>
         )}
       </div>
     </label>
@@ -443,7 +400,7 @@ function Tab1Appearance({ config, onChange }: any) {
       <SectionCard title="Appearance">
         {/* Chatbot Name */}
         <div className="mb-5 sm:mb-6">
-          <Label htmlFor="bot-name" className="block text-xs sm:text-sm font-medium font-description mb-2" style={{ color: MUTED }}>
+          <Label htmlFor="bot-name" className="block text-xs sm:text-sm font-medium font-description mb-2 text-muted-foreground">
             Chatbot Name
           </Label>
           <Input
@@ -451,31 +408,25 @@ function Tab1Appearance({ config, onChange }: any) {
             value={config.name || ""}
             onChange={(e) => onChange("name", e.target.value)}
             placeholder="e.g., Aria Assistant"
-            className="h-9 sm:h-10 text-sm font-description"
-            style={inputStyle}
+            className="h-9 sm:h-10 text-sm font-description bg-muted/50 border-border text-foreground"
           />
         </div>
 
         {/* Avatar Picker */}
         <div className="mb-5 sm:mb-6">
-          <Label className="block text-xs sm:text-sm font-medium font-description mb-3" style={{ color: MUTED }}>Avatar</Label>
+          <Label className="block text-xs sm:text-sm font-medium font-description mb-3 text-muted-foreground">Avatar</Label>
           <div className="grid grid-cols-4 sm:grid-cols-8 gap-2 mb-4">
             {AVATAR_PRESETS.map((emoji, idx) => {
               const isSelected = !config.avatar_url || config.avatar_url === emoji;
               return (
                 <button
                   key={idx}
-                  className="w-11 h-11 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center text-xl sm:text-2xl transition-all duration-150"
-                  style={{
-                    border: isSelected ? `2px solid ${BLUE}` : `2px solid ${BORDER}`,
-                    background: isSelected ? "rgba(79,142,247,0.12)" : "transparent",
-                  }}
-                  onMouseEnter={e => {
-                    if (!isSelected) (e.currentTarget as HTMLElement).style.borderColor = "#3D444B";
-                  }}
-                  onMouseLeave={e => {
-                    if (!isSelected) (e.currentTarget as HTMLElement).style.borderColor = BORDER;
-                  }}
+                  className={cn(
+                    "w-11 h-11 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center text-xl sm:text-2xl transition-all duration-150 border-2",
+                    isSelected
+                      ? "border-primary bg-primary/10"
+                      : "border-border bg-transparent hover:border-muted-foreground/30"
+                  )}
                 >
                   {emoji}
                 </button>
@@ -486,7 +437,6 @@ function Tab1Appearance({ config, onChange }: any) {
             variant="outline"
             size="sm"
             className="w-full text-xs font-description h-9 gap-2"
-            style={{ border: `1px solid ${BORDER}`, background: "transparent", color: MUTED }}
           >
             <Upload size={14} />
             Upload Custom Avatar
@@ -496,40 +446,36 @@ function Tab1Appearance({ config, onChange }: any) {
         {/* Colors */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5 sm:mb-6">
           <div>
-            <Label className="block text-xs sm:text-sm font-medium font-description mb-2" style={{ color: MUTED }}>Brand Primary Color</Label>
+            <Label className="block text-xs sm:text-sm font-medium font-description mb-2 text-muted-foreground">Brand Primary Color</Label>
             <div className="flex gap-2">
               <input
                 type="color"
                 value={config.brand_color || "#4F8EF7"}
                 onChange={(e) => onChange("brand_color", e.target.value)}
-                className="w-10 h-9 sm:w-12 sm:h-10 rounded cursor-pointer border-0"
-                style={{ background: "transparent" }}
+                className="w-10 h-9 sm:w-12 sm:h-10 rounded cursor-pointer border-0 bg-transparent"
               />
               <Input
                 value={config.brand_color || "#4F8EF7"}
                 onChange={(e) => onChange("brand_color", e.target.value)}
                 placeholder="#4F8EF7"
-                className="flex-1 h-9 sm:h-10 text-sm font-mono"
-                style={inputStyle}
+                className="flex-1 h-9 sm:h-10 text-sm font-mono bg-muted/50 border-border text-foreground"
               />
             </div>
           </div>
           <div>
-            <Label className="block text-xs sm:text-sm font-medium font-description mb-2" style={{ color: MUTED }}>User Message Color</Label>
+            <Label className="block text-xs sm:text-sm font-medium font-description mb-2 text-muted-foreground">User Message Color</Label>
             <div className="flex gap-2">
               <input
                 type="color"
                 value={config.user_message_color || "#4F8EF7"}
                 onChange={(e) => onChange("user_message_color", e.target.value)}
-                className="w-10 h-9 sm:w-12 sm:h-10 rounded cursor-pointer border-0"
-                style={{ background: "transparent" }}
+                className="w-10 h-9 sm:w-12 sm:h-10 rounded cursor-pointer border-0 bg-transparent"
               />
               <Input
                 value={config.user_message_color || "#4F8EF7"}
                 onChange={(e) => onChange("user_message_color", e.target.value)}
                 placeholder="#4F8EF7"
-                className="flex-1 h-9 sm:h-10 text-sm font-mono"
-                style={inputStyle}
+                className="flex-1 h-9 sm:h-10 text-sm font-mono bg-muted/50 border-border text-foreground"
               />
             </div>
           </div>
@@ -537,15 +483,15 @@ function Tab1Appearance({ config, onChange }: any) {
 
         {/* Widget Position */}
         <div className="mb-5 sm:mb-6">
-          <Label className="block text-xs sm:text-sm font-medium font-description mb-3" style={{ color: MUTED }}>Widget Position</Label>
+          <Label className="block text-xs sm:text-sm font-medium font-description mb-3 text-muted-foreground">Widget Position</Label>
           <div className="flex gap-3 sm:gap-4">
             {["bottom_right", "bottom_left"].map(pos => (
               <label key={pos} className="flex items-center gap-2 cursor-pointer">
                 <Checkbox
                   checked={config.widget_position === pos}
-                  onChange={() => onChange("widget_position", pos)}
+                  onCheckedChange={() => onChange("widget_position", pos)}
                 />
-                <span className="text-xs sm:text-sm font-description capitalize" style={{ color: MUTED }}>
+                <span className="text-xs sm:text-sm font-description capitalize text-muted-foreground">
                   {pos.replace("_", " ")}
                 </span>
               </label>
@@ -555,7 +501,7 @@ function Tab1Appearance({ config, onChange }: any) {
 
         {/* Font Size */}
         <div className="mb-5 sm:mb-6">
-          <Label className="block text-xs sm:text-sm font-medium font-description mb-3" style={{ color: MUTED }}>Font Size</Label>
+          <Label className="block text-xs sm:text-sm font-medium font-description mb-3 text-muted-foreground">Font Size</Label>
           <div className="flex gap-2">
             {["small", "medium", "large"].map(size => {
               const isSelected = config.font_size === size;
@@ -563,12 +509,12 @@ function Tab1Appearance({ config, onChange }: any) {
                 <button
                   key={size}
                   onClick={() => onChange("font_size", size)}
-                  className="flex-1 h-9 rounded-lg text-xs sm:text-sm font-description font-semibold transition-all duration-150"
-                  style={{
-                    background: isSelected ? "rgba(79,142,247,0.12)" : INPUT_BG,
-                    border: isSelected ? `1px solid ${BLUE}` : `1px solid ${BORDER}`,
-                    color: isSelected ? BLUE : MUTED,
-                  }}
+                  className={cn(
+                    "flex-1 h-9 rounded-lg text-xs sm:text-sm font-description font-semibold transition-all duration-150 border",
+                    isSelected
+                      ? "bg-primary/10 border-primary text-primary"
+                      : "bg-muted/50 border-border text-muted-foreground hover:border-muted-foreground/30"
+                  )}
                 >
                   {size.charAt(0).toUpperCase() + size.slice(1)}
                 </button>
@@ -598,7 +544,7 @@ function Tab2Behavior({ config, onChange }: any) {
       <SectionCard title="Behavior">
         {/* Response Language */}
         <div className="mb-5 sm:mb-6">
-          <Label htmlFor="language" className="block text-xs sm:text-sm font-medium font-description mb-2" style={{ color: MUTED }}>
+          <Label htmlFor="language" className="block text-xs sm:text-sm font-medium font-description mb-2 text-muted-foreground">
             Response Language
           </Label>
           <StyledSelect
@@ -614,7 +560,7 @@ function Tab2Behavior({ config, onChange }: any) {
 
         {/* Response Tone */}
         <div className="mb-5 sm:mb-6">
-          <Label className="block text-xs sm:text-sm font-medium font-description mb-3" style={{ color: MUTED }}>Response Tone</Label>
+          <Label className="block text-xs sm:text-sm font-medium font-description mb-3 text-muted-foreground">Response Tone</Label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {["professional", "friendly", "casual", "formal"].map(tone => (
               <RadioOption
@@ -629,7 +575,7 @@ function Tab2Behavior({ config, onChange }: any) {
 
         {/* Response Length */}
         <div className="mb-5 sm:mb-6">
-          <Label className="block text-xs sm:text-sm font-medium font-description mb-3" style={{ color: MUTED }}>Response Length</Label>
+          <Label className="block text-xs sm:text-sm font-medium font-description mb-3 text-muted-foreground">Response Length</Label>
           <div className="space-y-2">
             {[
               { value: "short", label: "Concise", description: "1-2 sentences" },
@@ -648,7 +594,7 @@ function Tab2Behavior({ config, onChange }: any) {
         </div>
 
         {/* Messages */}
-        <div className="space-y-4 pt-5 sm:pt-6" style={{ borderTop: `1px solid ${BORDER}` }}>
+        <div className="space-y-4 pt-5 sm:pt-6 border-t border-border">
           {[
             { key: "greeting_message", label: "Greeting Message", placeholder: "e.g., Hi! How can I help you today?", rows: 3, hint: "Merge tags: {{business_name}}, {{time_of_day}}" },
             { key: "farewell_message", label: "Farewell Message", placeholder: "e.g., Thanks for chatting with us!", rows: 2 },
@@ -656,36 +602,36 @@ function Tab2Behavior({ config, onChange }: any) {
             { key: "escalation_message", label: "Escalation Message", placeholder: "Shown when escalating to human", rows: 2 },
           ].map(msg => (
             <div key={msg.key}>
-              <Label className="block text-xs sm:text-sm font-medium font-description mb-2" style={{ color: MUTED }}>{msg.label}</Label>
+              <Label className="block text-xs sm:text-sm font-medium font-description mb-2 text-muted-foreground">{msg.label}</Label>
               <Textarea
                 value={(config as any)[msg.key] || ""}
                 onChange={(e) => onChange(msg.key, e.target.value)}
                 placeholder={msg.placeholder}
-                className="text-sm font-description resize-none"
-                style={{ ...inputStyle, minHeight: msg.rows === 3 ? 80 : 64 }}
+                className="text-sm font-description resize-none bg-muted/50 border-border text-foreground"
+                style={{ minHeight: msg.rows === 3 ? 80 : 64 }}
                 rows={msg.rows}
               />
               {msg.hint && (
-                <p className="text-[11px] font-description mt-1" style={{ color: DIM }}>{msg.hint}</p>
+                <p className="text-[11px] font-description mt-1 text-muted-foreground/60">{msg.hint}</p>
               )}
             </div>
           ))}
         </div>
 
         {/* Toggles */}
-        <div className="pt-5 sm:pt-6" style={{ borderTop: `1px solid ${BORDER}` }}>
+        <div className="pt-5 sm:pt-6 border-t border-border">
           <ToggleRow label="Show typing indicator" checked={config.show_typing} onChange={(checked) => onChange("show_typing", checked)} />
           <ToggleRow label="Show source citations" checked={config.show_citations} onChange={(checked) => onChange("show_citations", checked)} />
           <ToggleRow label="Show read receipts" checked={config.read_receipts} onChange={(checked) => onChange("read_receipts", checked)} />
         </div>
 
         {/* Suggested Questions */}
-        <div className="pt-5 sm:pt-6" style={{ borderTop: `1px solid ${BORDER}` }}>
-          <Label className="block text-xs sm:text-sm font-medium font-description mb-3" style={{ color: MUTED }}>Suggested Starter Questions (up to 5)</Label>
+        <div className="pt-5 sm:pt-6 border-t border-border">
+          <Label className="block text-xs sm:text-sm font-medium font-description mb-3 text-muted-foreground">Suggested Starter Questions (up to 5)</Label>
           <div className="space-y-2 mb-3">
             {(config.suggested_starter_questions || []).map((q: string, idx: number) => (
               <div key={idx} className="flex gap-2 items-center">
-                <GripVertical size={14} className="flex-shrink-0 cursor-grab" style={{ color: DIM }} />
+                <GripVertical size={14} className="flex-shrink-0 cursor-grab text-muted-foreground/60" />
                 <Input
                   value={q}
                   onChange={(e) => {
@@ -693,18 +639,14 @@ function Tab2Behavior({ config, onChange }: any) {
                     qs[idx] = e.target.value;
                     onChange("suggested_starter_questions", qs);
                   }}
-                  className="flex-1 h-9 text-sm font-description"
-                  style={inputStyle}
+                  className="flex-1 h-9 text-sm font-description bg-muted/50 border-border text-foreground"
                 />
                 <button
                   onClick={() => {
                     const qs = (config.suggested_starter_questions || []).filter((_: any, i: number) => i !== idx);
                     onChange("suggested_starter_questions", qs);
                   }}
-                  className="flex items-center justify-center rounded-md transition-colors flex-shrink-0"
-                  style={{ width: 28, height: 28, color: ROSE }}
-                  onMouseEnter={e => (e.currentTarget.style.background = "rgba(239,68,68,0.12)")}
-                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                  className="flex items-center justify-center w-7 h-7 rounded-md transition-colors flex-shrink-0 text-destructive hover:bg-destructive/10"
                 >
                   <X size={14} />
                 </button>
@@ -720,7 +662,6 @@ function Tab2Behavior({ config, onChange }: any) {
                 onChange("suggested_starter_questions", qs);
               }}
               className="w-full text-xs font-description h-9 gap-1.5"
-              style={{ border: `1px solid ${BORDER}`, background: INPUT_BG, color: MUTED }}
             >
               <Plus size={14} />
               Add question
@@ -729,8 +670,8 @@ function Tab2Behavior({ config, onChange }: any) {
         </div>
 
         {/* Conversation Starters Display */}
-        <div className="pt-5 sm:pt-6" style={{ borderTop: `1px solid ${BORDER}` }}>
-          <Label className="block text-xs sm:text-sm font-medium font-description mb-3" style={{ color: MUTED }}>Show Conversation Starters</Label>
+        <div className="pt-5 sm:pt-6 border-t border-border">
+          <Label className="block text-xs sm:text-sm font-medium font-description mb-3 text-muted-foreground">Show Conversation Starters</Label>
           <div className="space-y-2">
             {["first_visit_only", "every_session"].map(mode => (
               <RadioOption
@@ -758,15 +699,15 @@ function Tab3BusinessHours({ config, onChange }: any) {
         <label className="flex items-center gap-3 cursor-pointer mb-5 sm:mb-6">
           <Checkbox
             checked={config.business_hours_enabled || false}
-            onChange={(checked) => onChange("business_hours_enabled", checked)}
+            onCheckedChange={(checked) => onChange("business_hours_enabled", checked)}
           />
-          <span className="text-xs sm:text-sm font-description" style={{ color: MUTED }}>Enable business hours mode</span>
+          <span className="text-xs sm:text-sm font-description text-muted-foreground">Enable business hours mode</span>
         </label>
 
         {config.business_hours_enabled && (
           <>
             <div className="mb-5 sm:mb-6">
-              <Label htmlFor="timezone" className="block text-xs sm:text-sm font-medium font-description mb-2" style={{ color: MUTED }}>
+              <Label htmlFor="timezone" className="block text-xs sm:text-sm font-medium font-description mb-2 text-muted-foreground">
                 Timezone
               </Label>
               <StyledSelect
@@ -782,25 +723,20 @@ function Tab3BusinessHours({ config, onChange }: any) {
             </div>
 
             <div className="mb-5 sm:mb-6">
-              <Label className="text-xs sm:text-sm font-medium font-description mb-3 block" style={{ color: MUTED }}>Weekly Schedule</Label>
-              <div
-                className="rounded-lg p-3 sm:p-4 space-y-2 sm:space-y-3"
-                style={{ background: INPUT_BG, border: `1px solid ${BORDER}` }}
-              >
+              <Label className="text-xs sm:text-sm font-medium font-description mb-3 block text-muted-foreground">Weekly Schedule</Label>
+              <div className="rounded-lg p-3 sm:p-4 space-y-2 sm:space-y-3 bg-muted/50 border border-border">
                 {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((day, idx) => (
                   <div key={idx} className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap">
                     <Checkbox defaultChecked className="mt-0.5 flex-shrink-0" />
-                    <span className="text-xs sm:text-sm font-description w-20 sm:w-24 flex-shrink-0" style={{ color: MUTED }}>{day}</span>
+                    <span className="text-xs sm:text-sm font-description w-20 sm:w-24 flex-shrink-0 text-muted-foreground">{day}</span>
                     <Input
                       placeholder="09:00"
-                      className="h-8 sm:h-9 text-xs sm:text-sm font-mono w-16 sm:w-20"
-                      style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${BORDER}`, color: TEXT }}
+                      className="h-8 sm:h-9 text-xs sm:text-sm font-mono w-16 sm:w-20 bg-muted/30 border-border text-foreground"
                     />
-                    <span className="text-xs" style={{ color: DIM }}>&mdash;</span>
+                    <span className="text-xs text-muted-foreground/60">&mdash;</span>
                     <Input
                       placeholder="17:00"
-                      className="h-8 sm:h-9 text-xs sm:text-sm font-mono w-16 sm:w-20"
-                      style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${BORDER}`, color: TEXT }}
+                      className="h-8 sm:h-9 text-xs sm:text-sm font-mono w-16 sm:w-20 bg-muted/30 border-border text-foreground"
                     />
                   </div>
                 ))}
@@ -808,7 +744,7 @@ function Tab3BusinessHours({ config, onChange }: any) {
             </div>
 
             <div className="mb-5 sm:mb-6">
-              <Label className="block text-xs sm:text-sm font-medium font-description mb-3" style={{ color: MUTED }}>Outside Business Hours</Label>
+              <Label className="block text-xs sm:text-sm font-medium font-description mb-3 text-muted-foreground">Outside Business Hours</Label>
               <div className="space-y-2">
                 {[
                   { value: "continue_answering", label: "Continue answering", description: "Keep answering from knowledge base" },
@@ -828,46 +764,41 @@ function Tab3BusinessHours({ config, onChange }: any) {
 
             {config.outside_hours_behavior === "show_offline_message" && (
               <div className="mb-5 sm:mb-6">
-                <Label className="block text-xs sm:text-sm font-medium font-description mb-2" style={{ color: MUTED }}>Offline Message</Label>
+                <Label className="block text-xs sm:text-sm font-medium font-description mb-2 text-muted-foreground">Offline Message</Label>
                 <Textarea
                   value={config.offline_message || ""}
                   onChange={(e) => onChange("offline_message", e.target.value)}
                   placeholder="e.g., We're currently closed. Please leave your details and we'll get back to you."
-                  className="text-sm font-description resize-none"
-                  style={{ ...inputStyle, minHeight: 80 }}
+                  className="text-sm font-description resize-none bg-muted/50 border-border text-foreground"
+                  style={{ minHeight: 80 }}
                 />
               </div>
             )}
 
             <div className="mb-5 sm:mb-6">
-              <Label className="block text-xs sm:text-sm font-medium font-description mb-2" style={{ color: MUTED }}>"Back online at" Message Template</Label>
+              <Label className="block text-xs sm:text-sm font-medium font-description mb-2 text-muted-foreground">&ldquo;Back online at&rdquo; Message Template</Label>
               <Input
                 value={config.back_online_message || ""}
                 onChange={(e) => onChange("back_online_message", e.target.value)}
                 placeholder="e.g., We'll be back at {{next_open_time}}"
-                className="h-9 sm:h-10 text-sm font-description"
-                style={inputStyle}
+                className="h-9 sm:h-10 text-sm font-description bg-muted/50 border-border text-foreground"
               />
             </div>
 
             <div className="mb-5 sm:mb-6">
-              <Label className="block text-xs sm:text-sm font-medium font-description mb-2" style={{ color: MUTED }}>Holiday Hours (Optional)</Label>
-              <p className="text-[11px] font-description mb-3" style={{ color: DIM }}>Add special hours for holidays or closed days</p>
-              <div
-                className="rounded-lg p-3 sm:p-4 space-y-2 sm:space-y-3"
-                style={{ background: INPUT_BG, border: `1px solid ${BORDER}` }}
-              >
+              <Label className="block text-xs sm:text-sm font-medium font-description mb-2 text-muted-foreground">Holiday Hours (Optional)</Label>
+              <p className="text-[11px] font-description mb-3 text-muted-foreground/60">Add special hours for holidays or closed days</p>
+              <div className="rounded-lg p-3 sm:p-4 space-y-2 sm:space-y-3 bg-muted/50 border border-border">
                 {(config.holiday_hours && Array.isArray(config.holiday_hours) && config.holiday_hours.length > 0) ? (
                   <>
                     {config.holiday_hours.map((holiday: any, idx: number) => (
                       <div
                         key={idx}
-                        className="flex items-center gap-3 p-3 rounded-lg"
-                        style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${BORDER}` }}
+                        className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 border border-border"
                       >
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm font-description font-medium" style={{ color: TEXT }}>{holiday.date}</div>
-                          <div className="text-xs font-mono" style={{ color: DIM }}>
+                          <div className="text-sm font-description font-medium text-foreground">{holiday.date}</div>
+                          <div className="text-xs font-mono text-muted-foreground/60">
                             {holiday.open_time && holiday.close_time
                               ? `${holiday.open_time} \u2014 ${holiday.close_time}`
                               : 'Closed'}
@@ -881,8 +812,7 @@ function Tab3BusinessHours({ config, onChange }: any) {
                             const updated = config.holiday_hours.filter((_: any, i: number) => i !== idx);
                             onChange("holiday_hours", updated);
                           }}
-                          className="flex-shrink-0"
-                          style={{ color: ROSE, width: 28, height: 28, padding: 0 }}
+                          className="flex-shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10 w-7 h-7 p-0"
                         >
                           <X size={14} />
                         </Button>
@@ -890,7 +820,7 @@ function Tab3BusinessHours({ config, onChange }: any) {
                     ))}
                   </>
                 ) : (
-                  <div className="text-xs font-description italic py-2" style={{ color: DIM }}>No holiday hours configured yet</div>
+                  <div className="text-xs font-description italic py-2 text-muted-foreground/60">No holiday hours configured yet</div>
                 )}
               </div>
 
@@ -904,7 +834,6 @@ function Tab3BusinessHours({ config, onChange }: any) {
                   onChange("holiday_hours", [...holidays, newHoliday]);
                 }}
                 className="mt-3 w-full text-xs font-description h-9 gap-1.5"
-                style={{ border: `1px solid ${BORDER}`, background: INPUT_BG, color: MUTED }}
               >
                 <Plus size={14} />
                 Add Holiday Hours
@@ -929,9 +858,9 @@ function Tab4Escalation({ config, onChange, onShowEmailPreview }: any) {
           <label className="flex items-center gap-3 cursor-pointer">
             <Checkbox
               checked={config.auto_escalation_enabled || false}
-              onChange={(checked) => onChange("auto_escalation_enabled", checked)}
+              onCheckedChange={(checked) => onChange("auto_escalation_enabled", checked)}
             />
-            <span className="text-xs sm:text-sm font-description" style={{ color: MUTED }}>Enable auto-escalation</span>
+            <span className="text-xs sm:text-sm font-description text-muted-foreground">Enable auto-escalation</span>
           </label>
           {config.auto_escalation_enabled && (
             <Button
@@ -940,7 +869,6 @@ function Tab4Escalation({ config, onChange, onShowEmailPreview }: any) {
               size="sm"
               onClick={() => onShowEmailPreview(true)}
               className="text-xs font-description h-8 gap-1.5 self-start sm:self-auto"
-              style={{ border: `1px solid ${BORDER}`, background: INPUT_BG, color: MUTED }}
             >
               <Mail size={14} />
               Preview Email
@@ -951,8 +879,8 @@ function Tab4Escalation({ config, onChange, onShowEmailPreview }: any) {
         {config.auto_escalation_enabled && (
           <>
             <div className="mb-5 sm:mb-6">
-              <Label className="block text-xs sm:text-sm font-medium font-description mb-3" style={{ color: MUTED }}>
-                Confidence Threshold: <span className="font-mono" style={{ color: BLUE }}>{config.confidence_threshold || 50}%</span>
+              <Label className="block text-xs sm:text-sm font-medium font-description mb-3 text-muted-foreground">
+                Confidence Threshold: <span className="font-mono text-primary">{config.confidence_threshold || 50}%</span>
               </Label>
               <input
                 type="range"
@@ -960,14 +888,13 @@ function Tab4Escalation({ config, onChange, onShowEmailPreview }: any) {
                 max="100"
                 value={config.confidence_threshold || 50}
                 onChange={(e) => onChange("confidence_threshold", parseFloat(e.target.value))}
-                className="w-full accent-blue-500"
-                style={{ height: 6 }}
+                className="w-full accent-primary h-1.5"
               />
-              <p className="text-[11px] font-description mt-2" style={{ color: DIM }}>Escalate if response confidence is below this threshold</p>
+              <p className="text-[11px] font-description mt-2 text-muted-foreground/60">Escalate if response confidence is below this threshold</p>
             </div>
 
             <div className="mb-5 sm:mb-6">
-              <Label htmlFor="unanswered" className="block text-xs sm:text-sm font-medium font-description mb-2" style={{ color: MUTED }}>
+              <Label htmlFor="unanswered" className="block text-xs sm:text-sm font-medium font-description mb-2 text-muted-foreground">
                 After X unanswered questions
               </Label>
               <Input
@@ -975,38 +902,29 @@ function Tab4Escalation({ config, onChange, onShowEmailPreview }: any) {
                 type="number"
                 value={config.unanswered_questions_threshold || 3}
                 onChange={(e) => onChange("unanswered_questions_threshold", e.target.value)}
-                className="h-9 sm:h-10 text-sm font-mono w-20 sm:w-24"
-                style={inputStyle}
+                className="h-9 sm:h-10 text-sm font-mono w-20 sm:w-24 bg-muted/50 border-border text-foreground"
               />
             </div>
 
             <label className="flex items-center gap-3 cursor-pointer mb-5 sm:mb-6">
               <Checkbox
                 checked={config.sentiment_escalation_enabled || false}
-                onChange={(checked) => onChange("sentiment_escalation_enabled", checked)}
+                onCheckedChange={(checked) => onChange("sentiment_escalation_enabled", checked)}
               />
-              <span className="text-xs sm:text-sm font-description" style={{ color: MUTED }}>Escalate on negative sentiment</span>
+              <span className="text-xs sm:text-sm font-description text-muted-foreground">Escalate on negative sentiment</span>
             </label>
 
             <div className="mb-5 sm:mb-6">
-              <Label className="block text-xs sm:text-sm font-medium font-description mb-2" style={{ color: MUTED }}>Keyword Triggers</Label>
-              <p className="text-[11px] font-description mb-3" style={{ color: DIM }}>Add keywords that will trigger escalation. Click presets or type custom keywords.</p>
+              <Label className="block text-xs sm:text-sm font-medium font-description mb-2 text-muted-foreground">Keyword Triggers</Label>
+              <p className="text-[11px] font-description mb-3 text-muted-foreground/60">Add keywords that will trigger escalation. Click presets or type custom keywords.</p>
 
               {/* Tag Display and Input */}
-              <div
-                className="rounded-lg p-3 mb-3"
-                style={{ background: INPUT_BG, border: `1px solid ${BORDER}` }}
-              >
+              <div className="rounded-lg p-3 mb-3 bg-muted/50 border border-border">
                 <div className="flex flex-wrap gap-2 mb-3">
                   {(config.keyword_triggers || []).map((keyword: string, idx: number) => (
                     <div
                       key={idx}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-description font-semibold"
-                      style={{
-                        background: "rgba(79,142,247,0.12)",
-                        border: `1px solid rgba(79,142,247,0.25)`,
-                        color: BLUE,
-                      }}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-description font-semibold bg-primary/10 border border-primary/25 text-primary"
                     >
                       {keyword}
                       <button
@@ -1015,10 +933,7 @@ function Tab4Escalation({ config, onChange, onShowEmailPreview }: any) {
                           const updated = config.keyword_triggers?.filter((_: string, i: number) => i !== idx) || [];
                           onChange("keyword_triggers", updated);
                         }}
-                        className="transition-colors"
-                        style={{ color: "rgba(79,142,247,0.6)" }}
-                        onMouseEnter={e => (e.currentTarget.style.color = BLUE)}
-                        onMouseLeave={e => (e.currentTarget.style.color = "rgba(79,142,247,0.6)")}
+                        className="text-primary/60 hover:text-primary transition-colors"
                       >
                         <X size={12} />
                       </button>
@@ -1030,8 +945,7 @@ function Tab4Escalation({ config, onChange, onShowEmailPreview }: any) {
                   <Input
                     id="keyword-input"
                     placeholder="Type keyword and press Enter..."
-                    className="flex-1 h-8 sm:h-9 text-xs sm:text-sm font-description"
-                    style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${BORDER}`, color: TEXT }}
+                    className="flex-1 h-8 sm:h-9 text-xs sm:text-sm font-description bg-muted/30 border-border text-foreground"
                     onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
                       if (e.key === "Enter") {
                         const value = (e.target as HTMLInputElement).value.trim();
@@ -1055,7 +969,6 @@ function Tab4Escalation({ config, onChange, onShowEmailPreview }: any) {
                       }
                     }}
                     className="text-xs font-description h-8 sm:h-9 px-3"
-                    style={{ border: `1px solid ${BORDER}`, background: "transparent", color: MUTED }}
                   >
                     Add
                   </Button>
@@ -1063,11 +976,8 @@ function Tab4Escalation({ config, onChange, onShowEmailPreview }: any) {
               </div>
 
               {/* Preset Suggestions */}
-              <div
-                className="rounded-lg p-3"
-                style={{ background: INPUT_BG, border: `1px solid ${BORDER}` }}
-              >
-                <p className="text-[11px] font-description mb-2" style={{ color: DIM }}>Quick presets:</p>
+              <div className="rounded-lg p-3 bg-muted/50 border border-border">
+                <p className="text-[11px] font-description mb-2 text-muted-foreground/60">Quick presets:</p>
                 <div className="flex flex-wrap gap-1.5">
                   {KEYWORD_TRIGGER_PRESETS.map((preset) => {
                     const isAdded = config.keyword_triggers?.includes(preset);
@@ -1081,14 +991,12 @@ function Tab4Escalation({ config, onChange, onShowEmailPreview }: any) {
                           }
                         }}
                         disabled={isAdded}
-                        className="text-[11px] py-1 px-2 rounded-md font-description transition-all duration-150"
-                        style={{
-                          background: isAdded ? "rgba(79,142,247,0.12)" : "rgba(255,255,255,0.04)",
-                          border: `1px solid ${isAdded ? "rgba(79,142,247,0.25)" : BORDER}`,
-                          color: isAdded ? BLUE : MUTED,
-                          cursor: isAdded ? "default" : "pointer",
-                          opacity: isAdded ? 0.7 : 1,
-                        }}
+                        className={cn(
+                          "text-[11px] py-1 px-2 rounded-md font-description transition-all duration-150 border",
+                          isAdded
+                            ? "bg-primary/10 border-primary/25 text-primary opacity-70 cursor-default"
+                            : "bg-muted/30 border-border text-muted-foreground cursor-pointer hover:border-muted-foreground/30"
+                        )}
                       >
                         + {preset}
                       </button>
@@ -1099,34 +1007,33 @@ function Tab4Escalation({ config, onChange, onShowEmailPreview }: any) {
             </div>
 
             <div className="mb-5 sm:mb-6">
-              <Label className="block text-xs sm:text-sm font-medium font-description mb-2" style={{ color: MUTED }}>Escalation Email Addresses</Label>
+              <Label className="block text-xs sm:text-sm font-medium font-description mb-2 text-muted-foreground">Escalation Email Addresses</Label>
               <Textarea
                 value={(config.escalation_email_addresses || []).join("\n")}
                 onChange={(e) => onChange("escalation_email_addresses", e.target.value.split("\n").filter(Boolean))}
                 placeholder={"support@example.com\nmanager@example.com"}
-                className="text-sm font-description resize-none"
-                style={{ ...inputStyle, minHeight: 64 }}
+                className="text-sm font-description resize-none bg-muted/50 border-border text-foreground"
+                style={{ minHeight: 64 }}
               />
             </div>
 
             <div className="mb-5 sm:mb-6">
-              <Label htmlFor="slack" className="block text-xs sm:text-sm font-medium font-description mb-2" style={{ color: MUTED }}>Slack Webhook URL (optional)</Label>
+              <Label htmlFor="slack" className="block text-xs sm:text-sm font-medium font-description mb-2 text-muted-foreground">Slack Webhook URL (optional)</Label>
               <Input
                 id="slack"
                 value={config.escalation_slack_webhook || ""}
                 onChange={(e) => onChange("escalation_slack_webhook", e.target.value)}
                 placeholder="https://hooks.slack.com/..."
-                className="h-9 sm:h-10 text-sm font-description"
-                style={inputStyle}
+                className="h-9 sm:h-10 text-sm font-description bg-muted/50 border-border text-foreground"
               />
             </div>
 
             <label className="flex items-center gap-3 cursor-pointer">
               <Checkbox
                 checked={config.escalation_whatsapp_notification || false}
-                onChange={(checked) => onChange("escalation_whatsapp_notification", checked)}
+                onCheckedChange={(checked) => onChange("escalation_whatsapp_notification", checked)}
               />
-              <span className="text-xs sm:text-sm font-description" style={{ color: MUTED }}>Send WhatsApp notification on escalation</span>
+              <span className="text-xs sm:text-sm font-description text-muted-foreground">Send WhatsApp notification on escalation</span>
             </label>
           </>
         )}
@@ -1146,15 +1053,15 @@ function Tab5LeadCapture({ config, onChange }: any) {
         <label className="flex items-center gap-3 cursor-pointer mb-5 sm:mb-6">
           <Checkbox
             checked={config.lead_capture_enabled || false}
-            onChange={(checked) => onChange("lead_capture_enabled", checked)}
+            onCheckedChange={(checked) => onChange("lead_capture_enabled", checked)}
           />
-          <span className="text-xs sm:text-sm font-description" style={{ color: MUTED }}>Enable lead capture</span>
+          <span className="text-xs sm:text-sm font-description text-muted-foreground">Enable lead capture</span>
         </label>
 
         {config.lead_capture_enabled && (
           <>
             <div className="mb-5 sm:mb-6">
-              <Label className="block text-xs sm:text-sm font-medium font-description mb-3" style={{ color: MUTED }}>Trigger Lead Capture</Label>
+              <Label className="block text-xs sm:text-sm font-medium font-description mb-3 text-muted-foreground">Trigger Lead Capture</Label>
               <div className="space-y-2">
                 {[
                   { value: "after_x_messages", label: "After X messages" },
@@ -1173,38 +1080,38 @@ function Tab5LeadCapture({ config, onChange }: any) {
             </div>
 
             <div className="mb-5 sm:mb-6">
-              <Label className="block text-xs sm:text-sm font-medium font-description mb-2" style={{ color: MUTED }}>Lead Capture Message</Label>
+              <Label className="block text-xs sm:text-sm font-medium font-description mb-2 text-muted-foreground">Lead Capture Message</Label>
               <Textarea
                 value={config.lead_capture_message || ""}
                 onChange={(e) => onChange("lead_capture_message", e.target.value)}
                 placeholder="e.g., To help you better, could you provide your details?"
-                className="text-sm font-description resize-none"
-                style={{ ...inputStyle, minHeight: 64 }}
+                className="text-sm font-description resize-none bg-muted/50 border-border text-foreground"
+                style={{ minHeight: 64 }}
               />
             </div>
 
             <div className="mb-5 sm:mb-6">
-              <Label className="block text-xs sm:text-sm font-medium font-description mb-2" style={{ color: MUTED }}>Thank You Message</Label>
+              <Label className="block text-xs sm:text-sm font-medium font-description mb-2 text-muted-foreground">Thank You Message</Label>
               <Textarea
                 value={config.lead_capture_thank_you_message || ""}
                 onChange={(e) => onChange("lead_capture_thank_you_message", e.target.value)}
                 placeholder="e.g., Thanks! We'll follow up with you soon."
-                className="text-sm font-description resize-none"
-                style={{ ...inputStyle, minHeight: 64 }}
+                className="text-sm font-description resize-none bg-muted/50 border-border text-foreground"
+                style={{ minHeight: 64 }}
               />
             </div>
 
             <label className="flex items-center gap-3 cursor-pointer mb-4">
               <Checkbox
                 checked={config.lead_capture_skip_enabled || false}
-                onChange={(checked) => onChange("lead_capture_skip_enabled", checked)}
+                onCheckedChange={(checked) => onChange("lead_capture_skip_enabled", checked)}
               />
-              <span className="text-xs sm:text-sm font-description" style={{ color: MUTED }}>Allow users to skip lead capture</span>
+              <span className="text-xs sm:text-sm font-description text-muted-foreground">Allow users to skip lead capture</span>
             </label>
 
             {config.lead_capture_skip_enabled && (
               <div className="mb-5 sm:mb-6">
-                <Label htmlFor="skip-text" className="block text-xs sm:text-sm font-medium font-description mb-2" style={{ color: MUTED }}>
+                <Label htmlFor="skip-text" className="block text-xs sm:text-sm font-medium font-description mb-2 text-muted-foreground">
                   Skip Button Text
                 </Label>
                 <Input
@@ -1212,15 +1119,14 @@ function Tab5LeadCapture({ config, onChange }: any) {
                   value={config.lead_capture_skip_button_text || ""}
                   onChange={(e) => onChange("lead_capture_skip_button_text", e.target.value)}
                   placeholder="e.g., Skip for now"
-                  className="h-9 sm:h-10 text-sm font-description"
-                  style={inputStyle}
+                  className="h-9 sm:h-10 text-sm font-description bg-muted/50 border-border text-foreground"
                 />
               </div>
             )}
 
             <div className="mb-5 sm:mb-6">
-              <Label className="block text-xs sm:text-sm font-medium font-description mb-2" style={{ color: MUTED }}>Lead Capture Fields Configuration</Label>
-              <p className="text-[11px] font-description mb-4" style={{ color: DIM }}>Set which fields are required, optional, or disabled for lead capture</p>
+              <Label className="block text-xs sm:text-sm font-medium font-description mb-2 text-muted-foreground">Lead Capture Fields Configuration</Label>
+              <p className="text-[11px] font-description mb-4 text-muted-foreground/60">Set which fields are required, optional, or disabled for lead capture</p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {[
@@ -1233,12 +1139,11 @@ function Tab5LeadCapture({ config, onChange }: any) {
                   return (
                     <div
                       key={field.key}
-                      className="rounded-lg p-3 sm:p-4 transition-all duration-150"
-                      style={{ background: INPUT_BG, border: `1px solid ${BORDER}` }}
+                      className="rounded-lg p-3 sm:p-4 transition-all duration-150 bg-muted/50 border border-border"
                     >
                       <div className="flex items-center gap-2 mb-3">
                         <span className="text-base">{field.icon}</span>
-                        <span className="text-xs sm:text-sm font-medium font-description" style={{ color: TEXT }}>{field.label}</span>
+                        <span className="text-xs sm:text-sm font-medium font-description text-foreground">{field.label}</span>
                       </div>
 
                       <div className="flex gap-1.5 flex-wrap">
@@ -1253,12 +1158,12 @@ function Tab5LeadCapture({ config, onChange }: any) {
                                 newConfig[field.key] = state;
                                 onChange("lead_capture_fields_config", newConfig);
                               }}
-                              className="text-[11px] py-1 px-2.5 rounded-md font-description font-semibold transition-all duration-150"
-                              style={{
-                                background: isActive ? "rgba(79,142,247,0.12)" : "rgba(255,255,255,0.04)",
-                                border: `1px solid ${isActive ? "rgba(79,142,247,0.25)" : BORDER}`,
-                                color: isActive ? BLUE : MUTED,
-                              }}
+                              className={cn(
+                                "text-[11px] py-1 px-2.5 rounded-md font-description font-semibold transition-all duration-150 border",
+                                isActive
+                                  ? "bg-primary/10 border-primary/25 text-primary"
+                                  : "bg-muted/30 border-border text-muted-foreground hover:border-muted-foreground/30"
+                              )}
                             >
                               {state.charAt(0).toUpperCase() + state.slice(1)}
                             </button>
@@ -1285,28 +1190,25 @@ function Tab6Notifications({ config, onChange }: any) {
   return (
     <div className="space-y-5 sm:space-y-6">
       <SectionCard title="Notifications">
-        <p className="text-xs sm:text-sm font-description mb-5 sm:mb-6" style={{ color: MUTED }}>
+        <p className="text-xs sm:text-sm font-description mb-5 sm:mb-6 text-muted-foreground">
           Choose which notifications your team receives and where. Select one or both channels (Email, Slack) for each notification type.
         </p>
 
         <div className="mb-5 sm:mb-6">
-          <Label className="block text-xs sm:text-sm font-medium font-description mb-2" style={{ color: MUTED }}>Notification Recipients</Label>
+          <Label className="block text-xs sm:text-sm font-medium font-description mb-2 text-muted-foreground">Notification Recipients</Label>
           <Textarea
             value={(config.notification_email_addresses || []).join("\n")}
             onChange={(e) => onChange("notification_email_addresses", e.target.value.split("\n").filter(Boolean))}
             placeholder={"support@example.com\nmanager@example.com"}
-            className="text-sm font-description resize-none"
-            style={{ ...inputStyle, minHeight: 80 }}
+            className="text-sm font-description resize-none bg-muted/50 border-border text-foreground"
+            style={{ minHeight: 80 }}
           />
-          <p className="text-[11px] font-description mt-1.5" style={{ color: DIM }}>One email per line</p>
+          <p className="text-[11px] font-description mt-1.5 text-muted-foreground/60">One email per line</p>
         </div>
 
-        <div
-          className="mb-5 sm:mb-6 p-3 sm:p-4 rounded-lg"
-          style={{ background: INPUT_BG, border: `1px solid ${BORDER}` }}
-        >
-          <Label className="block text-xs sm:text-sm font-medium font-description mb-2" style={{ color: MUTED }}>Daily Summary Send Time</Label>
-          <p className="text-[11px] font-description mb-3" style={{ color: DIM }}>Choose what time daily summary reports are sent to your team</p>
+        <div className="mb-5 sm:mb-6 p-3 sm:p-4 rounded-lg bg-muted/50 border border-border">
+          <Label className="block text-xs sm:text-sm font-medium font-description mb-2 text-muted-foreground">Daily Summary Send Time</Label>
+          <p className="text-[11px] font-description mb-3 text-muted-foreground/60">Choose what time daily summary reports are sent to your team</p>
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
             <input
               type="time"
@@ -1316,10 +1218,9 @@ function Tab6Notifications({ config, onChange }: any) {
                 notifConfig.daily_summary_time = e.target.value;
                 onChange("notifications_config", notifConfig);
               }}
-              className="px-3 h-9 rounded-lg text-sm font-mono"
-              style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${BORDER}`, color: TEXT }}
+              className="px-3 h-9 rounded-lg text-sm font-mono bg-muted/30 border border-border text-foreground"
             />
-            <span className="text-xs font-description" style={{ color: DIM }}>
+            <span className="text-xs font-description text-muted-foreground/60">
               Daily reports sent at this time in your configured timezone
             </span>
           </div>
@@ -1330,14 +1231,14 @@ function Tab6Notifications({ config, onChange }: any) {
           <div className="min-w-[400px] px-4 sm:px-0">
             <table className="w-full text-sm">
               <thead>
-                <tr style={{ borderBottom: `1px solid ${BORDER}` }}>
-                  <th className="py-3 px-2 sm:px-3 text-left text-xs font-semibold uppercase tracking-wider font-heading" style={{ color: DIM }}>Notification</th>
-                  <th className="py-3 px-2 sm:px-3 text-center text-xs font-semibold uppercase tracking-wider font-heading" style={{ color: DIM }}>
+                <tr className="border-b border-border">
+                  <th className="py-3 px-2 sm:px-3 text-left text-xs font-semibold uppercase tracking-wider font-heading text-muted-foreground/60">Notification</th>
+                  <th className="py-3 px-2 sm:px-3 text-center text-xs font-semibold uppercase tracking-wider font-heading text-muted-foreground/60">
                     <div className="flex justify-center items-center gap-1">
                       <Mail size={13} /> Email
                     </div>
                   </th>
-                  <th className="py-3 px-2 sm:px-3 text-center text-xs font-semibold uppercase tracking-wider font-heading" style={{ color: DIM }}>
+                  <th className="py-3 px-2 sm:px-3 text-center text-xs font-semibold uppercase tracking-wider font-heading text-muted-foreground/60">
                     <div className="flex justify-center items-center gap-1">
                       <Bell size={13} /> Slack
                     </div>
@@ -1358,13 +1259,10 @@ function Tab6Notifications({ config, onChange }: any) {
                 ].map((notif) => (
                   <tr
                     key={notif.key}
-                    style={{ borderBottom: `1px solid rgba(45,51,59,0.5)` }}
-                    className="transition-colors duration-150"
-                    onMouseEnter={e => (e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.02)")}
-                    onMouseLeave={e => (e.currentTarget.style.backgroundColor = "transparent")}
+                    className="border-b border-border/50 transition-colors duration-150 hover:bg-muted/20"
                   >
                     <td className="py-3 px-2 sm:px-3">
-                      <span className="text-xs sm:text-sm font-description" style={{ color: MUTED }}>{notif.label}</span>
+                      <span className="text-xs sm:text-sm font-description text-muted-foreground">{notif.label}</span>
                     </td>
                     <td className="py-3 px-2 sm:px-3 text-center">
                       <Checkbox defaultChecked />
@@ -1389,43 +1287,31 @@ function Tab6Notifications({ config, onChange }: any) {
 
 function LiveWidgetPreview({ config }: { config: ChatbotConfig }) {
   return (
-    <div
-      className="rounded-xl overflow-hidden"
-      style={{
-        background: "linear-gradient(180deg, #E2E8F0 0%, #CBD5E1 100%)",
-        border: `1px solid ${BORDER}`,
-      }}
-    >
+    <div className="rounded-xl overflow-hidden border border-border bg-gradient-to-b from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-800">
       {/* Mock browser frame */}
-      <div className="px-3 sm:px-4 py-2 flex items-center gap-2" style={{ background: "#94A3B8" }}>
-        <div className="w-2.5 h-2.5 rounded-full" style={{ background: "#EF4444" }} />
-        <div className="w-2.5 h-2.5 rounded-full" style={{ background: "#F59E0B" }} />
-        <div className="w-2.5 h-2.5 rounded-full" style={{ background: "#10B981" }} />
-        <div className="flex-1 h-4 rounded-md mx-4" style={{ background: "rgba(255,255,255,0.3)" }} />
+      <div className="px-3 sm:px-4 py-2 flex items-center gap-2 bg-slate-400 dark:bg-slate-600">
+        <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
+        <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+        <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+        <div className="flex-1 h-4 rounded-md mx-4 bg-white/30" />
       </div>
 
       {/* Page content placeholder */}
       <div className="p-4 sm:p-6">
         <div className="space-y-3 mb-4">
-          <div className="h-2.5 rounded-full w-3/4" style={{ background: "#94A3B8" }} />
-          <div className="h-2 rounded-full w-full" style={{ background: "#CBD5E1" }} />
-          <div className="h-2 rounded-full w-5/6" style={{ background: "#CBD5E1" }} />
+          <div className="h-2.5 rounded-full w-3/4 bg-slate-400 dark:bg-slate-500" />
+          <div className="h-2 rounded-full w-full bg-slate-300 dark:bg-slate-600" />
+          <div className="h-2 rounded-full w-5/6 bg-slate-300 dark:bg-slate-600" />
         </div>
 
         {/* Chat widget preview */}
         <div
-          className="rounded-2xl shadow-2xl overflow-hidden mx-auto"
-          style={{
-            backgroundColor: "#FFFFFF",
-            maxWidth: 320,
-            height: 420,
-            display: "flex",
-            flexDirection: "column",
-          }}
+          className="rounded-2xl shadow-2xl overflow-hidden mx-auto flex flex-col bg-white dark:bg-slate-900"
+          style={{ maxWidth: 320, height: 420 }}
         >
           {/* Widget header */}
           <div
-            style={{ backgroundColor: config.brand_color || BLUE }}
+            style={{ backgroundColor: config.brand_color || "hsl(var(--primary))" }}
             className="px-4 py-3 text-white flex items-center justify-between flex-shrink-0"
           >
             <div className="flex items-center gap-2.5">
@@ -1444,13 +1330,13 @@ function LiveWidgetPreview({ config }: { config: ChatbotConfig }) {
           </div>
 
           {/* Chat messages */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-3" style={{ background: "#F8FAFC" }}>
+          <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-slate-50 dark:bg-slate-900/50">
             {/* Bot message */}
             <div className="flex gap-2">
-              <div className="w-7 h-7 rounded-full bg-blue-100 flex-shrink-0 flex items-center justify-center text-xs">
+              <div className="w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-900/30 flex-shrink-0 flex items-center justify-center text-xs">
                 {"\u{1F916}"}
               </div>
-              <div className="bg-white rounded-2xl rounded-tl-sm px-3 py-2 text-[12px] text-slate-700 max-w-[80%] shadow-sm">
+              <div className="bg-white dark:bg-slate-800 rounded-2xl rounded-tl-sm px-3 py-2 text-[12px] text-slate-700 dark:text-slate-300 max-w-[80%] shadow-sm">
                 {config.greeting_message || "Hi! How can I help you today?"}
               </div>
             </div>
@@ -1459,7 +1345,7 @@ function LiveWidgetPreview({ config }: { config: ChatbotConfig }) {
             <div className="flex justify-end gap-2">
               <div
                 className="rounded-2xl rounded-tr-sm px-3 py-2 text-[12px] text-white max-w-[80%] shadow-sm"
-                style={{ backgroundColor: config.user_message_color || BLUE }}
+                style={{ backgroundColor: config.user_message_color || "hsl(var(--primary))" }}
               >
                 This looks great!
               </div>
@@ -1472,12 +1358,8 @@ function LiveWidgetPreview({ config }: { config: ChatbotConfig }) {
                   q && (
                     <span
                       key={i}
-                      className="text-[10px] px-2 py-1 rounded-full"
-                      style={{
-                        background: "rgba(79,142,247,0.08)",
-                        border: `1px solid rgba(79,142,247,0.2)`,
-                        color: config.brand_color || BLUE,
-                      }}
+                      className="text-[10px] px-2 py-1 rounded-full bg-primary/[0.08] border border-primary/20"
+                      style={{ color: config.brand_color || "hsl(var(--primary))" }}
                     >
                       {q.length > 30 ? q.slice(0, 30) + "..." : q}
                     </span>
@@ -1488,16 +1370,16 @@ function LiveWidgetPreview({ config }: { config: ChatbotConfig }) {
           </div>
 
           {/* Input area */}
-          <div className="border-t border-slate-200 p-2.5 flex-shrink-0">
+          <div className="border-t border-slate-200 dark:border-slate-700 p-2.5 flex-shrink-0">
             <div className="flex gap-2">
               <input
                 type="text"
                 placeholder="Type your message..."
-                className="flex-1 border border-slate-200 rounded-full px-3 py-1.5 text-[12px] focus:outline-none"
+                className="flex-1 border border-slate-200 dark:border-slate-700 rounded-full px-3 py-1.5 text-[12px] focus:outline-none bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300"
                 readOnly
               />
               <button
-                style={{ backgroundColor: config.brand_color || BLUE }}
+                style={{ backgroundColor: config.brand_color || "hsl(var(--primary))" }}
                 className="text-white rounded-full w-8 h-8 flex items-center justify-center text-sm flex-shrink-0"
               >
                 {"\u2192"}
@@ -1507,7 +1389,7 @@ function LiveWidgetPreview({ config }: { config: ChatbotConfig }) {
         </div>
 
         {config.show_powered_by && (
-          <div className="text-[11px] mt-3 text-center" style={{ color: "#64748B" }}>
+          <div className="text-[11px] mt-3 text-center text-slate-500 dark:text-slate-400">
             Powered by NexaChat
           </div>
         )}
@@ -1524,17 +1406,17 @@ function EmailPreviewModal({ config, isOpen, onClose }: { config: Partial<Chatbo
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.6)" }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
       <div
-        className="rounded-xl overflow-hidden w-full max-h-[90vh] flex flex-col"
-        style={{ maxWidth: 720, background: "#FFFFFF" }}
+        className="rounded-xl overflow-hidden w-full max-h-[90vh] flex flex-col bg-white dark:bg-card"
+        style={{ maxWidth: 720 }}
       >
         {/* Modal header */}
-        <div className="sticky top-0 px-4 sm:px-6 py-4 flex items-center justify-between flex-shrink-0" style={{ background: "#FFFFFF", borderBottom: "1px solid #E5E7EB" }}>
-          <h3 className="text-base sm:text-lg font-semibold text-gray-900 font-heading">Escalation Email Preview</h3>
+        <div className="sticky top-0 px-4 sm:px-6 py-4 flex items-center justify-between flex-shrink-0 bg-white dark:bg-card border-b border-gray-200 dark:border-border">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-foreground font-heading">Escalation Email Preview</h3>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 dark:text-muted-foreground hover:text-gray-600 dark:hover:text-foreground hover:bg-gray-100 dark:hover:bg-muted/50 transition-colors"
           >
             <X size={20} />
           </button>
@@ -1542,28 +1424,28 @@ function EmailPreviewModal({ config, isOpen, onClose }: { config: Partial<Chatbo
 
         {/* Modal body */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-8">
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 sm:p-6 font-sans">
+          <div className="bg-gray-50 dark:bg-muted/30 border border-gray-200 dark:border-border rounded-lg p-4 sm:p-6 font-sans">
             {/* Email header */}
-            <div className="mb-6 border-b border-gray-300 pb-4 space-y-1.5">
-              <div className="text-xs sm:text-sm text-gray-600">
+            <div className="mb-6 border-b border-gray-300 dark:border-border pb-4 space-y-1.5">
+              <div className="text-xs sm:text-sm text-gray-600 dark:text-muted-foreground">
                 <strong>From:</strong> escalations@chatbot.local
               </div>
-              <div className="text-xs sm:text-sm text-gray-600">
+              <div className="text-xs sm:text-sm text-gray-600 dark:text-muted-foreground">
                 <strong>To:</strong> {(config.escalation_email_addresses || []).join(", ") || "support@example.com"}
               </div>
-              <div className="text-xs sm:text-sm text-gray-600">
+              <div className="text-xs sm:text-sm text-gray-600 dark:text-muted-foreground">
                 <strong>Subject:</strong> Chat Escalation - Customer Support Required
               </div>
             </div>
 
             {/* Email body */}
-            <div className="text-gray-800 space-y-4 text-sm">
+            <div className="text-gray-800 dark:text-foreground/90 space-y-4 text-sm">
               <p>Hi Team,</p>
               <p>A customer conversation has been escalated and requires your immediate attention.</p>
 
-              <div className="bg-white border-l-4 border-red-500 p-4 my-4 rounded-r">
-                <div className="font-semibold text-gray-900 mb-2 text-sm">Escalation Details:</div>
-                <ul className="space-y-1.5 text-gray-700 text-xs sm:text-sm">
+              <div className="bg-white dark:bg-card border-l-4 border-red-500 p-4 my-4 rounded-r">
+                <div className="font-semibold text-gray-900 dark:text-foreground mb-2 text-sm">Escalation Details:</div>
+                <ul className="space-y-1.5 text-gray-700 dark:text-muted-foreground text-xs sm:text-sm">
                   <li><strong>Reason:</strong> {config.sentiment_escalation_enabled ? "Negative sentiment detected" : "Confidence threshold not met"}</li>
                   <li><strong>Customer Name:</strong> John Doe</li>
                   <li><strong>Customer Email:</strong> john@example.com</li>
@@ -1571,10 +1453,10 @@ function EmailPreviewModal({ config, isOpen, onClose }: { config: Partial<Chatbo
                 </ul>
               </div>
 
-              <div className="bg-blue-50 p-4 rounded border border-blue-200">
-                <div className="font-semibold text-gray-900 mb-2 text-sm">Conversation Summary:</div>
-                <div className="text-gray-700 space-y-1.5">
-                  <p className="text-xs sm:text-sm"><strong>Customer:</strong> "I've been trying to resolve this issue for days and nothing is working!"</p>
+              <div className="bg-blue-50 dark:bg-primary/10 p-4 rounded border border-blue-200 dark:border-primary/20">
+                <div className="font-semibold text-gray-900 dark:text-foreground mb-2 text-sm">Conversation Summary:</div>
+                <div className="text-gray-700 dark:text-muted-foreground space-y-1.5">
+                  <p className="text-xs sm:text-sm"><strong>Customer:</strong> &ldquo;I&rsquo;ve been trying to resolve this issue for days and nothing is working!&rdquo;</p>
                   <p className="text-xs sm:text-sm"><strong>Bot Response:</strong> Generic auto-response about checking our knowledge base...</p>
                 </div>
               </div>
@@ -1582,12 +1464,12 @@ function EmailPreviewModal({ config, isOpen, onClose }: { config: Partial<Chatbo
               <p>Please log in to the dashboard to review the full conversation and provide assistance.</p>
 
               {config.escalation_slack_webhook && (
-                <p className="text-blue-600 text-xs">
+                <p className="text-blue-600 dark:text-primary text-xs">
                   A notification has also been sent to Slack
                 </p>
               )}
 
-              <p className="text-gray-600">
+              <p className="text-gray-600 dark:text-muted-foreground">
                 Best regards,<br />
                 <strong>NexaChat Escalation System</strong>
               </p>
@@ -1595,7 +1477,7 @@ function EmailPreviewModal({ config, isOpen, onClose }: { config: Partial<Chatbo
           </div>
 
           {/* Additional info */}
-          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-900">
+          <div className="mt-6 p-4 bg-blue-50 dark:bg-primary/10 border border-blue-200 dark:border-primary/20 rounded-lg text-sm text-blue-900 dark:text-primary">
             <p className="font-semibold mb-2 text-sm">Email Configuration Summary:</p>
             <ul className="space-y-1 text-xs">
               <li>Recipients: {(config.escalation_email_addresses || []).length} email address(es) configured</li>
@@ -1607,11 +1489,10 @@ function EmailPreviewModal({ config, isOpen, onClose }: { config: Partial<Chatbo
         </div>
 
         {/* Modal footer */}
-        <div className="px-4 sm:px-6 py-4 flex justify-end flex-shrink-0" style={{ background: "#F9FAFB", borderTop: "1px solid #E5E7EB" }}>
+        <div className="px-4 sm:px-6 py-4 flex justify-end flex-shrink-0 bg-gray-50 dark:bg-muted/20 border-t border-gray-200 dark:border-border">
           <Button
             onClick={onClose}
             className="text-sm font-description"
-            style={{ background: "#111827", color: "#fff" }}
           >
             Close Preview
           </Button>
@@ -1630,24 +1511,24 @@ function LoadingSkeleton() {
     <div className="flex flex-col w-full min-w-0">
       {/* Header skeleton */}
       <div className="mb-6">
-        <Skeleton className="h-7 w-56 mb-2 rounded" style={{ background: INPUT_BG }} />
-        <Skeleton className="h-4 w-80 rounded" style={{ background: INPUT_BG }} />
+        <Skeleton className="h-7 w-56 mb-2 rounded" />
+        <Skeleton className="h-4 w-80 rounded" />
       </div>
 
       {/* Tabs skeleton */}
-      <div className="mb-6 rounded-xl p-1 flex gap-2" style={{ background: CARD_BG, border: `1px solid ${BORDER}` }}>
+      <div className="mb-6 rounded-xl p-1 flex gap-2 border border-border bg-card">
         {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-9 flex-1 rounded-lg" style={{ background: INPUT_BG }} />
+          <Skeleton key={i} className="h-9 flex-1 rounded-lg" />
         ))}
       </div>
 
       {/* Content skeleton */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <Skeleton className="h-[500px] rounded-xl" style={{ background: CARD_BG }} />
+          <Skeleton className="h-[500px] rounded-xl" />
         </div>
         <div>
-          <Skeleton className="h-[400px] rounded-xl" style={{ background: CARD_BG }} />
+          <Skeleton className="h-[400px] rounded-xl" />
         </div>
       </div>
     </div>
