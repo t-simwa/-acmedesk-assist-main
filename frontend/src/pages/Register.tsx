@@ -133,36 +133,36 @@ export default function Register() {
   return (
     <div className="min-h-screen flex">
       {/* Left Side - Value Props */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-12 flex-col justify-between relative overflow-hidden">
-        {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-0 left-0 w-72 h-72 bg-blue-500 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
-          <div className="absolute bottom-0 right-0 w-96 h-96 bg-purple-500 rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
+      <div className="hidden lg:flex lg:w-1/2 bg-sidebar p-12 flex-col justify-between relative overflow-hidden">
+        {/* Subtle background accents */}
+        <div className="absolute inset-0 opacity-[0.04]">
+          <div className="absolute top-0 left-0 w-72 h-72 bg-primary rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
+          <div className="absolute bottom-0 right-0 w-96 h-96 bg-info rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
         </div>
 
         <div className="relative z-10">
           <Logo className="h-10 w-auto" />
         </div>
 
-        <div className="relative z-10 space-y-12">
+        <div className="relative z-10 space-y-10">
           <div>
-            <h2 className="text-4xl font-bold text-white mb-4">
+            <h2 className="font-heading text-3xl font-semibold tracking-tight text-sidebar-foreground mb-3">
               Build Your AI Support Team
             </h2>
-            <p className="text-slate-400 text-lg">
+            <p className="text-sidebar-foreground/60 text-base">
               Empower your business with an intelligent chatbot that works 24/7
             </p>
           </div>
 
-          <div className="space-y-8">
+          <div className="space-y-6">
             {valueProps.map((prop, index) => (
               <div key={index} className="flex items-start gap-4">
-                <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-slate-800/50 flex items-center justify-center text-2xl">
+                <div className="flex-shrink-0 w-11 h-11 rounded-lg bg-sidebar-accent/50 flex items-center justify-center text-xl">
                   {prop.icon}
                 </div>
                 <div>
-                  <h3 className="text-white font-semibold text-lg">{prop.title}</h3>
-                  <p className="text-slate-400">{prop.description}</p>
+                  <h3 className="text-sidebar-foreground font-medium text-[15px]">{prop.title}</h3>
+                  <p className="text-sidebar-foreground/50 text-sm mt-0.5">{prop.description}</p>
                 </div>
               </div>
             ))}
@@ -170,15 +170,15 @@ export default function Register() {
         </div>
 
         <div className="relative z-10">
-          <div className="bg-slate-800/30 backdrop-blur-sm rounded-lg p-6 border border-slate-700/50">
-            <p className="text-slate-300 italic mb-4">"{testimonial.quote}"</p>
+          <div className="bg-sidebar-accent/30 backdrop-blur-sm rounded-xl p-5 border border-sidebar-border/50">
+            <p className="text-sidebar-foreground/70 italic text-sm mb-3">"{testimonial.quote}"</p>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold">
+              <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-primary text-sm font-semibold">
                 {testimonial.author.charAt(0)}
               </div>
               <div>
-                <p className="text-white font-medium">{testimonial.author}</p>
-                <p className="text-slate-400 text-sm">{testimonial.role}</p>
+                <p className="text-sidebar-foreground text-sm font-medium">{testimonial.author}</p>
+                <p className="text-sidebar-foreground/50 text-xs">{testimonial.role}</p>
               </div>
             </div>
           </div>
@@ -186,22 +186,22 @@ export default function Register() {
       </div>
 
       {/* Right Side - Registration Form */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-white dark:bg-slate-900">
-        <div className="w-full max-w-md space-y-8">
+      <div className="flex-1 flex items-center justify-center p-6 sm:p-8 bg-background">
+        <div className="w-full max-w-md space-y-7">
           <div className="lg:hidden text-center">
             <Logo className="mx-auto mb-4" />
           </div>
 
           <div className="text-center lg:text-left">
-            <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
+            <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground">
               Create your account
             </h1>
-            <p className="text-slate-600 dark:text-slate-400 mt-2">
+            <p className="text-sm text-muted-foreground mt-1.5">
               Start your 14-day free trial. No credit card required.
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
@@ -209,98 +209,101 @@ export default function Register() {
               </Alert>
             )}
 
-            <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="name" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Full Name</Label>
               <Input
                 id="name"
                 type="text"
                 placeholder="John Doe"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                className="h-10"
                 disabled={loading}
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="businessName">Business Name *</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="businessName" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Business Name *</Label>
               <Input
                 id="businessName"
                 type="text"
                 placeholder="Acme Inc."
                 value={businessName}
                 onChange={(e) => setBusinessName(e.target.value)}
+                className="h-10"
                 disabled={loading}
                 required
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="email">Email Address *</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="email" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Email Address *</Label>
               <Input
                 id="email"
                 type="email"
                 placeholder="you@company.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                className="h-10"
                 disabled={loading}
                 required
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password">Password *</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="password" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Password *</Label>
               <Input
                 id="password"
                 type="password"
                 placeholder="Create a password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                className="h-10"
                 disabled={loading}
                 required
               />
 
               {password.length > 0 && (
-                <div className="mt-3 space-y-2">
-                  <div className="flex gap-2">
-                    {passwordRequirements.map((req, index) => (
-                      <div
-                        key={index}
-                        className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded-full ${
-                          req.met
-                            ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                            : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
-                        }`}
-                      >
-                        {req.met ? (
-                          <CheckCircle2 className="h-3 w-3" />
-                        ) : (
-                          <span className="w-3 h-3 rounded-full border border-current" />
-                        )}
-                        {req.label}
-                      </div>
-                    ))}
-                  </div>
+                <div className="mt-2.5 flex gap-1.5 flex-wrap">
+                  {passwordRequirements.map((req, index) => (
+                    <div
+                      key={index}
+                      className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full transition-colors ${
+                        req.met
+                          ? "bg-success/10 text-success"
+                          : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {req.met ? (
+                        <CheckCircle2 className="h-3 w-3" />
+                      ) : (
+                        <span className="w-3 h-3 rounded-full border border-current" />
+                      )}
+                      {req.label}
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password *</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="confirmPassword" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Confirm Password *</Label>
               <Input
                 id="confirmPassword"
                 type="password"
                 placeholder="Confirm your password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
+                className="h-10"
                 disabled={loading}
                 required
               />
               {confirmPassword.length > 0 && (
                 <p
-                  className={`text-sm ${
+                  className={`text-xs mt-1 ${
                     passwordsMatch
-                      ? "text-green-600 dark:text-green-400"
-                      : "text-red-600 dark:text-red-400"
+                      ? "text-success"
+                      : "text-destructive"
                   }`}
                 >
                   {passwordsMatch ? "Passwords match" : "Passwords do not match"}
@@ -308,7 +311,7 @@ export default function Register() {
               )}
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2.5 pt-1">
               <div className="flex items-start gap-2">
                 <Checkbox
                   id="acceptTos"
@@ -318,14 +321,14 @@ export default function Register() {
                 />
                 <label
                   htmlFor="acceptTos"
-                  className="text-sm text-slate-600 dark:text-slate-300 cursor-pointer"
+                  className="text-sm text-muted-foreground cursor-pointer leading-snug"
                 >
                   I agree to the{" "}
-                  <Link to="/terms" className="text-blue-600 hover:underline">
+                  <Link to="/terms" className="text-primary hover:text-primary/80 transition-colors">
                     Terms of Service
                   </Link>{" "}
                   and{" "}
-                  <Link to="/privacy" className="text-blue-600 hover:underline">
+                  <Link to="/privacy" className="text-primary hover:text-primary/80 transition-colors">
                     Privacy Policy
                   </Link>{" "}
                   *
@@ -341,7 +344,7 @@ export default function Register() {
                 />
                 <label
                   htmlFor="marketingOptIn"
-                  className="text-sm text-slate-600 dark:text-slate-300 cursor-pointer"
+                  className="text-sm text-muted-foreground cursor-pointer"
                 >
                   Send me product updates and tips (optional)
                 </label>
@@ -350,7 +353,7 @@ export default function Register() {
 
             <Button
               type="submit"
-              className="w-full"
+              className="w-full h-10 font-medium"
               disabled={loading || !acceptTos || !businessName}
             >
               {loading ? (
@@ -363,12 +366,13 @@ export default function Register() {
               )}
             </Button>
 
+            {/* Divider */}
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-200 dark:border-slate-700" />
+                <div className="w-full border-t border-border" />
               </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-4 bg-white dark:bg-slate-900 text-slate-500">
+              <div className="relative flex justify-center text-xs">
+                <span className="px-3 bg-background text-muted-foreground">
                   Or continue with
                 </span>
               </div>
@@ -377,10 +381,10 @@ export default function Register() {
             <Button
               type="button"
               variant="outline"
-              className="w-full"
+              className="w-full h-10"
               disabled={loading}
             >
-              <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24">
+              <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
                 <path
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
                   fill="#4285F4"
@@ -401,11 +405,11 @@ export default function Register() {
               Continue with Google
             </Button>
 
-            <p className="text-center text-sm text-slate-600 dark:text-slate-400">
+            <p className="text-center text-sm text-muted-foreground">
               Already have an account?{" "}
               <Link
                 to="/login"
-                className="text-blue-600 hover:underline font-medium"
+                className="font-medium text-primary hover:text-primary/80 transition-colors"
               >
                 Sign in
               </Link>

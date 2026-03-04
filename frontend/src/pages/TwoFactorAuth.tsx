@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Branding/Logo";
-import { Loader2, AlertCircle, ArrowLeft } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
 
 const CODE_LENGTH = 6;
 const CODE_EXPIRY_SECONDS = 300;
@@ -106,18 +106,18 @@ export default function TwoFactorAuth() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <Logo className="mx-auto mb-4" />
+          <Logo className="mx-auto mb-6" />
         </div>
 
-        <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-8">
+        <div className="rounded-xl border border-border bg-card shadow-soft-md p-7">
           <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
+            <h1 className="font-heading text-xl font-semibold tracking-tight text-foreground mb-2">
               Two-Factor Authentication
             </h1>
-            <p className="text-slate-600 dark:text-slate-400">
+            <p className="text-sm text-muted-foreground">
               {useBackupCode
                 ? "Enter your backup code to continue"
                 : `Enter the 6-digit code from your authenticator app. Code expires in ${formatTime(expiry)}.`}
@@ -125,8 +125,8 @@ export default function TwoFactorAuth() {
           </div>
 
           {error && (
-            <div className="mb-6 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-              <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
+            <div className="mb-5 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+              <div className="flex items-center gap-2 text-destructive">
                 <AlertCircle className="h-4 w-4" />
                 <span className="text-sm">{error}</span>
               </div>
@@ -146,7 +146,7 @@ export default function TwoFactorAuth() {
                   onChange={(e) => handleChange(index, e.target.value)}
                   onKeyDown={(e) => handleKeyDown(index, e)}
                   onPaste={handlePaste}
-                  className="w-12 h-14 text-center text-xl font-bold border-2 border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:border-blue-500 dark:focus:border-blue-500 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
+                  className="w-11 h-13 text-center text-lg font-semibold font-mono border-2 border-border rounded-lg bg-background text-foreground focus:outline-none focus:border-primary transition-colors disabled:opacity-50"
                   disabled={loading}
                 />
               ))}
@@ -154,7 +154,7 @@ export default function TwoFactorAuth() {
 
             <Button
               type="submit"
-              className="w-full"
+              className="w-full h-10 font-medium"
               disabled={loading || code.join("").length !== CODE_LENGTH || expiry <= 0}
             >
               {loading ? (
@@ -171,7 +171,7 @@ export default function TwoFactorAuth() {
               <button
                 type="button"
                 onClick={() => setUseBackupCode(!useBackupCode)}
-                className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                className="text-sm text-primary hover:text-primary/80 transition-colors"
               >
                 {useBackupCode ? "Use authenticator code instead" : "Use backup code instead"}
               </button>
@@ -181,7 +181,7 @@ export default function TwoFactorAuth() {
               <button
                 type="button"
                 onClick={handleCancel}
-                className="text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
                 Cancel
               </button>

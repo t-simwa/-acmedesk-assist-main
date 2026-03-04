@@ -61,8 +61,10 @@ export default function GetStarted() {
   return (
     <div className="container mx-auto px-6 py-8 max-w-4xl">
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold mb-2">Complete Your Setup</h1>
-        <p className="text-muted-foreground">
+        <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground mb-2">
+          Complete Your Setup
+        </h1>
+        <p className="text-sm text-muted-foreground">
           Finish setting up your AI assistant to get the most out of AcmeDesk
         </p>
       </div>
@@ -70,16 +72,16 @@ export default function GetStarted() {
       <Card className="mb-8">
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Setup Progress</CardTitle>
-            <Badge variant="outline">
+            <CardTitle className="text-sm font-medium">Setup Progress</CardTitle>
+            <Badge variant="outline" className="text-xs">
               {completedSteps} of {STEPS.length} complete
             </Badge>
           </div>
-          <Progress value={progress} className="h-2 mt-2" />
+          <Progress value={progress} className="h-1.5 mt-2" />
         </CardHeader>
       </Card>
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         {STEPS.map((step) => {
           const completed = isStepCompleted(step.id);
           const isCurrentStep = status?.current_step === step.id;
@@ -95,22 +97,22 @@ export default function GetStarted() {
               <CardContent className="flex items-center justify-between p-4">
                 <div className="flex items-center gap-4">
                   <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-medium ${
                       completed
-                        ? "bg-green-500 text-white"
+                        ? "bg-success text-white"
                         : isCurrentStep
                         ? "bg-primary text-primary-foreground"
-                        : "bg-muted"
+                        : "bg-muted text-muted-foreground"
                     }`}
                   >
                     {completed ? "✓" : step.id}
                   </div>
                   <div>
-                    <div className="font-medium">{step.title}</div>
-                    <div className="text-sm text-muted-foreground">{step.description}</div>
+                    <div className="text-sm font-medium text-foreground">{step.title}</div>
+                    <div className="text-xs text-muted-foreground">{step.description}</div>
                   </div>
                 </div>
-                <Button variant={completed ? "ghost" : "default"} size="sm">
+                <Button variant={completed ? "ghost" : "default"} size="sm" className="text-xs">
                   {completed ? "Review" : isCurrentStep ? "Continue" : "Start"}
                 </Button>
               </CardContent>
@@ -124,6 +126,7 @@ export default function GetStarted() {
           variant="ghost"
           onClick={() => dismissMutation.mutate()}
           disabled={dismissMutation.isPending}
+          className="text-sm text-muted-foreground"
         >
           Skip setup guide
         </Button>

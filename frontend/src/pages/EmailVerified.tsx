@@ -1,8 +1,17 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Branding/Logo";
 import { CheckCircle2 } from "lucide-react";
+
+const CONFETTI_COLORS = [
+  "bg-primary",
+  "bg-info",
+  "bg-success",
+  "bg-warning",
+  "bg-error",
+  "bg-purple-500",
+];
 
 function Confetti() {
   const [particles, setParticles] = useState<Array<{
@@ -11,19 +20,18 @@ function Confetti() {
     y: number;
     rotation: number;
     scale: number;
-    color: string;
+    colorClass: string;
     delay: number;
   }>>([]);
 
   useEffect(() => {
-    const colors = ["#3B82F6", "#8B5CF6", "#EC4899", "#10B981", "#F59E0B", "#EF4444"];
     const newParticles = Array.from({ length: 100 }, (_, i) => ({
       id: i,
       x: Math.random() * 100,
       y: -20 - Math.random() * 100,
       rotation: Math.random() * 360,
       scale: 0.5 + Math.random() * 0.5,
-      color: colors[Math.floor(Math.random() * colors.length)],
+      colorClass: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
       delay: Math.random() * 2,
     }));
     setParticles(newParticles);
@@ -42,10 +50,7 @@ function Confetti() {
             animationDelay: `${particle.delay}s`,
           }}
         >
-          <div
-            className="w-3 h-3"
-            style={{ backgroundColor: particle.color }}
-          />
+          <div className={`w-3 h-3 ${particle.colorClass}`} />
         </div>
       ))}
       <style>{`
@@ -83,33 +88,33 @@ export default function EmailVerified() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4">
       {showConfetti && <Confetti />}
       
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <Logo className="mx-auto mb-4" />
+          <Logo className="mx-auto mb-6" />
         </div>
 
-        <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-8">
+        <div className="rounded-xl border border-border bg-card shadow-soft-md p-7">
           <div className="text-center">
-            <div className="mx-auto w-24 h-24 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-6 animate-bounce">
-              <CheckCircle2 className="h-14 w-14 text-green-600 dark:text-green-400" />
+            <div className="mx-auto w-20 h-20 bg-success/10 rounded-full flex items-center justify-center mb-6 animate-bounce">
+              <CheckCircle2 className="h-12 w-12 text-success" />
             </div>
 
-            <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">
+            <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground mb-3">
               Email Verified!
             </h1>
 
-            <p className="text-slate-600 dark:text-slate-400 mb-8">
+            <p className="text-sm text-muted-foreground mb-8">
               Your account has been successfully verified. You can now log in and set up your chatbot.
             </p>
 
-            <Button onClick={handleContinue} className="w-full" size="lg">
+            <Button onClick={handleContinue} className="w-full h-10 font-medium" size="lg">
               Continue to Login
             </Button>
 
-            <p className="mt-6 text-sm text-slate-500 dark:text-slate-400">
+            <p className="mt-5 text-xs text-muted-foreground/70">
               Redirecting you to login...
             </p>
           </div>

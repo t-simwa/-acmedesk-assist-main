@@ -128,17 +128,18 @@ export default function ResetPassword() {
     }
   };
 
+  // --- Loading state ---
   if (resetState === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 px-4">
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
-            <Logo className="mx-auto mb-4" />
+            <Logo className="mx-auto mb-6" />
           </div>
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-8">
+          <div className="rounded-xl border border-border bg-card shadow-soft-md p-7">
             <div className="flex flex-col items-center justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-600 mb-4" />
-              <p className="text-slate-600 dark:text-slate-400">Validating reset link...</p>
+              <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+              <p className="text-sm text-muted-foreground">Validating reset link...</p>
             </div>
           </div>
         </div>
@@ -146,39 +147,40 @@ export default function ResetPassword() {
     );
   }
 
+  // --- Expired state ---
   if (resetState === "expired") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 px-4">
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
-            <Logo className="mx-auto mb-4" />
+            <Logo className="mx-auto mb-6" />
           </div>
 
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-8">
+          <div className="rounded-xl border border-border bg-card shadow-soft-md p-7">
             <div className="text-center">
-              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900 mb-4">
-                <AlertCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-destructive/10 mb-5">
+                <AlertCircle className="h-5 w-5 text-destructive" />
               </div>
 
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">
+              <h1 className="font-heading text-xl font-semibold tracking-tight text-foreground mb-2">
                 Link Expired
               </h1>
 
-              <p className="text-slate-600 dark:text-slate-400 mb-6">
+              <p className="text-sm text-muted-foreground mb-6">
                 This password reset link has expired. Please request a new one.
               </p>
 
               <Link to="/forgot-password">
-                <Button className="w-full">
+                <Button className="w-full h-10 font-medium">
                   <Link2Icon className="mr-2 h-4 w-4" />
                   Request New Link
                 </Button>
               </Link>
 
-              <div className="mt-6">
+              <div className="mt-5">
                 <Link
                   to="/login"
-                  className="text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 inline-flex items-center"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors inline-flex items-center"
                 >
                   <ArrowLeft className="mr-1 h-3 w-3" />
                   Back to login
@@ -191,39 +193,40 @@ export default function ResetPassword() {
     );
   }
 
+  // --- Used state ---
   if (resetState === "used") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 px-4">
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
-            <Logo className="mx-auto mb-4" />
+            <Logo className="mx-auto mb-6" />
           </div>
 
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-8">
+          <div className="rounded-xl border border-border bg-card shadow-soft-md p-7">
             <div className="text-center">
-              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-orange-100 dark:bg-orange-900 mb-4">
-                <AlertCircle className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-warning/10 mb-5">
+                <AlertCircle className="h-5 w-5 text-warning" />
               </div>
 
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">
+              <h1 className="font-heading text-xl font-semibold tracking-tight text-foreground mb-2">
                 Link Already Used
               </h1>
 
-              <p className="text-slate-600 dark:text-slate-400 mb-6">
+              <p className="text-sm text-muted-foreground mb-6">
                 This password reset link has already been used. Please request a new one.
               </p>
 
               <Link to="/forgot-password">
-                <Button className="w-full">
+                <Button className="w-full h-10 font-medium">
                   <Link2Icon className="mr-2 h-4 w-4" />
                   Request New Link
                 </Button>
               </Link>
 
-              <div className="mt-6">
+              <div className="mt-5">
                 <Link
                   to="/login"
-                  className="text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 inline-flex items-center"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors inline-flex items-center"
                 >
                   <ArrowLeft className="mr-1 h-3 w-3" />
                   Back to login
@@ -236,30 +239,31 @@ export default function ResetPassword() {
     );
   }
 
+  // --- Success state ---
   if (resetState === "success") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 px-4">
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
-            <Logo className="mx-auto mb-4" />
+            <Logo className="mx-auto mb-6" />
           </div>
 
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-8">
+          <div className="rounded-xl border border-border bg-card shadow-soft-md p-7">
             <div className="text-center">
-              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 dark:bg-green-900 mb-4">
-                <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-success/10 mb-5">
+                <CheckCircle2 className="h-5 w-5 text-success" />
               </div>
 
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">
+              <h1 className="font-heading text-xl font-semibold tracking-tight text-foreground mb-2">
                 Password Reset Successful
               </h1>
 
-              <p className="text-slate-600 dark:text-slate-400 mb-6">
+              <p className="text-sm text-muted-foreground mb-6">
                 Your password has been reset. You can now login with your new password.
               </p>
 
               <Link to="/login">
-                <Button className="w-full">
+                <Button className="w-full h-10 font-medium">
                   Go to Login
                 </Button>
               </Link>
@@ -270,19 +274,20 @@ export default function ResetPassword() {
     );
   }
 
+  // --- Valid state (form) ---
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <Logo className="mx-auto mb-4" />
+          <Logo className="mx-auto mb-6" />
         </div>
 
-        <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-8">
+        <div className="rounded-xl border border-border bg-card shadow-soft-md p-7">
           <div className="mb-6">
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">
+            <h1 className="font-heading text-xl font-semibold tracking-tight text-foreground mb-2">
               Reset your password
             </h1>
-            <p className="text-slate-600 dark:text-slate-400">
+            <p className="text-sm text-muted-foreground">
               Enter your new password below.
             </p>
           </div>
@@ -295,8 +300,10 @@ export default function ResetPassword() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="password">New password</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="password" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                New password
+              </Label>
               <div className="relative">
                 <Input
                   id="password"
@@ -306,12 +313,12 @@ export default function ResetPassword() {
                   onChange={(e) => handlePasswordChange(e.target.value)}
                   disabled={loading}
                   required
-                  className="pr-10"
+                  className="h-10 pr-10"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {showPassword ? (
                     <EyeOff className="h-4 w-4" />
@@ -322,11 +329,11 @@ export default function ResetPassword() {
               </div>
 
               {password && passwordErrors.length > 0 && (
-                <div className="text-sm text-slate-600 dark:text-slate-400 space-y-1 mt-2">
+                <div className="text-xs text-muted-foreground space-y-1 mt-2">
                   <p className="font-medium">Password requirements:</p>
-                  <ul className="list-disc list-inside space-y-1">
+                  <ul className="list-disc list-inside space-y-0.5">
                     {passwordErrors.map((err, idx) => (
-                      <li key={idx} className="text-red-600 dark:text-red-400">
+                      <li key={idx} className="text-destructive">
                         {err}
                       </li>
                     ))}
@@ -335,8 +342,10 @@ export default function ResetPassword() {
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm password</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="confirmPassword" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Confirm password
+              </Label>
               <div className="relative">
                 <Input
                   id="confirmPassword"
@@ -346,12 +355,12 @@ export default function ResetPassword() {
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   disabled={loading}
                   required
-                  className="pr-10"
+                  className="h-10 pr-10"
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {showConfirmPassword ? (
                     <EyeOff className="h-4 w-4" />
@@ -362,7 +371,7 @@ export default function ResetPassword() {
               </div>
 
               {confirmPassword && password !== confirmPassword && (
-                <p className="text-sm text-red-600 dark:text-red-400">
+                <p className="text-xs text-destructive mt-1">
                   Passwords do not match
                 </p>
               )}
@@ -370,7 +379,7 @@ export default function ResetPassword() {
 
             <Button
               type="submit"
-              className="w-full"
+              className="w-full h-10 font-medium"
               disabled={loading || !token || passwordErrors.length > 0 || password !== confirmPassword}
             >
               {loading ? (
@@ -387,7 +396,7 @@ export default function ResetPassword() {
           <div className="mt-6 text-center">
             <Link
               to="/login"
-              className="text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 inline-flex items-center"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors inline-flex items-center"
             >
               <ArrowLeft className="mr-1 h-3 w-3" />
               Back to login

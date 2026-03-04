@@ -97,22 +97,24 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 px-4 py-12">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-12">
       <div className="w-full max-w-md">
+        {/* Header */}
         <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
+          <div className="flex justify-center mb-6">
             <Logo />
           </div>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">
+          <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground">
             Welcome back
           </h1>
-          <p className="text-slate-600 dark:text-slate-400">
+          <p className="mt-1.5 text-sm text-muted-foreground">
             Sign in to your AcmeDesk Assist account
           </p>
         </div>
 
-        <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-8">
-          <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Card */}
+        <div className="rounded-xl border border-border bg-card shadow-soft-md p-7">
+          <form onSubmit={handleSubmit} className="space-y-5">
             {error && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
@@ -129,27 +131,31 @@ export default function Login() {
               </Alert>
             )}
 
-            <div className="space-y-2">
-              <Label htmlFor="email">Email Address</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="email" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Email Address
+              </Label>
               <Input
                 id="email"
                 type="email"
                 placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:border-input"
+                className="h-10 focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:border-input"
                 required
                 disabled={loading}
                 autoComplete="email"
               />
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Password
+                </Label>
                 <Link
                   to="/forgot-password"
-                  className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                  className="text-xs font-medium text-primary hover:text-primary/80 transition-colors"
                 >
                   Forgot password?
                 </Link>
@@ -161,7 +167,7 @@ export default function Login() {
                   placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:border-input pr-10"
+                  className="h-10 focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:border-input pr-10"
                   required
                   disabled={loading}
                   autoComplete="current-password"
@@ -169,7 +175,7 @@ export default function Login() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {showPassword ? (
                     <EyeOff className="h-4 w-4" />
@@ -189,7 +195,7 @@ export default function Login() {
               />
               <Label
                 htmlFor="rememberMe"
-                className="text-sm font-normal cursor-pointer"
+                className="text-sm font-normal cursor-pointer text-muted-foreground"
               >
                 Remember me for 30 days
               </Label>
@@ -197,7 +203,7 @@ export default function Login() {
 
             <Button
               type="submit"
-              className="w-full"
+              className="w-full h-10 font-medium"
               disabled={loading || !email || !password || lockoutRemaining > 0}
             >
               {loading ? (
@@ -210,12 +216,13 @@ export default function Login() {
               )}
             </Button>
 
+            {/* Divider */}
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-200 dark:border-slate-700" />
+                <div className="w-full border-t border-border" />
               </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-4 bg-white dark:bg-slate-800 text-slate-500">
+              <div className="relative flex justify-center text-xs">
+                <span className="px-3 bg-card text-muted-foreground">
                   Or continue with
                 </span>
               </div>
@@ -224,10 +231,10 @@ export default function Login() {
             <Button
               type="button"
               variant="outline"
-              className="w-full"
+              className="w-full h-10"
               disabled={loading || lockoutRemaining > 0}
             >
-              <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24">
+              <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
                 <path
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
                   fill="#4285F4"
@@ -248,11 +255,11 @@ export default function Login() {
               Continue with Google
             </Button>
 
-            <p className="text-center text-sm text-slate-600 dark:text-slate-400">
+            <p className="text-center text-sm text-muted-foreground">
               Don't have an account?{" "}
               <Link
                 to="/register"
-                className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
+                className="font-medium text-primary hover:text-primary/80 transition-colors"
               >
                 Sign up
               </Link>

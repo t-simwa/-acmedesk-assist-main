@@ -55,32 +55,32 @@ export default function ForgotPassword() {
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 px-4">
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
-            <Logo className="mx-auto mb-4" />
+            <Logo className="mx-auto mb-6" />
           </div>
 
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-8">
+          <div className="rounded-xl border border-border bg-card shadow-soft-md p-7">
             <div className="text-center">
-              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 dark:bg-green-900 mb-4">
-                <Mail className="h-6 w-6 text-green-600 dark:text-green-400" />
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-success/10 mb-5">
+                <Mail className="h-5 w-5 text-success" />
               </div>
 
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">
+              <h1 className="font-heading text-xl font-semibold tracking-tight text-foreground mb-2">
                 Check your email
               </h1>
 
-              <p className="text-slate-600 dark:text-slate-400 mb-6">
+              <p className="text-sm text-muted-foreground mb-5">
                 If an account with that email exists, you'll receive a password reset link.
               </p>
 
-              <p className="text-sm text-slate-500 dark:text-slate-500 mb-6">
+              <p className="text-xs text-muted-foreground/70 mb-6">
                 The link will expire in 1 hour.
               </p>
 
-              <div className="space-y-4">
-                <p className="text-sm text-slate-500 dark:text-slate-500">
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground/70">
                   Didn't receive the email? Check your spam folder.
                 </p>
 
@@ -90,13 +90,13 @@ export default function ForgotPassword() {
                     setSuccess(false);
                     setEmail("");
                   }}
-                  className="w-full"
+                  className="w-full h-10"
                 >
                   Try another email
                 </Button>
 
                 <Link to="/login">
-                  <Button variant="ghost" className="w-full">
+                  <Button variant="ghost" className="w-full h-10">
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Back to login
                   </Button>
@@ -110,18 +110,18 @@ export default function ForgotPassword() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <Logo className="mx-auto mb-4" />
+          <Logo className="mx-auto mb-6" />
         </div>
 
-        <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-8">
+        <div className="rounded-xl border border-border bg-card shadow-soft-md p-7">
           <div className="mb-6">
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">
+            <h1 className="font-heading text-xl font-semibold tracking-tight text-foreground mb-2">
               Forgot your password?
             </h1>
-            <p className="text-slate-600 dark:text-slate-400">
+            <p className="text-sm text-muted-foreground">
               Enter your email address and we'll send you a link to reset your password.
             </p>
           </div>
@@ -134,20 +134,23 @@ export default function ForgotPassword() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email address</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="email" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Email address
+              </Label>
               <Input
                 id="email"
                 type="email"
                 placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                className="h-10"
                 disabled={loading}
                 required
               />
             </div>
 
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full h-10 font-medium" disabled={loading}>
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -165,7 +168,7 @@ export default function ForgotPassword() {
           <div className="mt-6 text-center">
             <Link
               to="/login"
-              className="text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 inline-flex items-center"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors inline-flex items-center"
             >
               <ArrowLeft className="mr-1 h-3 w-3" />
               Back to login

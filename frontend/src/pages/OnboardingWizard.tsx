@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -8,19 +8,16 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { toast } from "sonner";
 import {
   onboardingApi,
   OnboardingStatus,
   PlanInfo,
   BusinessProfileRequest,
   ChatbotConfigRequest,
-  EmbedCodeResponse,
 } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Spinner } from "@/components/ui/spinner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const INDUSTRY_OPTIONS = [
@@ -47,6 +44,7 @@ const STEPS = [
   { id: 6, title: "Embed Code", description: "Go live" },
 ];
 
+// Avatar colors are user-selectable visual options — dynamic inline styles required
 const AVATAR_OPTIONS = [
   { id: "avatar1", color: "#4F8EF7", icon: "🤖" },
   { id: "avatar2", color: "#7C3AED", icon: "💬" },
@@ -159,42 +157,44 @@ export default function OnboardingWizard() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-4xl mx-auto px-6 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold mb-2">Welcome to AcmeDesk</h1>
-          <p className="text-muted-foreground">
+          <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground mb-2">
+            Welcome to AcmeDesk
+          </h1>
+          <p className="text-sm text-muted-foreground">
             Let's set up your AI assistant in just a few minutes
           </p>
         </div>
 
         {/* Progress Bar */}
         <div className="mb-8">
-          <div className="flex justify-between mb-2">
+          <div className="flex justify-between mb-3">
             {STEPS.map((step) => (
               <div
                 key={step.id}
-                className={`flex flex-col items-center cursor-pointer ${
+                className={`flex flex-col items-center cursor-pointer transition-colors ${
                   step.id === currentStep ? "text-primary" : "text-muted-foreground"
                 }`}
                 onClick={() => handleStepChange(step.id)}
               >
                 <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium mb-1 ${
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium mb-1 transition-colors ${
                     step.id < currentStep
                       ? "bg-primary text-primary-foreground"
                       : step.id === currentStep
                       ? "bg-primary text-primary-foreground"
-                      : "bg-muted"
+                      : "bg-muted text-muted-foreground"
                   }`}
                 >
                   {step.id < currentStep ? "✓" : step.id}
                 </div>
-                <span className="text-xs hidden sm:block">{step.title}</span>
+                <span className="text-[10px] hidden sm:block">{step.title}</span>
               </div>
             ))}
           </div>
-          <Progress value={progress} className="h-2" />
+          <Progress value={progress} className="h-1.5" />
         </div>
 
         {/* Step Content */}
@@ -288,24 +288,31 @@ function BusinessProfileStep({
 
   return (
     <form onSubmit={handleSubmit}>
-      <h2 className="text-2xl font-bold mb-4">Business Profile</h2>
-      <p className="text-muted-foreground mb-6">
+      <h2 className="font-heading text-xl font-semibold tracking-tight text-foreground mb-1">
+        Business Profile
+      </h2>
+      <p className="text-sm text-muted-foreground mb-6">
         Tell us about your business so we can personalize your AI assistant.
       </p>
 
       <div className="space-y-4">
-        <div>
-          <Label htmlFor="business_name">Business Name</Label>
+        <div className="space-y-1.5">
+          <Label htmlFor="business_name" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            Business Name
+          </Label>
           <Input
             id="business_name"
             value={formData.business_name}
             onChange={(e) => setFormData({ ...formData, business_name: e.target.value })}
             placeholder="Your Business Name"
+            className="h-10"
           />
         </div>
 
-        <div>
-          <Label htmlFor="industry">Industry</Label>
+        <div className="space-y-1.5">
+          <Label htmlFor="industry" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            Industry
+          </Label>
           <select
             id="industry"
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -321,19 +328,24 @@ function BusinessProfileStep({
           </select>
         </div>
 
-        <div>
-          <Label htmlFor="website_url">Website URL</Label>
+        <div className="space-y-1.5">
+          <Label htmlFor="website_url" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            Website URL
+          </Label>
           <Input
             id="website_url"
             type="url"
             value={formData.website_url}
             onChange={(e) => setFormData({ ...formData, website_url: e.target.value })}
             placeholder="https://yourwebsite.com"
+            className="h-10"
           />
         </div>
 
-        <div>
-          <Label htmlFor="business_description">Business Description</Label>
+        <div className="space-y-1.5">
+          <Label htmlFor="business_description" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            Business Description
+          </Label>
           <Textarea
             id="business_description"
             value={formData.business_description}
@@ -345,9 +357,9 @@ function BusinessProfileStep({
       </div>
 
       <div className="flex justify-end mt-6">
-        <Button type="submit" disabled={isLoading}>
+        <Button type="submit" disabled={isLoading} className="h-10 font-medium">
           {isLoading ? <Spinner className="mr-2 h-4 w-4" /> : null}
-          Continue →
+          Continue
         </Button>
       </div>
     </form>
@@ -375,8 +387,10 @@ function ChoosePlanStep({
 }) {
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-2">Choose Your Plan</h2>
-      <p className="text-muted-foreground mb-6">
+      <h2 className="font-heading text-xl font-semibold tracking-tight text-foreground mb-1">
+        Choose Your Plan
+      </h2>
+      <p className="text-sm text-muted-foreground mb-6">
         Select a plan that fits your needs. You can change anytime.
       </p>
 
@@ -391,24 +405,24 @@ function ChoosePlanStep({
             }`}
             onClick={() => onSelect(plan.tier)}
           >
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center justify-between text-base">
                 {plan.name}
                 {plan.highlighted && (
-                  <Badge className="bg-primary">Most Popular</Badge>
+                  <Badge className="bg-primary text-xs">Most Popular</Badge>
                 )}
               </CardTitle>
-              <CardDescription>{plan.description}</CardDescription>
+              <CardDescription className="text-xs">{plan.description}</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold mb-4">
+              <div className="text-2xl font-semibold text-foreground mb-3">
                 ${plan.price_monthly}
-                <span className="text-sm font-normal text-muted-foreground">/month</span>
+                <span className="text-xs font-normal text-muted-foreground">/month</span>
               </div>
-              <p className="text-sm text-muted-foreground mb-4">
+              <p className="text-xs text-muted-foreground mb-3">
                 ${plan.setup_fee} setup fee
               </p>
-              <ul className="text-sm space-y-2">
+              <ul className="text-xs space-y-1.5">
                 {plan.features.slice(0, 4).map((feature, index) => (
                   <li key={index} className="flex items-center">
                     <span className="mr-2 text-primary">✓</span>
@@ -422,12 +436,12 @@ function ChoosePlanStep({
       </div>
 
       <div className="flex justify-between">
-        <Button variant="ghost" onClick={onSkip}>
+        <Button variant="ghost" onClick={onSkip} className="text-sm text-muted-foreground">
           Skip for now
         </Button>
-        <Button onClick={onNext} disabled={isLoading || !selectedPlan}>
+        <Button onClick={onNext} disabled={isLoading || !selectedPlan} className="h-10 font-medium">
           {isLoading ? <Spinner className="mr-2 h-4 w-4" /> : null}
-          Continue →
+          Continue
         </Button>
       </div>
     </div>
@@ -449,58 +463,61 @@ function UploadDocumentsStep({
   onSkip: () => void;
   isLoading: boolean;
 }) {
+  const navigate = useNavigate();
   const canProceed = (status?.ready_document_count || 0) >= 1;
 
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-2">Upload Documents</h2>
-      <p className="text-muted-foreground mb-6">
+      <h2 className="font-heading text-xl font-semibold tracking-tight text-foreground mb-1">
+        Upload Documents
+      </h2>
+      <p className="text-sm text-muted-foreground mb-6">
         Train your AI assistant with your business knowledge.
       </p>
 
       <Alert className="mb-6">
-        <AlertDescription>
+        <AlertDescription className="text-xs">
           <strong>Tip:</strong> Upload FAQs, pricing guides, product catalogs, service menus,
           policy documents — anything your customers typically ask about.
         </AlertDescription>
       </Alert>
 
-      <div className="border-2 border-dashed border-border rounded-lg p-8 text-center mb-6">
-        <div className="text-4xl mb-4">📄</div>
-        <h3 className="text-lg font-medium mb-2">Drop files here or click to browse</h3>
-        <p className="text-sm text-muted-foreground mb-4">
+      <div className="border-2 border-dashed border-border rounded-xl p-8 text-center mb-6">
+        <div className="text-3xl mb-3">📄</div>
+        <h3 className="text-sm font-medium text-foreground mb-1.5">Drop files here or click to browse</h3>
+        <p className="text-xs text-muted-foreground mb-4">
           Supports PDF, DOCX, TXT, CSV (max 50MB per file)
         </p>
-        <Button variant="outline" onClick={() => navigate("/admin/documents")}>
+        <Button variant="outline" size="sm" onClick={() => navigate("/admin/documents")}>
           Go to Documents Page
         </Button>
       </div>
 
       <div className="bg-muted rounded-lg p-4 mb-6">
         <div className="flex justify-between items-center mb-2">
-          <span className="text-sm font-medium">Document Status</span>
-          <span className="text-sm">
+          <span className="text-xs font-medium text-foreground">Document Status</span>
+          <span className="text-xs text-muted-foreground">
             {status?.ready_document_count || 0} ready / {status?.document_count || 0} total
           </span>
         </div>
         <Progress
           value={status?.ready_document_count ? (status.ready_document_count / 1) * 100 : 0}
-          className="h-2"
+          className="h-1.5"
         />
         {!canProceed && (
-          <p className="text-sm text-amber-600 mt-2">
-            ⚠️ At least 1 document must be in "Ready" status to continue
+          <p className="text-xs text-warning mt-2">
+            At least 1 document must be in "Ready" status to continue
           </p>
         )}
       </div>
 
       <div className="flex justify-between">
-        <Button variant="ghost" onClick={onSkip}>
+        <Button variant="ghost" onClick={onSkip} className="text-sm text-muted-foreground">
           Skip for now
         </Button>
-        <Button onClick={onNext} disabled={isLoading}>
+        <Button onClick={onNext} disabled={isLoading} className="h-10 font-medium">
           {isLoading ? <Spinner className="mr-2 h-4 w-4" /> : null}
-          Continue →
+          Continue
         </Button>
       </div>
     </div>
@@ -528,7 +545,7 @@ function ConfigureChatbotStep({
     name: status?.chatbot_name || "Aria",
     avatar_url: "",
     brand_color: "#4F8EF7",
-    greeting_message: `Hi! I'm ${status?.chatbot_name || "Aria"}, ${status?.business_name || "your business"}'s AI assistant. How can I help you today? 😊`,
+    greeting_message: `Hi! I'm ${status?.chatbot_name || "Aria"}, ${status?.business_name || "your business"}'s AI assistant. How can I help you today?`,
     fallback_message: "I don't have specific information about that. Would you like to speak with our team?",
   });
 
@@ -539,34 +556,41 @@ function ConfigureChatbotStep({
 
   return (
     <form onSubmit={handleSubmit}>
-      <h2 className="text-2xl font-bold mb-2">Configure Your Chatbot</h2>
-      <p className="text-muted-foreground mb-6">
+      <h2 className="font-heading text-xl font-semibold tracking-tight text-foreground mb-1">
+        Configure Your Chatbot
+      </h2>
+      <p className="text-sm text-muted-foreground mb-6">
         Customize how your AI assistant looks and behaves.
       </p>
 
       <div className="grid md:grid-cols-2 gap-6">
         <div className="space-y-4">
-          <div>
-            <Label htmlFor="chatbot_name">Chatbot Name</Label>
+          <div className="space-y-1.5">
+            <Label htmlFor="chatbot_name" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Chatbot Name
+            </Label>
             <Input
               id="chatbot_name"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               placeholder="Aria"
+              className="h-10"
             />
           </div>
 
-          <div>
-            <Label>Avatar</Label>
-            <div className="flex gap-2 mt-2">
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Avatar
+            </Label>
+            <div className="flex gap-2 mt-1">
               {AVATAR_OPTIONS.map((avatar) => (
                 <button
                   key={avatar.id}
                   type="button"
-                  className={`w-10 h-10 rounded-full flex items-center justify-center text-xl ${
+                  className={`w-10 h-10 rounded-full flex items-center justify-center text-lg transition-shadow ${
                     formData.avatar_url === avatar.id
                       ? "ring-2 ring-primary ring-offset-2 ring-offset-background"
-                      : ""
+                      : "hover:ring-1 hover:ring-border"
                   }`}
                   style={{ backgroundColor: avatar.color }}
                   onClick={() => setFormData({ ...formData, avatar_url: avatar.id })}
@@ -577,26 +601,30 @@ function ConfigureChatbotStep({
             </div>
           </div>
 
-          <div>
-            <Label htmlFor="brand_color">Brand Color</Label>
-            <div className="flex gap-2 mt-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="brand_color" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Brand Color
+            </Label>
+            <div className="flex gap-2 mt-1">
               <input
                 type="color"
                 id="brand_color"
                 value={formData.brand_color}
                 onChange={(e) => setFormData({ ...formData, brand_color: e.target.value })}
-                className="w-10 h-10 rounded cursor-pointer"
+                className="w-10 h-10 rounded cursor-pointer border border-border"
               />
               <Input
                 value={formData.brand_color}
                 onChange={(e) => setFormData({ ...formData, brand_color: e.target.value })}
-                className="flex-1"
+                className="flex-1 h-10 font-mono text-xs"
               />
             </div>
           </div>
 
-          <div>
-            <Label htmlFor="greeting_message">Greeting Message</Label>
+          <div className="space-y-1.5">
+            <Label htmlFor="greeting_message" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Greeting Message
+            </Label>
             <Textarea
               id="greeting_message"
               value={formData.greeting_message}
@@ -605,8 +633,10 @@ function ConfigureChatbotStep({
             />
           </div>
 
-          <div>
-            <Label htmlFor="fallback_message">Fallback Message</Label>
+          <div className="space-y-1.5">
+            <Label htmlFor="fallback_message" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Fallback Message
+            </Label>
             <Textarea
               id="fallback_message"
               value={formData.fallback_message}
@@ -616,25 +646,26 @@ function ConfigureChatbotStep({
           </div>
         </div>
 
-        <div className="bg-muted rounded-lg p-6">
-          <h3 className="text-sm font-medium mb-4">Preview</h3>
+        {/* Preview Panel */}
+        <div className="bg-muted rounded-xl p-5">
+          <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-4">Preview</h3>
           <div
-            className="bg-background rounded-lg p-4"
-            style={{ borderTop: `4px solid ${formData.brand_color}` }}
+            className="bg-card rounded-lg p-4 border border-border"
+            style={{ borderTopWidth: "3px", borderTopColor: formData.brand_color }}
           >
             <div className="flex items-center gap-3 mb-4">
               <div
-                className="w-10 h-10 rounded-full flex items-center justify-center text-xl"
+                className="w-9 h-9 rounded-full flex items-center justify-center text-lg"
                 style={{ backgroundColor: formData.brand_color }}
               >
                 {AVATAR_OPTIONS.find((a) => a.id === formData.avatar_url)?.icon || "🤖"}
               </div>
               <div>
-                <div className="font-medium">{formData.name}</div>
-                <div className="text-xs text-green-500">● Online</div>
+                <div className="text-sm font-medium text-foreground">{formData.name}</div>
+                <div className="text-[10px] text-success">● Online</div>
               </div>
             </div>
-            <div className="bg-muted rounded-lg p-3 text-sm">
+            <div className="bg-muted rounded-lg p-3 text-xs text-foreground leading-relaxed">
               {formData.greeting_message}
             </div>
           </div>
@@ -642,12 +673,12 @@ function ConfigureChatbotStep({
       </div>
 
       <div className="flex justify-between mt-6">
-        <Button variant="ghost" onClick={onSkip}>
+        <Button variant="ghost" type="button" onClick={onSkip} className="text-sm text-muted-foreground">
           Skip for now
         </Button>
-        <Button type="submit" disabled={isLoading}>
+        <Button type="submit" disabled={isLoading} className="h-10 font-medium">
           {isLoading ? <Spinner className="mr-2 h-4 w-4" /> : null}
-          Save & Continue →
+          Save & Continue
         </Button>
       </div>
     </form>
@@ -669,30 +700,33 @@ function TestChatbotStep({
   onSkip: () => void;
   isLoading: boolean;
 }) {
+  const navigate = useNavigate();
   const hasDocuments = (status?.ready_document_count || 0) >= 1;
 
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-2">Test Your Chatbot</h2>
-      <p className="text-muted-foreground mb-6">
+      <h2 className="font-heading text-xl font-semibold tracking-tight text-foreground mb-1">
+        Test Your Chatbot
+      </h2>
+      <p className="text-sm text-muted-foreground mb-6">
         Try asking your chatbot something your customers typically ask.
       </p>
 
       {!hasDocuments ? (
         <Alert className="mb-6">
-          <AlertDescription>
+          <AlertDescription className="text-xs">
             Please upload at least one document in Step 3 before testing your chatbot.
           </AlertDescription>
         </Alert>
       ) : (
-        <div className="border rounded-lg p-6 mb-6">
-          <div className="text-center py-8">
-            <div className="text-4xl mb-4">💬</div>
-            <h3 className="text-lg font-medium mb-2">Your chatbot is trained and ready!</h3>
-            <p className="text-muted-foreground mb-4">
+        <div className="border border-border rounded-xl p-6 mb-6">
+          <div className="text-center py-6">
+            <div className="text-3xl mb-3">💬</div>
+            <h3 className="text-sm font-medium text-foreground mb-1.5">Your chatbot is trained and ready!</h3>
+            <p className="text-xs text-muted-foreground mb-4">
               Try asking it questions about your business in the chat widget.
             </p>
-            <Button variant="outline" onClick={() => navigate("/admin")}>
+            <Button variant="outline" size="sm" onClick={() => navigate("/admin")}>
               Go to Dashboard to Test
             </Button>
           </div>
@@ -700,12 +734,12 @@ function TestChatbotStep({
       )}
 
       <div className="flex justify-between">
-        <Button variant="ghost" onClick={onSkip}>
+        <Button variant="ghost" onClick={onSkip} className="text-sm text-muted-foreground">
           Skip for now
         </Button>
-        <Button onClick={onNext} disabled={isLoading}>
+        <Button onClick={onNext} disabled={isLoading} className="h-10 font-medium">
           {isLoading ? <Spinner className="mr-2 h-4 w-4" /> : null}
-          Looks Great! Continue →
+          Looks Great! Continue
         </Button>
       </div>
     </div>
@@ -743,9 +777,11 @@ function EmbedCodeStep({
   return (
     <div>
       <div className="text-center mb-6">
-        <div className="text-4xl mb-4">🎉</div>
-        <h2 className="text-2xl font-bold mb-2">You're Ready to Go Live!</h2>
-        <p className="text-muted-foreground">
+        <div className="text-3xl mb-3">🎉</div>
+        <h2 className="font-heading text-xl font-semibold tracking-tight text-foreground mb-1">
+          You're Ready to Go Live!
+        </h2>
+        <p className="text-sm text-muted-foreground">
           Copy the embed code below and add it to your website.
         </p>
       </div>
@@ -764,17 +800,17 @@ function EmbedCodeStep({
             </TabsList>
             <TabsContent value="html" className="mt-4">
               <Card>
-                <CardHeader>
-                  <CardTitle>HTML</CardTitle>
-                  <CardDescription>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm">HTML</CardTitle>
+                  <CardDescription className="text-xs">
                     Add this code before the closing &lt;/body&gt; tag
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm">
+                  <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-xs font-mono">
                     {embedData?.embed_code}
                   </pre>
-                  <Button className="mt-4" onClick={handleCopy}>
+                  <Button className="mt-4" size="sm" onClick={handleCopy}>
                     {copied ? "Copied!" : "Copy Code"}
                   </Button>
                 </CardContent>
@@ -782,22 +818,22 @@ function EmbedCodeStep({
             </TabsContent>
             <TabsContent value="wordpress" className="mt-4">
               <Card>
-                <CardHeader>
-                  <CardTitle>WordPress</CardTitle>
-                  <CardDescription>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm">WordPress</CardTitle>
+                  <CardDescription className="text-xs">
                     Install a header/footer plugin and add the code to the header
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <ol className="list-decimal list-inside space-y-2 text-sm">
+                  <ol className="list-decimal list-inside space-y-1.5 text-xs text-muted-foreground">
                     <li>Install a header/footer script plugin</li>
                     <li>Add the embed code to the header section</li>
                     <li>Or use a custom HTML widget in your sidebar</li>
                   </ol>
-                  <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm mt-4">
+                  <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-xs font-mono mt-4">
                     {embedData?.embed_code}
                   </pre>
-                  <Button className="mt-4" onClick={handleCopy}>
+                  <Button className="mt-4" size="sm" onClick={handleCopy}>
                     {copied ? "Copied!" : "Copy Code"}
                   </Button>
                 </CardContent>
@@ -805,23 +841,23 @@ function EmbedCodeStep({
             </TabsContent>
             <TabsContent value="shopify" className="mt-4">
               <Card>
-                <CardHeader>
-                  <CardTitle>Shopify</CardTitle>
-                  <CardDescription>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm">Shopify</CardTitle>
+                  <CardDescription className="text-xs">
                     Add the code to your Shopify theme
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <ol className="list-decimal list-inside space-y-2 text-sm">
+                  <ol className="list-decimal list-inside space-y-1.5 text-xs text-muted-foreground">
                     <li>Go to Online Store &gt; Themes</li>
                     <li>Click Actions &gt; Edit Code</li>
                     <li>Open theme.liquid file</li>
                     <li>Paste before &lt;/body&gt; tag</li>
                   </ol>
-                  <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm mt-4">
+                  <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-xs font-mono mt-4">
                     {embedData?.embed_code}
                   </pre>
-                  <Button className="mt-4" onClick={handleCopy}>
+                  <Button className="mt-4" size="sm" onClick={handleCopy}>
                     {copied ? "Copied!" : "Copy Code"}
                   </Button>
                 </CardContent>
@@ -832,12 +868,12 @@ function EmbedCodeStep({
       )}
 
       <div className="flex justify-between mt-6">
-        <Button variant="ghost" onClick={onSkip}>
+        <Button variant="ghost" onClick={onSkip} className="text-sm text-muted-foreground">
           I'll do this later
         </Button>
-        <Button onClick={onComplete} disabled={isLoading}>
+        <Button onClick={onComplete} disabled={isLoading} className="h-10 font-medium">
           {isLoading ? <Spinner className="mr-2 h-4 w-4" /> : null}
-          Go to Dashboard →
+          Go to Dashboard
         </Button>
       </div>
     </div>
