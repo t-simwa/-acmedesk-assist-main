@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
+import { Zap } from "lucide-react";
 
-const LOGO_STORAGE_KEY = "acmedesk-custom-logo";
+const LOGO_STORAGE_KEY = "nexachat-custom-logo";
 
 interface LogoProps {
   className?: string;
@@ -11,8 +12,8 @@ interface LogoProps {
 }
 
 /**
- * Logo component that displays custom uploaded logo or default AcmeDesk logo
- * Respects branding settings from localStorage
+ * Logo component that displays custom uploaded logo or default NexaChat bolt logo.
+ * Respects branding settings from localStorage.
  */
 export function Logo({ 
   className = "", 
@@ -22,7 +23,7 @@ export function Logo({
   textClassName = ""
 }: LogoProps) {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
-  const [companyName, setCompanyName] = useState<string>("AcmeDesk");
+  const [companyName, setCompanyName] = useState<string>("NexaChat");
 
   useEffect(() => {
     // Load custom logo from localStorage
@@ -40,7 +41,7 @@ export function Logo({
     }
 
     // Load company name from branding settings
-    const brandingSettings = localStorage.getItem("acmedesk-branding-settings");
+    const brandingSettings = localStorage.getItem("nexachat-branding-settings");
     if (brandingSettings) {
       try {
         const settings = JSON.parse(brandingSettings);
@@ -109,20 +110,15 @@ export function Logo({
     );
   }
 
-  // Default AcmeDesk logo
+  // Default NexaChat bolt logo — matches sidebar LogoMark
   return (
     <div className={`relative flex items-center gap-2.5 ${className}`}>
       <div className="relative" aria-hidden="true">
         <div 
-          className="rounded-md bg-foreground flex items-center justify-center"
+          className="rounded-lg bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center"
           style={{ width: size, height: size }}
         >
-          <span 
-            className="text-[12px] font-bold text-background tracking-tight"
-            style={{ fontSize: `${size * 0.43}px` }}
-          >
-            A
-          </span>
+          <Zap size={Math.round(size * 0.55)} className="text-white" strokeWidth={2.5} />
         </div>
         {showOnlineIndicator && (
           <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-status-online border-2 border-background" aria-label="Online status" />

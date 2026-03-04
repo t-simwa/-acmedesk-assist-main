@@ -158,7 +158,7 @@ describe("ChatWidget", () => {
                   screen.getByRole("textbox");
     
     if (input) {
-      fireEvent.change(input, { target: { value: "What is AcmeDesk?" } });
+      fireEvent.change(input, { target: { value: "What is NexaChat?" } });
       
       // Find and click send button
       const sendButton = screen.getByRole("button", { name: /send/i }) ||
@@ -176,7 +176,7 @@ describe("ChatWidget", () => {
     await waitFor(() => {
       expect(api.chatApi.sendMessage).toHaveBeenCalledWith({
         session_id: expect.any(String),
-        message: "What is AcmeDesk?",
+        message: "What is NexaChat?",
       });
     });
 

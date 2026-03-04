@@ -13,9 +13,9 @@ interface AccessibilityContextType {
 
 const AccessibilityContext = createContext<AccessibilityContextType | undefined>(undefined);
 
-const HIGH_CONTRAST_STORAGE_KEY = "acmedesk-high-contrast";
-const FONT_SIZE_STORAGE_KEY = "acmedesk-font-size";
-const REDUCE_MOTION_STORAGE_KEY = "acmedesk-reduce-motion";
+const HIGH_CONTRAST_STORAGE_KEY = "nexachat-high-contrast";
+const FONT_SIZE_STORAGE_KEY = "nexachat-font-size";
+const REDUCE_MOTION_STORAGE_KEY = "nexachat-reduce-motion";
 
 export function AccessibilityProvider({ children }: { children: ReactNode }) {
   const [highContrast, setHighContrastState] = useState<boolean>(() => {

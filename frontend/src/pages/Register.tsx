@@ -36,7 +36,7 @@ const valueProps = [
 ];
 
 const testimonial = {
-  quote: "AcmeDesk Assist transformed our customer support. Setup took minutes, not weeks.",
+  quote: "NexaChat transformed our customer support. Setup took minutes, not weeks.",
   author: "Sarah Johnson",
   role: "Head of Support, TechCorp",
 };

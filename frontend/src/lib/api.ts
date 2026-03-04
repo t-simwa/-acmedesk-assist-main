@@ -1,5 +1,5 @@
 /**
- * API Client Layer for AcmeDesk Assist
+ * API Client Layer for NexaChat
  * 
  * Provides a generic apiClient using fetch and specific API functions for:
  * - Auth API

@@ -17,10 +17,10 @@ interface HelpArticle {
 const helpArticles: HelpArticle[] = [
   {
     id: "getting-started",
-    title: "Getting Started with AcmeDesk Assist",
+    title: "Getting Started with NexaChat",
     category: "basics",
     content:
-      "Welcome to AcmeDesk Assist! This guide will help you set up and start using the platform. First, upload your knowledge base documents in the Documents page. Then configure your RAG settings in Settings. Finally, test the chat widget to see it in action.",
+      "Welcome to NexaChat! This guide will help you set up and start using the platform. First, upload your knowledge base documents in the Documents page. Then configure your RAG settings in Settings. Finally, test the chat widget to see it in action.",
     tags: ["setup", "basics", "getting-started"],
   },
   {
@@ -68,7 +68,7 @@ const helpArticles: HelpArticle[] = [
     title: "API Keys Management",
     category: "admin",
     content:
-      "API keys allow programmatic access to AcmeDesk Assist. Create keys with optional expiration dates. Keys are shown only once on creation - copy them immediately. Revoke keys if they're compromised or no longer needed.",
+      "API keys allow programmatic access to NexaChat. Create keys with optional expiration dates. Keys are shown only once on creation - copy them immediately. Revoke keys if they're compromised or no longer needed.",
     tags: ["api", "keys", "integration"],
   },
   {
@@ -138,7 +138,7 @@ export function HelpCenter() {
       <header className="mb-6 sm:mb-8">
         <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">Help Center</h1>
         <p className="mt-1.5 text-[13px] sm:text-sm text-muted-foreground max-w-xl">
-          Find answers and learn how to use AcmeDesk Assist
+          Find answers and learn how to use NexaChat
         </p>
       </header>
 

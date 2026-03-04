@@ -31,7 +31,7 @@ export default function Terms() {
               Agreement to Terms
             </h2>
             <p className="text-muted-foreground leading-relaxed">
-              By accessing or using AcmeDesk Assist ("Service"), you agree to be bound by these 
+              By accessing or using NexaChat ("Service"), you agree to be bound by these 
               Terms of Service ("Terms"). If you disagree with any part of these terms, you may 
               not access the Service.
             </p>
@@ -87,7 +87,7 @@ export default function Terms() {
             </h2>
             <p className="text-muted-foreground leading-relaxed">
               The Service and its original content, features, and functionality are owned by 
-              AcmeDesk and are protected by international copyright, trademark, patent, trade secret, 
+              NexaChat and are protected by international copyright, trademark, patent, trade secret, 
               and other intellectual property laws.
             </p>
           </section>
@@ -97,7 +97,7 @@ export default function Terms() {
               Limitation of Liability
             </h2>
             <p className="text-muted-foreground leading-relaxed">
-              In no event shall AcmeDesk, nor its directors, employees, partners, agents, suppliers, 
+              In no event shall NexaChat, nor its directors, employees, partners, agents, suppliers, 
               or affiliates, be liable for any indirect, incidental, special, consequential, or 
               punitive damages, including without limitation, loss of profits, data, use, goodwill, 
               or other intangible losses, resulting from your use of the Service.
@@ -123,7 +123,7 @@ export default function Terms() {
               If you have any questions about these Terms of Service, please contact us at:
             </p>
             <p className="text-muted-foreground leading-relaxed mt-2">
-              Email: legal@acmedesk.com
+              Email: legal@nexachat.com
             </p>
           </section>
         </div>

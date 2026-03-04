@@ -19,7 +19,7 @@ interface OnboardingTourProps {
   storageKey?: string;
 }
 
-const TOUR_STORAGE_KEY = "acmedesk-onboarding-tour-completed";
+const TOUR_STORAGE_KEY = "nexachat-onboarding-tour-completed";
 
 export function OnboardingTour({
   steps,

@@ -161,7 +161,7 @@ export default function OnboardingWizard() {
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground mb-2">
-            Welcome to AcmeDesk
+            Welcome to NexaChat
           </h1>
           <p className="text-sm text-muted-foreground">
             Let's set up your AI assistant in just a few minutes

@@ -108,7 +108,7 @@ export default function Login() {
             Welcome back
           </h1>
           <p className="mt-1.5 text-sm text-muted-foreground">
-            Sign in to your AcmeDesk Assist account
+            Sign in to your NexaChat account
           </p>
         </div>
 

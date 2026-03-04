@@ -65,7 +65,7 @@ export default function GetStarted() {
           Complete Your Setup
         </h1>
         <p className="text-sm text-muted-foreground">
-          Finish setting up your AI assistant to get the most out of AcmeDesk
+           Finish setting up your AI assistant to get the most out of NexaChat
         </p>
       </div>
 

@@ -13,7 +13,7 @@ import { ConfirmationDialog } from "@/components/feedback/ConfirmationDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 
-const CHAT_GREETING_KEY = "acmedesk-chat-greeting";
+const CHAT_GREETING_KEY = "nexachat-chat-greeting";
 
 export function ChatWidget() {
   const { t } = useTranslation();
@@ -528,7 +528,7 @@ export function ChatWidget() {
     const conversationText = messages
       .filter(msg => msg.id !== "welcome")
       .map((msg) => {
-        const role = msg.role === "user" ? "You" : "AcmeDesk Assistant";
+        const role = msg.role === "user" ? "You" : "NexaChat Assistant";
         const timestamp = new Date(msg.timestamp).toLocaleString();
         return `[${timestamp}] ${role}:\n${msg.content}\n`;
       })
@@ -539,7 +539,7 @@ export function ChatWidget() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `acmedesk-conversation-${new Date().toISOString().split("T")[0]}.txt`;
+      a.download = `nexachat-conversation-${new Date().toISOString().split("T")[0]}.txt`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -551,7 +551,7 @@ export function ChatWidget() {
         <!DOCTYPE html>
         <html>
           <head>
-            <title>AcmeDesk Conversation</title>
+            <title>NexaChat Conversation</title>
             <style>
               body { font-family: Arial, sans-serif; padding: 20px; }
               .message { margin-bottom: 20px; }
@@ -561,13 +561,13 @@ export function ChatWidget() {
             </style>
           </head>
           <body>
-            <h1>AcmeDesk Conversation</h1>
+            <h1>NexaChat Conversation</h1>
             <p>Exported on ${new Date().toLocaleString()}</p>
             <hr>
             ${messages
               .filter(msg => msg.id !== "welcome")
               .map((msg) => {
-                const role = msg.role === "user" ? "You" : "AcmeDesk Assistant";
+        const role = msg.role === "user" ? "You" : "NexaChat Assistant";
                 const timestamp = new Date(msg.timestamp).toLocaleString();
                 return `
                   <div class="message">
@@ -585,7 +585,7 @@ export function ChatWidget() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `acmedesk-conversation-${new Date().toISOString().split("T")[0]}.html`;
+      a.download = `nexachat-conversation-${new Date().toISOString().split("T")[0]}.html`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

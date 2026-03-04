@@ -94,12 +94,12 @@ function hslToHex(hsl: string): string {
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 }
 
-const BRAND_COLOR_STORAGE_KEY = "acmedesk-brand-color";
-const PROMPT_TEMPLATES_KEY = "acmedesk-prompt-templates";
-const BRANDING_SETTINGS_KEY = "acmedesk-branding-settings";
-const LOGO_STORAGE_KEY = "acmedesk-custom-logo";
-const CHAT_GREETING_KEY = "acmedesk-chat-greeting";
-const CHAT_COLORS_KEY = "acmedesk-chat-colors";
+const BRAND_COLOR_STORAGE_KEY = "nexachat-brand-color";
+const PROMPT_TEMPLATES_KEY = "nexachat-prompt-templates";
+const BRANDING_SETTINGS_KEY = "nexachat-branding-settings";
+const LOGO_STORAGE_KEY = "nexachat-custom-logo";
+const CHAT_GREETING_KEY = "nexachat-chat-greeting";
+const CHAT_COLORS_KEY = "nexachat-chat-colors";
 
 interface PromptTemplate {
   id: string;
@@ -148,7 +148,7 @@ const DEFAULT_SETTINGS: RAGSettings = {
   chunk_overlap: 100,
   embedding_model: "all-MiniLM-L6-v2",
   chunking_strategy: "recursive",
-  system_prompt: "You are a helpful AcmeDesk support assistant. Answer questions ONLY based on the provided context. If you cannot find the answer in the context, say so and offer to connect the user with a human agent.",
+  system_prompt: "You are a helpful NexaChat support assistant. Answer questions ONLY based on the provided context. If you cannot find the answer in the context, say so and offer to connect the user with a human agent.",
 };
 
 const LANGUAGES = [
@@ -244,16 +244,16 @@ export default function Settings() {
     if (stored) {
       try {
         const settings = JSON.parse(stored);
-        return settings.companyName || "AcmeDesk";
+        return settings.companyName || "NexaChat";
       } catch {
-        return "AcmeDesk";
+        return "NexaChat";
       }
     }
-    return "AcmeDesk";
+    return "NexaChat";
   });
   const [chatGreeting, setChatGreeting] = useState<string>(() => {
     const stored = localStorage.getItem(CHAT_GREETING_KEY);
-    return stored || "Hi there! 👋 I'm here to help with questions about AcmeDesk — pricing, setup, integrations, and more. What can I help you with?";
+    return stored || "Hi there! 👋 I'm here to help with questions about NexaChat — pricing, setup, integrations, and more. What can I help you with?";
   });
   const [chatColors, setChatColors] = useState(() => {
     const stored = localStorage.getItem(CHAT_COLORS_KEY);
@@ -729,7 +729,7 @@ export default function Settings() {
     toast({
       title: "Logo removed",
       variant: "success",
-      description: "Default AcmeDesk logo will be displayed",
+      description: "Default NexaChat logo will be displayed",
     });
   };
 
@@ -1406,7 +1406,7 @@ export default function Settings() {
               value={companyName}
               onChange={(e) => handleCompanyNameChange(e.target.value)}
               className="w-full px-3 py-2 bg-background border border-border rounded-lg text-[14px] text-foreground focus:outline-none focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 focus:ring-2 focus:ring-ring/20 focus:border-primary"
-              placeholder="AcmeDesk"
+              placeholder="NexaChat"
             />
             <p className="text-[12px] text-muted-foreground mt-1.5">
               This name will appear alongside your logo throughout the application.

@@ -27,7 +27,7 @@ interface RoleContextType {
 // Default owner user for development/fallback
 const DEFAULT_OWNER_USER: CurrentUser = {
   id: "default",
-  email: "admin@acmedesk.com",
+  email: "admin@nexachat.com",
   name: "Admin User",
   role: "owner",
   is_active: true,

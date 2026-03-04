@@ -97,7 +97,7 @@ function formatHeaders(text: string): string {
 
 /**
  * Fixes headings that have been split across lines
- * Example: "# Getting Started with AcmeDes\n\nk" -> "# Getting Started with AcmeDesk"
+ * Example: "# Getting Started with NexaCha\n\nt" -> "# Getting Started with NexaChat"
  */
 function fixSplitHeadings(text: string): string {
   const lines = text.split('\n');

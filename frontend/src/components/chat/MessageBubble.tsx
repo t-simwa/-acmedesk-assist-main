@@ -1,4 +1,4 @@
-import { RefreshCw, WifiOff, Clock, AlertCircle, Copy, ThumbsUp, ThumbsDown, RotateCcw } from "lucide-react";
+import { RefreshCw, WifiOff, Clock, AlertCircle, Copy, ThumbsUp, ThumbsDown, RotateCcw, Zap } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
@@ -270,7 +270,6 @@ export const MessageBubble = memo(function MessageBubble({ message, onRetry, onR
   const isUser = message.role === "user";
   const isError = message.isError === true;
   const errorType = message.errorType || "unknown";
-  const [isHovered, setIsHovered] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
   const [currentReaction, setCurrentReaction] = useState<"thumbs_up" | "thumbs_down" | null>(message.reaction || null);
   const [isUpdatingReaction, setIsUpdatingReaction] = useState(false);
@@ -330,18 +329,16 @@ export const MessageBubble = memo(function MessageBubble({ message, onRetry, onR
   return (
     <div 
       className={`flex ${isUser ? "justify-end" : "justify-start"} animate-fade-in group`}
-      onMouseEnter={() => !isUser && !isError && setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
       role="article"
       aria-label={isUser ? "Your message" : "Assistant message"}
     >
       <div className="max-w-[85%] space-y-1 relative">
         {!isUser && (
-          <div className="flex items-center gap-2 px-1 mb-1" aria-label="AcmeDesk assistant">
-            <div className="w-7 h-7 rounded-md bg-foreground flex items-center justify-center" aria-hidden="true">
-              <span className="text-[12px] font-bold text-background tracking-tight">A</span>
+          <div className="flex items-center gap-2 px-1 mb-1" aria-label="NexaChat assistant">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center" aria-hidden="true">
+              <Zap size={15} className="text-white" strokeWidth={2.5} />
             </div>
-            <span className="text-[11px] font-medium text-muted-foreground">AcmeDesk</span>
+            <span className="text-[11px] font-medium text-muted-foreground">NexaChat</span>
           </div>
         )}
         <div
@@ -354,8 +351,8 @@ export const MessageBubble = memo(function MessageBubble({ message, onRetry, onR
           }`}
         >
           {/* Copy button - only for assistant messages, shows on hover */}
-          {!isUser && !isError && isHovered && (
-            <div className="absolute -top-8 right-0 flex items-center gap-1">
+          {!isUser && !isError && (
+            <div className="absolute -top-8 right-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
