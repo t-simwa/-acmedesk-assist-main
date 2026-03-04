@@ -3,7 +3,7 @@ import { userPreferencesApi, ApiError } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, Loader2, Save, Upload, X, Bell, Globe, Clock } from "lucide-react";
+import { AlertCircle, Loader2, Save, Upload, X, User, Mail, Briefcase, Link2, Phone, FileText, Sun, Moon, Monitor, Calendar, Bell, Clock, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -51,22 +51,53 @@ const TIMEZONES = [
   { value: "America/Argentina/Buenos_Aires", label: "Buenos Aires" },
 ];
 
+const DATE_RANGES = [
+  { value: "today", label: "Today" },
+  { value: "yesterday", label: "Yesterday" },
+  { value: "last7days", label: "Last 7 days" },
+  { value: "last30days", label: "Last 30 days" },
+  { value: "this_month", label: "This month" },
+  { value: "last_month", label: "Last month" },
+  { value: "custom", label: "Custom range" },
+];
+
+const THEMES = [
+  { value: "light", label: "Light", icon: Sun },
+  { value: "dark", label: "Dark", icon: Moon },
+  { value: "system", label: "System default", icon: Monitor },
+] as const;
+
+type ThemeValue = typeof THEMES[number]["value"];
+
+const EMAIL_DIGEST_OPTIONS = [
+  { value: "daily", label: "Daily digest" },
+  { value: "weekly", label: "Weekly digest" },
+  { value: "never", label: "Never" },
+];
+
 export default function Profile() {
   const { user: authUser } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [jobTitle, setJobTitle] = useState("");
+  const [linkedInUrl, setLinkedInUrl] = useState("");
+  const [phone, setPhone] = useState("");
+  const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [notificationsEmail, setNotificationsEmail] = useState(true);
-  const [notificationsInApp, setNotificationsInApp] = useState(true);
-  const [notificationsPush, setNotificationsPush] = useState(false);
-  const [language, setLanguage] = useState("en");
+  
+  const [theme, setTheme] = useState<ThemeValue>("system");
+  const [defaultDateRange, setDefaultDateRange] = useState("last30days");
+  const [emailDigest, setEmailDigest] = useState("weekly");
   const [timezone, setTimezone] = useState("UTC");
+  const [language, setLanguage] = useState("en");
+  const [notificationsSummary, setNotificationsSummary] = useState(true);
 
   useEffect(() => {
     const fetchPreferences = async () => {
@@ -81,11 +112,16 @@ export default function Profile() {
         if (prefs.name) setName(prefs.name);
         if (prefs.email) setEmail(prefs.email);
         setAvatarUrl(prefs.avatar_url);
-        setNotificationsEmail(prefs.notifications.email);
-        setNotificationsInApp(prefs.notifications.in_app);
-        setNotificationsPush(prefs.notifications.push);
-        setLanguage(prefs.language || "en");
+        setJobTitle(prefs.job_title || "");
+        setLinkedInUrl(prefs.linkedin_url || "");
+        setPhone(prefs.phone || "");
+        setBio(prefs.bio || "");
+        setTheme((prefs.theme as ThemeValue) || "system");
+        setDefaultDateRange(prefs.default_date_range || "last30days");
+        setEmailDigest(prefs.email_digest || "weekly");
         setTimezone(prefs.timezone || "UTC");
+        setLanguage(prefs.language || "en");
+        setNotificationsSummary(prefs.notifications_summary ?? true);
       } catch (err) {
         const apiError = err as ApiError;
         setError(apiError?.message || "Failed to load preferences");
@@ -135,25 +171,55 @@ export default function Profile() {
     }
   };
 
-  const handleSavePreferences = async () => {
+  const handleSaveProfile = async () => {
     try {
       setSaving(true);
       setError(null);
       await userPreferencesApi.updatePreferences({
         name: name.trim() || undefined,
         email: email.trim() || undefined,
-        notifications: { email: notificationsEmail, in_app: notificationsInApp, push: notificationsPush },
-        language,
-        timezone,
+        job_title: jobTitle.trim() || undefined,
+        linkedin_url: linkedInUrl.trim() || undefined,
+        phone: phone.trim() || undefined,
+        bio: bio.trim() || undefined,
       });
-      toast({ title: "Preferences saved", variant: "success" });
+      setHasUnsavedChanges(false);
+      toast({ title: "Profile saved", variant: "success" });
     } catch (err) {
       const apiError = err as ApiError;
-      setError(apiError?.message || "Failed to save");
+      setError(apiError?.message || "Failed to save profile");
       toast({ title: "Error saving", description: apiError?.message, variant: "destructive" });
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSavePreferences = async () => {
+    try {
+      setSaving(true);
+      setError(null);
+      await userPreferencesApi.updatePreferences({
+        theme,
+        default_date_range: defaultDateRange,
+        email_digest: emailDigest,
+        timezone,
+        language,
+        notifications_summary: notificationsSummary,
+      });
+      setHasUnsavedChanges(false);
+      toast({ title: "Preferences saved", variant: "success" });
+    } catch (err) {
+      const apiError = err as ApiError;
+      setError(apiError?.message || "Failed to save preferences");
+      toast({ title: "Error saving", description: apiError?.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleFieldChange = (setter: (value: string) => void) => (value: string) => {
+    setter(value);
+    setHasUnsavedChanges(true);
   };
 
   const getInitials = (): string => {
@@ -168,248 +234,448 @@ export default function Profile() {
 
   if (loading) {
     return (
-      <div className="flex flex-col w-full min-w-0 max-w-2xl">
-        <header className="mb-6 sm:mb-8">
-          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">Profile</h1>
-          <p className="mt-1.5 text-[13px] sm:text-sm text-muted-foreground">Manage your profile and preferences</p>
-        </header>
-        <div className="space-y-5 sm:space-y-6">
-          <Skeleton className="h-64 w-full rounded-2xl" />
-          <Skeleton className="h-52 w-full rounded-2xl" />
-          <Skeleton className="h-56 w-full rounded-2xl" />
+      <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8 pb-32 max-w-[1600px] mx-auto w-full">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <Skeleton className="h-7 w-24" />
+            <Skeleton className="h-4 w-64 mt-2" />
+          </div>
+        </div>
+        <div className="space-y-6">
+          <Skeleton className="h-[400px] w-full rounded-xl" />
+          <Skeleton className="h-[300px] w-full rounded-xl" />
+          <Skeleton className="h-[350px] w-full rounded-xl" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col w-full min-w-0 max-w-2xl">
-      <header className="mb-6 sm:mb-8">
-        <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">Profile</h1>
-        <p className="mt-1.5 text-[13px] sm:text-sm text-muted-foreground">Manage your profile and preferences</p>
-      </header>
+    <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8 pb-32 max-w-[1600px] mx-auto w-full">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="font-heading text-xl sm:text-2xl font-bold text-foreground tracking-tight leading-none">
+            Profile & Account
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1 font-description">
+            Manage your profile and preferences
+          </p>
+        </div>
+      </div>
 
       {error && (
-        <div
-          className={cn(
-            "flex items-center gap-2 rounded-xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-[13px] text-destructive mb-6"
-          )}
-        >
+        <div className="flex items-center gap-2 rounded-xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           <AlertCircle className="h-4 w-4 shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
-      <div className="space-y-5 sm:space-y-6">
-        {/* Profile information */}
-        <section
-          className={cn(
-            "rounded-2xl border border-border/50 bg-muted/10 overflow-hidden",
-            "p-4 sm:p-5 lg:p-6 space-y-5 sm:space-y-6"
-          )}
-        >
-          <div>
-            <h2 className="text-[13px] font-medium uppercase tracking-wider text-muted-foreground">
-              Profile information
-            </h2>
-            <p className="text-[12px] text-muted-foreground/80 mt-0.5">Update your name, email, and photo</p>
+      <div className="space-y-6">
+        <section className="rounded-xl overflow-hidden transition-all duration-200 border border-border bg-card hover:border-border/80">
+          <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-border">
+            <div className="flex items-center gap-2">
+              <User className="h-4 w-4 text-primary" />
+              <h2 className="text-sm sm:text-base font-semibold font-heading text-foreground">
+                Profile Information
+              </h2>
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5 font-description">
+              Update your personal details and public profile
+            </p>
           </div>
 
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-            <Avatar className="h-20 w-20 shrink-0 rounded-2xl border-2 border-border/50">
-              <AvatarImage src={avatarUrl || undefined} alt={name || "User"} />
-              <AvatarFallback className="rounded-2xl text-lg font-medium bg-primary/10 text-primary">
-                {getInitials()}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1 min-w-0 space-y-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <input
-                  ref={avatarInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleAvatarUpload}
-                  className="hidden"
-                  id="avatar-upload"
-                  disabled={saving}
-                />
-                <Label
-                  htmlFor="avatar-upload"
-                  className={cn(
-                    "inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-medium cursor-pointer",
-                    "bg-primary text-primary-foreground hover:opacity-90 transition-opacity",
-                    "focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2",
-                    "disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] sm:min-h-[40px]"
-                  )}
-                >
-                  <Upload className="h-4 w-4" />
-                  {avatarUrl ? "Change photo" : "Upload photo"}
-                </Label>
-                {avatarUrl && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleAvatarRemove}
+          <div className="px-4 sm:px-6 py-5 sm:py-6 space-y-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+              <Avatar className="h-20 w-20 shrink-0 rounded-full ring-2 ring-background">
+                <AvatarImage src={avatarUrl || undefined} alt={name || "User"} />
+                <AvatarFallback className="text-lg font-bold bg-gradient-to-br from-primary/80 to-violet-600/80 text-white">
+                  {getInitials()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0 space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    ref={avatarInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarUpload}
+                    className="hidden"
+                    id="avatar-upload"
                     disabled={saving}
-                    className="rounded-xl min-h-[44px] sm:min-h-[40px]"
+                  />
+                  <Label
+                    htmlFor="avatar-upload"
+                    className={cn(
+                      "inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-semibold font-heading cursor-pointer",
+                      "bg-primary text-primary-foreground hover:opacity-90 transition-opacity",
+                      "focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2",
+                      "disabled:opacity-50 disabled:cursor-not-allowed"
+                    )}
                   >
-                    <X className="h-4 w-4 sm:mr-1.5" />
-                    <span className="hidden sm:inline">Remove</span>
-                  </Button>
-                )}
+                    <Upload className="h-3.5 w-3.5" />
+                    {avatarUrl ? "Change" : "Upload"}
+                  </Label>
+                  {avatarUrl && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleAvatarRemove}
+                      disabled={saving}
+                      className="h-8 text-xs"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  PNG, JPG, GIF or WebP. Max 2MB. Recommended 200×200px or larger.
+                </p>
               </div>
-              <p className="text-[12px] text-muted-foreground">
-                PNG, JPG, GIF or WebP. Max 2MB. Recommended 200×200px or larger.
-              </p>
             </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="profile-name" className="text-xs font-medium text-foreground">
+                  Full name
+                </Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    id="profile-name"
+                    type="text"
+                    value={name}
+                    onChange={(e) => handleFieldChange(setName)(e.target.value)}
+                    placeholder="Your name"
+                    disabled={saving}
+                    className="pl-9 h-9 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="profile-email" className="text-xs font-medium text-foreground">
+                  Email
+                </Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    id="profile-email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => handleFieldChange(setEmail)(e.target.value)}
+                    placeholder="you@example.com"
+                    disabled={saving}
+                    className="pl-9 h-9 text-xs"
+                  />
+                </div>
+                <p className="text-[10px] text-muted-foreground">Changing email requires verification</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="profile-job" className="text-xs font-medium text-foreground">
+                  Job title
+                </Label>
+                <div className="relative">
+                  <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    id="profile-job"
+                    type="text"
+                    value={jobTitle}
+                    onChange={(e) => handleFieldChange(setJobTitle)(e.target.value)}
+                    placeholder="e.g. Sales Manager"
+                    disabled={saving}
+                    className="pl-9 h-9 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="profile-linkedin" className="text-xs font-medium text-foreground">
+                  LinkedIn URL
+                </Label>
+                <div className="relative">
+                  <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    id="profile-linkedin"
+                    type="url"
+                    value={linkedInUrl}
+                    onChange={(e) => handleFieldChange(setLinkedInUrl)(e.target.value)}
+                    placeholder="https://linkedin.com/in/username"
+                    disabled={saving}
+                    className="pl-9 h-9 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="profile-phone" className="text-xs font-medium text-foreground">
+                  Phone
+                </Label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    id="profile-phone"
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => handleFieldChange(setPhone)(e.target.value)}
+                    placeholder="+1 555 000 0000"
+                    disabled={saving}
+                    className="pl-9 h-9 text-xs"
+                  />
+                </div>
+                <p className="text-[10px] text-muted-foreground">For SMS notifications</p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="profile-bio" className="text-xs font-medium text-foreground">
+                Bio
+              </Label>
+              <div className="relative">
+                <FileText className="absolute left-3 top-3 h-3.5 w-3.5 text-muted-foreground" />
+                <textarea
+                  id="profile-bio"
+                  value={bio}
+                  onChange={(e) => handleFieldChange(setBio)(e.target.value)}
+                  placeholder="A short bio shown in your email signatures..."
+                  disabled={saving}
+                  rows={3}
+                  className="w-full pl-9 pr-3 py-2 text-xs rounded-md border border-input bg-background focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:opacity-50 resize-none"
+                />
+              </div>
+            </div>
+
+            <Button
+              onClick={handleSaveProfile}
+              disabled={saving}
+              className="h-9 text-xs gap-1.5"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="h-3.5 w-3.5" />
+                  Save Profile
+                </>
+              )}
+            </Button>
+          </div>
+        </section>
+
+        <section className="rounded-xl overflow-hidden transition-all duration-200 border border-border bg-card hover:border-border/80">
+          <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-border">
+            <div className="flex items-center gap-2">
+              <Sun className="h-4 w-4 text-primary" />
+              <h2 className="text-sm sm:text-base font-semibold font-heading text-foreground">
+                Appearance
+              </h2>
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5 font-description">
+              Customize how the application looks
+            </p>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-1">
-            <div className="space-y-2">
-              <Label htmlFor="profile-name" className="text-[13px] font-medium text-foreground">
-                Full name
+          <div className="px-4 sm:px-6 py-5 sm:py-6 space-y-6">
+            <div className="space-y-3">
+              <Label className="text-xs font-medium text-foreground">
+                Theme
               </Label>
-              <Input
-                id="profile-name"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Your name"
-                disabled={saving}
-                className="rounded-xl"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="profile-email" className="text-[13px] font-medium text-foreground">
-                Email
-              </Label>
-              <Input
-                id="profile-email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                disabled={saving}
-                className="rounded-xl"
-              />
+              <div className="flex flex-wrap gap-2">
+                {THEMES.map((t) => (
+                  <button
+                    key={t.value}
+                    onClick={() => handleFieldChange(setTheme as (value: string) => void)(t.value)}
+                    className={cn(
+                      "flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold font-heading transition-all",
+                      theme === t.value
+                        ? "bg-primary/10 text-primary border-primary/30"
+                        : "bg-card text-muted-foreground border-border hover:text-foreground hover:border-border/80 hover:bg-accent/50"
+                    )}
+                  >
+                    <t.icon className="h-3.5 w-3.5" />
+                    {t.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </section>
 
-        {/* Notifications */}
-        <section
-          className={cn(
-            "rounded-2xl border border-border/50 bg-muted/10 overflow-hidden",
-            "p-4 sm:p-5 lg:p-6 space-y-5"
-          )}
-        >
-          <div className="flex items-center gap-2">
-            <Bell className="h-4 w-4 text-muted-foreground" />
-            <div>
-              <h2 className="text-[13px] font-medium uppercase tracking-wider text-muted-foreground">
+        <section className="rounded-xl overflow-hidden transition-all duration-200 border border-border bg-card hover:border-border/80">
+          <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-border">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-primary" />
+              <h2 className="text-sm sm:text-base font-semibold font-heading text-foreground">
+                Dashboard
+              </h2>
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5 font-description">
+              Default settings for your dashboard view
+            </p>
+          </div>
+
+          <div className="px-4 sm:px-6 py-5 sm:py-6 space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="date-range" className="text-xs font-medium text-foreground">
+                Default date range
+              </Label>
+              <Select value={defaultDateRange} onValueChange={handleFieldChange(setDefaultDateRange)} disabled={saving}>
+                <SelectTrigger id="date-range" className="w-full sm:w-[200px] h-9 text-xs">
+                  <SelectValue placeholder="Select date range" />
+                </SelectTrigger>
+                <SelectContent>
+                  {DATE_RANGES.map((range) => (
+                    <SelectItem key={range.value} value={range.value}>
+                      {range.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-xl overflow-hidden transition-all duration-200 border border-border bg-card hover:border-border/80">
+          <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-border">
+            <div className="flex items-center gap-2">
+              <Bell className="h-4 w-4 text-primary" />
+              <h2 className="text-sm sm:text-base font-semibold font-heading text-foreground">
                 Notifications
               </h2>
-              <p className="text-[12px] text-muted-foreground/80 mt-0.5">How you receive notifications</p>
             </div>
+            <p className="text-xs text-muted-foreground mt-0.5 font-description">
+              How you receive updates and digests
+            </p>
           </div>
-          <div className="space-y-4">
-            {[
-              { id: "notif-email", label: "Email", desc: "Receive notifications via email", value: notificationsEmail, set: setNotificationsEmail },
-              { id: "notif-in-app", label: "In-app", desc: "Show notifications in the app", value: notificationsInApp, set: setNotificationsInApp },
-              { id: "notif-push", label: "Push", desc: "Browser push (requires permission)", value: notificationsPush, set: setNotificationsPush },
-            ].map(({ id, label, desc, value, set }) => (
-              <div
-                key={id}
-                className="flex items-center justify-between gap-4 py-2 border-b border-border/30 last:border-0 last:pb-0 first:pt-0"
-              >
-                <div className="min-w-0">
-                  <Label htmlFor={id} className="text-[13px] font-medium text-foreground cursor-pointer">
-                    {label}
-                  </Label>
-                  <p className="text-[12px] text-muted-foreground mt-0.5">{desc}</p>
-                </div>
-                <Switch id={id} checked={value} onCheckedChange={set} disabled={saving} className="shrink-0" />
+
+          <div className="px-4 sm:px-6 py-5 sm:py-6 space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="email-digest" className="text-xs font-medium text-foreground">
+                Email digest
+              </Label>
+              <Select value={emailDigest} onValueChange={handleFieldChange(setEmailDigest)} disabled={saving}>
+                <SelectTrigger id="email-digest" className="w-full sm:w-[200px] h-9 text-xs">
+                  <SelectValue placeholder="Select digest frequency" />
+                </SelectTrigger>
+                <SelectContent>
+                  {EMAIL_DIGEST_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center justify-between gap-4 py-2 border-b border-border">
+              <div className="min-w-0">
+                <Label htmlFor="notifications-summary" className="text-xs font-medium text-foreground cursor-pointer">
+                  Notification summary
+                </Label>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Receive a summary of notifications</p>
               </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Localization */}
-        <section
-          className={cn(
-            "rounded-2xl border border-border/50 bg-muted/10 overflow-hidden",
-            "p-4 sm:p-5 lg:p-6 space-y-5"
-          )}
-        >
-          <div>
-            <h2 className="text-[13px] font-medium uppercase tracking-wider text-muted-foreground">
-              Language & timezone
-            </h2>
-            <p className="text-[12px] text-muted-foreground/80 mt-0.5">For dates and interface language</p>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-1">
-            <div className="space-y-2">
-              <Label htmlFor="profile-language" className="text-[13px] font-medium text-foreground flex items-center gap-2">
-                <Globe className="h-3.5 w-3.5" />
-                Language
-              </Label>
-              <Select value={language} onValueChange={setLanguage} disabled={saving}>
-                <SelectTrigger id="profile-language" className="rounded-xl w-full">
-                  <SelectValue placeholder="Select language" />
-                </SelectTrigger>
-                <SelectContent>
-                  {LANGUAGES.map((lang) => (
-                    <SelectItem key={lang.code} value={lang.code}>
-                      {lang.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="profile-timezone" className="text-[13px] font-medium text-foreground flex items-center gap-2">
-                <Clock className="h-3.5 w-3.5" />
-                Timezone
-              </Label>
-              <Select value={timezone} onValueChange={setTimezone} disabled={saving}>
-                <SelectTrigger id="profile-timezone" className="rounded-xl w-full">
-                  <SelectValue placeholder="Select timezone" />
-                </SelectTrigger>
-                <SelectContent>
-                  {TIMEZONES.map((tz) => (
-                    <SelectItem key={tz.value} value={tz.value}>
-                      {tz.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Switch
+                id="notifications-summary"
+                checked={notificationsSummary}
+                onCheckedChange={(checked) => {
+                  setNotificationsSummary(checked);
+                  setHasUnsavedChanges(true);
+                }}
+                disabled={saving}
+                className="shrink-0"
+              />
             </div>
           </div>
         </section>
 
-        <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-2">
-          <Button
-            onClick={handleSavePreferences}
-            disabled={saving}
-            className={cn(
-              "w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-xl",
-              "flex items-center justify-center gap-2"
-            )}
-          >
-            {saving ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Saving…
-              </>
-            ) : (
-              <>
-                <Save className="h-4 w-4" />
-                Save preferences
-              </>
-            )}
-          </Button>
-        </div>
+        <section className="rounded-xl overflow-hidden transition-all duration-200 border border-border bg-card hover:border-border/80">
+          <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-border">
+            <div className="flex items-center gap-2">
+              <Globe className="h-4 w-4 text-primary" />
+              <h2 className="text-sm sm:text-base font-semibold font-heading text-foreground">
+                Language & Region
+              </h2>
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5 font-description">
+              Set your language and timezone preferences
+            </p>
+          </div>
+
+          <div className="px-4 sm:px-6 py-5 sm:py-6 space-y-6">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="language" className="text-xs font-medium text-foreground">
+                  Language
+                </Label>
+                <Select value={language} onValueChange={handleFieldChange(setLanguage)} disabled={saving}>
+                  <SelectTrigger id="language" className="h-9 text-xs">
+                    <SelectValue placeholder="Select language" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LANGUAGES.map((lang) => (
+                      <SelectItem key={lang.code} value={lang.code}>
+                        {lang.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="timezone" className="text-xs font-medium text-foreground">
+                  Timezone
+                </Label>
+                <Select value={timezone} onValueChange={handleFieldChange(setTimezone)} disabled={saving}>
+                  <SelectTrigger id="timezone" className="h-9 text-xs">
+                    <SelectValue placeholder="Select timezone" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TIMEZONES.map((tz) => (
+                      <SelectItem key={tz.value} value={tz.value}>
+                        {tz.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {hasUnsavedChanges && (
+          <div className="sticky bottom-0 -mx-4 sm:-mx-6 lg:-mx-8 bg-card/95 backdrop-blur-sm border-t px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-3 z-10">
+            <p className="text-xs text-muted-foreground font-description">
+              You have unsaved changes
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.location.reload()}
+                className="h-8 text-xs"
+              >
+                Discard
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleSavePreferences}
+                disabled={saving}
+                className="h-8 text-xs gap-1.5"
+              >
+                {saving ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Save className="h-3 w-3" />
+                )}
+                Save
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

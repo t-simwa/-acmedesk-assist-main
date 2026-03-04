@@ -1963,9 +1963,17 @@ export interface UserPreferences {
   name: string | null;
   email: string | null;
   avatar_url: string | null;
+  job_title: string | null;
+  linkedin_url: string | null;
+  phone: string | null;
+  bio: string | null;
   notifications: NotificationPreferences;
+  theme: "light" | "dark" | "system";
+  default_date_range: string;
+  email_digest: string;
   language: string | null;
   timezone: string | null;
+  notifications_summary: boolean;
   additional_preferences: Record<string, any> | null;
   created_at: string;
   updated_at: string;
@@ -1974,9 +1982,17 @@ export interface UserPreferences {
 export interface UserPreferencesUpdateRequest {
   name?: string;
   email?: string;
+  job_title?: string;
+  linkedin_url?: string;
+  phone?: string;
+  bio?: string;
   notifications?: NotificationPreferences;
+  theme?: "light" | "dark" | "system";
+  default_date_range?: string;
+  email_digest?: string;
   language?: string;
   timezone?: string;
+  notifications_summary?: boolean;
 }
 
 export interface UserPreferencesUpdateResponse {

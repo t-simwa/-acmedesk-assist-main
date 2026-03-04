@@ -21,7 +21,7 @@ class UserPreferencesResponse(BaseModel):
     
     Attributes:
         id: User preferences ID
-        user_id: User ID (for future multi-user support)
+        tenant_id: Tenant/User ID
         name: User's full name
         email: User's email address
         avatar_url: URL or base64 data URL for avatar image
@@ -34,7 +34,7 @@ class UserPreferencesResponse(BaseModel):
     """
     
     id: str = Field(..., description="User preferences ID")
-    user_id: str = Field(..., description="User ID")
+    tenant_id: str = Field(..., description="Tenant/User ID")
     name: Optional[str] = Field(None, description="User's full name")
     email: Optional[str] = Field(None, description="User's email address")
     avatar_url: Optional[str] = Field(None, description="Avatar image URL or base64 data URL")
