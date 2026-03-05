@@ -23,7 +23,6 @@ import {
   Megaphone,
   Settings,
   Download,
-  ExternalLink,
   HelpCircle,
   ChevronLeft,
   ChevronRight,
@@ -36,6 +35,7 @@ import {
   LogOut,
   Plus,
   Zap,
+  Plug,
 } from "lucide-react";
 import {
   Tooltip,
@@ -86,6 +86,7 @@ const CLIENT_NAV: NavSection[] = [
     items: [
       { label: "Analytics", icon: BarChart3, path: "/dashboard/analytics" },
       { label: "Knowledge Base", icon: BookOpen, path: "/dashboard/documents" },
+      { label: "Integrations", icon: Plug, path: "/dashboard/integrations" },
     ],
   },
   {
@@ -101,8 +102,8 @@ const CLIENT_NAV: NavSection[] = [
     section: "RESOURCES",
     items: [
       { label: "Install Guide", icon: Download, path: "/dashboard/install" },
-      { label: "Documentation", icon: ExternalLink, path: "/docs", external: true },
-      { label: "Support", icon: HelpCircle, path: "/dashboard/support" },
+      { label: "Help Center", icon: HelpCircle, path: "/dashboard/help" },
+      { label: "Support", icon: MessageCircle, path: "/dashboard/support" },
     ],
   },
 ];

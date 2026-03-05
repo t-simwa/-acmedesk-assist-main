@@ -103,9 +103,10 @@ const NAV_CONFIG: NavConfig = {
       section: "INTELLIGENCE",
       items: [
         { label: "Analytics", icon: BarChart3, path: "/dashboard/analytics" },
-        { label: "Knowledge Base", icon: BookOpen, path: "/dashboard/documents" },
-        { label: "Test Console", icon: FlaskConical, path: "/dashboard/test" },
-        { label: "Improvements", icon: Sparkles, path: "/dashboard/training" },
+          { label: "Knowledge Base", icon: BookOpen, path: "/dashboard/documents" },
+          { label: "Integrations", icon: Plug, path: "/dashboard/integrations", planGate: "growth" },
+          { label: "Test Console", icon: FlaskConical, path: "/dashboard/test" },
+          { label: "Improvements", icon: Sparkles, path: "/dashboard/training" },
       ],
     },
     {
@@ -113,9 +114,8 @@ const NAV_CONFIG: NavConfig = {
       items: [
         { label: "Chatbot", icon: Bot, path: "/dashboard/chatbot" },
         { label: "Channels", icon: Radio, path: "/dashboard/channels" },
-        { label: "Campaigns", icon: Megaphone, path: "/dashboard/campaigns", planGate: "growth" },
-        { label: "Integrations", icon: Plug, path: "/dashboard/integrations", planGate: "growth" },
-        { label: "API Access", icon: Key, path: "/dashboard/api", planGate: "growth" },
+          { label: "Campaigns", icon: Megaphone, path: "/dashboard/campaigns", planGate: "growth" },
+          { label: "API Access", icon: Key, path: "/dashboard/api", planGate: "growth" },
       ],
     },
     {
@@ -144,6 +144,7 @@ const NAV_CONFIG: NavConfig = {
       items: [
         { label: "Analytics", icon: BarChart3, path: "/dashboard/analytics" },
         { label: "Knowledge Base", icon: BookOpen, path: "/dashboard/documents" },
+        { label: "Integrations", icon: Plug, path: "/dashboard/integrations" },
         { label: "Test Console", icon: FlaskConical, path: "/dashboard/test" },
         { label: "Improvements", icon: Sparkles, path: "/dashboard/training" },
       ],
@@ -154,7 +155,6 @@ const NAV_CONFIG: NavConfig = {
         { label: "Chatbot", icon: Bot, path: "/dashboard/chatbot" },
         { label: "Channels", icon: Radio, path: "/dashboard/channels", restricted: ["connect", "disconnect"] },
         { label: "Campaigns", icon: Megaphone, path: "/dashboard/campaigns" },
-        { label: "Integrations", icon: Plug, path: "/dashboard/integrations" },
       ],
     },
     {
