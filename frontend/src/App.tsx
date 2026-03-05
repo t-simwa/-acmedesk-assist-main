@@ -13,8 +13,23 @@ import { PageTransition } from "@/components/PageTransition";
 import { ChatWidget } from "@/components/chat/ChatWidget";
 import { queryClient } from "@/lib/queryClient";
 import { ErrorBoundary } from "@/components/error/ErrorBoundary";
-import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+
+// Marketing pages - lazy loaded
+const Landing = lazy(() => import("./pages/marketing/Landing"));
+const Features = lazy(() => import("./pages/marketing/Features"));
+const Pricing = lazy(() => import("./pages/marketing/Pricing"));
+const Demo = lazy(() => import("./pages/marketing/Demo"));
+const About = lazy(() => import("./pages/marketing/About"));
+const Contact = lazy(() => import("./pages/marketing/Contact"));
+const Blog = lazy(() => import("./pages/marketing/Blog"));
+const BlogPost = lazy(() => import("./pages/marketing/BlogPost"));
+const UseCases = lazy(() => import("./pages/marketing/UseCases"));
+const UseCaseDetail = lazy(() => import("./pages/marketing/UseCaseDetail"));
+const PrivacyPolicy = lazy(() => import("./pages/marketing/PrivacyPolicy"));
+const TermsOfService = lazy(() => import("./pages/marketing/TermsOfService"));
+const CookiePolicy = lazy(() => import("./pages/marketing/CookiePolicy"));
+const Status = lazy(() => import("./pages/marketing/Status"));
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -77,11 +92,144 @@ const App = () => (
             }}
           >
             <Routes>
+{/* Marketing Pages */}
               <Route
                 path="/"
                 element={
                   <PageTransition>
-                    <Index />
+                    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+                      <Landing />
+                    </Suspense>
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="/features"
+                element={
+                  <PageTransition>
+                    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+                      <Features />
+                    </Suspense>
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="/pricing"
+                element={
+                  <PageTransition>
+                    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+                      <Pricing />
+                    </Suspense>
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="/demo"
+                element={
+                  <PageTransition>
+                    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+                      <Demo />
+                    </Suspense>
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="/about"
+                element={
+                  <PageTransition>
+                    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+                      <About />
+                    </Suspense>
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="/contact"
+                element={
+                  <PageTransition>
+                    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+                      <Contact />
+                    </Suspense>
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="/blog"
+                element={
+                  <PageTransition>
+                    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+                      <Blog />
+                    </Suspense>
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="/blog/:slug"
+                element={
+                  <PageTransition>
+                    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+                      <BlogPost />
+                    </Suspense>
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="/use-cases"
+                element={
+                  <PageTransition>
+                    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+                      <UseCases />
+                    </Suspense>
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="/use-cases/:industry"
+                element={
+                  <PageTransition>
+                    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+                      <UseCaseDetail />
+                    </Suspense>
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="/privacy-policy"
+                element={
+                  <PageTransition>
+                    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+                      <PrivacyPolicy />
+                    </Suspense>
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="/terms-of-service"
+                element={
+                  <PageTransition>
+                    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+                      <TermsOfService />
+                    </Suspense>
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="/cookie-policy"
+                element={
+                  <PageTransition>
+                    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+                      <CookiePolicy />
+                    </Suspense>
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="/status"
+                element={
+                  <PageTransition>
+                    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+                      <Status />
+                    </Suspense>
                   </PageTransition>
                 }
               />
