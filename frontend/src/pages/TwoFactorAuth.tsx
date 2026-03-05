@@ -1,14 +1,18 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Branding/Logo";
 import { Loader2, AlertCircle } from "lucide-react";
+import { securityApi } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 const CODE_LENGTH = 6;
 const CODE_EXPIRY_SECONDS = 300;
 
 export default function TwoFactorAuth() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { refreshUser } = useAuth();
   const [code, setCode] = useState<string[]>(Array(CODE_LENGTH).fill(""));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -87,11 +91,15 @@ export default function TwoFactorAuth() {
     setError(null);
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      
-      console.log("Verifying code:", fullCode);
-      
-      navigate("/");
+      await securityApi.verify2FA(fullCode);
+
+      // Refresh global auth state so user + isAuthenticated are up to date
+      await refreshUser();
+
+      const state = location.state as { isAdminLogin?: boolean } | null;
+      const isAdminLogin = state?.isAdminLogin === true;
+
+      navigate(isAdminLogin ? "/admin" : "/dashboard", { replace: true });
     } catch (err) {
       setError("Invalid verification code. Please try again.");
       setCode(Array(CODE_LENGTH).fill(""));

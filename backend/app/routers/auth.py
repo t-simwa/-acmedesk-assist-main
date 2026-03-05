@@ -40,6 +40,8 @@ from ..schemas.auth import (
     ForgotPasswordResponse,
     ResetPasswordRequest,
     ResetPasswordResponse,
+    ResetPasswordTokenStatus,
+    ResetPasswordTokenStatusResponse,
     VerifyEmailResponse,
     ResendVerificationRequest,
     ResendVerificationResponse,
@@ -49,6 +51,7 @@ from ..models.user import User, UserRole
 from ..models.tenant import Tenant, SubscriptionStatus
 from ..models.chatbot_instance import ChatbotInstance, ChatbotStatus, WidgetPosition
 from ..models.password_reset_token import PasswordResetToken
+from ..models.user_session import UserSession
 from ..models.two_factor_auth import TwoFactorAuth
 from ..models.base import get_db_session
 from ..services.auth import (
@@ -785,6 +788,31 @@ async def forgot_password(request_data: ForgotPasswordRequest) -> ForgotPassword
             )
 
 
+@router.get("/reset-password/validate", response_model=ResetPasswordTokenStatusResponse)
+async def validate_reset_token(token: str) -> ResetPasswordTokenStatusResponse:
+    """
+    Validate a password reset token without changing any state.
+
+    Returns one of: valid, expired, used, invalid.
+    """
+    async with get_db_session() as session:
+        result = await session.execute(
+            select(PasswordResetToken).where(PasswordResetToken.token == token)
+        )
+        reset_token_obj = result.scalar_one_or_none()
+
+        if reset_token_obj is None:
+            return ResetPasswordTokenStatusResponse(status=ResetPasswordTokenStatus.INVALID)
+
+        if reset_token_obj.used:
+            return ResetPasswordTokenStatusResponse(status=ResetPasswordTokenStatus.USED)
+
+        if reset_token_obj.expires_at < datetime.utcnow():
+            return ResetPasswordTokenStatusResponse(status=ResetPasswordTokenStatus.EXPIRED)
+
+        return ResetPasswordTokenStatusResponse(status=ResetPasswordTokenStatus.VALID)
+
+
 @router.post("/reset-password", response_model=ResetPasswordResponse)
 async def reset_password(request_data: ResetPasswordRequest) -> ResetPasswordResponse:
     """
@@ -837,6 +865,18 @@ async def reset_password(request_data: ResetPasswordRequest) -> ResetPasswordRes
         
         # Mark token as used
         reset_token_obj.used = True
+
+        # Revoke all active sessions for this user so existing logins are invalidated
+        sessions_result = await session.execute(
+            select(UserSession).where(
+                UserSession.user_id == user.id,
+                UserSession.is_revoked == False,
+                UserSession.expires_at > datetime.utcnow(),
+            )
+        )
+        active_sessions = sessions_result.scalars().all()
+        for sess in active_sessions:
+            sess.is_revoked = True
         
         try:
             await session.commit()

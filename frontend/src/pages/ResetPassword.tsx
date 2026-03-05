@@ -34,17 +34,24 @@ export default function ResetPassword() {
       }
 
       try {
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        setResetState("valid");
+        const result = await authApi.validateResetToken(token);
+        switch (result.status) {
+          case "valid":
+            setResetState("valid");
+            break;
+          case "used":
+            setResetState("used");
+            break;
+          case "expired":
+          case "invalid":
+          default:
+            setResetState("expired");
+            break;
+        }
       } catch (err) {
         const apiError = err as ApiError;
-        if (apiError.message?.includes("expired")) {
-          setResetState("expired");
-        } else if (apiError.message?.includes("used")) {
-          setResetState("used");
-        } else {
-          setResetState("expired");
-        }
+        console.error("Failed to validate reset token:", apiError);
+        setResetState("expired");
       }
     };
 

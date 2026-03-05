@@ -254,6 +254,26 @@ class ResetPasswordResponse(BaseModel):
     message: str = Field(..., description="Success message")
 
 
+class ResetPasswordTokenStatus(str, Enum):
+    """Status of a password reset token."""
+
+    VALID = "valid"
+    EXPIRED = "expired"
+    USED = "used"
+    INVALID = "invalid"
+
+
+class ResetPasswordTokenStatusResponse(BaseModel):
+    """
+    Response model for validating a password reset token.
+
+    Attributes:
+        status: Current status of the token (valid, expired, used, invalid)
+    """
+
+    status: ResetPasswordTokenStatus = Field(..., description="Status of the reset token")
+
+
 class VerifyEmailRequest(BaseModel):
     """
     Request model for email verification.

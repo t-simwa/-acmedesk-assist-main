@@ -1052,6 +1052,18 @@ export const authApi = {
   },
 
   /**
+   * Validate password reset token state
+   */
+  async validateResetToken(token: string): Promise<{ status: "valid" | "expired" | "used" | "invalid" }> {
+    return apiClient<{ status: "valid" | "expired" | "used" | "invalid" }>(
+      `/api/auth/reset-password/validate?token=${encodeURIComponent(token)}`,
+      {
+        method: "GET",
+      },
+    );
+  },
+
+  /**
    * Logout (clear tokens)
    */
   logout(): void {
