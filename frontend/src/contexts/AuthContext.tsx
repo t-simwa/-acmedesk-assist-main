@@ -7,7 +7,7 @@ interface AuthContextType {
   user: UserInfoResponse | null;
   loading: boolean;
   isAuthenticated: boolean;
-  login: (credentials: LoginRequest) => Promise<{ requires_2fa?: boolean }>;
+  login: (credentials: LoginRequest) => Promise<{ requires_2fa?: boolean; role?: string }>;
   register: (data: RegisterRequest) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
@@ -44,12 +44,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkAuth();
   }, [checkAuth]);
 
-  const login = async (credentials: LoginRequest): Promise<{ requires_2fa?: boolean }> => {
+  const login = async (credentials: LoginRequest): Promise<{ requires_2fa?: boolean; role?: string }> => {
     try {
       const response = await authApi.login(credentials);
-      
+
       if (response.requires_2fa) {
-        return { requires_2fa: true };
+        return { requires_2fa: true, role: response.role };
       }
       
       const userInfo = await authApi.getCurrentUser();
@@ -60,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         description: `Welcome back, ${response.name || response.email}!`,
       });
       
-      return { requires_2fa: false };
+      return { requires_2fa: false, role: response.role };
     } catch (error) {
       const apiError = error as ApiError;
       throw new Error(apiError?.message || "Login failed");

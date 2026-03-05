@@ -408,6 +408,183 @@ class EmailService:
             logger.error(f"Failed to send welcome email to {to_email}: {str(e)}")
             return False
 
+    async def send_payment_success_email(
+        self,
+        to_email: str,
+        user_name: Optional[str],
+        amount: float,
+        currency: str,
+        plan_name: str,
+    ) -> bool:
+        """
+        Send payment success / subscription activated email.
+        """
+        try:
+            subject = f"Payment received – {plan_name} plan activated"
+
+            formatted_amount = f"{amount:,.2f} {currency.upper()}"
+
+            html_body = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <style>
+                    body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #111827; background-color: #0B1020; }}
+                    .container {{ max-width: 640px; margin: 0 auto; padding: 24px; }}
+                    .card {{ border-radius: 16px; overflow: hidden; background: #020617; border: 1px solid rgba(148, 163, 184, 0.35); box-shadow: 0 24px 60px rgba(15,23,42,0.45); }}
+                    .header {{ padding: 28px 28px 20px; background: radial-gradient(circle at top left, #4F8EF7, #7C3AED); color: #E5E7EB; }}
+                    .badge {{ display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 999px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; background: rgba(15,23,42,0.35); border: 1px solid rgba(209,213,219,0.25); }}
+                    .title {{ font-size: 22px; font-weight: 600; margin: 12px 0 2px; }}
+                    .subtitle {{ font-size: 13px; color: rgba(229,231,235,0.85); }}
+                    .content {{ padding: 24px 28px 22px; background: radial-gradient(circle at top left, rgba(15,118,110,0.18), transparent 60%), #020617; }}
+                    .pill {{ display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 11px; background: rgba(15,23,42,0.9); color: #E5E7EB; border: 1px solid rgba(148,163,184,0.45); margin-bottom: 14px; }}
+                    .amount {{ font-size: 18px; font-weight: 600; color: #E5E7EB; }}
+                    .meta {{ font-size: 12px; color: #9CA3AF; margin-top: 4px; }}
+                    .button {{ display: inline-block; padding: 10px 18px; margin-top: 18px; border-radius: 999px; background: linear-gradient(135deg, #4F8EF7, #7C3AED); color: #F9FAFB; text-decoration: none; font-size: 13px; font-weight: 500; }}
+                    .footer {{ padding: 16px 28px 22px; font-size: 11px; color: #6B7280; background: #020617; border-top: 1px solid rgba(31,41,55,0.9); }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="card">
+                        <div class="header">
+                            <div class="badge">Billing · AcmeDesk Assist</div>
+                            <div class="title">Payment received</div>
+                            <div class="subtitle">Your {plan_name} plan is now active and ready.</div>
+                        </div>
+                        <div class="content">
+                            <p style="margin: 0 0 10px; font-size: 13px; color: #E5E7EB;">
+                                Hello{(' ' + user_name) if user_name else ''},
+                            </p>
+                            <p style="margin: 0 0 16px; font-size: 13px; color: #D1D5DB;">
+                                Thank you for choosing AcmeDesk Assist. Your subscription is now active and your account has been updated.
+                            </p>
+                            <div class="pill">{plan_name} Plan</div>
+                            <div class="amount">{formatted_amount}</div>
+                            <div class="meta">Charged via Stripe · Subscription now active</div>
+                            <a href="{self.frontend_url}/dashboard" class="button">Go to your dashboard</a>
+                        </div>
+                        <div class="footer">
+                            You can view invoices and manage billing from Settings → Billing inside your NexaChat dashboard.
+                        </div>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """
+
+            text_body = f"""
+            Payment received – {plan_name} plan activated
+
+            Hello{(' ' + user_name) if user_name else ''},
+
+            Thank you for choosing AcmeDesk Assist. Your subscription for the {plan_name} plan is now active.
+            Amount charged: {formatted_amount}
+
+            You can access your dashboard here: {self.frontend_url}/dashboard
+
+            You can view invoices and manage billing from Settings → Billing inside your NexaChat dashboard.
+
+            ---
+            This is an automated message from AcmeDesk Assist. Please do not reply to this email.
+            """
+
+            return await self._send_email(to_email, subject, text_body, html_body)
+        except Exception as e:  # noqa: BLE001
+            logger.error(f"Failed to send payment success email to {to_email}: {str(e)}")
+            return False
+
+    async def send_payment_failed_email(
+        self,
+        to_email: str,
+        user_name: Optional[str],
+        amount: float,
+        currency: str,
+    ) -> bool:
+        """
+        Send payment failure notification email.
+        """
+        try:
+            subject = "Action needed: billing issue with your AcmeDesk Assist subscription"
+
+            formatted_amount = f"{amount:,.2f} {currency.upper()}"
+
+            html_body = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <style>
+                    body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #111827; background-color: #0B1020; }}
+                    .container {{ max-width: 640px; margin: 0 auto; padding: 24px; }}
+                    .card {{ border-radius: 16px; overflow: hidden; background: #020617; border: 1px solid rgba(248,113,113,0.4); box-shadow: 0 24px 60px rgba(127,29,29,0.55); }}
+                    .header {{ padding: 26px 28px 18px; background: radial-gradient(circle at top left, #DC2626, #7F1D1D); color: #FEE2E2; }}
+                    .badge {{ display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 999px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; background: rgba(127,29,29,0.65); border: 1px solid rgba(248,250,252,0.25); }}
+                    .title {{ font-size: 20px; font-weight: 600; margin: 12px 0 2px; }}
+                    .subtitle {{ font-size: 13px; color: rgba(254,242,242,0.9); }}
+                    .content {{ padding: 22px 28px 20px; background: #020617; }}
+                    .amount {{ font-size: 14px; font-weight: 600; color: #FCA5A5; }}
+                    .meta {{ font-size: 12px; color: #9CA3AF; margin-top: 4px; }}
+                    .warning {{ margin-top: 14px; padding: 10px 12px; border-radius: 10px; background: rgba(248,113,113,0.09); border: 1px solid rgba(248,113,113,0.5); font-size: 12px; color: #FECACA; }}
+                    .button {{ display: inline-block; padding: 9px 18px; margin-top: 18px; border-radius: 999px; background: linear-gradient(135deg, #F97316, #DC2626); color: #F9FAFB; text-decoration: none; font-size: 13px; font-weight: 500; }}
+                    .footer {{ padding: 16px 28px 22px; font-size: 11px; color: #6B7280; background: #020617; border-top: 1px solid rgba(31,41,55,0.9); }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="card">
+                        <div class="header">
+                            <div class="badge">Billing alert</div>
+                            <div class="title">We couldn't process your latest payment</div>
+                            <div class="subtitle">Please update your payment method to keep your account active.</div>
+                        </div>
+                        <div class="content">
+                            <p style="margin: 0 0 10px; font-size: 13px; color: #E5E7EB;">
+                                Hello{(' ' + user_name) if user_name else ''},
+                            </p>
+                            <p style="margin: 0 0 12px; font-size: 13px; color: #D1D5DB;">
+                                Your latest payment of <strong>{formatted_amount}</strong> could not be processed by Stripe.
+                            </p>
+                            <div class="warning">
+                                To avoid any interruption to your NexaChat service, please update your payment details as soon as possible.
+                            </div>
+                            <p style="margin: 14px 0 0; font-size: 12px; color: #9CA3AF;">
+                                You will continue to have access while we retry the payment over the next few days.
+                            </p>
+                            <a href="{self.frontend_url}/dashboard/billing" class="button">Review billing details</a>
+                        </div>
+                        <div class="footer">
+                            If you've already updated your payment method, you can safely ignore this message.
+                        </div>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """
+
+            text_body = f"""
+            We couldn't process your latest payment
+
+            Hello{(' ' + user_name) if user_name else ''},
+
+            Your latest payment of {formatted_amount} could not be processed by Stripe.
+
+            To avoid any interruption to your NexaChat service, please update your payment method as soon as possible.
+
+            You can review your billing details here: {self.frontend_url}/dashboard/billing
+
+            If you've already updated your payment method, you can safely ignore this message.
+
+            ---
+            This is an automated message from AcmeDesk Assist. Please do not reply to this email.
+            """
+
+            return await self._send_email(to_email, subject, text_body, html_body)
+        except Exception as e:  # noqa: BLE001
+            logger.error(f"Failed to send payment failed email to {to_email}: {str(e)}")
+            return False
+
 
 email_service = EmailService()
 
@@ -446,3 +623,39 @@ async def send_welcome_email(
         True if email sent successfully
     """
     return await email_service.send_welcome_email(to_email, user_name)
+
+
+async def send_payment_success_email(
+    to_email: str,
+    user_name: Optional[str],
+    amount: float,
+    currency: str,
+    plan_name: str,
+) -> bool:
+    """
+    Convenience wrapper for sending payment success email.
+    """
+    return await email_service.send_payment_success_email(
+        to_email=to_email,
+        user_name=user_name,
+        amount=amount,
+        currency=currency,
+        plan_name=plan_name,
+    )
+
+
+async def send_payment_failed_email(
+    to_email: str,
+    user_name: Optional[str],
+    amount: float,
+    currency: str,
+) -> bool:
+    """
+    Convenience wrapper for sending payment failure email.
+    """
+    return await email_service.send_payment_failed_email(
+        to_email=to_email,
+        user_name=user_name,
+        amount=amount,
+        currency=currency,
+    )

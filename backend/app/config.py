@@ -90,6 +90,10 @@ class Settings(BaseSettings):
     email_imap_use_ssl: bool = True  # Use SSL for IMAP
     email_imap_mailbox: str = "INBOX"  # Mailbox folder to monitor
 
+    # Stripe billing configuration
+    stripe_secret_key: Optional[str] = None  # Stripe secret API key
+    stripe_webhook_secret: Optional[str] = None  # Stripe webhook signing secret
+
     # SMS channel configuration (J2.1)
     sms_channel_enabled: bool = False  # Master toggle for SMS channel
     sms_default_from_number: Optional[str] = None  # Default sender number (e.g. +15551234567)

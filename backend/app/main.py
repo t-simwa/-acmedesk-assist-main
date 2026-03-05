@@ -19,6 +19,7 @@ from .routers import (
     admin,
     analytics,
     auth,
+    billing,
     chat,
     chatbot,
     conversations,
@@ -43,6 +44,8 @@ from .routers import (
     bookings,
     channels,
     inbox,
+    super_admin,
+    email_unsubscribe,
 )
 
 
@@ -104,12 +107,14 @@ app.include_router(settings_router.router)
 app.include_router(analytics.router)
 app.include_router(user_preferences.router)
 app.include_router(admin.router)
+app.include_router(super_admin.router)
 app.include_router(knowledge_bases.router)
 app.include_router(email.router)
 app.include_router(sms.router)
 app.include_router(whatsapp.router)
 app.include_router(messenger.router)
 app.include_router(instagram.router)
+app.include_router(billing.router)
 app.include_router(security.router)
 app.include_router(oauth.router)
 app.include_router(team.router)
@@ -120,6 +125,7 @@ app.include_router(campaigns.router)
 app.include_router(bookings.router)
 app.include_router(channels.router)
 app.include_router(inbox.router)
+app.include_router(email_unsubscribe.router)
 
 
 @app.get("/")

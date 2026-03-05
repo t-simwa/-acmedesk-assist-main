@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 
 class UserRole(str, Enum):
     """User role enumeration - matches plan specification."""
+    SUPER_ADMIN = "super_admin"
     OWNER = "owner"
     ADMIN = "admin"
     AGENT = "agent"

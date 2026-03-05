@@ -9,6 +9,7 @@ import { AccessibilityProvider } from "@/contexts/AccessibilityContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { RoleProvider } from "@/contexts/RoleContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { SuperAdminRoute } from "@/components/auth/SuperAdminRoute";
 import { PageTransition } from "@/components/PageTransition";
 import { ChatWidget } from "@/components/chat/ChatWidget";
 import { queryClient } from "@/lib/queryClient";
@@ -72,6 +73,12 @@ const Install = lazy(() => import("./pages/admin/Install"));
 const Integrations = lazy(() => import("./pages/admin/Integrations"));
 const Privacy = lazy(() => import("./pages/Privacy"));
 const Terms = lazy(() => import("./pages/Terms"));
+const SuperAdminDashboard = lazy(() => import("./pages/admin/SuperAdminDashboard"));
+const SuperAdminClients = lazy(() => import("./pages/admin/SuperAdminClients"));
+const SuperAdminAnalytics = lazy(() => import("./pages/admin/SuperAdminAnalytics"));
+const SuperAdminSettings = lazy(() => import("./pages/admin/SuperAdminSettings"));
+const SuperAdminEmails = lazy(() => import("./pages/admin/SuperAdminEmails"));
+const AdminLogin = lazy(() => import("./pages/admin/AdminLogin"));
 
 const App = () => (
   <ErrorBoundary>
@@ -238,6 +245,16 @@ const App = () => (
                 element={
                   <PageTransition>
                     <Login />
+                  </PageTransition>
+                }
+              />
+              <Route
+                path="/admin/login"
+                element={
+                  <PageTransition>
+                    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+                      <AdminLogin />
+                    </Suspense>
                   </PageTransition>
                 }
               />
@@ -543,9 +560,9 @@ const App = () => (
               <Route
                 path="/admin"
                 element={
-                  <ProtectedRoute>
+                  <SuperAdminRoute>
                     <AdminLayout />
-                  </ProtectedRoute>
+                  </SuperAdminRoute>
                 }
               >
                 <Route
@@ -553,7 +570,7 @@ const App = () => (
                   element={
                     <PageTransition>
                       <Suspense fallback={<DashboardSkeleton />}>
-                        <Dashboard />
+                        <SuperAdminDashboard />
                       </Suspense>
                     </PageTransition>
                   }
@@ -569,11 +586,11 @@ const App = () => (
                   }
                 />
                 <Route
-                  path="documents"
+                  path="clients"
                   element={
                     <PageTransition>
-                      <Suspense fallback={<DocumentsSkeleton />}>
-                        <Documents />
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <SuperAdminClients />
                       </Suspense>
                     </PageTransition>
                   }
@@ -583,7 +600,7 @@ const App = () => (
                   element={
                     <PageTransition>
                       <Suspense fallback={<AnalyticsSkeleton />}>
-                        <Analytics />
+                        <SuperAdminAnalytics />
                       </Suspense>
                     </PageTransition>
                   }
@@ -663,7 +680,17 @@ const App = () => (
                   element={
                     <PageTransition>
                       <Suspense fallback={<SettingsSkeleton />}>
-                        <Settings />
+                        <SuperAdminSettings />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="emails"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <SuperAdminEmails />
                       </Suspense>
                     </PageTransition>
                   }

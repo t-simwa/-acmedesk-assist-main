@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Clock, Check, Calendar, MessageSquare, FileText, Settings, Users, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -37,7 +38,28 @@ const DEMO_POINTS = [
   },
 ];
 
+const CALENDLY_URL =
+  import.meta.env.VITE_CALENDLY_URL ||
+  "https://calendly.com/your-calendly-handle/15min-demo";
+
 export default function Demo() {
+  useEffect(() => {
+    // Inject Calendly widget assets once
+    const existingScript = document.querySelector<HTMLScriptElement>('script[data-calendly="true"]');
+    if (!existingScript) {
+      const linkEl = document.createElement("link");
+      linkEl.rel = "stylesheet";
+      linkEl.href = "https://assets.calendly.com/assets/external/widget.css";
+      document.head.appendChild(linkEl);
+
+      const scriptEl = document.createElement("script");
+      scriptEl.src = "https://assets.calendly.com/assets/external/widget.js";
+      scriptEl.async = true;
+      scriptEl.setAttribute("data-calendly", "true");
+      document.body.appendChild(scriptEl);
+    }
+  }, []);
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <MarketingNavbar />
@@ -105,19 +127,21 @@ export default function Demo() {
             <div>
               <div className="sticky top-28">
                 <div className="rounded-2xl border border-border bg-card overflow-hidden">
-                  <div className="p-8 text-center">
-                    <Calendar className="h-12 w-12 text-muted-foreground/40 mx-auto mb-4" />
-                    <h3 className="font-heading font-semibold text-lg text-foreground mb-2">
-                      Select a time
-                    </h3>
-                    <p className="text-sm text-muted-foreground mb-6">
-                      Calendly widget will appear here. For now:
-                    </p>
-                    <Button size="lg" className="w-full" asChild>
-                      <a href="https://calendly.com" target="_blank" rel="noopener noreferrer">
-                        Open booking calendar
-                      </a>
-                    </Button>
+                  <div className="p-0">
+                    <div className="border-b border-border/60 px-6 pt-6 pb-4 flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                        <Calendar className="h-5 w-5 text-primary" />
+                      </div>
+                      <div className="text-left">
+                        <h3 className="font-heading font-semibold text-sm text-foreground">
+                          Select a time
+                        </h3>
+                        <p className="text-xs text-muted-foreground">
+                          Powered by Calendly — fully embedded
+                        </p>
+                      </div>
+                    </div>
+                    <div className="calendly-inline-widget" data-url={CALENDLY_URL} style={{ minWidth: "320px", height: "630px" }} />
                   </div>
                 </div>
 

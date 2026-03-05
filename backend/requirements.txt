@@ -41,6 +41,9 @@ qrcode[pil]>=7.4.0  # QR code generation for 2FA setup
 # Email
 resend>=0.1.0  # Resend email API
 
+# Billing
+stripe>=8.0.0  # Stripe Python SDK for billing and Checkout
+
 # Testing
 pytest>=7.4.0
 pytest-asyncio>=0.21.0

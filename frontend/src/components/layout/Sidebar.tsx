@@ -124,6 +124,29 @@ const AGENT_NAV: NavSection[] = [
   },
 ];
 
+const SUPER_ADMIN_NAV: NavSection[] = [
+  {
+    section: "PLATFORM",
+    items: [
+      { label: "Overview", icon: LayoutDashboard, path: "/admin" },
+      { label: "Clients", icon: UserCheck, path: "/admin/clients" },
+    ],
+  },
+  {
+    section: "REVENUE",
+    items: [
+      { label: "Analytics", icon: BarChart3, path: "/admin/analytics" },
+    ],
+  },
+  {
+    section: "SYSTEM",
+    items: [
+      { label: "Settings", icon: Settings, path: "/admin/settings" },
+      { label: "Email Templates", icon: Megaphone, path: "/admin/emails" },
+    ],
+  },
+];
+
 // ─── Mock usage data (wire to backend API later) ─────────────────────────────
 
 const MOCK_USAGE = { current: 412, limit: 500 };
@@ -649,7 +672,7 @@ export function Sidebar({ isCollapsed, onToggle, mobile = false }: SidebarProps)
   const { isSuperAdmin, isAgent } = useRole();
 
   const navSections: NavSection[] = isSuperAdmin
-    ? []
+    ? SUPER_ADMIN_NAV
     : isAgent
     ? AGENT_NAV
     : CLIENT_NAV;

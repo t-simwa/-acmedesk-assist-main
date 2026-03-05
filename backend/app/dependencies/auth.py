@@ -202,3 +202,31 @@ def require_admin():
         return user
     
     return admin_checker
+
+
+def require_super_admin():
+    """
+    FastAPI dependency that requires super admin access.
+
+    A super admin is defined as:
+    - user.role == "super_admin", OR
+    - user.tenant_id is None (backwards compatibility with early seeds)
+    """
+
+    async def super_admin_checker(user: User = Depends(get_current_user)) -> User:
+        is_super_admin_role = getattr(user.role, "value", None) == "super_admin"
+        is_tenantless = getattr(user, "tenant_id", None) is None
+
+        if not (is_super_admin_role or is_tenantless):
+            logger.warning(
+                f"User {user.email} with role {user.role.value} and tenant_id={user.tenant_id} "
+                f"attempted to access super-admin-only endpoint"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="This action requires super admin privileges",
+            )
+
+        return user
+
+    return super_admin_checker

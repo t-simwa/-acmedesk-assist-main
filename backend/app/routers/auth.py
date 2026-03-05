@@ -296,7 +296,8 @@ async def verify_email(token: str, request: Request = None):
         
         # Check if already verified
         if user.is_verified:
-            return {"redirect_url": f"{frontend_url}/email-verified?already=true"}
+            # If user is already verified, always send them back to onboarding.
+            return {"redirect_url": f"{frontend_url}/onboarding?already=true"}
         
         # Mark user as verified
         user.is_verified = True
@@ -307,8 +308,8 @@ async def verify_email(token: str, request: Request = None):
             await session.commit()
             logger.info(f"Email verified for user: {user.email}")
             
-            # Return redirect URL to frontend
-            return {"redirect_url": f"{frontend_url}/email-verified"}
+            # Return redirect URL to frontend — onboarding wizard entry point
+            return {"redirect_url": f"{frontend_url}/onboarding"}
         except Exception as e:
             await session.rollback()
             logger.error(f"Error verifying email: {str(e)}")
@@ -469,9 +470,11 @@ async def login(request_data: LoginRequest, request: Request) -> LoginResponse:
         
         # Generate JWT tokens
         token_data = {
-            "sub": user.id, 
+            "sub": user.id,
             "email": user.email,
             "tenant_id": user.tenant_id,
+            # Include role claim so frontend and admin guards can distinguish super admins
+            "role": user.role.value if user.role else "agent",
         }
         access_token = create_access_token(token_data)
         refresh_token = create_refresh_token(token_data, remember_me=request_data.remember_me or False)

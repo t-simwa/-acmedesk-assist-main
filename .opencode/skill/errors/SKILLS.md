@@ -4,358 +4,41 @@ Add error reports here when you encounter bugs during development.
 
 Format:
 ```
-fix this: [NFO:     127.0.0.1:60249 - "GET /api/chatbot/config HTTP/1.1" 500 Internal Server Error
-ERROR:    Exception in ASGI application
-Traceback (most recent call last):
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\sql\sqltypes.py", line 1709, in _object_value_for_elem
-    return self._object_lookup[elem]  # type: ignore[return-value]    
-           ~~~~~~~~~~~~~~~~~~~^^^^^^
-KeyError: 'bottom_right'
+fix this: [chunk-TKA7E7G6.js?v=cfbb5b1b:14080 The above error occurred in one of your React components:
 
-The above exception was the direct cause of the following exception:  
+    at Lazy
+    at Suspense
+    at div
+    at PageTransition (http://localhost:8080/src/components/PageTransition.tsx:28:38)
+    at RenderedRoute (http://localhost:8080/node_modules/.vite/deps/react-router-dom.js?v=cfbb5b1b:4130:5)
+    at Outlet (http://localhost:8080/node_modules/.vite/deps/react-router-dom.js?v=cfbb5b1b:4536:26)
+    at div
+    at PageTransition (http://localhost:8080/src/components/PageTransition.tsx:28:38)
+    at main
+    at div
+    at div
+    at AdminLayout (http://localhost:8080/src/components/admin/AdminLayout.tsx?t=1772650732675:42:22)
+    at ProtectedRoute (http://localhost:8080/src/components/auth/ProtectedRoute.tsx?t=1772650732675:26:34)
+    at RenderedRoute (http://localhost:8080/node_modules/.vite/deps/react-router-dom.js?v=cfbb5b1b:4130:5)
+    at Routes (http://localhost:8080/node_modules/.vite/deps/react-router-dom.js?v=cfbb5b1b:4600:5)
+    at Router (http://localhost:8080/node_modules/.vite/deps/react-router-dom.js?v=cfbb5b1b:4543:15)
+    at BrowserRouter (http://localhost:8080/node_modules/.vite/deps/react-router-dom.js?v=cfbb5b1b:5289:5)
+    at Provider (http://localhost:8080/node_modules/.vite/deps/chunk-ZVO65UMV.js?v=cfbb5b1b:37:15)
+    at TooltipProvider (http://localhost:8080/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=cfbb5b1b:63:5)
+    at QueryClientProvider (http://localhost:8080/node_modules/.vite/deps/@tanstack_react-query.js?v=cfbb5b1b:2874:3)
+    at RoleProvider (http://localhost:8080/src/contexts/RoleContext.tsx?t=1772650732675:70:32)
+    at AuthProvider (http://localhost:8080/src/contexts/AuthContext.tsx?t=1772650732675:27:32)
+    at AccessibilityProvider (http://localhost:8080/src/contexts/AccessibilityContext.tsx?t=1772649584348:27:41)
+    at ThemeProvider (http://localhost:8080/src/contexts/ThemeContext.tsx?t=1772649584375:25:33)
+    at ErrorBoundary (http://localhost:8080/src/components/error/ErrorBoundary.tsx:297:9)
+    at App
 
-Traceback (most recent call last):
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\uvicorn\protocols\http\httptools_impl.py", line 426, in run_asgi
-    result = await app(  # type: ignore[func-returns-value]
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 84, in __call__
-    return await self.app(scope, receive, send)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\applications.py", line 1106, in __call__       
-    await super().__call__(scope, receive, send)
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\applications.py", line 122, in __call__      
-    await self.middleware_stack(scope, receive, send)
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\middleware\errors.py", line 184, in __call__ 
-    raise exc
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\middleware\errors.py", line 162, in __call__ 
-    await self.app(scope, receive, _send)
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\middleware\cors.py", line 91, in __call__    
-    await self.simple_response(scope, receive, send, request_headers=headers)
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\middleware\cors.py", line 146, in simple_response
-    await self.app(scope, receive, send)
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\middleware\exceptions.py", line 79, in __call__
-    raise exc
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\middleware\exceptions.py", line 68, in __call__
-    await self.app(scope, receive, sender)
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 20, in __call__
-    raise e
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 17, in __call__
-    await self.app(scope, receive, send)
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\routing.py", line 718, in __call__
-    await route.handle(scope, receive, send)
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\routing.py", line 276, in handle
-    await self.app(scope, receive, send)
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\routing.py", line 66, in app
-    response = await func(request)
-               ^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\routing.py", line 274, in app
-    raw_response = await run_endpoint_function(
-                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\routing.py", line 191, in run_endpoint_function
-    return await dependant.call(**values)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\Desktop\Vanity\Work\IT\my-projects\acmedesk-assist-main\backend\app\routers\chatbot.py", line 161, in get_chatbot_config
-    result = await session.execute(
-             ^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\ext\asyncio\session.py", line 449, in execute
-    result = await greenlet_spawn(
-             ^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 203, in greenlet_spawn
-    result = context.switch(value)
-             ^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\session.py", line 2351, in execute      
-    return self._execute_internal(
-           ^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\session.py", line 2249, in _execute_internal
-    result: Result[Any] = compile_state_cls.orm_execute_statement(    
-                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^    
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\context.py", line 309, in orm_execute_statement
-    return cls.orm_setup_cursor_result(
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\context.py", line 616, in orm_setup_cursor_result
-    return loading.instances(result, querycontext)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\loading.py", line 262, in instances     
-    _prebuffered = list(chunks(None))
-                   ^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\loading.py", line 220, in chunks        
-    fetch = cursor._raw_all_rows()
-            ^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\engine\result.py", line 553, in _raw_all_rows
-    return [make_row(row) for row in rows]
-            ^^^^^^^^^^^^^
-  File "lib/sqlalchemy/cyextension/resultproxy.pyx", line 22, in sqlalchemy.cyextension.resultproxy.BaseRow.__init__
-  File "lib/sqlalchemy/cyextension/resultproxy.pyx", line 79, in sqlalchemy.cyextension.resultproxy._apply_processors
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\sql\sqltypes.py", line 1829, in process     
-    value = self._object_value_for_elem(value)
-            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\sql\sqltypes.py", line 1711, in _object_value_for_elem
-    raise LookupError(
-LookupError: 'bottom_right' is not among the defined enum values. Enum name: widgetposition. Possible values: BOTTOM_RIGH.., BOTTOM_LEFT, TOP_RIGHT, TOP_LEFT
-INFO:     127.0.0.1:59048 - "GET /api/chatbot/config HTTP/1.1" 500 Internal Server Error
-ERROR:    Exception in ASGI application
-Traceback (most recent call last):
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\sql\sqltypes.py", line 1709, in _object_value_for_elem
-    return self._object_lookup[elem]  # type: ignore[return-value]    
-           ~~~~~~~~~~~~~~~~~~~^^^^^^
-KeyError: 'bottom_right'
+React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary.
+ErrorBoundary.tsx:35 ErrorBoundary caught an error: TypeError: Failed to fetch dynamically imported module: http://localhost:8080/src/pages/admin/Settings.tsx?t=1772652042692 
+Object
 
-The above exception was the direct cause of the following exception:  
+﻿
 
-Traceback (most recent call last):
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\uvicorn\protocols\http\httptools_impl.py", line 426, in run_asgi
-    result = await app(  # type: ignore[func-returns-value]
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 84, in __call__
-    return await self.app(scope, receive, send)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\applications.py", line 1106, in __call__       
-    await super().__call__(scope, receive, send)
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\applications.py", line 122, in __call__      
-    await self.middleware_stack(scope, receive, send)
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\middleware\errors.py", line 184, in __call__ 
-    raise exc
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\middleware\errors.py", line 162, in __call__ 
-    await self.app(scope, receive, _send)
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\middleware\cors.py", line 91, in __call__    
-    await self.simple_response(scope, receive, send, request_headers=headers)
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\middleware\cors.py", line 146, in simple_response
-    await self.app(scope, receive, send)
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\middleware\exceptions.py", line 79, in __call__
-    raise exc
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\middleware\exceptions.py", line 68, in __call__
-    await self.app(scope, receive, sender)
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 20, in __call__
-    raise e
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 17, in __call__
-    await self.app(scope, receive, send)
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\routing.py", line 718, in __call__
-    await route.handle(scope, receive, send)
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\routing.py", line 276, in handle
-    await self.app(scope, receive, send)
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\routing.py", line 66, in app
-    response = await func(request)
-               ^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\routing.py", line 274, in app
-    raw_response = await run_endpoint_function(
-                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\routing.py", line 191, in run_endpoint_function
-    return await dependant.call(**values)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\Desktop\Vanity\Work\IT\my-projects\acmedesk-assist-main\backend\app\routers\chatbot.py", line 161, in get_chatbot_config
-    result = await session.execute(
-             ^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\ext\asyncio\session.py", line 449, in execute
-    result = await greenlet_spawn(
-             ^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 203, in greenlet_spawn
-    result = context.switch(value)
-             ^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\session.py", line 2351, in execute      
-    return self._execute_internal(
-           ^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\session.py", line 2249, in _execute_internal
-    result: Result[Any] = compile_state_cls.orm_execute_statement(    
-                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^    
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\context.py", line 309, in orm_execute_statement
-    return cls.orm_setup_cursor_result(
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\context.py", line 616, in orm_setup_cursor_result
-    return loading.instances(result, querycontext)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\loading.py", line 262, in instances     
-    _prebuffered = list(chunks(None))
-                   ^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\loading.py", line 220, in chunks        
-    fetch = cursor._raw_all_rows()
-            ^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\engine\result.py", line 553, in _raw_all_rows
-    return [make_row(row) for row in rows]
-            ^^^^^^^^^^^^^
-  File "lib/sqlalchemy/cyextension/resultproxy.pyx", line 22, in sqlalchemy.cyextension.resultproxy.BaseRow.__init__
-  File "lib/sqlalchemy/cyextension/resultproxy.pyx", line 79, in sqlalchemy.cyextension.resultproxy._apply_processors
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\sql\sqltypes.py", line 1829, in process     
-    value = self._object_value_for_elem(value)
-            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\sql\sqltypes.py", line 1711, in _object_value_for_elem
-    raise LookupError(
-LookupError: 'bottom_right' is not among the defined enum values. Enum name: widgetposition. Possible values: BOTTOM_RIGH.., BOTTOM_LEFT, TOP_RIGHT, TOP_LEFT
-INFO:     127.0.0.1:53186 - "GET /api/chatbot/config HTTP/1.1" 500 Internal Server Error
-ERROR:    Exception in ASGI application
-Traceback (most recent call last):
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\sql\sqltypes.py", line 1709, in _object_value_for_elem
-    return self._object_lookup[elem]  # type: ignore[return-value]    
-           ~~~~~~~~~~~~~~~~~~~^^^^^^
-KeyError: 'bottom_right'
-
-The above exception was the direct cause of the following exception:  
-
-Traceback (most recent call last):
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\uvicorn\protocols\http\httptools_impl.py", line 426, in run_asgi
-    result = await app(  # type: ignore[func-returns-value]
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 84, in __call__
-    return await self.app(scope, receive, send)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\applications.py", line 1106, in __call__       
-    await super().__call__(scope, receive, send)
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\applications.py", line 122, in __call__      
-    await self.middleware_stack(scope, receive, send)
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\middleware\errors.py", line 184, in __call__ 
-    raise exc
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\middleware\errors.py", line 162, in __call__ 
-    await self.app(scope, receive, _send)
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\middleware\cors.py", line 91, in __call__    
-    await self.simple_response(scope, receive, send, request_headers=headers)
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\middleware\cors.py", line 146, in simple_response
-    await self.app(scope, receive, send)
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\middleware\exceptions.py", line 79, in __call__
-    raise exc
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\middleware\exceptions.py", line 68, in __call__
-    await self.app(scope, receive, sender)
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 20, in __call__
-    raise e
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 17, in __call__
-    await self.app(scope, receive, send)
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\routing.py", line 718, in __call__
-    await route.handle(scope, receive, send)
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\routing.py", line 276, in handle
-    await self.app(scope, receive, send)
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\routing.py", line 66, in app
-    response = await func(request)
-               ^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\routing.py", line 274, in app
-    raw_response = await run_endpoint_function(
-                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\routing.py", line 191, in run_endpoint_function
-    return await dependant.call(**values)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\Desktop\Vanity\Work\IT\my-projects\acmedesk-assist-main\backend\app\routers\chatbot.py", line 161, in get_chatbot_config
-    result = await session.execute(
-             ^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\ext\asyncio\session.py", line 449, in execute
-    result = await greenlet_spawn(
-             ^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 203, in greenlet_spawn
-    result = context.switch(value)
-             ^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\session.py", line 2351, in execute      
-    return self._execute_internal(
-           ^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\session.py", line 2249, in _execute_internal
-    result: Result[Any] = compile_state_cls.orm_execute_statement(    
-                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^    
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\context.py", line 309, in orm_execute_statement
-    return cls.orm_setup_cursor_result(
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\context.py", line 616, in orm_setup_cursor_result
-    return loading.instances(result, querycontext)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\loading.py", line 262, in instances     
-    _prebuffered = list(chunks(None))
-                   ^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\loading.py", line 220, in chunks        
-    fetch = cursor._raw_all_rows()
-            ^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\engine\result.py", line 553, in _raw_all_rows
-    return [make_row(row) for row in rows]
-            ^^^^^^^^^^^^^
-  File "lib/sqlalchemy/cyextension/resultproxy.pyx", line 22, in sqlalchemy.cyextension.resultproxy.BaseRow.__init__
-  File "lib/sqlalchemy/cyextension/resultproxy.pyx", line 79, in sqlalchemy.cyextension.resultproxy._apply_processors
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\sql\sqltypes.py", line 1829, in process     
-    value = self._object_value_for_elem(value)
-            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\sql\sqltypes.py", line 1711, in _object_value_for_elem
-    raise LookupError(
-LookupError: 'bottom_right' is not among the defined enum values. Enum name: widgetposition. Possible values: BOTTOM_RIGH.., BOTTOM_LEFT, TOP_RIGHT, TOP_LEFT
-INFO:     127.0.0.1:64972 - "GET /api/chatbot/config HTTP/1.1" 500 Internal Server Error
-ERROR:    Exception in ASGI application
-Traceback (most recent call last):
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\sql\sqltypes.py", line 1709, in _object_value_for_elem
-    return self._object_lookup[elem]  # type: ignore[return-value]    
-           ~~~~~~~~~~~~~~~~~~~^^^^^^
-KeyError: 'bottom_right'
-
-The above exception was the direct cause of the following exception:  
-
-Traceback (most recent call last):
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\uvicorn\protocols\http\httptools_impl.py", line 426, in run_asgi
-    result = await app(  # type: ignore[func-returns-value]
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 84, in __call__
-    return await self.app(scope, receive, send)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\applications.py", line 1106, in __call__       
-    await super().__call__(scope, receive, send)
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\applications.py", line 122, in __call__      
-    await self.middleware_stack(scope, receive, send)
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\middleware\errors.py", line 184, in __call__ 
-    raise exc
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\middleware\errors.py", line 162, in __call__ 
-    await self.app(scope, receive, _send)
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\middleware\cors.py", line 91, in __call__    
-    await self.simple_response(scope, receive, send, request_headers=headers)
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\middleware\cors.py", line 146, in simple_response
-    await self.app(scope, receive, send)
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\middleware\exceptions.py", line 79, in __call__
-    raise exc
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\middleware\exceptions.py", line 68, in __call__
-    await self.app(scope, receive, sender)
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 20, in __call__
-    raise e
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 17, in __call__
-    await self.app(scope, receive, send)
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\routing.py", line 718, in __call__
-    await route.handle(scope, receive, send)
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\routing.py", line 276, in handle
-    await self.app(scope, receive, send)
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\routing.py", line 66, in app
-    response = await func(request)
-               ^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\routing.py", line 274, in app
-    raw_response = await run_endpoint_function(
-                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\routing.py", line 191, in run_endpoint_function
-    return await dependant.call(**values)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\Desktop\Vanity\Work\IT\my-projects\acmedesk-assist-main\backend\app\routers\chatbot.py", line 161, in get_chatbot_config
-    result = await session.execute(
-             ^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\ext\asyncio\session.py", line 449, in execute
-    result = await greenlet_spawn(
-             ^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 203, in greenlet_spawn
-    result = context.switch(value)
-             ^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\session.py", line 2351, in execute      
-    return self._execute_internal(
-           ^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\session.py", line 2249, in _execute_internal
-    result: Result[Any] = compile_state_cls.orm_execute_statement(    
-                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^    
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\context.py", line 309, in orm_execute_statement
-    return cls.orm_setup_cursor_result(
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\context.py", line 616, in orm_setup_cursor_result
-    return loading.instances(result, querycontext)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\loading.py", line 262, in instances     
-    _prebuffered = list(chunks(None))
-                   ^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\loading.py", line 220, in chunks        
-    fetch = cursor._raw_all_rows()
-            ^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\engine\result.py", line 553, in _raw_all_rows
-    return [make_row(row) for row in rows]
-            ^^^^^^^^^^^^^
-  File "lib/sqlalchemy/cyextension/resultproxy.pyx", line 22, in sqlalchemy.cyextension.resultproxy.BaseRow.__init__
-  File "lib/sqlalchemy/cyextension/resultproxy.pyx", line 79, in sqlalchemy.cyextension.resultproxy._apply_processors
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\sql\sqltypes.py", line 1829, in process     
-    value = self._object_value_for_elem(value)
-            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\sql\sqltypes.py", line 1711, in _object_value_for_elem
-    raise LookupError(
-LookupError: 'bottom_right' is not among the defined enum values. Enum name: widgetposition. Possible values: BOTTOM_RIGH.., BOTTOM_LEFT, TOP_RIGHT, TOP_LEFT
 ]
 ```
 

@@ -15,6 +15,7 @@ from ..dependencies.auth import get_current_user
 from ..models.base import get_db_session
 from ..models.user import User
 from ..models.tenant import Tenant, PlanTier
+from ..models.plan import Plan
 from ..models.chatbot_instance import ChatbotInstance
 from ..models.document import Document, DocumentStatus
 from ..schemas.onboarding import (
@@ -147,11 +148,59 @@ async def get_onboarding_status(
 
 
 @router.get("/plans", response_model=list[PlanInfo])
-async def get_available_plans():
+async def get_available_plans() -> list[PlanInfo]:
     """
-    Get available subscription plans (demo mode).
+    Get available subscription plans for onboarding.
+
+    Prefer plans from the database (`plans` table) so that pricing and limits
+    stay in sync with billing. Fall back to `DEMO_PLANS` only if no plans have
+    been configured yet.
     """
-    return DEMO_PLANS
+    async with get_db_session() as session:
+        result = await session.execute(select(Plan))
+        plans = result.scalars().all()
+
+    if not plans:
+        logger.warning("No plans found in database; falling back to static DEMO_PLANS.")
+        return DEMO_PLANS
+
+    plan_infos: list[PlanInfo] = []
+    for plan in plans:
+        features_list: list[str] = []
+        features_data = plan.features or {}
+
+        if isinstance(features_data, dict):
+            bullets = features_data.get("bullets")
+            if isinstance(bullets, list):
+                features_list = [str(f) for f in bullets]
+        if not features_list:
+            # Derive simple feature bullets from numeric limits as a sensible default
+            if plan.conversation_limit:
+                features_list.append(f"{plan.conversation_limit} conversations/month")
+            if plan.document_limit:
+                features_list.append(f"{plan.document_limit} documents")
+            if plan.storage_limit_mb:
+                features_list.append(f"{plan.storage_limit_mb}MB storage")
+
+        description = ""
+        highlighted = False
+        if isinstance(features_data, dict):
+            description = str(features_data.get("description") or "")
+            highlighted = bool(features_data.get("highlighted") or False)
+
+        plan_infos.append(
+            PlanInfo(
+                tier=plan.name.lower(),
+                name=plan.name,
+                description=description,
+                price_monthly=float(plan.monthly_price) if plan.monthly_price is not None else 0,
+                setup_fee=float(plan.setup_fee) if plan.setup_fee is not None else 0,
+                features=features_list,
+                highlighted=highlighted,
+            )
+        )
+
+    return plan_infos
 
 
 @router.put("/profile", response_model=BusinessProfileResponse)
@@ -203,29 +252,16 @@ async def select_plan(
     current_user: User = Depends(get_current_user)
 ) -> PlanSelectionResponse:
     """
-    Step 2: Select subscription plan (demo mode - no payment).
+    Legacy endpoint for selecting a subscription plan directly.
+
+    Plan changes are now handled via Stripe Checkout and `/webhooks/stripe`.
+    This endpoint is kept only for backwards compatibility and will return
+    an error if called.
     """
-    async with get_db_session() as session:
-        result = await session.execute(
-            select(Tenant).where(Tenant.id == current_user.tenant_id)
-        )
-        tenant = result.scalar_one_or_none()
-        
-        if not tenant:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Tenant not found"
-            )
-        
-        tenant.plan_tier = PlanTier(request.plan_tier.value)
-        
-        await session.commit()
-        
-        return PlanSelectionResponse(
-            message=f"Plan '{request.plan_tier.value}' selected successfully",
-            plan_tier=request.plan_tier.value,
-            trial_days=7,
-        )
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail="Plan selection is now handled via Stripe Checkout. Please use the billing flow.",
+    )
 
 
 @router.get("/documents/status", response_model=DocumentStatusResponse)

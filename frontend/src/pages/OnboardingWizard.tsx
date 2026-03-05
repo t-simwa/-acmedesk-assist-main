@@ -94,9 +94,11 @@ export default function OnboardingWizard() {
   });
 
   const selectPlanMutation = useMutation({
-    mutationFn: (planTier: string) => onboardingApi.selectPlan(planTier),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["onboarding-status"] });
+    mutationFn: async (planTier: string) => {
+      // Create Stripe Checkout session and redirect the browser
+      const { checkout_url } = await onboardingApi.createCheckoutSession(planTier);
+      window.location.href = checkout_url;
+      return { plan_tier: planTier };
     },
   });
 
@@ -114,7 +116,7 @@ export default function OnboardingWizard() {
       queryClient.invalidateQueries({ queryKey: ["onboarding-status"] });
       if (data.completed) {
         setIsComplete(true);
-        navigate("/admin");
+        navigate("/dashboard");
       } else {
         const nextStep = data.next_step;
         setCurrentStep(nextStep);
@@ -130,7 +132,7 @@ export default function OnboardingWizard() {
       queryClient.invalidateQueries({ queryKey: ["onboarding-status"] });
       const nextStep = data.next_step;
       if (nextStep > 6) {
-        navigate("/admin");
+        navigate("/dashboard");
       } else {
         setCurrentStep(nextStep);
         setSearchParams({ step: nextStep.toString() });
@@ -213,7 +215,10 @@ export default function OnboardingWizard() {
                 plans={plans || []}
                 selectedPlan={status?.plan_tier}
                 onSelect={(plan) => selectPlanMutation.mutate(plan)}
-                onNext={() => completeStepMutation.mutate(2)}
+                onNext={() => {
+                  if (!status?.plan_tier) return;
+                  completeStepMutation.mutate(2);
+                }}
                 onSkip={() => skipStepMutation.mutate({ step: 2 })}
                 isLoading={selectPlanMutation.isPending || completeStepMutation.isPending}
               />

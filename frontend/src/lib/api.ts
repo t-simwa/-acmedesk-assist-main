@@ -252,6 +252,69 @@ export interface SatisfactionAnalyticsResponse {
   score_trend?: number | null;
 }
 
+// ============================================================================
+// Milestone 10 — Super Admin Panel Types
+// ============================================================================
+
+export interface SuperAdminKpiCard {
+  label: string;
+  value: number;
+  suffix?: string | null;
+  trend?: number | null;
+}
+
+export interface SuperAdminMrrPoint {
+  month: string;
+  new_mrr: number;
+  churned_mrr: number;
+  net_mrr: number;
+}
+
+export interface SuperAdminRecentSignup {
+  tenant_id: string;
+  business_name: string;
+  plan?: string | null;
+  created_at: string;
+  status: string;
+}
+
+export interface SuperAdminFailedJob {
+  id: string;
+  tenant_name: string;
+  error: string;
+  created_at: string;
+}
+
+export interface SuperAdminSystemStatusItem {
+  name: string;
+  status: string;
+  value?: string | null;
+}
+
+export interface SuperAdminDashboard {
+  cards: SuperAdminKpiCard[];
+  mrr_last_12_months: SuperAdminMrrPoint[];
+  recent_signups: SuperAdminRecentSignup[];
+  recent_failed_jobs: SuperAdminFailedJob[];
+  system_status: SuperAdminSystemStatusItem[];
+}
+
+export interface SuperAdminClientRow {
+  id: string;
+  business_name: string;
+  owner_email?: string | null;
+  plan?: string | null;
+  status: string;
+  conversations_this_month: number;
+  mrr_contribution: number;
+  join_date: string;
+  last_active?: string | null;
+}
+
+export interface SuperAdminClients {
+  clients: SuperAdminClientRow[];
+}
+
 // Schedule Report (7.3.1)
 export interface ScheduleReportRequest {
   frequency: string;
@@ -1044,6 +1107,30 @@ export const chatApi = {
     return apiClient<ChatResponse>("/api/chat", {
       method: "POST",
       body: JSON.stringify(request),
+    });
+  },
+};
+
+// ============================================================================
+// Super Admin API (Milestone 10)
+// ============================================================================
+
+export const superAdminApi = {
+  async getDashboard(): Promise<SuperAdminDashboard> {
+    return apiClient<SuperAdminDashboard>("/api/super-admin/dashboard", {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${authApi.getAccessToken()}`,
+      },
+    });
+  },
+
+  async getClients(): Promise<SuperAdminClients> {
+    return apiClient<SuperAdminClients>("/api/super-admin/clients", {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${authApi.getAccessToken()}`,
+      },
     });
   },
 };
@@ -2563,6 +2650,18 @@ export const onboardingApi = {
   }> {
     return apiClient("/api/onboarding/plan", {
       method: "PUT",
+      body: JSON.stringify({ plan_tier: planTier }),
+    });
+  },
+
+  /**
+   * Create Stripe Checkout session for selected plan (Step 2)
+   */
+  async createCheckoutSession(planTier: string): Promise<{
+    checkout_url: string;
+  }> {
+    return apiClient("/api/billing/create-checkout-session", {
+      method: "POST",
       body: JSON.stringify({ plan_tier: planTier }),
     });
   },
