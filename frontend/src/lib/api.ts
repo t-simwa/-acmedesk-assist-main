@@ -27,6 +27,8 @@ export interface ChatMetadata {
   sources_count: number;
   model?: string;
   timestamp: string;
+  low_confidence?: boolean;
+  escalation_triggered?: boolean;
 }
 
 export interface ChatRequest {
@@ -86,6 +88,13 @@ export interface DocumentUploadResponse {
   message: string;
   is_duplicate?: boolean;
   duplicate_of?: string | null;
+}
+
+export interface DuplicateCheckResponse {
+  is_duplicate: boolean;
+  duplicate_of?: string | null;
+  duplicate_filename?: string | null;
+  can_proceed: boolean;
 }
 
 export interface DocumentStatusResponse {
@@ -1187,6 +1196,20 @@ export const documentsApi = {
   },
 
   /**
+   * Check if a file is a duplicate before uploading.
+   */
+  async checkDuplicate(file: File): Promise<DuplicateCheckResponse> {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    return apiClient<DuplicateCheckResponse>("/api/documents/check-duplicate", {
+      method: "POST",
+      headers: {},
+      body: formData,
+    });
+  },
+
+  /**
    * Reindex a document by ID
    */
   async reindex(id: string): Promise<ReindexResponse> {
@@ -1985,6 +2008,24 @@ export const conversationsApi = {
   async removeMessageReaction(messageId: string): Promise<MessageReactionResponse> {
     return apiClient<MessageReactionResponse>(`/api/conversations/messages/reaction/${messageId}`, {
       method: "DELETE",
+    });
+  },
+
+  /**
+   * Submit conversation feedback (Flow 5: Was this conversation helpful? 👍/👎)
+   */
+  async submitFeedback(sessionId: string, rating: "positive" | "negative"): Promise<{ success: boolean; message: string }> {
+    return apiClient<{ success: boolean; message: string }>("/api/conversations/feedback", {
+      method: "POST",
+      body: JSON.stringify({ session_id: sessionId, rating }),
+    });
+  },
+
+  /** Submit lead capture from in-platform chat (Flow 5 parity) */
+  async submitLead(sessionId: string, leadData: { name?: string; email?: string; phone?: string; company?: string }): Promise<{ success: boolean; message: string }> {
+    return apiClient<{ success: boolean; message: string }>("/api/conversations/lead", {
+      method: "POST",
+      body: JSON.stringify({ session_id: sessionId, lead_data: leadData }),
     });
   },
 

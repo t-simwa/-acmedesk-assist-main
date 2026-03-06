@@ -36,6 +36,10 @@ from ..schemas.conversations import (
     ConversationFlagResponse,
     ConversationBulkRequest,
     ConversationBulkResponse,
+    ConversationFeedbackRequest,
+    ConversationFeedbackResponse,
+    ConversationLeadRequest,
+    ConversationLeadResponse,
 )
 from ..services import database
 
@@ -402,6 +406,76 @@ async def delete_conversation(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An error occurred while deleting the conversation: {str(e)}",
+        )
+
+
+@router.post(
+    "/feedback",
+    response_model=ConversationFeedbackResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Submit conversation feedback (Flow 5 parity)",
+)
+async def submit_conversation_feedback(
+    body: ConversationFeedbackRequest,
+    current_user: User = Depends(get_current_user),
+) -> ConversationFeedbackResponse:
+    """
+    Submit feedback (Was this conversation helpful? 👍/👎) for the in-platform chat.
+    Looks up the conversation by session_id and current user (tenant_id) and sets rating.
+    """
+    if body.rating not in ("positive", "negative"):
+        return ConversationFeedbackResponse(
+            success=False,
+            message="Rating must be 'positive' or 'negative'.",
+        )
+    try:
+        ok = await database.set_conversation_rating(
+            session_id=body.session_id,
+            rating=body.rating,
+            user_id=current_user.id,
+        )
+        if ok:
+            return ConversationFeedbackResponse(success=True, message="Feedback saved successfully.")
+        return ConversationFeedbackResponse(
+            success=False,
+            message="No conversation found for this session.",
+        )
+    except Exception as e:
+        logger.error("Error saving conversation feedback: %s", str(e), exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to save feedback.",
+        )
+
+
+@router.post(
+    "/lead",
+    response_model=ConversationLeadResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Submit lead capture from in-platform chat (Flow 5 parity)",
+)
+async def submit_conversation_lead(
+    body: ConversationLeadRequest,
+    current_user: User = Depends(get_current_user),
+) -> ConversationLeadResponse:
+    """Save lead data (name, email, etc.) for the current session's conversation."""
+    try:
+        ok = await database.create_lead_for_session(
+            session_id=body.session_id,
+            user_id=current_user.id,
+            lead_data=body.lead_data,
+        )
+        if ok:
+            return ConversationLeadResponse(success=True, message="Lead captured successfully.")
+        return ConversationLeadResponse(
+            success=False,
+            message="No conversation found for this session.",
+        )
+    except Exception as e:
+        logger.error("Error saving conversation lead: %s", str(e), exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to capture lead.",
         )
 
 

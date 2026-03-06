@@ -22,6 +22,16 @@ class NexaChatWidget {
   private readonly PANEL_WIDTH = 380;
   private readonly PANEL_HEIGHT = 580;
   private readonly Z_INDEX = 2147483647;
+  /** Configurable delay (ms) before showing the launcher. Default 2000 (2 seconds). */
+  private launcherDelayMs = 2000;
+  /** Configurable delay (ms) before showing "Hi! Need help?" tooltip. Default 10000 (10 seconds). */
+  private tooltipDelayMs = 10000;
+  /** Inactivity timeout (5 minutes) before showing feedback prompt. */
+  private readonly inactivityMs = 5 * 60 * 1000;
+  private launcherTimerId: ReturnType<typeof setTimeout> | null = null;
+  private tooltipTimerId: ReturnType<typeof setTimeout> | null = null;
+  private inactivityTimerId: ReturnType<typeof setTimeout> | null = null;
+  private streamingMessageId: string | null = null;
   
   constructor() {
     this.sessionId = this.generateSessionId();
@@ -46,20 +56,84 @@ class NexaChatWidget {
     return `session-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
   }
   
+  private getConfigNumber(attr: string, defaultVal: number): number {
+    const scripts = document.getElementsByTagName('script');
+    for (let i = 0; i < scripts.length; i++) {
+      const script = scripts[i];
+      if (script.src && script.src.includes('widget.js')) {
+        const val = script.getAttribute(attr);
+        if (val != null) {
+          const n = parseInt(val, 10);
+          if (!isNaN(n) && n >= 0) return n;
+        }
+        break;
+      }
+    }
+    return defaultVal;
+  }
+
   private async init() {
     const chatbotId = this.getChatbotId();
     if (!chatbotId) {
       console.error('NexaChat Widget: No chatbot ID found');
       return;
     }
-    
+    this.launcherDelayMs = this.getConfigNumber('data-launcher-delay', 2000);
+    this.tooltipDelayMs = this.getConfigNumber('data-tooltip-delay', 10000);
+
     try {
       await this.loadConfig(chatbotId);
       this.render();
       this.bindEvents();
+      this.scheduleLauncherAndTooltip();
       this.loadSession();
+      this.resetInactivityTimer();
     } catch (error) {
       console.error('NexaChat Widget: Failed to initialize', error);
+    }
+  }
+
+  private scheduleLauncherAndTooltip() {
+    if (!this.launcher) return;
+    this.launcher.style.opacity = '0';
+    this.launcher.style.pointerEvents = 'none';
+    this.launcherTimerId = setTimeout(() => {
+      this.launcherTimerId = null;
+      if (this.launcher) {
+        this.launcher.style.opacity = '1';
+        this.launcher.style.pointerEvents = 'auto';
+      }
+      this.tooltipTimerId = setTimeout(() => this.showTooltip(), this.tooltipDelayMs);
+    }, this.launcherDelayMs);
+  }
+
+  private showTooltip() {
+    this.tooltipTimerId = null;
+    const tooltip = this.shadowRoot.getElementById('nexachat-tooltip');
+    if (tooltip && !this.isOpen) {
+      (tooltip as HTMLElement).style.display = 'block';
+    }
+  }
+
+  private hideTooltip() {
+    if (this.tooltipTimerId != null) {
+      clearTimeout(this.tooltipTimerId);
+      this.tooltipTimerId = null;
+    }
+    const tooltip = this.shadowRoot.getElementById('nexachat-tooltip');
+    if (tooltip) (tooltip as HTMLElement).style.display = 'none';
+  }
+
+  private resetInactivityTimer() {
+    if (this.inactivityTimerId != null) clearTimeout(this.inactivityTimerId);
+    this.inactivityTimerId = setTimeout(() => this.onInactivityTimeout(), this.inactivityMs);
+  }
+
+  private onInactivityTimeout() {
+    this.inactivityTimerId = null;
+    if (this.context.feedbackSubmitted || !this.context.conversationId) return;
+    if (this.messages.some(m => m.role === 'user')) {
+      this.showFeedbackPrompt();
     }
   }
   
@@ -537,6 +611,26 @@ class NexaChatWidget {
         text-decoration: none;
       }
       
+      .tooltip-bubble {
+        position: absolute;
+        bottom: 100%;
+        margin-bottom: 12px;
+        right: 0;
+        padding: 10px 14px;
+        background: #1F2937;
+        color: #F9FAFB;
+        border-radius: 12px;
+        font-size: 13px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        display: none;
+        white-space: nowrap;
+        pointer-events: none;
+      }
+      .widget-container.bottom_right .tooltip-bubble { right: 0; left: auto; }
+      .widget-container.bottom_left .tooltip-bubble { left: 0; right: auto; }
+      .widget-container.top_right .tooltip-bubble { bottom: auto; top: 100%; margin-top: 12px; margin-bottom: 0; right: 0; left: auto; }
+      .widget-container.top_left .tooltip-bubble { bottom: auto; top: 100%; margin-top: 12px; margin-bottom: 0; left: 0; right: auto; }
+      
       .error-message {
         padding: 12px 16px;
         background: rgba(239, 68, 68, 0.15);
@@ -640,6 +734,8 @@ class NexaChatWidget {
         gap: 12px;
         margin: 8px 16px;
       }
+      .feedback-label { font-size: 13px; color: #F9FAFB; }
+      .feedback-buttons { display: flex; gap: 8px; }
       
       .feedback-btn {
         width: 36px;
@@ -794,6 +890,7 @@ class NexaChatWidget {
           ` : ''}
         </div>
         
+        <div class="tooltip-bubble" id="nexachat-tooltip">Hi! Need help?</div>
         <button class="launcher" id="nexachat-launcher">
           <span class="chat-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -816,7 +913,7 @@ class NexaChatWidget {
     this.launcher?.addEventListener('click', () => this.togglePanel());
     
     const minimizeBtn = this.shadowRoot.getElementById('nexachat-minimize');
-    minimizeBtn?.addEventListener('click', () => this.closePanel());
+    minimizeBtn?.addEventListener('click', () => this.requestClose());
     
     this.sendButton?.addEventListener('click', () => this.sendMessage());
     
@@ -868,6 +965,7 @@ class NexaChatWidget {
   }
   
   private openPanel() {
+    this.hideTooltip();
     this.isOpen = true;
     this.launcher?.classList.add('open');
     this.chatPanel?.classList.add('open');
@@ -875,13 +973,83 @@ class NexaChatWidget {
     this.messageInput?.focus();
     this.scrollToBottom();
   }
-  
-  private closePanel() {
+
+  private requestClose() {
+    if (!this.context.feedbackSubmitted && this.context.conversationId && this.messages.some(m => m.role === 'user')) {
+      this.showFeedbackPrompt();
+      return;
+    }
+    this.doClosePanel();
+  }
+
+  private doClosePanel() {
     this.isOpen = false;
     this.launcher?.classList.remove('open');
     this.chatPanel?.classList.remove('open');
   }
   
+  private closePanel() {
+    this.requestClose();
+  }
+  
+  private showFeedbackPrompt() {
+    if (this.context.feedbackSubmitted) return;
+    const existing = this.shadowRoot.getElementById('nexachat-feedback-prompt');
+    if (existing) return;
+    const primaryColor = this.config?.brandColor || '#4F8EF7';
+    const html = `
+      <div class="feedback-prompt" id="nexachat-feedback-prompt">
+        <span class="feedback-label">Was this conversation helpful?</span>
+        <div class="feedback-buttons">
+          <button class="feedback-btn positive" id="nexachat-feedback-yes" title="Yes">👍</button>
+          <button class="feedback-btn negative" id="nexachat-feedback-no" title="No">👎</button>
+        </div>
+      </div>
+    `;
+    const inputArea = this.shadowRoot.getElementById('nexachat-input-area');
+    inputArea?.insertAdjacentHTML('beforebegin', html);
+    this.shadowRoot.getElementById('nexachat-feedback-yes')?.addEventListener('click', () => this.handleFeedback(true));
+    this.shadowRoot.getElementById('nexachat-feedback-no')?.addEventListener('click', () => this.handleFeedback(false));
+    this.scrollToBottom();
+  }
+
+  private async handleFeedback(positive: boolean) {
+    const promptEl = this.shadowRoot.getElementById('nexachat-feedback-prompt');
+    promptEl?.remove();
+    this.context.feedbackSubmitted = true;
+    const rating = positive ? 'positive' : 'negative';
+    const apiUrl = this.getApiUrl();
+    if (this.context.conversationId) {
+      try {
+        await fetch(`${apiUrl}/api/chat/widget/feedback`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ conversation_id: this.context.conversationId, rating }),
+        });
+      } catch (e) {
+        console.error('Failed to submit feedback:', e);
+      }
+    }
+    if (positive) {
+      this.addMessage({
+        id: 'feedback-thanks',
+        role: 'assistant',
+        content: 'Great! Thanks for the feedback.',
+        timestamp: new Date(),
+      });
+      setTimeout(() => this.doClosePanel(), 1000);
+    } else {
+      this.addMessage({
+        id: 'feedback-escalation',
+        role: 'assistant',
+        content: "Sorry to hear that! Would you like someone from our team to help instead?",
+        timestamp: new Date(),
+      });
+      this.context.escalated = true;
+      this.showLeadCaptureFormSequential('prompt');
+    }
+  }
+
   private clearUnread() {
     this.hasNewMessage = false;
     const unreadBadge = this.shadowRoot.getElementById('nexachat-unread');
@@ -913,86 +1081,167 @@ class NexaChatWidget {
   private async sendMessage() {
     const content = this.messageInput?.value.trim();
     if (!content || !this.config) return;
-    
+
     this.messageInput!.value = '';
     this.autoResizeInput();
     this.updateSendButton();
-    
+
     const userMessage: ChatMessage = {
       id: `msg-${Date.now()}`,
       role: 'user',
       content,
       timestamp: new Date()
     };
-    
+
     this.addMessage(userMessage);
     this.context.messageCount++;
-    
+    this.resetInactivityTimer();
+
     const suggestionsEl = this.shadowRoot.getElementById('nexachat-suggestions');
-    if (suggestionsEl) {
-      suggestionsEl.style.display = 'none';
-    }
-    
+    if (suggestionsEl) suggestionsEl.style.display = 'none';
+
     this.showTyping(true);
-    
+
     try {
-      const response = await this.sendToAPI(content);
+      const result = await this.sendToAPIStream(content);
       this.showTyping(false);
-      
-      const assistantMessage: ChatMessage = {
-        id: `msg-${Date.now()}`,
-        role: 'assistant',
-        content: response.answer,
-        timestamp: new Date(),
-        citations: response.sources?.map((s: any) => ({
-          filename: s.filename || 'Unknown',
-          pageNumber: s.page_number,
-          excerpt: s.excerpt || ''
-        }))
-      };
-      
-      this.addMessage(assistantMessage);
-      this.context.messageCount++;
-      
-      if (this.context.conversationId && !this.context.conversationId.includes('new')) {
-        this.context.conversationId = response.conversation_id;
-      } else if (!this.context.conversationId) {
-        this.context.conversationId = response.conversation_id;
+
+      if (result.conversation_id) {
+        this.context.conversationId = result.conversation_id;
       }
-      
-      this.checkLeadCaptureTrigger();
-      
+
+      if (result.metadata?.escalation_triggered || result.metadata?.low_confidence) {
+        this.showLeadCaptureFormSequential('prompt');
+      } else {
+        this.checkLeadCaptureTrigger();
+      }
     } catch (error: any) {
       this.showTyping(false);
       this.showError(error.message || 'Failed to send message. Please try again.');
     }
   }
-  
-  private async sendToAPI(message: string) {
+
+  private async sendToAPIStream(message: string): Promise<{
+    answer: string;
+    sources: any[];
+    conversation_id: string;
+    metadata: { low_confidence?: boolean; escalation_triggered?: boolean };
+  }> {
     const apiUrl = this.getApiUrl();
-    
     const payload = {
       message,
       session_id: this.sessionId,
-      conversation_id: this.context.conversationId,
+      conversation_id: this.context.conversationId || undefined,
       history: this.getMessageHistory(),
-      lead_data: this.context.leadData
+      lead_data: this.context.leadData || undefined,
     };
-    
-    const response = await fetch(`${apiUrl}/api/chat/widget/message`, {
+
+    const response = await fetch(`${apiUrl}/api/chat/widget/stream`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
     });
-    
+
     if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.detail || 'API request failed');
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.detail || 'API request failed');
     }
-    
-    return response.json();
+
+    const reader = response.body?.getReader();
+    const decoder = new TextDecoder();
+    if (!reader) throw new Error('No response body');
+
+    let buffer = '';
+    let fullAnswer = '';
+    let sources: any[] = [];
+    let conversationId = this.context.conversationId || '';
+    let metadata: any = {};
+    this.streamingMessageId = `msg-${Date.now()}`;
+    const assistantMsg: ChatMessage = {
+      id: this.streamingMessageId,
+      role: 'assistant',
+      content: '',
+      timestamp: new Date(),
+    };
+    this.addMessage(assistantMsg);
+    this.context.messageCount++;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n\n');
+      buffer = lines.pop() || '';
+      for (const block of lines) {
+        const eventMatch = block.match(/event:\s*(\w+)/);
+        const dataMatch = block.match(/data:\s*(.+)/);
+        const event = eventMatch?.[1];
+        const dataStr = dataMatch?.[1]?.trim();
+        if (event === 'chunk' && dataStr) {
+          try {
+            const { text } = JSON.parse(dataStr);
+            if (text) {
+              fullAnswer += text;
+              const idx = this.messages.findIndex(m => m.id === this.streamingMessageId);
+              if (idx >= 0) {
+                this.messages[idx] = { ...this.messages[idx], content: fullAnswer };
+                this.renderMessages();
+                this.scrollToBottom();
+              }
+            }
+          } catch (_) {}
+        } else if (event === 'message' && dataStr) {
+          try {
+            const data = JSON.parse(dataStr);
+            fullAnswer = data.answer || '';
+            conversationId = data.conversation_id || conversationId;
+            metadata = data.metadata || {};
+            const idx = this.messages.findIndex(m => m.id === this.streamingMessageId);
+            if (idx >= 0) {
+              this.messages[idx] = { ...this.messages[idx], content: fullAnswer };
+              this.renderMessages();
+            }
+          } catch (_) {}
+        } else if (event === 'done' && dataStr) {
+          try {
+            const data = JSON.parse(dataStr);
+            fullAnswer = data.answer ?? fullAnswer;
+            sources = data.sources || [];
+            conversationId = data.conversation_id || conversationId;
+            metadata = data.metadata || {};
+            const idx = this.messages.findIndex(m => m.id === this.streamingMessageId);
+            if (idx >= 0) {
+              this.messages[idx] = {
+                ...this.messages[idx],
+                content: fullAnswer,
+                ...(sources.length ? {
+                  citations: sources.map((s: any) => ({
+                    filename: s.filename || 'Unknown',
+                    pageNumber: s.page_number,
+                    excerpt: s.excerpt || '',
+                  })),
+                } : {}),
+              };
+              this.renderMessages();
+            }
+          } catch (_) {}
+        } else if (event === 'error' && dataStr) {
+          try {
+            const data = JSON.parse(dataStr);
+            throw new Error(data.detail || 'Stream error');
+          } catch (e: any) {
+            if (e.message) throw e;
+          }
+        }
+      }
+    }
+    this.streamingMessageId = null;
+    return {
+      answer: fullAnswer,
+      sources,
+      conversation_id: conversationId,
+      metadata,
+    };
   }
   
   private getMessageHistory() {
@@ -1004,64 +1253,98 @@ class NexaChatWidget {
   
   private checkLeadCaptureTrigger() {
     const triggerAfter = 3;
-    
-    if (!this.context.leadCaptureTriggered && 
-        this.context.messageCount >= triggerAfter && 
-        !this.context.leadData) {
-      this.showLeadCaptureForm();
-    }
+    if (
+      this.context.leadCaptureTriggered ||
+      this.context.messageCount < triggerAfter ||
+      this.context.leadData?.email
+    ) return;
+    this.addMessage({
+      id: 'lead-prompt',
+      role: 'assistant',
+      content: "Before I continue, would you like someone from our team to follow up with you directly? If so, I can take your details.",
+      timestamp: new Date(),
+    });
+    this.context.messageCount++;
+    this.showLeadCaptureFormSequential('prompt');
   }
-  
-  private showLeadCaptureForm() {
-    this.context.leadCaptureTriggered = true;
-    
-    const formHtml = `
-      <div class="lead-capture-form" id="lead-capture-form">
-        <div class="lead-capture-title">Before you continue, may we contact you?</div>
-        <input type="text" class="lead-input" id="lead-name" placeholder="Your name (optional)">
-        <input type="email" class="lead-input" id="lead-email" placeholder="Email address (optional)">
-        <input type="tel" class="lead-input" id="lead-phone" placeholder="Phone number (optional)">
-        <div class="lead-actions">
-          <button class="lead-submit" id="lead-submit">Continue</button>
-          <button class="lead-skip" id="lead-skip">Maybe later</button>
-        </div>
-      </div>
-    `;
-    
+
+  private showLeadCaptureFormSequential(step: 'prompt' | 'name' | 'email' | 'done') {
+    const container = this.shadowRoot.getElementById('nexachat-lead-capture');
+    if (container) container.remove();
     const inputArea = this.shadowRoot.getElementById('nexachat-input-area');
-    inputArea?.insertAdjacentHTML('beforebegin', formHtml);
-    
-    const submitBtn = this.shadowRoot.getElementById('lead-submit');
-    const skipBtn = this.shadowRoot.getElementById('lead-skip');
-    
-    submitBtn?.addEventListener('click', () => this.submitLeadCapture());
-    skipBtn?.addEventListener('click', () => this.skipLeadCapture());
-  }
-  
-  private async submitLeadCapture() {
-    const nameInput = this.shadowRoot.getElementById('lead-name') as HTMLInputElement;
-    const emailInput = this.shadowRoot.getElementById('lead-email') as HTMLInputElement;
-    const phoneInput = this.shadowRoot.getElementById('lead-phone') as HTMLInputElement;
-    
-    this.context.leadData = {
-      name: nameInput?.value || undefined,
-      email: emailInput?.value || undefined,
-      phone: phoneInput?.value || undefined
-    };
-    
-    const form = this.shadowRoot.getElementById('lead-capture-form');
-    form?.remove();
-    
-    try {
-      await this.saveLeadData();
-    } catch (error) {
-      console.error('Failed to save lead data:', error);
+    if (!inputArea) return;
+
+    const wrap = document.createElement('div');
+    wrap.id = 'nexachat-lead-capture';
+
+    if (step === 'prompt') {
+      wrap.innerHTML = `
+        <div class="lead-capture-form">
+          <div class="lead-actions" style="justify-content: center; gap: 12px;">
+            <button class="lead-submit" id="nexachat-lead-yes">Yes please</button>
+            <button class="lead-skip" id="nexachat-lead-no">No thanks</button>
+          </div>
+        </div>
+      `;
+      inputArea.insertAdjacentElement('beforebegin', wrap);
+      this.shadowRoot.getElementById('nexachat-lead-yes')?.addEventListener('click', () => {
+        this.context.leadCaptureStep = 'name';
+        this.addMessage({ id: 'lead-name-q', role: 'assistant', content: "Great! What's your name?", timestamp: new Date() });
+        this.context.messageCount++;
+        this.showLeadCaptureFormSequential('name');
+      });
+      this.shadowRoot.getElementById('nexachat-lead-no')?.addEventListener('click', () => {
+        this.context.leadCaptureTriggered = true;
+        wrap.remove();
+      });
+    } else if (step === 'name') {
+      wrap.innerHTML = `
+        <div class="lead-capture-form">
+          <input type="text" class="lead-input" id="nexachat-lead-name" placeholder="Your name">
+          <button class="lead-submit" id="nexachat-lead-name-submit">Submit</button>
+        </div>
+      `;
+      inputArea.insertAdjacentElement('beforebegin', wrap);
+      this.shadowRoot.getElementById('nexachat-lead-name-submit')?.addEventListener('click', () => {
+        const name = (this.shadowRoot.getElementById('nexachat-lead-name') as HTMLInputElement)?.value?.trim();
+        if (!name) return;
+        this.context.leadData = { ...this.context.leadData, name };
+        wrap.remove();
+        this.addMessage({ id: 'lead-email-q', role: 'assistant', content: "And your email address?", timestamp: new Date() });
+        this.context.messageCount++;
+        this.showLeadCaptureFormSequential('email');
+      });
+    } else if (step === 'email') {
+      wrap.innerHTML = `
+        <div class="lead-capture-form">
+          <input type="email" class="lead-input" id="nexachat-lead-email" placeholder="Email address">
+          <button class="lead-submit" id="nexachat-lead-email-submit">Submit</button>
+        </div>
+      `;
+      inputArea.insertAdjacentElement('beforebegin', wrap);
+      this.shadowRoot.getElementById('nexachat-lead-email-submit')?.addEventListener('click', async () => {
+        const email = (this.shadowRoot.getElementById('nexachat-lead-email') as HTMLInputElement)?.value?.trim();
+        if (!email) return;
+        this.context.leadData = { ...this.context.leadData, email };
+        wrap.remove();
+        try {
+          await this.saveLeadData();
+        } catch (e) {
+          console.error('Failed to save lead:', e);
+        }
+        const name = this.context.leadData?.name || 'there';
+        this.addMessage({
+          id: 'lead-thanks',
+          role: 'assistant',
+          content: `Perfect, ${name}! Someone will reach out to you at ${email} within 24 hours. Now, what else can I help you with?`,
+          timestamp: new Date(),
+        });
+        this.context.messageCount++;
+        this.context.leadCaptureStep = 'done';
+        this.context.leadCaptureTriggered = true;
+      });
     }
-  }
-  
-  private skipLeadCapture() {
-    const form = this.shadowRoot.getElementById('lead-capture-form');
-    form?.remove();
+    this.scrollToBottom();
   }
   
   private async saveLeadData() {

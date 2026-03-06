@@ -69,6 +69,8 @@ export interface LeadCaptureData {
   company?: string;
 }
 
+export type LeadCaptureStep = 'prompt' | 'name' | 'email' | 'done';
+
 export interface ConversationContext {
   sessionId: string;
   conversationId?: string;
@@ -76,6 +78,9 @@ export interface ConversationContext {
   leadCaptureTriggered: boolean;
   leadData?: LeadCaptureData;
   escalated: boolean;
+  /** After 3rd message: prompt (Yes/No) -> name -> email -> done */
+  leadCaptureStep?: LeadCaptureStep;
+  feedbackSubmitted?: boolean;
 }
 
 export interface WidgetOptions {

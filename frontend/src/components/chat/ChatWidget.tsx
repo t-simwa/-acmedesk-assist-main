@@ -15,6 +15,54 @@ import { useTranslation } from "react-i18next";
 
 const CHAT_GREETING_KEY = "nexachat-chat-greeting";
 
+function LeadCaptureInlineForm({
+  onSubmit,
+  onSkip,
+}: {
+  onSubmit: (name: string, email: string) => void;
+  onSkip: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  return (
+    <div className="px-4 py-3 border-t border-border bg-muted/30 space-y-2">
+      <p className="text-sm font-medium text-foreground">
+        Leave your details so we can follow up:
+      </p>
+      <input
+        type="text"
+        placeholder="Name"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+      />
+      <input
+        type="email"
+        placeholder="Email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+      />
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => onSubmit(name.trim(), email.trim())}
+          className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground"
+        >
+          Submit
+        </button>
+        <button
+          type="button"
+          onClick={onSkip}
+          className="rounded-md border border-border px-3 py-1.5 text-sm"
+        >
+          Skip
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function ChatWidget() {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
@@ -39,6 +87,9 @@ export function ChatWidget() {
   const [sessionId] = useState<string>(() => `session-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`);
   const [isClearing, setIsClearing] = useState(false);
   const [showClearDialog, setShowClearDialog] = useState(false);
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+  const [showFeedbackPrompt, setShowFeedbackPrompt] = useState(false);
+  const [showLeadCapture, setShowLeadCapture] = useState(false);
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -383,6 +434,11 @@ export function ChatWidget() {
       }
 
 
+      // Flow 5 parity: low-confidence or escalation → prompt for lead capture
+      if (response.metadata?.low_confidence || response.metadata?.escalation_triggered) {
+        setShowLeadCapture(true);
+      }
+
       // Only include sources if:
       // 1. There are numbered sources
       // 2. The answer contains citations
@@ -494,6 +550,63 @@ export function ChatWidget() {
         return rest as ChatMessage;
       })
     );
+  };
+
+  const requestClose = () => {
+    const hasUserMessages = messages.some((m) => m.role === "user");
+    if (hasUserMessages && !feedbackSubmitted && !showFeedbackPrompt) {
+      setShowFeedbackPrompt(true);
+      return;
+    }
+    setIsOpen(false);
+  };
+
+  const handleFeedback = async (positive: boolean) => {
+    setShowFeedbackPrompt(false);
+    setFeedbackSubmitted(true);
+    try {
+      await conversationsApi.submitFeedback(sessionId, positive ? "positive" : "negative");
+    } catch (e) {
+      console.error("Failed to submit feedback:", e);
+    }
+    if (positive) {
+      toast({ title: t("chat.thanksFeedback", { defaultValue: "Thanks for your feedback!" }), variant: "success" });
+      setIsOpen(false);
+    } else {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `feedback-${Date.now()}`,
+          role: "assistant",
+          content: t("chat.sorryHearThat", {
+            defaultValue: "Sorry to hear that! Would you like someone from our team to help instead?",
+          }),
+          timestamp: new Date(),
+        },
+      ]);
+      setShowLeadCapture(true);
+    }
+  };
+
+  const handleLeadSubmit = async (name: string, email: string) => {
+    try {
+      await conversationsApi.submitLead(sessionId, { name, email });
+      setShowLeadCapture(false);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `lead-thanks-${Date.now()}`,
+          role: "assistant",
+          content: t("chat.leadThanks", {
+            defaultValue: "Thanks! Someone from our team will reach out shortly.",
+          }),
+          timestamp: new Date(),
+        },
+      ]);
+      toast({ title: t("chat.leadCaptured", { defaultValue: "Lead captured" }), variant: "success" });
+    } catch (e) {
+      toast({ title: t("chat.leadError", { defaultValue: "Failed to submit" }), variant: "destructive" });
+    }
   };
 
   const handleClearConversation = async () => {
@@ -636,7 +749,7 @@ export function ChatWidget() {
       {isMobile && isOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm transition-opacity duration-250"
-          onClick={() => setIsOpen(false)}
+          onClick={requestClose}
           aria-hidden="true"
         />
       )}
@@ -720,7 +833,7 @@ export function ChatWidget() {
               </button>
             )}
             <button
-              onClick={() => setIsOpen(false)}
+              onClick={requestClose}
               className={`rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 active:scale-95 ${
                 isMobile ? "p-2.5 min-w-[44px] min-h-[44px]" : "p-1.5"
               }`}
@@ -788,6 +901,35 @@ export function ChatWidget() {
           <div ref={messagesEndRef} aria-hidden="true" />
         </div>
 
+        {/* Flow 5: Feedback before close */}
+        {showFeedbackPrompt && (
+          <div className="px-4 py-2 border-t border-border bg-muted/30 flex items-center justify-center gap-3">
+            <span className="text-sm text-foreground">{t("chat.wasHelpful", { defaultValue: "Was this conversation helpful?" })}</span>
+            <button
+              type="button"
+              onClick={() => handleFeedback(true)}
+              className="rounded-full p-2 bg-green-500/20 text-green-600 hover:bg-green-500/30 transition-colors"
+              aria-label="Yes"
+            >
+              👍
+            </button>
+            <button
+              type="button"
+              onClick={() => handleFeedback(false)}
+              className="rounded-full p-2 bg-red-500/20 text-red-600 hover:bg-red-500/30 transition-colors"
+              aria-label="No"
+            >
+              👎
+            </button>
+          </div>
+        )}
+        {/* Flow 5: Lead capture (low-confidence or escalation) */}
+        {showLeadCapture && (
+          <LeadCaptureInlineForm
+            onSubmit={handleLeadSubmit}
+            onSkip={() => setShowLeadCapture(false)}
+          />
+        )}
         {/* Input */}
         <ChatInput ref={chatInputRef} onSend={handleSend} disabled={isTyping} />
       </div>

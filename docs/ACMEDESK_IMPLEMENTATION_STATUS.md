@@ -82,6 +82,15 @@ Frontend: ~95% | Backend & RAG: ~100% | Admin functionality: ~95% | Testing: ~90
 - ✅ Tooltip clipping issues resolved with Portal wrapper and overflow adjustments
 - ✅ All chat components updated to use consistent Satoshi font
 
+**Recent Updates (Flow 5 – End User Chat Experience – March 2026):**
+- ✅ Embed widget: configurable 2s launcher delay and 10s “Hi! Need help?” tooltip; word-by-word streaming via POST /api/chat/widget/stream (SSE)
+- ✅ Strict lead capture after 3rd message: exact copy “Yes please” / “No thanks”, sequential name → email → “Perfect, [Name]! Someone will reach out…”
+- ✅ Escalation: keyword_triggers detection in backend; escalation message, email to escalation_email_addresses, conversation status/outcome set to escalated
+- ✅ Low-confidence: RAG confidence threshold 0.7; chatbot fallback_message used; widget/in-platform prompt for lead details on low_confidence
+- ✅ Session end & feedback: 5-minute inactivity timeout; “Was this conversation helpful?” 👍/👎 before close; POST /api/chat/widget/feedback and POST /api/conversations/feedback
+- ✅ In-platform chat parity: same escalation, low-confidence, feedback-on-close, and lead capture (POST /api/conversations/lead); ChatMetadata.low_confidence and escalation_triggered
+- 📄 Full testing guide: `docs/user-flows/flow5-end-user-chat.md`
+
 **Recent Updates (Authentication & Data Isolation - February 2026):**
 - ✅ User Registration and Login implemented (H0.1, H0.2) with JWT tokens, password hashing, and secure authentication
 - ✅ Authentication middleware and protected routes implemented (H0.4, H0.5) with automatic token refresh
@@ -2936,35 +2945,35 @@ Based on the new specifications in `docs/new-specifications/`, this section outl
 - [ ] AA1.7 Multiple file upload at once **(Spec: C.7)**
 - [ ] AA1.8 File size limit: 50MB per file **(Spec: C.8)**
 - [ ] AA1.9 Total storage limit per plan (Starter: 100MB, Growth: 500MB, Enterprise: unlimited) **(Spec: C.9)**
-- [ ] AA1.10 Upload progress bar per file **(Spec: C.11)**
-- [ ] AA1.11 Processing status indicator: Uploading → Processing → Indexing → Ready **(Spec: C.12)**
-- [ ] AA1.12 Error state with specific error message if processing fails **(Spec: C.13)**
+- [x] AA1.10 Upload progress bar per file **(Spec: C.11)**
+- [x] AA1.11 Processing status indicator: Uploading → Processing → Indexing → Ready **(Spec: C.12)**
+- [x] AA1.12 Error state with specific error message if processing fails **(Spec: C.13)**
 - [ ] AA1.13 Retry failed uploads **(Spec: C.14)**
 
 ### AA2 – Document Management UI
-- [ ] AA2.1 View all uploaded documents in a table **(Spec: C.15)**
-- [ ] AA2.2 Columns: filename, file type, size, upload date, pages/chunks extracted, status, actions **(Spec: C.15)**
-- [ ] AA2.3 Search documents by name **(Spec: C.16)**
-- [ ] AA2.4 Sort by date, name, size, status **(Spec: C.17)**
-- [ ] AA2.5 Preview document content (first 500 words shown) **(Spec: C.18)**
-- [ ] AA2.6 Delete individual documents **(Spec: C.19)**
-- [ ] AA2.7 Replace a document (upload new version, old version removed from vector store) **(Spec: C.20)**
-- [ ] AA2.8 Download original uploaded file **(Spec: C.21)**
-- [ ] AA2.9 Bulk delete selected documents **(Spec: C.22)**
-- [ ] AA2.10 See which documents are "active" vs "archived" **(Spec: C.23)**
-- [ ] AA2.11 Archive document (removes from knowledge base but keeps file) **(Spec: C.24)**
-- [ ] AA2.12 Restore archived document back to active **(Spec: C.25)**
+- [x] AA2.1 View all uploaded documents in a table **(Spec: C.15)**
+- [x] AA2.2 Columns: filename, file type, size, upload date, pages/chunks extracted, status, actions **(Spec: C.15)**
+- [x] AA2.3 Search documents by name **(Spec: C.16)**
+- [x] AA2.4 Sort by date, name, size, status **(Spec: C.17)**
+- [x] AA2.5 Preview document content (first 500 words shown) **(Spec: C.18)**
+- [x] AA2.6 Delete individual documents **(Spec: C.19)**
+- [x] AA2.7 Replace a document (upload new version, old version removed from vector store) **(Spec: C.20)**
+- [x] AA2.8 Download original uploaded file **(Spec: C.21)**
+- [x] AA2.9 Bulk delete selected documents **(Spec: C.22)**
+- [x] AA2.10 See which documents are "active" vs "archived" **(Spec: C.23)**
+- [x] AA2.11 Archive document (removes from knowledge base but keeps file) **(Spec: C.24)**
+- [x] AA2.12 Restore archived document back to active **(Spec: C.25)**
 
 ### AA3 – Backend Processing
-- [ ] AA3.1 Text extraction from each file type **(Spec: C.26)**
-- [ ] AA3.2 Intelligent chunking (paragraph-aware, not just character-count splits) **(Spec: C.27)**
-- [ ] AA3.3 Chunk size: 512 tokens with 50-token overlap **(Spec: C.28)**
-- [ ] AA3.4 Metadata attached to each chunk: source filename, page number, section header, upload date, document ID **(Spec: C.29)**
-- [ ] AA3.5 Embedding generation for each chunk (OpenAI text-embedding-3-small) **(Spec: C.30)**
-- [ ] AA3.6 Storage in vector database with metadata **(Spec: C.31)**
-- [ ] AA3.7 Duplicate detection (warn if same file uploaded twice) **(Spec: C.32)**
-- [ ] AA3.8 Handle corrupted files gracefully with clear error message **(Spec: C.33)**
-- [ ] AA3.9 Handle password-protected PDFs with clear error message **(Spec: C.34)**
+- [x] AA3.1 Text extraction from each file type **(Spec: C.26)**
+- [x] AA3.2 Intelligent chunking (paragraph-aware, not just character-count splits) **(Spec: C.27)**
+- [x] AA3.3 Chunk size: 512 tokens with 50-token overlap **(Spec: C.28)**
+- [x] AA3.4 Metadata attached to each chunk: source filename, page number, section header, upload date, document ID **(Spec: C.29)**
+- [x] AA3.5 Embedding generation for each chunk (OpenAI text-embedding-3-small) **(Spec: C.30)**
+- [x] AA3.6 Storage in vector database with metadata **(Spec: C.31)**
+- [x] AA3.7 Duplicate detection (warn if same file uploaded twice) **(Spec: C.32)**
+- [x] AA3.8 Handle corrupted files gracefully with clear error message **(Spec: C.33)**
+- [x] AA3.9 Handle password-protected PDFs with clear error message **(Spec: C.34)**
 - [ ] AA3.10 Handle scanned PDFs (OCR processing notice, accuracy warning) **(Spec: C.35)**
 
 ---

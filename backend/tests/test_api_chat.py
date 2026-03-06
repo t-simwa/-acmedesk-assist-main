@@ -3,15 +3,24 @@ Tests for the chat endpoint with mocked RAG pipeline.
 
 Tests:
 - POST /api/chat with a simple in-memory RAG pipeline (can mock embedding/vector DB)
+- Chat endpoint requires authentication; tests override get_current_user.
 """
 
 import pytest
 import pytest_asyncio
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, patch, MagicMock
 from httpx import AsyncClient, ASGITransport
 
 from app.main import app
+from app.routers import chat as chat_router
 from app.schemas.chat import SourceRef
+
+
+# Minimal user-like object for dependency override (chat only needs .id)
+def _make_mock_user():
+    u = MagicMock()
+    u.id = "test-user-id-for-chat"
+    return u
 
 
 @pytest_asyncio.fixture
@@ -20,6 +29,17 @@ async def client():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
+
+
+@pytest.fixture
+def override_chat_auth():
+    """Override get_current_user for chat so tests don't require a real JWT."""
+    async def mock_get_current_user():
+        return _make_mock_user()
+
+    app.dependency_overrides[chat_router.get_current_user] = mock_get_current_user
+    yield
+    app.dependency_overrides.pop(chat_router.get_current_user, None)
 
 
 @pytest.fixture
@@ -44,7 +64,8 @@ def mock_rag_process():
                     snippet="Another test snippet.",
                     score=0.85
                 )
-            ]
+            ],
+            False,  # low_confidence
         )
         yield mock_process
 
@@ -58,7 +79,7 @@ def mock_database_save():
 
 
 @pytest.mark.asyncio
-async def test_chat_endpoint_returns_200(client, mock_rag_process, mock_database_save):
+async def test_chat_endpoint_returns_200(client, override_chat_auth, mock_rag_process, mock_database_save):
     """Test that POST /api/chat returns HTTP 200 status code."""
     response = await client.post(
         "/api/chat",
@@ -71,7 +92,7 @@ async def test_chat_endpoint_returns_200(client, mock_rag_process, mock_database
 
 
 @pytest.mark.asyncio
-async def test_chat_endpoint_returns_expected_structure(client, mock_rag_process, mock_database_save):
+async def test_chat_endpoint_returns_expected_structure(client, override_chat_auth, mock_rag_process, mock_database_save):
     """Test that POST /api/chat returns the expected response structure."""
     response = await client.post(
         "/api/chat",
@@ -105,7 +126,7 @@ async def test_chat_endpoint_returns_expected_structure(client, mock_rag_process
 
 
 @pytest.mark.asyncio
-async def test_chat_endpoint_with_sources(client, mock_rag_process, mock_database_save):
+async def test_chat_endpoint_with_sources(client, override_chat_auth, mock_rag_process, mock_database_save):
     """Test that POST /api/chat returns sources when RAG pipeline provides them."""
     response = await client.post(
         "/api/chat",
@@ -129,7 +150,7 @@ async def test_chat_endpoint_with_sources(client, mock_rag_process, mock_databas
 
 
 @pytest.mark.asyncio
-async def test_chat_endpoint_metadata_values(client, mock_rag_process, mock_database_save):
+async def test_chat_endpoint_metadata_values(client, override_chat_auth, mock_rag_process, mock_database_save):
     """Test that POST /api/chat returns correct metadata values."""
     session_id = "test-session-456"
     response = await client.post(
@@ -154,7 +175,7 @@ async def test_chat_endpoint_metadata_values(client, mock_rag_process, mock_data
 
 
 @pytest.mark.asyncio
-async def test_chat_endpoint_without_session_id(client, mock_rag_process, mock_database_save):
+async def test_chat_endpoint_without_session_id(client, override_chat_auth, mock_rag_process, mock_database_save):
     """Test that POST /api/chat works without session_id (optional field)."""
     response = await client.post(
         "/api/chat",
@@ -170,7 +191,7 @@ async def test_chat_endpoint_without_session_id(client, mock_rag_process, mock_d
 
 
 @pytest.mark.asyncio
-async def test_chat_endpoint_validates_message_required(client):
+async def test_chat_endpoint_validates_message_required(client, override_chat_auth):
     """Test that POST /api/chat validates that message is required."""
     response = await client.post(
         "/api/chat",
@@ -182,7 +203,7 @@ async def test_chat_endpoint_validates_message_required(client):
 
 
 @pytest.mark.asyncio
-async def test_chat_endpoint_validates_message_not_empty(client):
+async def test_chat_endpoint_validates_message_not_empty(client, override_chat_auth):
     """Test that POST /api/chat validates that message is not empty."""
     response = await client.post(
         "/api/chat",
@@ -195,7 +216,7 @@ async def test_chat_endpoint_validates_message_not_empty(client):
 
 
 @pytest.mark.asyncio
-async def test_chat_endpoint_calls_rag_pipeline(client, mock_rag_process, mock_database_save):
+async def test_chat_endpoint_calls_rag_pipeline(client, override_chat_auth, mock_rag_process, mock_database_save):
     """Test that POST /api/chat calls the RAG pipeline with correct parameters."""
     test_message = "What is AcmeDesk?"
     test_session_id = "test-session-789"
@@ -217,7 +238,7 @@ async def test_chat_endpoint_calls_rag_pipeline(client, mock_rag_process, mock_d
 
 
 @pytest.mark.asyncio
-async def test_chat_endpoint_calls_database_save(client, mock_rag_process, mock_database_save):
+async def test_chat_endpoint_calls_database_save(client, override_chat_auth, mock_rag_process, mock_database_save):
     """Test that POST /api/chat calls database.save_conversation_turn."""
     test_message = "Test message"
     test_session_id = "test-session-db"

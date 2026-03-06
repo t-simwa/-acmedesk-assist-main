@@ -151,3 +151,27 @@ class ConversationBulkResponse(BaseModel):
     failed: int
     message: str
     export_data: Optional[List[dict]] = Field(None, description="Data for 'export' action")
+
+
+# ─── In-platform feedback (Flow 5 parity) ─────────────────────────────────────
+
+class ConversationFeedbackRequest(BaseModel):
+    """POST /api/conversations/feedback - session feedback (Was this helpful? 👍/👎)."""
+    session_id: str = Field(..., description="Conversation session ID")
+    rating: str = Field(..., description="positive | negative")
+
+
+class ConversationFeedbackResponse(BaseModel):
+    success: bool
+    message: str
+
+
+class ConversationLeadRequest(BaseModel):
+    """POST /api/conversations/lead - in-platform lead capture (Flow 5 parity)."""
+    session_id: str = Field(..., description="Conversation session ID")
+    lead_data: dict = Field(..., description="{ name?, email?, phone?, company? }")
+
+
+class ConversationLeadResponse(BaseModel):
+    success: bool
+    message: str

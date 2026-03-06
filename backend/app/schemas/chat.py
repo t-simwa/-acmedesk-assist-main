@@ -37,6 +37,8 @@ class ChatMetadata(BaseModel):
         sources_count: Number of sources used in generating the answer
         model: LLM model used for generation (if applicable)
         timestamp: ISO 8601 timestamp when the response was generated
+        low_confidence: True when RAG returned fallback (Flow 5 low-confidence branch)
+        escalation_triggered: True when user message matched escalation keywords
     """
 
     session_id: Optional[str] = Field(None, description="Session identifier for the conversation")
@@ -44,6 +46,8 @@ class ChatMetadata(BaseModel):
     sources_count: int = Field(..., ge=0, description="Number of sources used in generating the answer")
     model: Optional[str] = Field(None, description="LLM model used for generation")
     timestamp: str = Field(..., description="ISO 8601 timestamp when the response was generated")
+    low_confidence: Optional[bool] = Field(None, description="True when fallback message was returned")
+    escalation_triggered: Optional[bool] = Field(None, description="True when escalation keywords matched")
 
 
 class ChatRequest(BaseModel):

@@ -110,7 +110,7 @@ class RAGEvaluator:
         
         try:
             # Run question through RAG pipeline
-            answer, sources = await process_chat_query(query=question, top_k=5)
+            answer, sources, _ = await process_chat_query(query=question, top_k=5)
             
             # Calculate response time
             response_time_ms = (time.time() - start_time) * 1000

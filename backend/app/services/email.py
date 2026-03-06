@@ -585,6 +585,72 @@ class EmailService:
             logger.error(f"Failed to send payment failed email to {to_email}: {str(e)}")
             return False
 
+    async def send_escalation_alert_email(
+        self,
+        to_emails: list,
+        conversation_id: str,
+        last_message: str,
+        contact_name: Optional[str] = None,
+        contact_email: Optional[str] = None,
+        contact_phone: Optional[str] = None,
+    ) -> bool:
+        """
+        Send escalation alert to business owner(s) when a user asks to speak to someone.
+        """
+        if not to_emails:
+            logger.warning("No escalation email addresses configured")
+            return False
+        try:
+            subject = "Escalation: A visitor requested to speak with your team"
+            contact_line = []
+            if contact_name:
+                contact_line.append(f"Name: {contact_name}")
+            if contact_email:
+                contact_line.append(f"Email: {contact_email}")
+            if contact_phone:
+                contact_line.append(f"Phone: {contact_phone}")
+            contact_block = "\n".join(contact_line) if contact_line else "Not yet provided"
+
+            text_body = f"""
+A chat visitor has requested to speak with your team.
+
+Conversation ID: {conversation_id}
+Last message: {last_message}
+
+Contact details (if provided):
+{contact_block}
+
+Please follow up with this visitor. You can view the full conversation in your AcmeDesk dashboard.
+
+---
+This is an automated message from AcmeDesk Assist.
+"""
+            html_body = f"""
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+  <h2>Escalation: Visitor requested to speak with your team</h2>
+  <p><strong>Conversation ID:</strong> {conversation_id}</p>
+  <p><strong>Last message:</strong> {last_message}</p>
+  <p><strong>Contact details (if provided):</strong></p>
+  <pre style="background: #f5f5f5; padding: 12px; border-radius: 6px;">{contact_block}</pre>
+  <p>Please follow up with this visitor via your AcmeDesk dashboard.</p>
+  <p style="color: #6b7280; font-size: 12px;">This is an automated message from AcmeDesk Assist.</p>
+</body>
+</html>
+"""
+            sent = True
+            for to_email in to_emails:
+                if not to_email or not isinstance(to_email, str):
+                    continue
+                if not await self._send_email(to_email.strip(), subject, text_body, html_body):
+                    sent = False
+            return sent
+        except Exception as e:
+            logger.error(f"Failed to send escalation alert: {str(e)}")
+            return False
+
 
 email_service = EmailService()
 
@@ -658,4 +724,25 @@ async def send_payment_failed_email(
         user_name=user_name,
         amount=amount,
         currency=currency,
+    )
+
+
+async def send_escalation_alert_email(
+    to_emails: list,
+    conversation_id: str,
+    last_message: str,
+    contact_name: Optional[str] = None,
+    contact_email: Optional[str] = None,
+    contact_phone: Optional[str] = None,
+) -> bool:
+    """
+    Send escalation alert to business owner(s).
+    """
+    return await email_service.send_escalation_alert_email(
+        to_emails=to_emails,
+        conversation_id=conversation_id,
+        last_message=last_message,
+        contact_name=contact_name,
+        contact_email=contact_email,
+        contact_phone=contact_phone,
     )

@@ -56,26 +56,75 @@ async def chat(
         len(request.message),
     )
 
-    # Record start time for query processing
     start_time = time.time()
 
     try:
-        # Get active knowledge base IDs for the user
+        # Escalation check (in-platform parity with widget): get chatbot by tenant, check keyword_triggers
+        escalation_triggered = False
+        escalation_message = None
+        if current_user.tenant_id:
+            async with get_db_session() as session:
+                result = await session.execute(
+                    select(ChatbotInstance).where(ChatbotInstance.tenant_id == current_user.tenant_id)
+                )
+                chatbot = result.scalar_one_or_none()
+            if chatbot and (chatbot.keyword_triggers or []):
+                message_lower = request.message.lower().strip()
+                if any(kw and kw.lower().strip() in message_lower for kw in chatbot.keyword_triggers):
+                    escalation_triggered = True
+                    escalation_message = (
+                        chatbot.escalation_message
+                        or "Of course! I'll connect you with our team. Could I get your name and contact details so they can reach out?"
+                    )
+
+        if escalation_triggered and escalation_message:
+            query_time_ms = (time.time() - start_time) * 1000
+            await database.save_conversation_turn(
+                session_id=request.session_id,
+                message=request.message,
+                answer=escalation_message,
+                sources_count=0,
+                query_time_ms=query_time_ms,
+                user_id=current_user.id,
+            )
+            metadata = ChatMetadata(
+                session_id=request.session_id,
+                query_time_ms=round(query_time_ms, 2),
+                sources_count=0,
+                model=None,
+                timestamp=datetime.utcnow().isoformat() + "Z",
+                escalation_triggered=True,
+            )
+            return ChatResponse(
+                answer=escalation_message,
+                sources=[],
+                metadata=metadata,
+            )
+
         active_kb_ids = await database.get_active_knowledge_base_ids(current_user.id)
-        
-        # Call RAG pipeline to get answer + sources (filtered by user_id and active KBs)
-        answer, sources = await rag.process_chat_query(
-            query=request.message, 
-            top_k=5, 
+        fallback_message = (
+            "I don't have specific information about that in my knowledge base. "
+            "For the most accurate answer, I'd recommend contacting our team directly. "
+            "Would you like to leave your details so they can help you?"
+        )
+        if current_user.tenant_id:
+            async with get_db_session() as session:
+                result = await session.execute(
+                    select(ChatbotInstance).where(ChatbotInstance.tenant_id == current_user.tenant_id)
+                )
+                cb = result.scalar_one_or_none()
+                if cb and cb.fallback_message:
+                    fallback_message = cb.fallback_message
+
+        answer, sources, low_confidence = await rag.process_chat_query(
+            query=request.message,
+            top_k=5,
             user_id=current_user.id,
-            active_kb_ids=active_kb_ids
+            active_kb_ids=active_kb_ids,
+            fallback_message=fallback_message,
         )
 
-        # Calculate query processing time
         query_time_ms = (time.time() - start_time) * 1000
-
-        # Persist conversation turn to database
-        # This uses a placeholder function that will be replaced in Section C
         await database.save_conversation_turn(
             session_id=request.session_id,
             message=request.message,
@@ -85,13 +134,13 @@ async def chat(
             user_id=current_user.id,
         )
 
-        # Build metadata
         metadata = ChatMetadata(
             session_id=request.session_id,
             query_time_ms=round(query_time_ms, 2),
             sources_count=len(sources),
-            model=None,  # Will be populated when LLM integration is complete
+            model=None,
             timestamp=datetime.utcnow().isoformat() + "Z",
+            low_confidence=low_confidence,
         )
 
         # Build and return response
@@ -156,15 +205,16 @@ async def _sse_chat_stream_generator(
     yield start_event.encode("utf-8")
 
     try:
-        # Get active knowledge base IDs for the user
+        # Get active knowledge base IDs for the user so streaming behavior
+        # matches the non-streaming chat endpoint.
         active_kb_ids = await database.get_active_knowledge_base_ids(user_id)
         
-        # Call the same RAG pipeline used by the non-streaming endpoint (filtered by user_id and active KBs)
-        answer, sources = await rag.process_chat_query(
-            query=request.message, 
-            top_k=5, 
+        # Call the same RAG pipeline used by the non-streaming endpoint
+        answer, sources, _low_confidence = await rag.process_chat_query(
+            query=request.message,
+            top_k=5,
             user_id=user_id,
-            active_kb_ids=active_kb_ids
+            active_kb_ids=active_kb_ids,
         )
         query_time_ms = (time.time() - start_time) * 1000
 
@@ -260,10 +310,11 @@ from ..schemas.chat import (
 )
 from ..models.base import get_db_session
 from ..models.chatbot_instance import ChatbotInstance
-from ..models.conversation import Conversation
+from ..models.conversation import Conversation, ConversationStatus, ConversationOutcome, Channel
 from ..models.message import Message
 from ..models.lead import Lead
 from ..services import database
+from ..services.email import send_escalation_alert_email
 from sqlalchemy import select
 
 
@@ -404,8 +455,8 @@ async def widget_message(
                     id=conversation_id,
                     tenant_id=chatbot.tenant_id,
                     chatbot_id=chatbot.id,
-                    channel="web",
-                    status="active",
+                    channel=Channel.WEB,
+                    status=ConversationStatus.ACTIVE,
                     session_id=request_data.session_id,
                     started_at=datetime.utcnow()
                 )
@@ -424,24 +475,79 @@ async def widget_message(
             )
             session.add(user_message)
             await session.commit()
-        
+
+        # Escalation: check keyword_triggers (e.g. "I want to speak to someone")
+        message_lower = request_data.message.lower().strip()
+        keyword_triggers = chatbot.keyword_triggers or []
+        escalation_triggered = any(
+            kw and kw.lower().strip() in message_lower
+            for kw in keyword_triggers
+        )
+
+        if escalation_triggered:
+            escalation_message = (
+                chatbot.escalation_message
+                or "Of course! I'll connect you with our team. Could I get your name and contact details so they can reach out?"
+            )
+            assistant_message_id = f"msg_{int(datetime.utcnow().timestamp() * 1000) + 1}"
+            async with get_db_session() as session:
+                conv = await session.get(Conversation, conversation.id)
+                if conv:
+                    conv.status = ConversationStatus.ESCALATED
+                    conv.outcome = ConversationOutcome.ESCALATED
+                    conv.last_activity_at = datetime.utcnow()
+                assistant_message = Message(
+                    id=assistant_message_id,
+                    conversation_id=conversation.id,
+                    role="assistant",
+                    content=escalation_message,
+                    created_at=datetime.utcnow()
+                )
+                session.add(assistant_message)
+                await session.commit()
+
+            to_emails = chatbot.escalation_email_addresses or []
+            if to_emails:
+                lead_data = request_data.lead_data
+                await send_escalation_alert_email(
+                    to_emails=to_emails,
+                    conversation_id=conversation.id,
+                    last_message=request_data.message,
+                    contact_name=lead_data.name if lead_data else None,
+                    contact_email=lead_data.email if lead_data else None,
+                    contact_phone=lead_data.phone if lead_data else None,
+                )
+
+            return WidgetMessageResponse(
+                answer=escalation_message,
+                sources=[],
+                conversation_id=conversation.id,
+                metadata={
+                    "query_time_ms": round((time.time() - start_time) * 1000, 2),
+                    "sources_count": 0,
+                    "escalation_triggered": True,
+                }
+            )
+
         history_text = ""
         for hist_msg in request_data.history[-10:]:
             history_text += f"{hist_msg.get('role', 'user')}: {hist_msg.get('content', '')}\n"
-        
         full_query = f"{history_text}User: {request_data.message}".strip() if history_text else request_data.message
-        
+
+        fallback_message = (
+            chatbot.fallback_message
+            or "I don't have specific information about that in my knowledge base. For the most accurate answer, I'd recommend contacting our team directly. Would you like to leave your details so they can help you?"
+        )
         active_kb_ids = await database.get_active_knowledge_base_ids_by_tenant(chatbot.tenant_id)
-        
-        answer, sources = await rag.process_chat_query(
+        answer, sources, low_confidence = await rag.process_chat_query(
             query=full_query,
             top_k=5,
             user_id=chatbot.tenant_id,
-            active_kb_ids=active_kb_ids
+            active_kb_ids=active_kb_ids,
+            fallback_message=fallback_message,
         )
-        
+
         query_time_ms = (time.time() - start_time) * 1000
-        
         assistant_message_id = f"msg_{int(datetime.utcnow().timestamp() * 1000) + 1}"
         async with get_db_session() as session:
             assistant_message = Message(
@@ -453,10 +559,10 @@ async def widget_message(
             )
             session.add(assistant_message)
             await session.commit()
-        
+
         sources_list = []
         for src in sources:
-            if hasattr(src, 'get'):
+            if hasattr(src, "get"):
                 sources_list.append({
                     "filename": src.get("title", "Unknown"),
                     "page_number": src.get("page_number"),
@@ -464,18 +570,19 @@ async def widget_message(
                 })
             else:
                 sources_list.append({
-                    "filename": "Unknown",
-                    "page_number": None,
-                    "excerpt": ""
+                    "filename": getattr(src, "title", "Unknown") or "Unknown",
+                    "page_number": getattr(src, "page_number", None),
+                    "excerpt": (getattr(src, "snippet", None) or "")[:200]
                 })
-        
+
         return WidgetMessageResponse(
             answer=answer,
             sources=sources_list,
             conversation_id=conversation.id,
             metadata={
                 "query_time_ms": round(query_time_ms, 2),
-                "sources_count": len(sources_list)
+                "sources_count": len(sources_list),
+                "low_confidence": low_confidence,
             }
         )
         
@@ -485,6 +592,191 @@ async def widget_message(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to process message"
         )
+
+
+def _build_sources_list(sources) -> list:
+    """Build list of source dicts from RAG sources (SourceRef or dict)."""
+    out = []
+    for src in sources:
+        if hasattr(src, "get"):
+            out.append({
+                "filename": src.get("title", "Unknown"),
+                "page_number": src.get("page_number"),
+                "excerpt": (src.get("snippet", "") or "")[:200]
+            })
+        else:
+            out.append({
+                "filename": getattr(src, "title", None) or "Unknown",
+                "page_number": getattr(src, "page_number", None),
+                "excerpt": (getattr(src, "snippet", None) or "")[:200]
+            })
+    return out
+
+
+async def _widget_stream_generator(
+    request_data: WidgetMessageRequest,
+    request: Request,
+) -> AsyncGenerator[bytes, None]:
+    """SSE generator for widget: word-by-word streaming then done with metadata."""
+    try:
+        chatbot_id = request_data.session_id.split("-")[0] if request_data.session_id else None
+        chatbot = None
+        if chatbot_id:
+            async with get_db_session() as session:
+                result = await session.execute(
+                    select(ChatbotInstance).where(ChatbotInstance.id == chatbot_id)
+                )
+                chatbot = result.scalar_one_or_none()
+        if not chatbot:
+            yield f"event: error\ndata: {json.dumps({'detail': 'Chatbot not found'})}\n\n".encode("utf-8")
+            return
+        await validate_domain(request, chatbot.id)
+
+        conversation = None
+        if request_data.conversation_id:
+            async with get_db_session() as session:
+                result = await session.execute(
+                    select(Conversation).where(Conversation.id == request_data.conversation_id)
+                )
+                conversation = result.scalar_one_or_none()
+        if not conversation:
+            conversation_id = f"conv_{request_data.session_id}_{int(datetime.utcnow().timestamp())}"
+            async with get_db_session() as session:
+                conv = Conversation(
+                    id=conversation_id,
+                    tenant_id=chatbot.tenant_id,
+                    chatbot_id=chatbot.id,
+                    channel=Channel.WEB,
+                    status=ConversationStatus.ACTIVE,
+                    session_id=request_data.session_id,
+                    started_at=datetime.utcnow()
+                )
+                session.add(conv)
+                await session.commit()
+                conversation = await session.get(Conversation, conversation_id)
+
+        user_message_id = f"msg_{int(datetime.utcnow().timestamp() * 1000)}"
+        async with get_db_session() as session:
+            session.add(Message(
+                id=user_message_id,
+                conversation_id=conversation.id,
+                role="user",
+                content=request_data.message,
+                created_at=datetime.utcnow()
+            ))
+            await session.commit()
+
+        message_lower = request_data.message.lower().strip()
+        keyword_triggers = chatbot.keyword_triggers or []
+        escalation_triggered = any(
+            kw and kw.lower().strip() in message_lower for kw in keyword_triggers
+        )
+
+        if escalation_triggered:
+            escalation_message = (
+                chatbot.escalation_message
+                or "Of course! I'll connect you with our team. Could I get your name and contact details so they can reach out?"
+            )
+            assistant_message_id = f"msg_{int(datetime.utcnow().timestamp() * 1000) + 1}"
+            async with get_db_session() as session:
+                conv = await session.get(Conversation, conversation.id)
+                if conv:
+                    conv.status = ConversationStatus.ESCALATED
+                    conv.outcome = ConversationOutcome.ESCALATED
+                    conv.last_activity_at = datetime.utcnow()
+                session.add(Message(
+                    id=assistant_message_id,
+                    conversation_id=conversation.id,
+                    role="assistant",
+                    content=escalation_message,
+                    created_at=datetime.utcnow()
+                ))
+                await session.commit()
+            to_emails = chatbot.escalation_email_addresses or []
+            if to_emails:
+                lead_data = request_data.lead_data
+                await send_escalation_alert_email(
+                    to_emails=to_emails,
+                    conversation_id=conversation.id,
+                    last_message=request_data.message,
+                    contact_name=lead_data.name if lead_data else None,
+                    contact_email=lead_data.email if lead_data else None,
+                    contact_phone=lead_data.phone if lead_data else None,
+                )
+            yield f"event: start\ndata: {{}}\n\n".encode("utf-8")
+            yield f"event: message\ndata: {json.dumps({'answer': escalation_message, 'sources': [], 'conversation_id': conversation.id, 'metadata': {'escalation_triggered': True}})}\n\n".encode("utf-8")
+            return
+
+        history_text = "".join(
+            f"{hist_msg.get('role', 'user')}: {hist_msg.get('content', '')}\n"
+            for hist_msg in request_data.history[-10:]
+        )
+        full_query = f"{history_text}User: {request_data.message}".strip() if history_text else request_data.message
+        fallback_message = (
+            chatbot.fallback_message
+            or "I don't have specific information about that in my knowledge base. For the most accurate answer, I'd recommend contacting our team directly. Would you like to leave your details so they can help you?"
+        )
+        active_kb_ids = await database.get_active_knowledge_base_ids_by_tenant(chatbot.tenant_id)
+        answer, sources, low_confidence = await rag.process_chat_query(
+            query=full_query,
+            top_k=5,
+            user_id=chatbot.tenant_id,
+            active_kb_ids=active_kb_ids,
+            fallback_message=fallback_message,
+        )
+
+        assistant_message_id = f"msg_{int(datetime.utcnow().timestamp() * 1000) + 1}"
+        async with get_db_session() as session:
+            session.add(Message(
+                id=assistant_message_id,
+                conversation_id=conversation.id,
+                role="assistant",
+                content=answer,
+                created_at=datetime.utcnow()
+            ))
+            await session.commit()
+
+        sources_list = _build_sources_list(sources)
+        yield f"event: start\ndata: {{}}\n\n".encode("utf-8")
+        words = answer.split()
+        for i, word in enumerate(words):
+            chunk_data = json.dumps({"text": word + (" " if i < len(words) - 1 else "")})
+            yield f"event: chunk\ndata: {chunk_data}\n\n".encode("utf-8")
+        done_data = json.dumps({
+            "answer": answer,
+            "sources": sources_list,
+            "conversation_id": conversation.id,
+            "metadata": {
+                "sources_count": len(sources_list),
+                "low_confidence": low_confidence,
+            }
+        })
+        yield f"event: done\ndata: {done_data}\n\n".encode("utf-8")
+    except Exception as e:
+        logger.error(f"Error in widget stream: {str(e)}", exc_info=True)
+        yield f"event: error\ndata: {json.dumps({'detail': str(e)})}\n\n".encode("utf-8")
+    finally:
+        yield f"event: end\ndata: {{}}\n\n".encode("utf-8")
+
+
+@router.post("/widget/stream", response_class=StreamingResponse)
+async def widget_stream(
+    request_data: WidgetMessageRequest,
+    request: Request,
+) -> StreamingResponse:
+    """
+    Process a widget message with Server-Sent Events (word-by-word streaming).
+    Same semantics as POST /widget/message but streams response in chunks.
+    """
+    return StreamingResponse(
+        _widget_stream_generator(request_data, request),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.post("/widget/lead", response_model=WidgetLeadResponse)

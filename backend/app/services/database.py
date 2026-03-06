@@ -21,9 +21,9 @@ from sqlalchemy import select, func, delete, and_, case, cast, String, Date
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.base import get_session_factory
-from ..models.conversation import Conversation
+from ..models.conversation import Conversation, Rating
 from ..models.document import Document
-from ..models.lead import Lead
+from ..models.lead import Lead, LeadStatus
 from ..models.message import Message
 from ..models.setting import Setting
 from ..models.user_preferences import UserPreferences
@@ -292,6 +292,77 @@ async def delete_conversation(session_id: str, user_id: Optional[str] = None) ->
             await session.rollback()
             logger.error(f"Error deleting conversation: {e}", exc_info=True)
             raise
+
+
+async def set_conversation_rating(
+    session_id: str,
+    rating: str,
+    user_id: Optional[str] = None,
+) -> bool:
+    """
+    Set conversation rating (feedback) by session_id, e.g. for in-platform chat.
+    user_id is used as tenant_id to scope the conversation.
+    """
+    if rating not in ("positive", "negative"):
+        return False
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        try:
+            query = select(Conversation).where(Conversation.session_id == session_id)
+            if user_id:
+                query = query.where(Conversation.tenant_id == user_id)
+            result = await session.execute(query)
+            conv = result.scalar_one_or_none()
+            if conv is None:
+                return False
+            conv.rating = Rating.POSITIVE if rating == "positive" else Rating.NEGATIVE
+            await session.commit()
+            return True
+        except Exception as e:
+            await session.rollback()
+            logger.error(f"Error setting conversation rating: {e}", exc_info=True)
+            raise
+
+
+async def get_conversation_by_session(
+    session_id: str,
+    user_id: Optional[str] = None,
+) -> Optional[Conversation]:
+    """Get conversation by session_id, optionally scoped by user_id (tenant_id)."""
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        query = select(Conversation).where(Conversation.session_id == session_id)
+        if user_id:
+            query = query.where(Conversation.tenant_id == user_id)
+        result = await session.execute(query)
+        return result.scalar_one_or_none()
+
+
+async def create_lead_for_session(
+    session_id: str,
+    user_id: str,
+    lead_data: dict,
+) -> bool:
+    """Create a lead from in-platform chat (conversation identified by session_id + user_id)."""
+    conv = await get_conversation_by_session(session_id, user_id)
+    if not conv:
+        return False
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        lead_id = str(uuid.uuid4())
+        lead = Lead(
+            id=lead_id,
+            tenant_id=conv.tenant_id,
+            conversation_id=conv.id,
+            source_channel="web",
+            lead_capture_data=lead_data,
+            status=LeadStatus.NEW,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+        )
+        session.add(lead)
+        await session.commit()
+    return True
 
 
 # Document management functions
@@ -1337,7 +1408,7 @@ async def create_knowledge_base(
             kb_id = str(uuid.uuid4())
             knowledge_base = KnowledgeBase(
                 id=kb_id,
-                tenant_id =user_id,
+                user_id=user_id,
                 name=name,
                 description=description,
                 is_default=False,
@@ -1350,7 +1421,7 @@ async def create_knowledge_base(
             await session.commit()
             await session.refresh(knowledge_base)
 
-            logger.info(f"Created knowledge base: id={kb_id}, name={name}, tenant_id ={user_id}")
+            logger.info(f"Created knowledge base: id={kb_id}, name={name}, user_id={user_id}")
 
             return knowledge_base.to_dict()
 
@@ -1403,11 +1474,9 @@ async def list_knowledge_bases(user_id: Optional[str] = None) -> List[dict]:
             if user_id:
                 # Return default KB + user's custom KBs
                 query = query.where(
-                    (KnowledgeBase.is_default == True) | (KnowledgeBase.tenant_id == user_id)
+                    (KnowledgeBase.is_default == True) | (KnowledgeBase.user_id == user_id)
                 )
-            else:
-                # Return all KBs
-                pass
+            # If no user_id is provided, return all KBs (including default)
             
             query = query.order_by(KnowledgeBase.is_default.desc(), KnowledgeBase.created_at.desc())
             result = await session.execute(query)
@@ -1485,7 +1554,7 @@ async def delete_knowledge_base(kb_id: str, user_id: str) -> bool:
             result = await session.execute(
                 select(KnowledgeBase).where(
                     KnowledgeBase.id == kb_id,
-                    KnowledgeBase.tenant_id == user_id,
+                    KnowledgeBase.user_id == user_id,
                     KnowledgeBase.is_default == False
                 )
             )
@@ -1521,7 +1590,7 @@ async def get_user_knowledge_base_preferences(user_id: str) -> dict:
     async with session_factory() as session:
         try:
             result = await session.execute(
-                select(UserKnowledgeBasePreference).where(UserKnowledgeBasePreference.tenant_id == user_id)
+                select(UserKnowledgeBasePreference).where(UserKnowledgeBasePreference.user_id == user_id)
             )
             prefs = result.scalar_one_or_none()
 
@@ -1530,7 +1599,7 @@ async def get_user_knowledge_base_preferences(user_id: str) -> dict:
                 prefs_id = str(uuid.uuid4())
                 prefs = UserKnowledgeBasePreference(
                     id=prefs_id,
-                    tenant_id =user_id,
+                    user_id=user_id,
                     use_default_kb=True,
                     active_kb_ids="[]",
                     created_at=datetime.utcnow(),
@@ -1568,7 +1637,7 @@ async def update_user_knowledge_base_preferences(
     async with session_factory() as session:
         try:
             result = await session.execute(
-                select(UserKnowledgeBasePreference).where(UserKnowledgeBasePreference.tenant_id == user_id)
+                select(UserKnowledgeBasePreference).where(UserKnowledgeBasePreference.user_id == user_id)
             )
             prefs = result.scalar_one_or_none()
 
@@ -1577,7 +1646,7 @@ async def update_user_knowledge_base_preferences(
                 prefs_id = str(uuid.uuid4())
                 prefs = UserKnowledgeBasePreference(
                     id=prefs_id,
-                    tenant_id =user_id,
+                    user_id=user_id,
                     use_default_kb=use_default_kb,
                     active_kb_ids=json.dumps(active_kb_ids),
                     created_at=datetime.utcnow(),
@@ -1592,7 +1661,7 @@ async def update_user_knowledge_base_preferences(
             await session.commit()
             await session.refresh(prefs)
 
-            logger.info(f"Updated user KB preferences: tenant_id ={user_id}")
+            logger.info(f"Updated user KB preferences: user_id={user_id}")
 
             return prefs.to_dict()
 
@@ -1613,18 +1682,21 @@ async def get_active_knowledge_base_ids(user_id: str) -> List[str]:
         List of active knowledge base IDs
     """
     prefs = await get_user_knowledge_base_preferences(user_id)
-    active_ids = []
-    
-    # Add default KB if enabled
-    if prefs["use_default_kb"]:
-        # Get default KB ID
-        default_kb = await get_knowledge_base("00000000-0000-0000-0000-000000000001")
-        if default_kb:
-            active_ids.append(default_kb["id"])
-    
-    # Add user's selected custom KBs
-    active_ids.extend(prefs["active_kb_ids"])
-    
+    active_ids: List[str] = []
+
+    # Always include the system default knowledge base so that core
+    # documentation from data/docs is available for all users, regardless
+    # of individual preference toggles. This ensures the main chat
+    # experience is always backed by the default KB.
+    default_kb = await get_knowledge_base("00000000-0000-0000-0000-000000000001")
+    if default_kb:
+        active_ids.append(default_kb["id"])
+
+    # Add user's selected custom KBs (avoiding duplicates)
+    for kb_id in prefs["active_kb_ids"]:
+        if kb_id not in active_ids:
+            active_ids.append(kb_id)
+
     return active_ids
 
 
@@ -1643,9 +1715,10 @@ async def get_active_knowledge_base_ids_by_tenant(tenant_id: str) -> List[str]:
         from sqlalchemy import select
         from ..models.knowledge_base import KnowledgeBase
         
+        # For now, tenant_id is treated as the owning user_id for KB purposes
         result = await session.execute(
             select(KnowledgeBase.id).where(
-                KnowledgeBase.tenant_id == tenant_id,
+                KnowledgeBase.user_id == tenant_id,
                 KnowledgeBase.is_active == True
             )
         )
