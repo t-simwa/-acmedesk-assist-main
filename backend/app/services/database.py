@@ -2060,9 +2060,12 @@ async def get_recent_leads(
             .order_by(Lead.created_at.desc())
             .limit(limit)
         )
-        
+
+        # Use scalars() to get ORM model instances instead of Row objects
+        lead_rows = result.scalars().all()
+
         leads = []
-        for lead in result.fetchall():
+        for lead in lead_rows:
             lead_data = lead.lead_capture_data or {}
             leads.append({
                 "id": lead.id,
@@ -2072,7 +2075,7 @@ async def get_recent_leads(
                 "status": lead.status.value if lead.status else "new",
                 "created_at": lead.created_at
             })
-        
+
         return leads
 
 
