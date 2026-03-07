@@ -258,12 +258,74 @@ async def debug_dashboard():
         )
         total = result2.scalar()
     
+    # Run the same database queries used by the dashboard summary, step-by-step,
+    # returning the first failing call for easier debugging.
+    from app.services import database as db
+
+    try:
+        conv_count = await db.get_conversations_count_by_date_range(tenant_ids[0], start, end, user_id=user_id)
+    except Exception as e:
+        return {"failed": "get_conversations_count_by_date_range", "error": str(e)}
+
+    try:
+        leads_count = await db.get_leads_count_by_date_range(tenant_ids[0], start, end, user_id=user_id)
+    except Exception as e:
+        return {"failed": "get_leads_count_by_date_range", "error": str(e)}
+
+    try:
+        resolution = await db.get_resolution_rate_by_date_range(tenant_ids[0], start, end, user_id=user_id)
+    except Exception as e:
+        return {"failed": "get_resolution_rate_by_date_range", "error": str(e)}
+
+    try:
+        volume = await db.get_conversations_by_date_range(tenant_ids[0], start, end, user_id=user_id)
+    except Exception as e:
+        return {"failed": "get_conversations_by_date_range", "error": str(e)}
+
+    try:
+        outcomes = await db.get_conversation_outcomes(tenant_ids[0], start, end, user_id=user_id)
+    except Exception as e:
+        return {"failed": "get_conversation_outcomes", "error": str(e)}
+
+    try:
+        channels = await db.get_conversations_by_channel(tenant_ids[0], start, end, user_id=user_id)
+    except Exception as e:
+        return {"failed": "get_conversations_by_channel", "error": str(e)}
+
+    try:
+        recent_convs = await db.get_recent_conversations(tenant_ids[0], limit=5, user_id=user_id)
+    except Exception as e:
+        return {"failed": "get_recent_conversations", "error": str(e)}
+
+    try:
+        recent_leads = await db.get_recent_leads(tenant_ids[0], limit=5, user_id=user_id)
+    except Exception as e:
+        return {"failed": "get_recent_leads", "error": str(e)}
+
+    try:
+        unanswered = await db.get_unanswered_questions_count(tenant_ids[0], start, end, user_id=user_id)
+    except Exception as e:
+        return {"failed": "get_unanswered_questions_count", "error": str(e)}
+
+    try:
+        chatbot = await db.get_chatbot_status(tenant_ids[0])
+    except Exception as e:
+        return {"failed": "get_chatbot_status", "error": str(e)}
+
     return {
         "tenant_id": tenant_id,
         "user_id": user_id,
         "tenant_ids_used": tenant_ids,
         "date_range": f"{start} to {end}",
-        "count_with_date_filter": count,
-        "total_without_filter": total,
+        "conversations_count": conv_count,
+        "leads_count": leads_count,
+        "resolution_rate": resolution,
+        "volume_sample": volume[:3],
+        "outcomes": outcomes,
+        "channels": channels,
+        "recent_conversations_sample": recent_convs,
+        "recent_leads_sample": recent_leads,
+        "unanswered_count": unanswered,
+        "chatbot": chatbot,
     }
 

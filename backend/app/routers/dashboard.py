@@ -374,10 +374,13 @@ async def get_dashboard_summary(
     except HTTPException:
         raise
     except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
         logger.error("Error getting dashboard summary: %s", e, exc_info=True)
+        # Return full traceback in detail temporarily to aid debugging locally
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to load dashboard data: {str(e)}"
+            detail=f"Failed to load dashboard data: {tb}"
         )
 
 
