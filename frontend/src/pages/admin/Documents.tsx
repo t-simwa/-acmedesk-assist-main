@@ -37,6 +37,7 @@ import {
   type Document,
   type ApiError,
   type StorageUsageResponse,
+  type DocumentUploadResponse,
   documentsApi,
 } from "@/lib/api";
 import {
@@ -124,6 +125,7 @@ interface UploadFileItem {
   progress: number;
   stage: "uploading" | "processing" | "indexing" | "ready" | "error";
   error?: string;
+  documentId?: string;
 }
 
 const ITEMS_PER_PAGE = 20;
@@ -163,8 +165,9 @@ function formatStorageSize(bytes: number): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)}GB`;
 }
 
-function getFileTypeMeta(type: string) {
-  return FILE_TYPE_META[type.toLowerCase()] || { icon: FileText, label: type.toUpperCase() };
+function getFileTypeMeta(type: string | null | undefined) {
+  const safeType = (type || "unknown").toLowerCase();
+  return FILE_TYPE_META[safeType] || { icon: FileText, label: safeType.toUpperCase() };
 }
 
 function getStatusMeta(status: string) {
@@ -225,6 +228,12 @@ export default function Documents() {
   const [newKBDescription, setNewKBDescription] = useState("");
 
   const { toast } = useToast();
+  const [duplicatePrompt, setDuplicatePrompt] = useState<{
+    itemId: string;
+    fileName: string;
+    response: DocumentUploadResponse;
+    resolve: (uploadAnyway: boolean) => void;
+  } | null>(null);
 
   // ── Queries ────────────────────────────────────────────────────────────────
   const {
@@ -366,6 +375,73 @@ export default function Documents() {
   }, [selectedRows.size, paginated]);
 
   // File upload
+  const pollDocumentStatus = useCallback(
+    async (docId: string, itemId: string) => {
+      let done = false;
+      while (!done) {
+        try {
+          const status = await documentsApi.getStatus(docId);
+
+          let itemStillExists = true;
+          setUploadQueue((prev) => {
+            const exists = prev.some((u) => u.id === itemId);
+            if (!exists) {
+              itemStillExists = false;
+              return prev;
+            }
+            const stage: UploadFileItem["stage"] =
+              status.status === "ready"
+                ? "ready"
+                : status.status === "failed" || status.status === "error"
+                ? "error"
+                : status.progress >= 70
+                ? "indexing"
+                : "processing";
+
+            return prev.map((u) =>
+              u.id === itemId
+                ? {
+                    ...u,
+                    progress: Math.min(100, status.progress),
+                    stage,
+                    error: status.error_message ?? u.error,
+                  }
+                : u
+            );
+          });
+
+          if (!itemStillExists) {
+            break;
+          }
+
+          if (status.status === "ready") {
+            done = true;
+            setTimeout(() => {
+              setUploadQueue((prev) => prev.filter((u) => u.id !== itemId));
+            }, 2500);
+          } else if (status.status === "failed" || status.status === "error") {
+            done = true;
+          } else {
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+          }
+        } catch (err) {
+          const apiError = err as ApiError;
+          logger.error?.("Failed to poll document status", apiError);
+          done = true;
+        }
+      }
+    },
+    []
+  );
+
+  const requestDuplicateDecision = useCallback(
+    (itemId: string, fileName: string, response: DocumentUploadResponse) =>
+      new Promise<boolean>((resolve) => {
+        setDuplicatePrompt({ itemId, fileName, response, resolve });
+      }),
+    []
+  );
+
   const handleFileSelect = useCallback(async (files: FileList | null) => {
     if (!files || files.length === 0) return;
 
@@ -375,17 +451,43 @@ export default function Documents() {
       const file = files[i];
       const ext = file.name.toLowerCase().substring(file.name.lastIndexOf("."));
 
+      const id = `${Date.now()}-${i}`;
+
       if (!VALID_EXTENSIONS.includes(ext)) {
-        toast({ title: "Invalid file", description: `${file.name} has unsupported format. Accepts: PDF, DOCX, TXT, CSV`, variant: "destructive" });
+        const errorMessage = `${file.name} has unsupported format. Accepts: PDF, DOCX, TXT, CSV, MD, HTML`;
+        toast({
+          title: "Invalid file",
+          description: errorMessage,
+          variant: "destructive",
+        });
+        newItems.push({
+          id,
+          file,
+          progress: 0,
+          stage: "error",
+          error: errorMessage,
+        });
         continue;
       }
       if (file.size > MAX_FILE_SIZE) {
-        toast({ title: "File too large", description: `${file.name} exceeds 50MB limit`, variant: "destructive" });
+        const errorMessage = `${file.name} exceeds 50MB limit`;
+        toast({
+          title: "File too large",
+          description: errorMessage,
+          variant: "destructive",
+        });
+        newItems.push({
+          id,
+          file,
+          progress: 0,
+          stage: "error",
+          error: errorMessage,
+        });
         continue;
       }
 
       newItems.push({
-        id: `${Date.now()}-${i}`,
+        id,
         file,
         progress: 0,
         stage: "uploading",
@@ -395,45 +497,84 @@ export default function Documents() {
     if (newItems.length === 0) return;
     setUploadQueue((prev) => [...prev, ...newItems]);
 
-    // Upload each file
+    // Upload each valid file with real backend-driven status
     for (const item of newItems) {
+      if (item.stage === "error") continue;
+
       try {
-        // Simulate stage progression
-        const progressInterval = setInterval(() => {
+        // Optionally perform a lightweight duplicate check before uploading
+        let allowUpload = true;
+        try {
+          const dupe = await documentsApi.checkDuplicate(item.file);
+          if (dupe.is_duplicate && dupe.can_proceed) {
+            allowUpload = await requestDuplicateDecision(item.id, item.file.name, {
+              id: dupe.duplicate_of || "",
+              name: item.file.name,
+              status: "processing",
+              message: "",
+              is_duplicate: dupe.is_duplicate,
+              duplicate_of: dupe.duplicate_of,
+            });
+          }
+        } catch {
+          // If duplicate check fails, fall back to normal upload
+          allowUpload = true;
+        }
+
+        if (!allowUpload) {
           setUploadQueue((prev) =>
-            prev.map((u) => {
-              if (u.id !== item.id) return u;
-              if (u.progress < 30) return { ...u, progress: u.progress + 5, stage: "uploading" };
-              if (u.progress < 60) return { ...u, progress: u.progress + 3, stage: "processing" };
-              if (u.progress < 85) return { ...u, progress: u.progress + 2, stage: "indexing" };
-              return u;
-            })
+            prev.map((u) =>
+              u.id === item.id
+                ? {
+                    ...u,
+                    stage: "error",
+                    progress: 0,
+                    error: "Upload cancelled (duplicate of an existing document).",
+                  }
+                : u
+            )
           );
-        }, 300);
+          continue;
+        }
 
-        await uploadMutation.mutateAsync({ file: item.file, knowledge_base_id: selectedKnowledgeBaseId });
-        clearInterval(progressInterval);
+        const response = await uploadMutation.mutateAsync({
+          file: item.file,
+          knowledge_base_id: selectedKnowledgeBaseId,
+        });
 
+        // Start polling real processing status
         setUploadQueue((prev) =>
-          prev.map((u) => (u.id === item.id ? { ...u, progress: 100, stage: "ready" as const } : u))
+          prev.map((u) =>
+            u.id === item.id
+              ? {
+                  ...u,
+                  documentId: response.id,
+                  stage: "processing",
+                  progress: 10,
+                  error: undefined,
+                }
+              : u
+          )
         );
 
-        // Remove completed after delay
-        setTimeout(() => {
-          setUploadQueue((prev) => prev.filter((u) => u.id !== item.id));
-        }, 2500);
+        void pollDocumentStatus(response.id, item.id);
       } catch (err) {
         const apiError = err as ApiError;
         setUploadQueue((prev) =>
           prev.map((u) =>
             u.id === item.id
-              ? { ...u, stage: "error" as const, error: apiError?.message || "Upload failed", progress: 0 }
+              ? {
+                  ...u,
+                  stage: "error",
+                  error: apiError?.message || "Upload failed",
+                  progress: 0,
+                }
               : u
           )
         );
       }
     }
-  }, [uploadMutation, selectedKnowledgeBaseId, toast]);
+  }, [uploadMutation, selectedKnowledgeBaseId, toast, pollDocumentStatus, requestDuplicateDecision]);
 
   const handleUploadClick = useCallback(() => {
     fileInputRef.current?.click();
@@ -1641,6 +1782,34 @@ export default function Documents() {
         confirmVariant="destructive"
         onConfirm={confirmDelete}
         isLoading={deleteMutation.isPending}
+      />
+
+      {/* Duplicate detection confirmation */}
+      <ConfirmationDialog
+        open={!!duplicatePrompt}
+        onOpenChange={(open) => {
+          if (!open && duplicatePrompt) {
+            duplicatePrompt.resolve(false);
+            setDuplicatePrompt(null);
+          }
+        }}
+        title="Duplicate document detected"
+        description={
+          duplicatePrompt
+            ? duplicatePrompt.response.duplicate_of
+              ? `"${duplicatePrompt.fileName}" appears to be a duplicate of an existing document. Upload anyway?`
+              : `"${duplicatePrompt.fileName}" appears to be a duplicate. Upload anyway?`
+            : ""
+        }
+        confirmLabel="Upload anyway"
+        cancelLabel="Cancel"
+        confirmVariant="default"
+        onConfirm={() => {
+          if (duplicatePrompt) {
+            duplicatePrompt.resolve(true);
+            setDuplicatePrompt(null);
+          }
+        }}
       />
 
       <ConfirmationDialog

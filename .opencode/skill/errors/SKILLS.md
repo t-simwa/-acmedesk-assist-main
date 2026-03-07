@@ -4,41 +4,67 @@ Add error reports here when you encounter bugs during development.
 
 Format:
 ```
-fix this: [chunk-TKA7E7G6.js?v=cfbb5b1b:14080 The above error occurred in one of your React components:
-
-    at Lazy
-    at Suspense
-    at div
-    at PageTransition (http://localhost:8080/src/components/PageTransition.tsx:28:38)
-    at RenderedRoute (http://localhost:8080/node_modules/.vite/deps/react-router-dom.js?v=cfbb5b1b:4130:5)
-    at Outlet (http://localhost:8080/node_modules/.vite/deps/react-router-dom.js?v=cfbb5b1b:4536:26)
-    at div
-    at PageTransition (http://localhost:8080/src/components/PageTransition.tsx:28:38)
-    at main
-    at div
-    at div
-    at AdminLayout (http://localhost:8080/src/components/admin/AdminLayout.tsx?t=1772650732675:42:22)
-    at ProtectedRoute (http://localhost:8080/src/components/auth/ProtectedRoute.tsx?t=1772650732675:26:34)
-    at RenderedRoute (http://localhost:8080/node_modules/.vite/deps/react-router-dom.js?v=cfbb5b1b:4130:5)
-    at Routes (http://localhost:8080/node_modules/.vite/deps/react-router-dom.js?v=cfbb5b1b:4600:5)
-    at Router (http://localhost:8080/node_modules/.vite/deps/react-router-dom.js?v=cfbb5b1b:4543:15)
-    at BrowserRouter (http://localhost:8080/node_modules/.vite/deps/react-router-dom.js?v=cfbb5b1b:5289:5)
-    at Provider (http://localhost:8080/node_modules/.vite/deps/chunk-ZVO65UMV.js?v=cfbb5b1b:37:15)
-    at TooltipProvider (http://localhost:8080/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=cfbb5b1b:63:5)
-    at QueryClientProvider (http://localhost:8080/node_modules/.vite/deps/@tanstack_react-query.js?v=cfbb5b1b:2874:3)
-    at RoleProvider (http://localhost:8080/src/contexts/RoleContext.tsx?t=1772650732675:70:32)
-    at AuthProvider (http://localhost:8080/src/contexts/AuthContext.tsx?t=1772650732675:27:32)
-    at AccessibilityProvider (http://localhost:8080/src/contexts/AccessibilityContext.tsx?t=1772649584348:27:41)
-    at ThemeProvider (http://localhost:8080/src/contexts/ThemeContext.tsx?t=1772649584375:25:33)
-    at ErrorBoundary (http://localhost:8080/src/components/error/ErrorBoundary.tsx:297:9)
-    at App
-
-React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary.
-ErrorBoundary.tsx:35 ErrorBoundary caught an error: TypeError: Failed to fetch dynamically imported module: http://localhost:8080/src/pages/admin/Settings.tsx?t=1772652042692 
-Object
-
-﻿
-
+fix this: [http://localhost:8000/api/dashboard/summary?preset=7days
+Request Method
+GET
+Status Code
+500 Internal Server Error
+Remote Address
+127.0.0.1:8000
+Referrer Policy
+strict-origin-when-cross-origin
+access-control-allow-credentials
+true
+access-control-allow-origin
+http://localhost:8080
+access-control-expose-headers
+*
+content-length
+77
+content-type
+application/json
+date
+Sat, 07 Mar 2026 20:01:31 GMT
+server
+uvicorn
+vary
+Origin
+accept
+*/*
+accept-encoding
+gzip, deflate, br, zstd
+accept-language
+en-US,en;q=0.9,de;q=0.8
+authorization
+Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhMjMxYTgzMy0wOGUzLTQ1MTMtOWUyZC05ZTc0NmNjNDUzODEiLCJlbWFpbCI6InRkc2ltd2ExOUBnbWFpbC5jb20iLCJ0ZW5hbnRfaWQiOiI2OGVjNzllYy01MzUxLTQzMTUtOWJhYi1mMjdkZThjZjE4MTIiLCJyb2xlIjoib3duZXIiLCJleHAiOjE3NzI5MTcwNjAsInR5cGUiOiJhY2Nlc3MifQ.3_gXSXG8xztO5StS2F87Sf8PH99u28PTWqp9maSTAKk
+cache-control
+no-cache
+connection
+keep-alive
+content-type
+application/json
+host
+localhost:8000
+origin
+http://localhost:8080
+pragma
+no-cache
+referer
+http://localhost:8080/
+sec-ch-ua
+"Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"
+sec-ch-ua-mobile
+?0
+sec-ch-ua-platform
+"Windows"
+sec-fetch-dest
+empty
+sec-fetch-mode
+cors
+sec-fetch-site
+same-site
+user-agent
+Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36
 ]
 ```
 

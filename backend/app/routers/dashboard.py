@@ -168,11 +168,18 @@ def get_previous_date_range(preset: str = "7days") -> tuple[datetime, datetime]:
     return start_date, end_date
 
 
-def format_time_ago(dt: datetime) -> str:
-    """Format datetime as relative time string."""
+def format_time_ago(dt: Optional[datetime]) -> str:
+    """Format datetime as relative time string. Handles None and timezone-aware datetimes."""
+    if dt is None:
+        return "—"
     now = datetime.utcnow()
-    diff = now - dt
-    
+    # Normalize to naive UTC for subtraction (SQLite returns naive; avoid tz mismatch)
+    if getattr(dt, "tzinfo", None) is not None:
+        dt = dt.replace(tzinfo=None) if dt.tzinfo else dt
+    try:
+        diff = now - dt
+    except TypeError:
+        return "—"
     if diff.days > 30:
         return f"{diff.days // 30}mo ago"
     elif diff.days > 0:
@@ -185,8 +192,10 @@ def format_time_ago(dt: datetime) -> str:
         return "just now"
 
 
-def format_response_time(ms: float) -> str:
-    """Format response time in human-readable format."""
+def format_response_time(ms: Optional[float]) -> str:
+    """Format response time in human-readable format. Handles None."""
+    if ms is None:
+        return "—"
     if ms < 1000:
         return f"{int(ms)}ms"
     else:
@@ -211,9 +220,12 @@ async def get_dashboard_summary(
     Returns:
         DashboardSummary with KPIs, charts data, recent items, and alerts
     """
+    logger.info("Dashboard summary requested (preset=%s)", preset)
     try:
-        tenant_id = current_user.id
-        
+        tenant_id = current_user.tenant_id or current_user.id
+        if not tenant_id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No tenant_id for user")
+
         # Determine date range
         if start_date and end_date:
             try:
@@ -228,24 +240,23 @@ async def get_dashboard_summary(
         prev_start, prev_end = get_previous_date_range(preset)
         
         # ========== KPI Metrics ==========
-        
-        # Total conversations
+        # Use same count-by-date-range as conversations page; avoid get_admin_conversation_list for summary.
         total_conversations = await database.get_conversations_count_by_date_range(
-            tenant_id, start, end
+            tenant_id, start, end, user_id=current_user.id
         )
         prev_conversations = await database.get_conversations_count_by_date_range(
-            tenant_id, prev_start, prev_end
+            tenant_id, prev_start, prev_end, user_id=current_user.id
         )
         conversations_trend, _ = calculate_trend(total_conversations, prev_conversations)
         
         # Leads captured
-        leads_captured = await database.get_leads_count_by_date_range(tenant_id, start, end)
-        prev_leads = await database.get_leads_count_by_date_range(tenant_id, prev_start, prev_end)
+        leads_captured = await database.get_leads_count_by_date_range(tenant_id, start, end, user_id=current_user.id)
+        prev_leads = await database.get_leads_count_by_date_range(tenant_id, prev_start, prev_end, user_id=current_user.id)
         leads_trend, _ = calculate_trend(leads_captured, prev_leads)
         
         # Resolution rate
-        resolution_rate = await database.get_resolution_rate_by_date_range(tenant_id, start, end)
-        prev_resolution = await database.get_resolution_rate_by_date_range(tenant_id, prev_start, prev_end)
+        resolution_rate = await database.get_resolution_rate_by_date_range(tenant_id, start, end, user_id=current_user.id)
+        prev_resolution = await database.get_resolution_rate_by_date_range(tenant_id, prev_start, prev_end, user_id=current_user.id)
         resolution_trend, _ = calculate_trend(resolution_rate, prev_resolution)
         
         # Average response time
@@ -261,14 +272,14 @@ async def get_dashboard_summary(
         # ========== Charts Data ==========
         
         # Conversation volume by day
-        volume_data = await database.get_conversations_by_date_range(tenant_id, start, end)
+        volume_data = await database.get_conversations_by_date_range(tenant_id, start, end, user_id=current_user.id)
         conversation_volume = [
             ConversationVolumeData(date=item["date"], count=item["count"])
             for item in volume_data
         ]
         
         # Conversation outcomes
-        outcomes = await database.get_conversation_outcomes(tenant_id, start, end)
+        outcomes = await database.get_conversation_outcomes(tenant_id, start, end, user_id=current_user.id)
         total_outcomes = sum(o["count"] for o in outcomes)
         conversation_outcomes = [
             ConversationOutcomeData(
@@ -280,7 +291,7 @@ async def get_dashboard_summary(
         ]
         
         # Channel breakdown
-        channels = await database.get_conversations_by_channel(tenant_id, start, end)
+        channels = await database.get_conversations_by_channel(tenant_id, start, end, user_id=current_user.id)
         channel_icons = {
             "web": "🌐",
             "whatsapp": "💬",
@@ -301,29 +312,29 @@ async def get_dashboard_summary(
         # ========== Recent Items ==========
         
         # Recent conversations
-        recent_convs = await database.get_recent_conversations(tenant_id, limit=5)
+        recent_convs = await database.get_recent_conversations(tenant_id, limit=5, user_id=current_user.id)
         recent_conversations = [
             RecentConversationItem(
                 id=conv["id"],
-                channel=conv["channel"],
-                contact_name=conv.get("contact_name", "Anonymous"),
-                first_message=conv.get("first_message", "")[:50] + "..." if conv.get("first_message") else "No message",
-                status=conv["status"],
-                time_ago=format_time_ago(conv["started_at"])
+                channel=conv.get("channel", "web"),
+                contact_name=conv.get("contact_name") or "Anonymous",
+                first_message=((conv.get("first_message") or "")[:50] + "...") if (conv.get("first_message") or "").strip() else "No message",
+                status=conv.get("status", "active"),
+                time_ago=format_time_ago(conv.get("started_at"))
             )
             for conv in recent_convs
         ]
         
         # Recent leads
-        recent_leads = await database.get_recent_leads(tenant_id, limit=5)
+        recent_leads = await database.get_recent_leads(tenant_id, limit=5, user_id=current_user.id)
         recent_leads_list = [
             RecentLeadItem(
                 id=lead["id"],
-                name=lead.get("name", "Unknown"),
-                email=lead.get("email", ""),
-                channel=lead.get("source_channel", "web"),
-                status=lead["status"],
-                time_ago=format_time_ago(lead["created_at"])
+                name=lead.get("name") or "Unknown",
+                email=lead.get("email") or "",
+                channel=lead.get("source_channel") or "web",
+                status=lead.get("status", "new"),
+                time_ago=format_time_ago(lead.get("created_at"))
             )
             for lead in recent_leads
         ]
@@ -331,10 +342,16 @@ async def get_dashboard_summary(
         # ========== Alerts ==========
         
         # Unanswered questions
-        unanswered_count = await database.get_unanswered_questions_count(tenant_id, start, end)
+        unanswered_count = await database.get_unanswered_questions_count(tenant_id, start, end, user_id=current_user.id)
         
-        # Chatbot status
-        chatbot_status = await database.get_chatbot_status(tenant_id)
+        # Chatbot status (build response model explicitly for validation)
+        chatbot_status_raw = await database.get_chatbot_status(tenant_id)
+        chatbot_status = ChatbotStatusResponse(
+            status=str(chatbot_status_raw.get("status", "not_installed")),
+            last_active=chatbot_status_raw.get("last_active"),
+            embed_code=chatbot_status_raw.get("embed_code"),
+            chatbot_name=chatbot_status_raw.get("chatbot_name"),
+        )
         
         return DashboardSummary(
             total_conversations=total_conversations,
@@ -354,8 +371,10 @@ async def get_dashboard_summary(
             chatbot_status=chatbot_status
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error getting dashboard summary: {e}", exc_info=True)
+        logger.error("Error getting dashboard summary: %s", e, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to load dashboard data: {str(e)}"
@@ -369,8 +388,8 @@ async def get_recent_conversations(
 ) -> List[RecentConversationItem]:
     """Get recent conversations for the dashboard."""
     try:
-        tenant_id = current_user.id
-        recent_convs = await database.get_recent_conversations(tenant_id, limit=limit)
+        tenant_id = current_user.tenant_id or current_user.id
+        recent_convs = await database.get_recent_conversations(tenant_id, limit=limit, user_id=current_user.id)
         
         return [
             RecentConversationItem(
@@ -398,8 +417,8 @@ async def get_recent_leads(
 ) -> List[RecentLeadItem]:
     """Get recent leads for the dashboard."""
     try:
-        tenant_id = current_user.id
-        recent_leads = await database.get_recent_leads(tenant_id, limit=limit)
+        tenant_id = current_user.tenant_id or current_user.id
+        recent_leads = await database.get_recent_leads(tenant_id, limit=limit, user_id=current_user.id)
         
         return [
             RecentLeadItem(
@@ -426,7 +445,7 @@ async def get_chatbot_status(
 ) -> ChatbotStatusResponse:
     """Get chatbot status (live/paused/not_installed) for the dashboard."""
     try:
-        tenant_id = current_user.id
+        tenant_id = current_user.tenant_id or current_user.id
         return await database.get_chatbot_status(tenant_id)
     except Exception as e:
         logger.error(f"Error getting chatbot status: {e}", exc_info=True)
@@ -443,10 +462,10 @@ async def get_unanswered_count(
 ) -> dict:
     """Get count of unanswered questions for the dashboard alert."""
     try:
-        tenant_id = current_user.id
+        tenant_id = current_user.tenant_id or current_user.id
         start, end = get_date_range(preset)
         
-        count = await database.get_unanswered_questions_count(tenant_id, start, end)
+        count = await database.get_unanswered_questions_count(tenant_id, start, end, user_id=current_user.id)
         
         return {"unanswered_count": count}
     except Exception as e:

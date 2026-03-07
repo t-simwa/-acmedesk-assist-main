@@ -27,8 +27,6 @@ export interface ChatMetadata {
   sources_count: number;
   model?: string;
   timestamp: string;
-  low_confidence?: boolean;
-  escalation_triggered?: boolean;
 }
 
 export interface ChatRequest {
@@ -88,13 +86,6 @@ export interface DocumentUploadResponse {
   message: string;
   is_duplicate?: boolean;
   duplicate_of?: string | null;
-}
-
-export interface DuplicateCheckResponse {
-  is_duplicate: boolean;
-  duplicate_of?: string | null;
-  duplicate_filename?: string | null;
-  can_proceed: boolean;
 }
 
 export interface DocumentStatusResponse {
@@ -259,69 +250,6 @@ export interface SatisfactionAnalyticsResponse {
   total_positive: number;
   total_negative: number;
   score_trend?: number | null;
-}
-
-// ============================================================================
-// Milestone 10 — Super Admin Panel Types
-// ============================================================================
-
-export interface SuperAdminKpiCard {
-  label: string;
-  value: number;
-  suffix?: string | null;
-  trend?: number | null;
-}
-
-export interface SuperAdminMrrPoint {
-  month: string;
-  new_mrr: number;
-  churned_mrr: number;
-  net_mrr: number;
-}
-
-export interface SuperAdminRecentSignup {
-  tenant_id: string;
-  business_name: string;
-  plan?: string | null;
-  created_at: string;
-  status: string;
-}
-
-export interface SuperAdminFailedJob {
-  id: string;
-  tenant_name: string;
-  error: string;
-  created_at: string;
-}
-
-export interface SuperAdminSystemStatusItem {
-  name: string;
-  status: string;
-  value?: string | null;
-}
-
-export interface SuperAdminDashboard {
-  cards: SuperAdminKpiCard[];
-  mrr_last_12_months: SuperAdminMrrPoint[];
-  recent_signups: SuperAdminRecentSignup[];
-  recent_failed_jobs: SuperAdminFailedJob[];
-  system_status: SuperAdminSystemStatusItem[];
-}
-
-export interface SuperAdminClientRow {
-  id: string;
-  business_name: string;
-  owner_email?: string | null;
-  plan?: string | null;
-  status: string;
-  conversations_this_month: number;
-  mrr_contribution: number;
-  join_date: string;
-  last_active?: string | null;
-}
-
-export interface SuperAdminClients {
-  clients: SuperAdminClientRow[];
 }
 
 // Schedule Report (7.3.1)
@@ -1061,18 +989,6 @@ export const authApi = {
   },
 
   /**
-   * Validate password reset token state
-   */
-  async validateResetToken(token: string): Promise<{ status: "valid" | "expired" | "used" | "invalid" }> {
-    return apiClient<{ status: "valid" | "expired" | "used" | "invalid" }>(
-      `/api/auth/reset-password/validate?token=${encodeURIComponent(token)}`,
-      {
-        method: "GET",
-      },
-    );
-  },
-
-  /**
    * Logout (clear tokens)
    */
   logout(): void {
@@ -1133,30 +1049,6 @@ export const chatApi = {
 };
 
 // ============================================================================
-// Super Admin API (Milestone 10)
-// ============================================================================
-
-export const superAdminApi = {
-  async getDashboard(): Promise<SuperAdminDashboard> {
-    return apiClient<SuperAdminDashboard>("/api/super-admin/dashboard", {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${authApi.getAccessToken()}`,
-      },
-    });
-  },
-
-  async getClients(): Promise<SuperAdminClients> {
-    return apiClient<SuperAdminClients>("/api/super-admin/clients", {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${authApi.getAccessToken()}`,
-      },
-    });
-  },
-};
-
-// ============================================================================
 // Documents API
 // ============================================================================
 
@@ -1191,20 +1083,6 @@ export const documentsApi = {
     return apiClient<DocumentUploadResponse>("/api/documents/upload", {
       method: "POST",
       headers: {}, // Let browser set Content-Type with boundary for FormData
-      body: formData,
-    });
-  },
-
-  /**
-   * Check if a file is a duplicate before uploading.
-   */
-  async checkDuplicate(file: File): Promise<DuplicateCheckResponse> {
-    const formData = new FormData();
-    formData.append("file", file);
-
-    return apiClient<DuplicateCheckResponse>("/api/documents/check-duplicate", {
-      method: "POST",
-      headers: {},
       body: formData,
     });
   },
@@ -2011,24 +1889,6 @@ export const conversationsApi = {
     });
   },
 
-  /**
-   * Submit conversation feedback (Flow 5: Was this conversation helpful? 👍/👎)
-   */
-  async submitFeedback(sessionId: string, rating: "positive" | "negative"): Promise<{ success: boolean; message: string }> {
-    return apiClient<{ success: boolean; message: string }>("/api/conversations/feedback", {
-      method: "POST",
-      body: JSON.stringify({ session_id: sessionId, rating }),
-    });
-  },
-
-  /** Submit lead capture from in-platform chat (Flow 5 parity) */
-  async submitLead(sessionId: string, leadData: { name?: string; email?: string; phone?: string; company?: string }): Promise<{ success: boolean; message: string }> {
-    return apiClient<{ success: boolean; message: string }>("/api/conversations/lead", {
-      method: "POST",
-      body: JSON.stringify({ session_id: sessionId, lead_data: leadData }),
-    });
-  },
-
   // ─── Admin Conversation Management (7.4) ───────────────────────────────────
 
   /** 7.4.1–7.4.3: Paginated list with filters and stats */
@@ -2703,18 +2563,6 @@ export const onboardingApi = {
   }> {
     return apiClient("/api/onboarding/plan", {
       method: "PUT",
-      body: JSON.stringify({ plan_tier: planTier }),
-    });
-  },
-
-  /**
-   * Create Stripe Checkout session for selected plan (Step 2)
-   */
-  async createCheckoutSession(planTier: string): Promise<{
-    checkout_url: string;
-  }> {
-    return apiClient("/api/billing/create-checkout-session", {
-      method: "POST",
       body: JSON.stringify({ plan_tier: planTier }),
     });
   },

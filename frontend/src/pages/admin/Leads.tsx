@@ -44,53 +44,6 @@ import { cn } from "@/lib/utils";
 import { CHANNEL_META, ChannelIcon } from "@/lib/channelMeta";
 
 /* ═══════════════════════════════════════════════════════════════════════════════
-   MOCK DATA
-   ═══════════════════════════════════════════════════════════════════════════════ */
-
-const MOCK_STATS = {
-  total: 847, new: 124, contacted: 198, qualified: 89, converted: 312, this_month: 67,
-};
-
-const MOCK_LEADS: LeadListItem[] = [
-  { id: "1", contact_id: "c1", conversation_id: "cv1", contact_name: "Sarah Johnson", contact_email: "sarah@acme.com", contact_phone: "+1 555 0101", contact_company: "Acme Corp", channel: "web", source_page_url: "/pricing", first_message: "Hi, I need help comparing your Pro and Business plans. We have a team of 25 people.", status: "qualified", lead_score: "high", message_count: 9, created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() },
-  { id: "2", contact_id: "c2", conversation_id: "cv2", contact_name: "Marcus Williams", contact_email: null, contact_phone: "+1 555 0102", contact_company: null, channel: "whatsapp", source_page_url: null, first_message: "What are your business hours? I need to speak to someone urgently about pricing.", status: "contacted", lead_score: "medium", message_count: 4, created_at: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString() },
-  { id: "3", contact_id: null, conversation_id: "cv3", contact_name: null, contact_email: null, contact_phone: null, contact_company: null, channel: "instagram", source_page_url: null, first_message: "Do you ship internationally? What are the rates to Australia?", status: "new", lead_score: "low", message_count: 2, created_at: new Date(Date.now() - 30 * 60 * 1000).toISOString() },
-  { id: "4", contact_id: "c4", conversation_id: "cv4", contact_name: "Emily Chen", contact_email: "emily.chen@techcorp.io", contact_phone: "+44 7700 900123", contact_company: "TechCorp", channel: "web", source_page_url: "/demo", first_message: "We're interested in the Enterprise plan for our team of 50. Can we schedule a demo call?", status: "converted", lead_score: "high", message_count: 15, created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() },
-  { id: "5", contact_id: "c5", conversation_id: "cv5", contact_name: "David Okafor", contact_email: "david@startup.io", contact_phone: null, contact_company: "Startup.io", channel: "facebook", source_page_url: null, first_message: "How do I integrate this with our existing Salesforce setup?", status: "new", lead_score: "medium", message_count: 6, created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() },
-  { id: "6", contact_id: "c6", conversation_id: "cv6", contact_name: "Priya Patel", contact_email: "priya@enterprise.com", contact_phone: "+1 555 0106", contact_company: "Enterprise Ltd", channel: "whatsapp", source_page_url: "/enterprise", first_message: "Looking for a platform that can handle 10k conversations per month. Do you have enterprise SLAs?", status: "qualified", lead_score: "high", message_count: 11, created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString() },
-  { id: "7", contact_id: "c7", conversation_id: "cv7", contact_name: "James Miller", contact_email: "james@retail.com", contact_phone: null, contact_company: null, channel: "web", source_page_url: "/", first_message: "What integrations do you support?", status: "new", lead_score: "low", message_count: 1, created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString() },
-];
-
-const MOCK_DETAIL: LeadDetailResponse = {
-  id: "1",
-  contact: {
-    id: "c1", full_name: "Sarah Johnson", email: "sarah@acme.com", phone: "+1 555 0101",
-    company: "Acme Corp", instagram_handle: null,
-    channels_used: ["web", "email"], lead_status: "qualified", lead_score: "high",
-    tags: ["enterprise", "pricing"], notes: "Very interested in Pro plan. Follow up by Friday.",
-  },
-  conversation_id: "cv1", channel: "web", source_page_url: "/pricing",
-  first_message: "Hi, I need help comparing your Pro and Business plans. We have a team of 25 people.",
-  status: "qualified", lead_score: "high", message_count: 9,
-  messages: [
-    { id: "m1", role: "user", content: "Hi, I need help comparing your Pro and Business plans. We have a team of 25 people.", timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000 - 300000).toISOString(), sources: null },
-    { id: "m2", role: "assistant", content: "Hello! I'd be happy to help you compare our Pro and Business plans for your team of 25. The Pro plan includes unlimited conversations, 5 team seats, and priority support at $99/month. The Business plan adds custom integrations, 20 team seats, dedicated onboarding, and SLA guarantees at $299/month. For a team of 25, the Business plan would be the better fit.", timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000 - 240000).toISOString(), sources: ["pricing-guide.pdf", "plans-comparison.pdf"] },
-    { id: "m3", role: "user", content: "What about the Enterprise plan? Is there a trial available?", timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000 - 180000).toISOString(), sources: null },
-    { id: "m4", role: "assistant", content: "Yes! Our Enterprise plan is fully customizable — pricing depends on conversation volume, team size, and required integrations. We offer a 14-day free trial for all plans. Would you like me to connect you with our sales team for a personalized Enterprise quote?", timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000 - 120000).toISOString(), sources: null },
-  ],
-  timeline: [
-    { event: "Lead Captured", timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), detail: "Via web channel" },
-    { event: "Contact Identified", timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000 + 60000).toISOString(), detail: "Sarah Johnson" },
-    { event: "Lead Qualified", timestamp: new Date(Date.now() - 60 * 60 * 1000).toISOString(), detail: null },
-  ],
-  notes: [
-    { note: "Discussed pricing in detail. Very interested in Pro plan. Follow up by Friday.", created_at: new Date(Date.now() - 60 * 60 * 1000).toISOString() },
-  ],
-  created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-  updated_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
-};
-
-/* ═══════════════════════════════════════════════════════════════════════════════
    CONSTANTS & STYLE MAPS
    ═══════════════════════════════════════════════════════════════════════════════ */
 
@@ -110,7 +63,8 @@ const SCORE_META: Record<string, { badge: string; label: string }> = {
   low:    { badge: "bg-gray-500/10 text-gray-400 border-gray-500/20",          label: "Low" },
 };
 
-const STAT_CARDS: { key: keyof typeof MOCK_STATS; label: string; icon: React.ReactNode; accent: string }[] = [
+const STAT_CARD_KEYS = ["total", "new", "contacted", "qualified", "converted", "this_month"] as const;
+const STAT_CARDS: { key: typeof STAT_CARD_KEYS[number]; label: string; icon: React.ReactNode; accent: string }[] = [
   { key: "total",      label: "Total Leads",  icon: <Users size={18} />,          accent: "from-blue-500/20 to-blue-500/0" },
   { key: "new",        label: "New",           icon: <AlertCircle size={18} />,    accent: "from-amber-500/20 to-amber-500/0" },
   { key: "contacted",  label: "Contacted",     icon: <MessageSquare size={18} />,  accent: "from-violet-500/20 to-violet-500/0" },
@@ -363,10 +317,10 @@ export default function Leads() {
   const bulkAction = useBulkLeadAction();
   const { toast } = useToast();
 
-  const leads = listData?.leads ?? MOCK_LEADS;
-  const stats = listData?.stats ?? MOCK_STATS;
-  const totalPages = Math.ceil((listData?.total ?? MOCK_LEADS.length) / (filters.per_page ?? 20));
-  const detail = detailData ?? (activeLead === "1" ? MOCK_DETAIL : null);
+  const leads = listData?.leads ?? [];
+  const stats = listData?.stats ?? { total: 0, new: 0, contacted: 0, qualified: 0, converted: 0, this_month: 0 };
+  const totalPages = Math.ceil((listData?.total ?? 0) / (filters.per_page ?? 20)) || 1;
+  const detail = detailData ?? null;
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
@@ -492,7 +446,7 @@ export default function Leads() {
 
   const currentPage = filters.page || 1;
   const perPage = filters.per_page || 20;
-  const totalCount = listData?.total ?? MOCK_LEADS.length;
+  const totalCount = listData?.total ?? 0;
   const fromIdx = (currentPage - 1) * perPage + 1;
   const toIdx = Math.min(currentPage * perPage, totalCount);
 
@@ -1145,11 +1099,16 @@ export default function Leads() {
             "bg-card border rounded-2xl",
           )}
         >
-          {detailLoading || !detail ? (
+          {detailLoading ? (
             <div className="p-6 space-y-4">
               <Skeleton className="h-16 w-full" />
               <Skeleton className="h-10 w-full" />
               <Skeleton className="h-40 w-full" />
+            </div>
+          ) : !detail ? (
+            <div className="p-6 text-center">
+              <Users size={24} className="text-muted-foreground mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">Lead not found</p>
             </div>
           ) : (
             <>

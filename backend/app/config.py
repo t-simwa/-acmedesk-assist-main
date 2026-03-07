@@ -10,12 +10,30 @@ For now we keep this intentionally small; it can grow as the project does.
 """
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Optional
 
 from pydantic import AnyHttpUrl
 from pydantic_settings import BaseSettings
 
 from app.rag.chunking import ChunkingConfig
+
+# Backend root (directory containing app/) and default Chroma path.
+# Resolving relative paths against this ensures the same index is used regardless of process cwd.
+_BACKEND_ROOT = Path(__file__).resolve().parent.parent
+_DEFAULT_VECTOR_PERSIST_DIR = str(_BACKEND_ROOT / "data" / "vector_db")
+
+
+def get_vector_store_persist_dir() -> str:
+    """Return absolute path for Chroma persistence so ingestion and API share the same index.
+    Relative paths (e.g. from .env) are resolved against the backend root, not cwd.
+    """
+    s = get_settings()
+    raw = s.vector_store_persist_dir or _DEFAULT_VECTOR_PERSIST_DIR
+    p = Path(raw)
+    if not p.is_absolute():
+        p = _BACKEND_ROOT / raw
+    return str(p.resolve())
 
 
 class Settings(BaseSettings):
@@ -154,7 +172,8 @@ class Settings(BaseSettings):
 
 
     class Config:
-        env_file = ".env"
+        # Load .env from backend directory so settings are consistent regardless of cwd
+        env_file = _BACKEND_ROOT / ".env"
         env_file_encoding = "utf-8"
         case_sensitive = False
 

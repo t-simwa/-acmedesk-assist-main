@@ -68,6 +68,7 @@ async def list_leads_admin(
         date_from=date_from,
         date_to=date_to,
         source_page=source_page,
+        user_id=current_user.id,
     )
     return data
 
@@ -90,6 +91,7 @@ async def bulk_leads_admin(
         action=request.action,
         status=request.status,
         reason=request.reason,
+        user_id=current_user.id,
     )
     return result
 
@@ -100,7 +102,7 @@ async def get_lead_detail_admin(
     current_user=Depends(get_current_user),
 ):
     """Return full lead detail including transcript, contact, timeline, and notes."""
-    data = await get_admin_lead_detail(lead_id=lead_id, tenant_id=_tenant_id(current_user))
+    data = await get_admin_lead_detail(lead_id=lead_id, tenant_id=_tenant_id(current_user), user_id=current_user.id)
     if not data:
         raise HTTPException(status_code=404, detail="Lead not found")
     return data
@@ -122,6 +124,7 @@ async def update_lead_status_admin(
         tenant_id=_tenant_id(current_user),
         new_status=request.status,
         reason=request.reason,
+        user_id=current_user.id,
     )
     if not ok:
         raise HTTPException(status_code=404, detail="Lead not found")
@@ -144,6 +147,7 @@ async def add_lead_note_admin(
         lead_id=lead_id,
         tenant_id=_tenant_id(current_user),
         note=request.note.strip(),
+        user_id=current_user.id,
     )
     if not ok:
         raise HTTPException(status_code=404, detail="Lead not found")
@@ -162,7 +166,7 @@ async def recalculate_lead_score_admin(
     current_user=Depends(get_current_user),
 ):
     """Recalculate and persist the lead score for a lead."""
-    score = await calculate_lead_score(lead_id=lead_id, tenant_id=_tenant_id(current_user))
+    score = await calculate_lead_score(lead_id=lead_id, tenant_id=_tenant_id(current_user), user_id=current_user.id)
     if score is None:
         raise HTTPException(status_code=404, detail="Lead not found")
 

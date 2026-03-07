@@ -10,7 +10,7 @@ import json
 import logging
 import time
 from datetime import datetime
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
@@ -86,6 +86,7 @@ async def chat(
                 sources_count=0,
                 query_time_ms=query_time_ms,
                 user_id=current_user.id,
+                tenant_id=current_user.tenant_id or current_user.id,
             )
             metadata = ChatMetadata(
                 session_id=request.session_id,
@@ -132,6 +133,7 @@ async def chat(
             sources_count=len(sources),
             query_time_ms=query_time_ms,
             user_id=current_user.id,
+            tenant_id=current_user.tenant_id or current_user.id,
         )
 
         metadata = ChatMetadata(
@@ -179,7 +181,7 @@ async def chat(
 
 
 async def _sse_chat_stream_generator(
-    request: ChatRequest, http_request: Request, user_id: str
+    request: ChatRequest, http_request: Request, user_id: str, tenant_id: Optional[str] = None
 ) -> AsyncGenerator[bytes, None]:
     """
     Internal helper to stream a chat response as SSE events.
@@ -226,6 +228,7 @@ async def _sse_chat_stream_generator(
             sources_count=len(sources),
             query_time_ms=query_time_ms,
             user_id=user_id,
+            tenant_id=tenant_id or user_id,
         )
 
         metadata = ChatMetadata(
@@ -291,7 +294,12 @@ async def chat_stream(
     Once LLM streaming is implemented, this endpoint can be updated to send
     partial tokens/chunks as they are generated.
     """
-    generator = _sse_chat_stream_generator(request=request, http_request=http_request, user_id=current_user.id)
+    generator = _sse_chat_stream_generator(
+        request=request,
+        http_request=http_request,
+        user_id=current_user.id,
+        tenant_id=current_user.tenant_id or current_user.id,
+    )
     return StreamingResponse(generator, media_type="text/event-stream")
 
 

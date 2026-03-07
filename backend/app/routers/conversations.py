@@ -77,6 +77,11 @@ async def list_conversations_admin(
     Also returns stats summary (total/active/resolved/escalated/abandoned).
     """
     tenant_id = current_user.tenant_id or current_user.id
+    user_id = current_user.id
+    logger.warning(
+        "list_conversations_admin DEBUG: tenant_id=%s user_id=%s current_user.tenant_id=%s",
+        tenant_id, user_id, current_user.tenant_id,
+    )
     try:
         data = await database.get_admin_conversation_list(
             tenant_id=tenant_id,
@@ -88,7 +93,9 @@ async def list_conversations_admin(
             date_from=date_from,
             date_to=date_to,
             rating=rating,
+            user_id=user_id,
         )
+        logger.warning("list_conversations_admin DEBUG: total=%s stats=%s", data.get("total"), data.get("stats"))
         return ConversationListResponse(**data)
     except Exception as e:
         logger.error("Error listing conversations: %s", str(e), exc_info=True)
@@ -114,6 +121,7 @@ async def get_conversation_detail_admin(
         data = await database.get_admin_conversation_detail(
             conversation_id=conversation_id,
             tenant_id=tenant_id,
+            user_id=current_user.id,
         )
         if not data:
             raise HTTPException(
@@ -142,9 +150,9 @@ async def update_conversation_status_admin(
     request: ConversationStatusUpdateRequest,
     current_user: User = Depends(get_current_user),
 ) -> ConversationStatusUpdateResponse:
-    """Change a conversation's status (resolved/escalated/abandoned/active)."""
+    """Change a conversation's status (resolved/escalated/abandoned/active/needs_review)."""
     tenant_id = current_user.tenant_id or current_user.id
-    valid_statuses = {"active", "resolved", "escalated", "abandoned"}
+    valid_statuses = {"active", "resolved", "escalated", "abandoned", "needs_review"}
     if request.status.lower() not in valid_statuses:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -347,68 +355,6 @@ async def get_conversations(
         )
 
 
-@router.delete(
-    "/{session_id}",
-    response_model=DeleteConversationResponse,
-    status_code=status.HTTP_200_OK,
-)
-async def delete_conversation(
-    session_id: str,
-    current_user: User = Depends(get_current_user)
-) -> DeleteConversationResponse:
-    """
-    Delete a conversation by session ID.
-
-    This endpoint:
-    1. Validates the session_id path parameter
-    2. Deletes all messages associated with the session
-    3. Returns a success confirmation
-
-    Args:
-        session_id: Session identifier (path parameter)
-
-    Returns:
-        DeleteConversationResponse with deletion status and message
-
-    Raises:
-        HTTPException: If processing error occurs
-    """
-    logger.info("Received delete conversation request: session_id=%s", session_id)
-
-    try:
-        # Delete conversation from database (filtered by user_id)
-        deleted = await database.delete_conversation(session_id=session_id, user_id=current_user.id)
-
-        if deleted:
-            response = DeleteConversationResponse(
-                session_id=session_id,
-                deleted=True,
-                message=f"Conversation with session_id '{session_id}' has been successfully deleted.",
-            )
-            logger.info("Conversation deleted successfully: session_id=%s", session_id)
-        else:
-            response = DeleteConversationResponse(
-                session_id=session_id,
-                deleted=False,
-                message=f"No conversation found with session_id '{session_id}'.",
-            )
-            logger.info("No conversation found to delete: session_id=%s", session_id)
-
-        return response
-
-    except Exception as e:
-        logger.error(
-            "Error deleting conversation: %s, session_id=%s",
-            str(e),
-            session_id,
-            exc_info=True,
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"An error occurred while deleting the conversation: {str(e)}",
-        )
-
-
 @router.post(
     "/feedback",
     response_model=ConversationFeedbackResponse,
@@ -476,6 +422,68 @@ async def submit_conversation_lead(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to capture lead.",
+        )
+
+
+@router.delete(
+    "/{session_id}",
+    response_model=DeleteConversationResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def delete_conversation(
+    session_id: str,
+    current_user: User = Depends(get_current_user)
+) -> DeleteConversationResponse:
+    """
+    Delete a conversation by session ID.
+
+    This endpoint:
+    1. Validates the session_id path parameter
+    2. Deletes all messages associated with the session
+    3. Returns a success confirmation
+
+    Args:
+        session_id: Session identifier (path parameter)
+
+    Returns:
+        DeleteConversationResponse with deletion status and message
+
+    Raises:
+        HTTPException: If processing error occurs
+    """
+    logger.info("Received delete conversation request: session_id=%s", session_id)
+
+    try:
+        # Delete conversation from database (filtered by user_id)
+        deleted = await database.delete_conversation(session_id=session_id, user_id=current_user.id)
+
+        if deleted:
+            response = DeleteConversationResponse(
+                session_id=session_id,
+                deleted=True,
+                message=f"Conversation with session_id '{session_id}' has been successfully deleted.",
+            )
+            logger.info("Conversation deleted successfully: session_id=%s", session_id)
+        else:
+            response = DeleteConversationResponse(
+                session_id=session_id,
+                deleted=False,
+                message=f"No conversation found with session_id '{session_id}'.",
+            )
+            logger.info("No conversation found to delete: session_id=%s", session_id)
+
+        return response
+
+    except Exception as e:
+        logger.error(
+            "Error deleting conversation: %s, session_id=%s",
+            str(e),
+            session_id,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while deleting the conversation: {str(e)}",
         )
 
 

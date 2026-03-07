@@ -22,6 +22,7 @@ from ..config import settings
 from ..models.base import get_session_factory
 from ..models.conversation import Conversation
 from ..models.message import Message
+from ..services.database import get_effective_tenant_id
 
 logger = logging.getLogger(__name__)
 
@@ -61,13 +62,16 @@ async def create_inbound_twitter_message(
     """
     session_factory = get_session_factory()
     async with session_factory() as session:
+        # Resolve the correct tenant_id from user_id
+        effective_tenant_id = await get_effective_tenant_id(user_id=user_id, session=session)
+        
         thread_id = _build_thread_id(sender_id, account_id)
         session_identifier = f"{TWITTER_CHANNEL_NAME}-{thread_id}"
 
         result = await session.execute(
             select(Conversation).where(
                 Conversation.session_id == session_identifier,
-                Conversation.tenant_id == user_id,
+                Conversation.tenant_id == effective_tenant_id,
             )
         )
         conversation = result.scalar_one_or_none()
@@ -77,7 +81,7 @@ async def create_inbound_twitter_message(
         if conversation is None:
             conversation = Conversation(
                 id=str(uuid.uuid4()),
-                tenant_id =user_id,
+                tenant_id=effective_tenant_id,
                 session_id=session_identifier,
                 started_at=now,
                 last_activity_at=now,
@@ -120,10 +124,13 @@ async def list_twitter_threads(
     """
     session_factory = get_session_factory()
     async with session_factory() as session:
+        # Resolve the correct tenant_id from user_id
+        effective_tenant_id = await get_effective_tenant_id(user_id=user_id, session=session)
+        
         result = await session.execute(
             select(Message, Conversation)
             .join(Conversation, Message.conversation_id == Conversation.id)
-            .where(Conversation.tenant_id == user_id)
+            .where(Conversation.tenant_id == effective_tenant_id)
             .order_by(Message.created_at.desc())
         )
         rows = result.all()
@@ -179,11 +186,14 @@ async def list_twitter_thread_messages(user_id: str, thread_id: str) -> List[dic
     """
     session_factory = get_session_factory()
     async with session_factory() as session:
+        # Resolve the correct tenant_id from user_id
+        effective_tenant_id = await get_effective_tenant_id(user_id=user_id, session=session)
+        
         result = await session.execute(
             select(Message, Conversation)
             .join(Conversation, Message.conversation_id == Conversation.id)
             .where(
-                Conversation.tenant_id == user_id,
+                Conversation.tenant_id == effective_tenant_id,
                 Message.message_metadata["twitter_thread_id"].as_string() == thread_id,
             )
             .order_by(Message.created_at.asc())
@@ -214,11 +224,14 @@ async def send_twitter_reply(user_id: str, thread_id: str, body: str) -> dict:
 
     session_factory = get_session_factory()
     async with session_factory() as session:
+        # Resolve the correct tenant_id from user_id
+        effective_tenant_id = await get_effective_tenant_id(user_id=user_id, session=session)
+        
         result = await session.execute(
             select(Message, Conversation)
             .join(Conversation, Message.conversation_id == Conversation.id)
             .where(
-                Conversation.tenant_id == user_id,
+                Conversation.tenant_id == effective_tenant_id,
                 Message.message_metadata["twitter_thread_id"].as_string() == thread_id,
             )
             .order_by(Message.created_at.desc())

@@ -8,6 +8,7 @@ This script:
 4. Updates document records with knowledge_base_id
 """
 
+import argparse
 import asyncio
 import sys
 from pathlib import Path
@@ -15,10 +16,10 @@ from pathlib import Path
 # Add parent directory to path to import app modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from app.config import settings
+from app.config import settings, get_vector_store_persist_dir
 from app.models.base import get_database_url, init_db
 from app.services import database, storage
-from app.routers.documents import index_document, get_document_type
+from app.routers.documents import get_document_type
 from app.rag.ingestion import ingest_document
 from sqlalchemy import select, text
 from app.models.document import Document
@@ -78,8 +79,10 @@ async def ensure_default_knowledge_base():
     return kb
 
 
-async def index_docs_folder():
-    """Index all documents from the data/docs folder into the default knowledge base."""
+async def index_docs_folder(force: bool = False):
+    """Index all documents from the data/docs folder into the default knowledge base.
+    If force=True, clear the default vector collection and re-ingest all docs (populates persistent store).
+    """
     # Try multiple possible paths
     possible_paths = [
         Path("data/docs"),  # From project root
@@ -106,6 +109,18 @@ async def index_docs_folder():
         doc_files.extend(docs_folder.rglob(f"*{ext}"))
     
     logger.info(f"Found {len(doc_files)} documents to index")
+
+    if force:
+        from app.rag.vector_store import VectorStore
+        persist_dir = get_vector_store_persist_dir()
+        logger.info(f"Force mode: clearing default collection at {persist_dir} and re-ingesting")
+        try:
+            vs = VectorStore(collection_name=settings.vector_collection_name, persist_directory=persist_dir)
+            vs.client.delete_collection(name=settings.vector_collection_name)
+            vs.collection = vs.client.create_collection(name=settings.vector_collection_name)
+            logger.info("Default collection cleared")
+        except Exception as e:
+            logger.warning(f"Could not clear collection (may be empty): {e}")
     
     indexed_count = 0
     error_count = 0
@@ -130,13 +145,12 @@ async def index_docs_folder():
             import hashlib
             doc_id = hashlib.md5(file_path_str.encode()).hexdigest()[:36]
             
-            # Check if document already exists
+            # Check if document already exists in DB
             existing_doc = await database.get_document(doc_id)
             if existing_doc:
-                logger.info(f"  Document already indexed: {doc_file.name}")
+                logger.info(f"  Document already in DB: {doc_file.name}")
                 # Update knowledge_base_id if needed
                 if existing_doc.get("knowledge_base_id") != DEFAULT_KB_ID:
-                    # Update document's knowledge_base_id
                     from app.models.document import Document
                     from app.models.base import get_session_factory
                     session_factory = get_session_factory()
@@ -149,10 +163,13 @@ async def index_docs_folder():
                             doc.knowledge_base_id = DEFAULT_KB_ID
                             await session.commit()
                             logger.info(f"  Updated knowledge_base_id for: {doc_file.name}")
-                continue
+                if not force:
+                    continue
+                # force=True: still ingest into vector store below (skip create_document)
             
-            # Create document record
-            document = await database.create_document(
+            # Create document record (only when not existing)
+            if not existing_doc:
+                document = await database.create_document(
                 doc_id=doc_id,
                 name=doc_file.name,
                 doc_type=doc_type,
@@ -161,22 +178,54 @@ async def index_docs_folder():
                 status="processing",
                 user_id="system",  # System user for default KB
                 knowledge_base_id=DEFAULT_KB_ID,
-            )
+                )
             
-            # Index the document
-            chunk_count, error_message = await index_document(
-                doc_id=doc_id,
-                file_path=doc_file,
-                user_id="system",
-                knowledge_base_id=DEFAULT_KB_ID,
-            )
-            
-            if error_message:
-                logger.error(f"  Error indexing {doc_file.name}: {error_message}")
-                error_count += 1
-            else:
-                logger.info(f"  Successfully indexed {doc_file.name} ({chunk_count} chunks)")
+            # Index the document by ingesting, chunking, embedding, and storing in the
+            # shared default vector store collection. This mirrors what the regular
+            # document pipeline does, but without going through the HTTP layer.
+            from app.rag.chunking import chunk_text
+            from app.rag.embeddings import EmbeddingModel
+            from app.rag.vector_store import VectorStore
+            from app.config import get_chunking_config
+
+            try:
+                # Ingest (extract text)
+                doc = ingest_document(doc_file)
+                if doc is None:
+                    raise RuntimeError("Failed to extract text from document")
+
+                # Chunk
+                chunking_config = get_chunking_config()
+                chunks = chunk_text(doc.text, chunking_config, doc_id, doc.url)
+                if not chunks:
+                    raise RuntimeError("No chunks created from document")
+
+                # Embed
+                embedding_model = EmbeddingModel(
+                    model_name=settings.embedding_model,
+                    openai_api_key=settings.openai_api_key,
+                    use_openai=settings.use_openai_embeddings,
+                )
+                texts = [chunk.text for chunk in chunks]
+                embeddings = embedding_model.embed_batch(texts)
+
+                # Store in default/global collection used by RAG (same path as API)
+                vector_store = VectorStore(
+                    collection_name=settings.vector_collection_name,
+                    persist_directory=get_vector_store_persist_dir(),
+                )
+                vector_store.add_documents(
+                    chunks,
+                    embeddings,
+                    user_id="system",
+                    knowledge_base_id=DEFAULT_KB_ID,
+                )
+
+                logger.info(f"  Successfully indexed {doc_file.name} ({len(chunks)} chunks)")
                 indexed_count += 1
+            except Exception as e:
+                logger.error(f"  Error indexing {doc_file.name}: {e}", exc_info=True)
+                error_count += 1
                 
         except Exception as e:
             logger.error(f"  Error processing {doc_file.name}: {e}", exc_info=True)
@@ -188,7 +237,7 @@ async def index_docs_folder():
     logger.info(f"  Total processed: {len(doc_files)}")
 
 
-async def main():
+async def main(force: bool = False):
     """Main function."""
     logger.info("=" * 60)
     logger.info("Initializing Default Knowledge Base")
@@ -206,8 +255,8 @@ async def main():
         # Ensure default KB exists
         await ensure_default_knowledge_base()
         
-        # Index docs folder
-        await index_docs_folder()
+        # Index docs folder (--force clears vector collection and re-ingests all)
+        await index_docs_folder(force=force)
         
         logger.info("\n" + "=" * 60)
         logger.info("Initialization Complete")
@@ -219,4 +268,7 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    parser = argparse.ArgumentParser(description="Initialize default KB and index data/docs")
+    parser.add_argument("--force", action="store_true", help="Clear default vector collection and re-ingest all docs (use when persistent store is empty)")
+    args = parser.parse_args()
+    asyncio.run(main(force=args.force))

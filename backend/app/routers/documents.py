@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Optional
 
 import httpx
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 
 from ..config import settings
 from ..models.document import DocumentStatus
@@ -39,6 +39,7 @@ from ..schemas.documents import (
 )
 from ..services import database, storage
 from ..services.document_queue import queue_service
+from ..rag.vector_store import VectorStore
 
 logger = logging.getLogger(__name__)
 
@@ -73,8 +74,11 @@ async def get_current_tenant_id(current_user: User) -> str:
 @router.post("/upload", response_model=DocumentUploadResponse, status_code=status.HTTP_202_ACCEPTED)
 async def upload_document(
     file: UploadFile = File(...),
-    chatbot_id: Optional[str] = None,
-    current_user: User = Depends(get_current_user)
+    # Frontend sends `knowledge_base_id` for the target KB; keep `chatbot_id`
+    # for backwards compatibility and map both into a single effective ID.
+    knowledge_base_id: Optional[str] = Form(None),
+    chatbot_id: Optional[str] = Form(None),
+    current_user: User = Depends(get_current_user),
 ) -> DocumentUploadResponse:
     """
     Upload a document file (5.1.1).
@@ -86,6 +90,9 @@ async def upload_document(
     - Saves file to R2 or local storage
     - Returns 202 Accepted immediately (async processing)
     """
+    # Determine effective knowledge base / chatbot association
+    effective_kb_id = knowledge_base_id or chatbot_id
+
     # Validate file type
     doc_type = get_document_type(file.filename or "")
     if doc_type == "unknown":
@@ -146,7 +153,7 @@ async def upload_document(
             file_size=file_size,
             status="processing",
             tenant_id=tenant_id,
-            chatbot_id=chatbot_id,
+            chatbot_id=effective_kb_id,
             original_filename=file.filename or "unknown",
             storage_url=storage_url,
             content_hash=content_hash,
@@ -159,7 +166,7 @@ async def upload_document(
                 tenant_id=tenant_id,
                 file_path=storage_url,
                 filename=file.filename or "unknown",
-                chatbot_id=chatbot_id,
+                chatbot_id=effective_kb_id,
             )
         else:
             # Fallback: process synchronously
@@ -169,7 +176,7 @@ async def upload_document(
                 "tenant_id": tenant_id,
                 "file_path": storage_url,
                 "filename": file.filename or "unknown",
-                "chatbot_id": chatbot_id,
+                "chatbot_id": effective_kb_id,
             })
 
         return DocumentUploadResponse(
@@ -453,7 +460,16 @@ async def archive_document(
     # Update document as archived
     await database.update_document(doc_id, is_archived=True)
     
-    # TODO: Remove from vector store
+    # Remove from tenant-specific vector store so archived docs no longer
+    # influence retrieval results.
+    try:
+        vector_store = VectorStore(
+            collection_name=f"tenant_{tenant_id}_documents",
+            persist_directory=settings.vector_store_persist_dir or "backend/data/vector_db",
+        )
+        vector_store.delete_by_doc_id(doc_id)
+    except Exception as e:
+        logger.error(f"Failed to remove archived document {doc_id} from vector store: {e}", exc_info=True)
     
     return ArchiveDocumentResponse(
         id=doc_id,
@@ -477,11 +493,29 @@ async def restore_document(
             detail=f"Document not found: {doc_id}",
         )
     
-    # Update document as not archived
-    await database.update_document(doc_id, is_archived=False)
+    # Mark document as active and re-process so it is re-added to the vector store
+    await database.update_document(doc_id, is_archived=False, status="processing", chunk_count=0, error_message=None)
     
-    # Re-process and re-embed
-    # TODO: Trigger re-processing
+    # Queue for processing using existing file + chatbot/KB association
+    if queue_service.enabled:
+        queue_service.enqueue_document_processing(
+            doc_id=doc_id,
+            tenant_id=tenant_id,
+            file_path=document.get("storage_url", ""),
+            filename=document.get("original_filename", "unknown"),
+            chatbot_id=document.get("chatbot_id"),
+        )
+    else:
+        from ..services.document_queue import process_document_job
+        await process_document_job(
+            {
+                "doc_id": doc_id,
+                "tenant_id": tenant_id,
+                "file_path": document.get("storage_url", ""),
+                "filename": document.get("original_filename", "unknown"),
+                "chatbot_id": document.get("chatbot_id"),
+            }
+        )
     
     return ArchiveDocumentResponse(
         id=doc_id,
@@ -538,9 +572,40 @@ async def replace_document(
         content_hash=content_hash,
         file_size=len(file_content),
         storage_url=storage_url,
+        error_message=None,
+        chunk_count=0,
     )
     
-    # TODO: Delete old vectors and re-process
+    # Delete old vectors from tenant-specific collection and re-process
+    try:
+        vector_store = VectorStore(
+            collection_name=f"tenant_{tenant_id}_documents",
+            persist_directory=settings.vector_store_persist_dir or "backend/data/vector_db",
+        )
+        vector_store.delete_by_doc_id(doc_id)
+    except Exception as e:
+        logger.error(f"Failed to delete existing vectors for replaced document {doc_id}: {e}", exc_info=True)
+
+    # Queue for processing with new content
+    if queue_service.enabled:
+        queue_service.enqueue_document_processing(
+            doc_id=doc_id,
+            tenant_id=tenant_id,
+            file_path=storage_url,
+            filename=file.filename or document.get("original_filename", "unknown"),
+            chatbot_id=document.get("chatbot_id"),
+        )
+    else:
+        from ..services.document_queue import process_document_job
+        await process_document_job(
+            {
+                "doc_id": doc_id,
+                "tenant_id": tenant_id,
+                "file_path": storage_url,
+                "filename": file.filename or document.get("original_filename", "unknown"),
+                "chatbot_id": document.get("chatbot_id"),
+            }
+        )
     
     return ReplaceDocumentResponse(
         id=doc_id,
@@ -618,10 +683,18 @@ async def delete_document(
     storage.delete_file(
         doc_id,
         tenant_id=tenant_id,
-        filename=document.get("original_filename")
+        filename=document.get("original_filename"),
     )
     
-    # TODO: Delete from vector store
+    # Delete all vectors for this document from the tenant-specific collection
+    try:
+        vector_store = VectorStore(
+            collection_name=f"tenant_{tenant_id}_documents",
+            persist_directory=settings.vector_store_persist_dir or "backend/data/vector_db",
+        )
+        vector_store.delete_by_doc_id(doc_id)
+    except Exception as e:
+        logger.error(f"Failed to delete vectors for document {doc_id} during delete: {e}", exc_info=True)
     
     # Delete from database
     deleted = await database.delete_document(doc_id)

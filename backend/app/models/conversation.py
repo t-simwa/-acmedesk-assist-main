@@ -28,6 +28,7 @@ class ConversationStatus(str, Enum):
     RESOLVED = "resolved"
     ESCALATED = "escalated"
     ABANDONED = "abandoned"
+    NEEDS_REVIEW = "needs_review"
 
 
 class ConversationOutcome(str, Enum):

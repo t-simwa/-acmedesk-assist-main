@@ -3,6 +3,7 @@ Pydantic schemas for authentication API requests and responses.
 """
 
 from typing import Optional
+from enum import Enum
 from pydantic import BaseModel, EmailStr, Field, field_validator
 import re
 
@@ -22,6 +23,12 @@ class RegisterRequest(BaseModel):
     password: str = Field(..., min_length=8, description="User's password (minimum 8 characters)")
     full_name: str = Field(..., min_length=1, max_length=200, description="User's full name")
     business_name: str = Field(..., min_length=1, max_length=255, description="Business name")
+
+    @field_validator("email", mode="after")
+    @classmethod
+    def normalize_email(cls, v: str) -> str:
+        """Normalize email to lowercase for consistent storage and lookup."""
+        return v.lower().strip() if v else v
 
     @field_validator("password")
     @classmethod
@@ -57,6 +64,12 @@ class LoginRequest(BaseModel):
     email: EmailStr = Field(..., description="User's email address")
     password: str = Field(..., description="User's password")
     remember_me: Optional[bool] = Field(False, description="Whether to extend token expiration")
+
+    @field_validator("email", mode="after")
+    @classmethod
+    def normalize_email(cls, v: str) -> str:
+        """Normalize email to lowercase for consistent lookup."""
+        return v.lower().strip() if v else v
 
 
 class TokenResponse(BaseModel):

@@ -2,6 +2,7 @@
 Base model and database setup for SQLAlchemy.
 """
 
+import logging
 from pathlib import Path
 from contextlib import asynccontextmanager
 
@@ -9,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.orm import DeclarativeBase
 
 from ..config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class Base(DeclarativeBase):
@@ -263,6 +266,54 @@ async def _ensure_schema_updates(conn):
                 await conn.execute(text(f"ALTER TABLE users ADD COLUMN {col_name} {col_type}"))
     except Exception:
         pass
+
+    # knowledge_bases and user_knowledge_base_preferences (if missing)
+    try:
+        result = await conn.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name='knowledge_bases'"))
+        if result.fetchone() is None:
+            await conn.execute(text("""
+                CREATE TABLE knowledge_bases (
+                    id VARCHAR(36) PRIMARY KEY,
+                    user_id VARCHAR(36),
+                    name VARCHAR(255) NOT NULL,
+                    description VARCHAR(500),
+                    is_default BOOLEAN NOT NULL DEFAULT 0,
+                    is_active BOOLEAN NOT NULL DEFAULT 1,
+                    created_at DATETIME NOT NULL,
+                    updated_at DATETIME NOT NULL,
+                    FOREIGN KEY (user_id) REFERENCES users(id)
+                )
+            """))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_knowledge_bases_user_id ON knowledge_bases(user_id)"))
+            logger.info("Created knowledge_bases table (schema update)")
+    except Exception as e:
+        logger.warning("Schema update knowledge_bases: %s", e)
+    try:
+        result = await conn.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name='user_knowledge_base_preferences'"))
+        if result.fetchone() is None:
+            await conn.execute(text("""
+                CREATE TABLE user_knowledge_base_preferences (
+                    id VARCHAR(36) PRIMARY KEY,
+                    user_id VARCHAR(36) NOT NULL UNIQUE,
+                    use_default_kb BOOLEAN NOT NULL DEFAULT 1,
+                    active_kb_ids VARCHAR(1000) NOT NULL DEFAULT '[]',
+                    created_at DATETIME NOT NULL,
+                    updated_at DATETIME NOT NULL,
+                    FOREIGN KEY (user_id) REFERENCES users(id)
+                )
+            """))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_user_kb_prefs_user_id ON user_knowledge_base_preferences(user_id)"))
+            logger.info("Created user_knowledge_base_preferences table (schema update)")
+    except Exception as e:
+        logger.warning("Schema update user_knowledge_base_preferences: %s", e)
+    # Default knowledge base row if missing
+    try:
+        await conn.execute(
+            text("INSERT OR IGNORE INTO knowledge_bases (id, user_id, name, description, is_default, is_active, created_at, updated_at) VALUES (:id, NULL, :name, :description, 1, 1, datetime('now'), datetime('now'))"),
+            {"id": "00000000-0000-0000-0000-000000000001", "name": "Default Knowledge Base", "description": "System default knowledge base"}
+        )
+    except Exception as e:
+        logger.warning("Schema update default KB insert: %s", e)
 
 
 async def fix_schema():

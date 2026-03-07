@@ -8,13 +8,36 @@ This module defines:
 - Database initialization on startup.
 """
 
+import logging
+import re
+import time
 from contextlib import asynccontextmanager
+
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+# Configure logging so all API activity and app logs appear in the terminal (debugging).
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%H:%M:%S",
+    force=True,
+)
+# Use our RequestLoggingMiddleware for access logs; suppress uvicorn's duplicate access log.
+logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("openai").setLevel(logging.WARNING)
+logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+
+logger = logging.getLogger(__name__)
+
 from .config import settings
-from .models.base import close_db, init_db
+from .models.base import close_db, get_database_url, init_db
 from .routers import (
     admin,
     analytics,
@@ -54,6 +77,24 @@ async def lifespan(app: FastAPI):
     """Lifespan context manager for startup and shutdown events."""
     # Startup: Initialize database
     await init_db()
+    db_url = get_database_url()
+    if "sqlite" in db_url:
+        # Log path so we can confirm which file is used (e.g. after deleting acmedesk.db)
+        db_path = db_url.replace("sqlite+aiosqlite:///", "")
+        logger.info("Database: %s", db_path)
+    # Log RAG vector store path and collection size so we can confirm it matches ingestion
+    try:
+        from app.config import get_vector_store_persist_dir, get_settings
+        persist_dir = get_vector_store_persist_dir()
+        settings = get_settings()
+        from app.rag.vector_store import VectorStore
+        vs = VectorStore(collection_name=settings.vector_collection_name, persist_directory=persist_dir)
+        count = vs.collection.count()
+        import logging
+        logging.getLogger(__name__).info("RAG vector store: %s (collection %s has %d chunks)", persist_dir, settings.vector_collection_name, count)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("RAG vector store check at startup: %s", e)
     yield
     # Shutdown: Close database connections
     await close_db()
@@ -68,32 +109,70 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Configure CORS so the Vite frontend can call this API during development.
-# In development, allow common localhost ports for flexibility
-if settings.environment == "development":
-    allowed_origins = [
-        str(settings.frontend_origin),
-        "http://localhost:8080",  # Current Vite dev server port
-        "http://localhost:5173",   # Default Vite dev server port
-        "http://127.0.0.1:8080",   # Alternative localhost format
-        "http://127.0.0.1:5173",   # Alternative localhost format
-    ]
-    # Also allow all localhost origins in development for flexibility
-    import re
-    allow_origin_regex = r"http://(localhost|127\.0\.0\.1):\d+"
-else:
-    allowed_origins = [str(settings.frontend_origin)]
-    allow_origin_regex = None
+# Configure CORS so the frontend can call this API.
+# Explicitly list dev origins so browser always receives Access-Control-Allow-Origin.
+allowed_origins = [
+    str(settings.frontend_origin),
+    "http://localhost:8080",
+    "http://localhost:5173",
+    "http://127.0.0.1:8080",
+    "http://127.0.0.1:5173",
+]
+# Deduplicate while preserving order
+allowed_origins = list(dict.fromkeys(allowed_origins))
+# Allow any other localhost port via regex
+allow_origin_regex = r"http://(localhost|127\.0\.0\.1)(:\d+)?"
 
+# Regex to allow localhost / 127.0.0.1 with any port (for CORS fallback)
+_LOCALHOST_ORIGIN_REGEX = re.compile(r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$", re.I)
+
+
+class EnsureCorsHeadersMiddleware(BaseHTTPMiddleware):
+    """Ensure CORS headers are present on every response so browser never blocks on missing header."""
+
+    async def dispatch(self, request: Request, call_next) -> Response:
+        response = await call_next(request)
+        origin = request.headers.get("origin")
+        if not origin:
+            return response
+        if _LOCALHOST_ORIGIN_REGEX.match(origin):
+            if "access-control-allow-origin" not in response.headers:
+                response.headers["access-control-allow-origin"] = origin
+                response.headers["access-control-allow-credentials"] = "true"
+        return response
+
+
+class RequestLoggingMiddleware(BaseHTTPMiddleware):
+    """Log every request and response to the terminal for debugging."""
+
+    async def dispatch(self, request: Request, call_next) -> Response:
+        start = time.perf_counter()
+        method = request.method
+        path = request.url.path
+        query = request.url.query
+        client = request.client.host if request.client else "?"
+        if query:
+            path = f"{path}?{query}"
+        logger.info("--> %s %s (client=%s)", method, path, client)
+        response = await call_next(request)
+        duration_ms = (time.perf_counter() - start) * 1000
+        logger.info("<-- %s %s %s %.0fms", method, path, response.status_code, duration_ms)
+        return response
+
+
+# Add CORSMiddleware first (inner); then EnsureCorsHeadersMiddleware; then RequestLoggingMiddleware (outermost)
+# so the fallback runs last on response and adds CORS header if missing (e.g. on 500).
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
-    allow_origin_regex=allow_origin_regex if settings.environment == "development" else None,
+    allow_origin_regex=allow_origin_regex,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
     expose_headers=["*"],
 )
+app.add_middleware(EnsureCorsHeadersMiddleware)
+app.add_middleware(RequestLoggingMiddleware)
 
 # Register API routers
 app.include_router(health.router)
@@ -140,5 +219,51 @@ async def read_root() -> dict:
         "status": "ok",
         "service": settings.app_name,
         "environment": settings.environment,
+    }
+
+
+@app.get("/api/debug-dashboard")
+async def debug_dashboard():
+    """Debug endpoint to test dashboard queries."""
+    from datetime import datetime, timedelta
+    from app.models.base import get_session_factory
+    from sqlalchemy import select, func
+    from app.models.conversation import Conversation
+    from app.services.database import _effective_tenant_ids
+    
+    tenant_id = '330fd2b0-6b5f-41a8-ba6d-ad7355fe4c9d'
+    user_id = '066529cd-f5e2-42df-8595-350178c5fc48'
+    
+    tenant_ids = _effective_tenant_ids(tenant_id, user_id)
+    
+    end = datetime.utcnow()
+    start = end - timedelta(days=7)
+    
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        result = await session.execute(
+            select(func.count(Conversation.id))
+            .where(
+                Conversation.tenant_id.in_(tenant_ids),
+                Conversation.started_at >= start,
+                Conversation.started_at <= end
+            )
+        )
+        count = result.scalar()
+        
+        # Also get total without date filter
+        result2 = await session.execute(
+            select(func.count(Conversation.id))
+            .where(Conversation.tenant_id.in_(tenant_ids))
+        )
+        total = result2.scalar()
+    
+    return {
+        "tenant_id": tenant_id,
+        "user_id": user_id,
+        "tenant_ids_used": tenant_ids,
+        "date_range": f"{start} to {end}",
+        "count_with_date_filter": count,
+        "total_without_filter": total,
     }
 

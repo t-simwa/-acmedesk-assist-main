@@ -1,0 +1,16 @@
+user_id=066529cd-f5e2-42df-8595-350178c5fc48
+active_kb_ids=['00000000-0000-0000-0000-000000000001']
+sources_count=4
+answer=## Payment Methods
+
+- **Credit cards** – Visa, MasterCard, and American Express are accepted for all plans [1, 2, 3, 4].
+
+- **PayPal** – Accepted as an online payment option for standard customers [1, 2].
+
+- **Invoice** – Enterprise customers can pay via invoice [1, 2, 3, 4].
+
+- **Bank transfer** – Available for enterprise customers as an alternative payment method [3, 4].
+source_1=faq score=1.0
+source_2=e22b803adf60761ccecd31a2ba6ca4b8 score=1.0
+source_3=billing-information score=0.5669573023789092
+source_4=7dd06277f201bc04ccc753b404b3ccbf score=0.5669573023789092

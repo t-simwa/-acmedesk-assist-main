@@ -209,7 +209,7 @@ async def get_leads_analytics(
     """
     try:
         tenant_id = current_user.tenant_id or current_user.id
-        data = await database.get_leads_analytics(tenant_id, days)
+        data = await database.get_leads_analytics(tenant_id, days, user_id=current_user.id)
         
         logger.info(f"Retrieved lead analytics: total_leads={data['total_leads']}, days={days}")
         

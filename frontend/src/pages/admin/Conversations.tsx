@@ -50,82 +50,27 @@ import { cn } from "@/lib/utils";
 import { CHANNEL_META, ChannelIcon } from "@/lib/channelMeta";
 
 /* ═══════════════════════════════════════════════════════════════════════════════
-   MOCK DATA
-   ═══════════════════════════════════════════════════════════════════════════════ */
-
-const MOCK_STATS = { total: 1247, active: 312, resolved: 782, escalated: 89, abandoned: 64 };
-
-const MOCK_CONVERSATIONS: ConversationListItem[] = [
-  { id: "1", channel: "web", contact_name: "Sarah Johnson", contact_phone: null, contact_email: "sarah@acme.com", first_message: "Hi, I need help with my subscription billing. The charge on my account doesn't match what I expected.", message_count: 8, status: "resolved", rating: "positive", duration_minutes: 12.3, started_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() },
-  { id: "2", channel: "whatsapp", contact_name: "Marcus Williams", contact_phone: "+1 555 0102", contact_email: null, first_message: "What are your business hours? I need to speak to someone urgently.", message_count: 4, status: "escalated", rating: null, duration_minutes: 5.1, started_at: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString() },
-  { id: "3", channel: "instagram", contact_name: null, contact_phone: null, contact_email: null, first_message: "Do you ship internationally? What are the shipping rates to Australia?", message_count: 6, status: "active", rating: null, duration_minutes: null, started_at: new Date(Date.now() - 30 * 60 * 1000).toISOString() },
-  { id: "4", channel: "web", contact_name: "Emily Chen", contact_phone: null, contact_email: "emily.chen@gmail.com", first_message: "I'm looking for the Pro plan pricing. Can you compare it against the Business plan?", message_count: 11, status: "resolved", rating: "positive", duration_minutes: 18.7, started_at: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString() },
-  { id: "5", channel: "facebook", contact_name: "David Okafor", contact_phone: null, contact_email: null, first_message: "How do I reset my password? I'm locked out of my account.", message_count: 3, status: "resolved", rating: "negative", duration_minutes: 3.2, started_at: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString() },
-  { id: "6", channel: "whatsapp", contact_name: "Priya Patel", contact_phone: "+44 7700 900123", contact_email: "priya@techcorp.io", first_message: "We are interested in the Enterprise plan for our team of 50. Can we schedule a demo?", message_count: 15, status: "active", rating: null, duration_minutes: null, started_at: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString() },
-  { id: "7", channel: "web", contact_name: null, contact_phone: null, contact_email: null, first_message: "What integrations do you support? Does it work with Salesforce?", message_count: 5, status: "abandoned", rating: null, duration_minutes: 7.8, started_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString() },
-];
-
-const MOCK_DETAIL = {
-  id: "1",
-  channel: "web" as const,
-  status: "resolved",
-  rating: "positive",
-  message_count: 8,
-  started_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-  resolved_at: new Date(Date.now() - 1.5 * 60 * 60 * 1000).toISOString(),
-  last_activity_at: new Date(Date.now() - 1.5 * 60 * 60 * 1000).toISOString(),
-  page_url: "https://acme.com/pricing",
-  duration_minutes: 12.3,
-  is_flagged: false,
-  contact: {
-    id: "c1",
-    full_name: "Sarah Johnson",
-    email: "sarah@acme.com",
-    phone: "+1 555 0101",
-    instagram_handle: null,
-    company: "Acme Corp",
-    lead_status: "qualified",
-    channels_used: ["web"] as string[],
-    first_seen_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-    last_active_at: new Date(Date.now() - 1.5 * 60 * 60 * 1000).toISOString(),
-    notes: null,
-  },
-  messages: [
-    { id: "m1", role: "user" as const, content: "Hi, I need help with my subscription billing. The charge on my account doesn't match what I expected.", citations: null, confidence_score: null, created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() },
-    { id: "m2", role: "assistant" as const, content: "Hello Sarah! I'd be happy to help you with your billing question. Your current plan is the Growth plan at $99/month, billed on the 1st of each month. The charge you're seeing should reflect your most recent billing cycle.", citations: [{ source: "Billing FAQ.pdf" }], confidence_score: 0.94, created_at: new Date(Date.now() - 2 * 60 * 60 * 1000 + 30000).toISOString() },
-    { id: "m3", role: "user" as const, content: "But I was charged $129. I thought I was on the $99 plan.", citations: null, confidence_score: null, created_at: new Date(Date.now() - 1.9 * 60 * 60 * 1000).toISOString() },
-    { id: "m4", role: "assistant" as const, content: "I can see that your account was upgraded to the Pro plan on the 15th, which is why the charge was prorated to $129 for the month. Would you like me to show you the full breakdown of the proration calculation?", citations: [{ source: "Pricing Guide.pdf" }, { source: "Proration Policy.pdf" }], confidence_score: 0.91, created_at: new Date(Date.now() - 1.85 * 60 * 60 * 1000).toISOString() },
-    { id: "m5", role: "user" as const, content: "Yes please, that would be helpful.", citations: null, confidence_score: null, created_at: new Date(Date.now() - 1.8 * 60 * 60 * 1000).toISOString() },
-    { id: "m6", role: "assistant" as const, content: "Here's the breakdown: Growth plan ($99) × 15/30 days = $49.50 credit + Pro plan ($149) × 15/30 days = $74.50. Total: $124.00 + applicable taxes = $129.00. This is correct per our proration policy.", citations: [{ source: "Billing FAQ.pdf" }], confidence_score: 0.97, created_at: new Date(Date.now() - 1.75 * 60 * 60 * 1000).toISOString() },
-    { id: "m7", role: "user" as const, content: "Ah that makes sense! Thank you for explaining.", citations: null, confidence_score: null, created_at: new Date(Date.now() - 1.7 * 60 * 60 * 1000).toISOString() },
-    { id: "m8", role: "assistant" as const, content: "You're welcome, Sarah! If you have any other questions about your billing or account, feel free to ask anytime. Have a great day!", citations: null, confidence_score: 0.99, created_at: new Date(Date.now() - 1.65 * 60 * 60 * 1000).toISOString() },
-  ],
-  timeline: [
-    { event: "Conversation Started", timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), detail: "via web" },
-    { event: "Contact Identified", timestamp: new Date(Date.now() - 1.98 * 60 * 60 * 1000).toISOString(), detail: "Sarah Johnson" },
-    { event: "Resolved", timestamp: new Date(Date.now() - 1.5 * 60 * 60 * 1000).toISOString(), detail: null },
-  ],
-};
-
-/* ═══════════════════════════════════════════════════════════════════════════════
    CONSTANTS & STYLE MAPS
    ═══════════════════════════════════════════════════════════════════════════════ */
 
 const STATUS_META: Record<string, { dot: string; badge: string; label: string }> = {
-  active:    { dot: "bg-blue-400",    badge: "bg-blue-500/10 text-blue-400 border-blue-500/20",       label: "Active" },
-  resolved:  { dot: "bg-emerald-400", badge: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", label: "Resolved" },
-  escalated: { dot: "bg-amber-400",   badge: "bg-amber-500/10 text-amber-400 border-amber-500/20",   label: "Escalated" },
-  abandoned: { dot: "bg-gray-400",    badge: "bg-gray-500/10 text-gray-400 border-gray-500/20",       label: "Abandoned" },
+  active:       { dot: "bg-blue-400",    badge: "bg-blue-500/10 text-blue-400 border-blue-500/20",       label: "Active" },
+  resolved:     { dot: "bg-emerald-400", badge: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", label: "Resolved" },
+  escalated:    { dot: "bg-amber-400",   badge: "bg-amber-500/10 text-amber-400 border-amber-500/20",   label: "Escalated" },
+  abandoned:    { dot: "bg-gray-400",    badge: "bg-gray-500/10 text-gray-400 border-gray-500/20",       label: "Abandoned" },
+  needs_review: { dot: "bg-violet-400",  badge: "bg-violet-500/10 text-violet-400 border-violet-500/20", label: "Needs Review" },
 };
 
-const STATUSES = ["active", "resolved", "escalated", "abandoned"] as const;
+const STATUSES = ["active", "resolved", "escalated", "abandoned", "needs_review"] as const;
 
-const STAT_CARDS: { key: keyof typeof MOCK_STATS; label: string; icon: React.ReactNode; accent: string }[] = [
-  { key: "total",     label: "Total",     icon: <MessageSquare size={18} />, accent: "from-blue-500/20 to-blue-500/0" },
-  { key: "active",    label: "Active",    icon: <Clock size={18} />,         accent: "from-blue-500/20 to-blue-500/0" },
-  { key: "resolved",  label: "Resolved",  icon: <CheckCircle2 size={18} />,  accent: "from-emerald-500/20 to-emerald-500/0" },
-  { key: "escalated", label: "Escalated", icon: <AlertCircle size={18} />,   accent: "from-amber-500/20 to-amber-500/0" },
-  { key: "abandoned", label: "Abandoned", icon: <X size={18} />,             accent: "from-gray-500/20 to-gray-500/0" },
+const STAT_CARD_KEYS = ["total", "active", "resolved", "escalated", "abandoned", "needs_review"] as const;
+const STAT_CARDS: { key: typeof STAT_CARD_KEYS[number]; label: string; icon: React.ReactNode; accent: string }[] = [
+  { key: "total",        label: "Total",        icon: <MessageSquare size={18} />, accent: "from-blue-500/20 to-blue-500/0" },
+  { key: "active",       label: "Active",       icon: <Clock size={18} />,         accent: "from-blue-500/20 to-blue-500/0" },
+  { key: "resolved",     label: "Resolved",     icon: <CheckCircle2 size={18} />,  accent: "from-emerald-500/20 to-emerald-500/0" },
+  { key: "escalated",    label: "Escalated",    icon: <AlertCircle size={18} />,   accent: "from-amber-500/20 to-amber-500/0" },
+  { key: "abandoned",    label: "Abandoned",    icon: <X size={18} />,             accent: "from-gray-500/20 to-gray-500/0" },
+  { key: "needs_review", label: "Needs Review", icon: <Flag size={18} />,          accent: "from-violet-500/20 to-violet-500/0" },
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════════════
@@ -242,7 +187,7 @@ function DetailDialog({
   onClose: () => void;
 }) {
   const { data: rawDetail, isLoading } = useConversationDetail(conversationId);
-  const detail = rawDetail ?? (conversationId === "1" ? MOCK_DETAIL : null);
+  const detail = rawDetail ?? null;
 
   const updateStatus = useUpdateConversationStatus();
   const addNote = useAddConversationNote();
@@ -317,11 +262,16 @@ function DetailDialog({
           "bg-card border rounded-2xl",
         )}
       >
-        {isLoading || !detail ? (
+        {isLoading ? (
           <div className="p-6 space-y-4">
             <Skeleton className="h-16 w-full" />
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-40 w-full" />
+          </div>
+        ) : !detail ? (
+          <div className="p-6 text-center">
+            <MessageSquare size={24} className="text-muted-foreground mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground">Conversation not found</p>
           </div>
         ) : (
           <>
@@ -551,12 +501,18 @@ function DetailDialog({
                   </div>
                 </div>
 
-                {/* Internal Notes */}
+                {/* Internal Notes (from API + locally added this session) */}
                 <div>
                   <h4 className="text-[10px] font-bold uppercase tracking-wider font-heading text-muted-foreground mb-3">
                     Internal Notes
                   </h4>
-                  {localNotes.map((note, i) => (
+                  {[
+                    ...(detail.internal_notes ?? []).map((n) => ({
+                      text: n.note,
+                      time: n.created_at ? formatTimestamp(n.created_at) : "—",
+                    })),
+                    ...localNotes,
+                  ].map((note, i) => (
                     <div key={i} className="rounded-lg border bg-muted/30 p-3 mb-2">
                       <p className="text-[12px] text-foreground leading-relaxed">{note.text}</p>
                       <p className="text-[10px] text-muted-foreground/60 font-mono mt-1.5">{note.time}</p>
@@ -636,10 +592,10 @@ export default function Conversations() {
   const { data: listData, isLoading: listLoading, refetch } = useConversationsList(filters);
   const bulkAction = useBulkConversationAction();
 
-  const conversations = listData?.conversations ?? MOCK_CONVERSATIONS;
-  const stats = listData?.stats ?? MOCK_STATS;
-  const total = listData?.total ?? MOCK_CONVERSATIONS.length;
-  const totalPages = Math.ceil(total / (filters.per_page ?? 20));
+  const conversations = listData?.conversations ?? [];
+  const stats = listData?.stats ?? { total: 0, active: 0, resolved: 0, escalated: 0, abandoned: 0, needs_review: 0 };
+  const total = listData?.total ?? 0;
+  const totalPages = Math.ceil(total / (filters.per_page ?? 20)) || 1;
 
   /* ── Filter helpers ──────────────────────────────────────────────────────── */
 

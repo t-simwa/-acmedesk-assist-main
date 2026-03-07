@@ -35,6 +35,7 @@ class ConversationStats(BaseModel):
     resolved: int = Field(..., ge=0)
     escalated: int = Field(..., ge=0)
     abandoned: int = Field(..., ge=0)
+    needs_review: int = Field(default=0, ge=0)
 
 
 class ConversationListResponse(BaseModel):
@@ -80,6 +81,12 @@ class ConversationTimelineEvent(BaseModel):
     detail: Optional[str] = Field(None, description="Optional extra info")
 
 
+class ConversationInternalNote(BaseModel):
+    """Internal note (agent-only) on a conversation."""
+    note: str = Field(..., description="Note text")
+    created_at: str = Field(..., description="ISO 8601 timestamp")
+
+
 class ConversationDetailResponse(BaseModel):
     """Full conversation detail for the transcript/detail panel (7.4.4)."""
     id: str
@@ -95,6 +102,10 @@ class ConversationDetailResponse(BaseModel):
     messages: List[ConversationMessageDetail] = Field(default_factory=list)
     contact: Optional[ConversationContactDetail] = None
     timeline: List[ConversationTimelineEvent] = Field(default_factory=list)
+    internal_notes: List[ConversationInternalNote] = Field(
+        default_factory=list,
+        description="Internal notes (agent-only) for this conversation",
+    )
     is_flagged: bool = Field(default=False, description="Flagged for AI training")
 
 
@@ -102,7 +113,7 @@ class ConversationDetailResponse(BaseModel):
 
 class ConversationStatusUpdateRequest(BaseModel):
     """PATCH /api/conversations/admin/{id}/status"""
-    status: str = Field(..., description="active | resolved | escalated | abandoned")
+    status: str = Field(..., description="active | resolved | escalated | abandoned | needs_review")
     reason: Optional[str] = Field(None, description="Optional reason for the change")
 
 

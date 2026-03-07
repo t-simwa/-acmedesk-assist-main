@@ -54,11 +54,17 @@ class UserKnowledgeBasePreference(Base):
     def to_dict(self) -> dict:
         """Convert model to dictionary."""
         import json
+        try:
+            active_ids = json.loads(self.active_kb_ids) if self.active_kb_ids else []
+        except (TypeError, ValueError):
+            active_ids = []
+        if not isinstance(active_ids, list):
+            active_ids = []
         return {
             "id": self.id,
             "user_id": self.user_id,
             "use_default_kb": self.use_default_kb,
-            "active_kb_ids": json.loads(self.active_kb_ids) if self.active_kb_ids else [],
+            "active_kb_ids": active_ids,
             "created_at": self.created_at.isoformat() + "Z" if self.created_at else None,
             "updated_at": self.updated_at.isoformat() + "Z" if self.updated_at else None,
         }

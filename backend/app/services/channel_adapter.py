@@ -18,6 +18,7 @@ from sqlalchemy import select
 from ..models.base import get_session_factory
 from ..models.conversation import Conversation
 from ..models.message import Message
+from ..services.database import get_effective_tenant_id
 
 logger = logging.getLogger(__name__)
 
@@ -51,19 +52,22 @@ class ChannelAdapter:
     ) -> dict:
         session_factory = get_session_factory()
         async with session_factory() as session:
+            # Resolve the correct tenant_id from user_id
+            effective_tenant_id = await get_effective_tenant_id(user_id=user_id, session=session)
+            
             thread_id = self._build_thread_id(sender_id, recipient_id)
             session_identifier = f"{self.CHANNEL_NAME}-{thread_id}"
             result = await session.execute(
                 select(Conversation).where(
                     Conversation.session_id == session_identifier,
-                    Conversation.tenant_id == user_id,
+                    Conversation.tenant_id == effective_tenant_id,
                 )
             )
             conversation = result.scalar_one_or_none()
             now = datetime.utcnow()
             if conversation is None:
                 conversation = Conversation(
-                    id=str(uuid.uuid4()), tenant_id=user_id,
+                    id=str(uuid.uuid4()), tenant_id=effective_tenant_id,
                     session_id=session_identifier, started_at=now, last_activity_at=now,
                 )
                 session.add(conversation)
@@ -90,10 +94,13 @@ class ChannelAdapter:
     ) -> Tuple[List[ThreadSummary], int]:
         session_factory = get_session_factory()
         async with session_factory() as session:
+            # Resolve the correct tenant_id from user_id
+            effective_tenant_id = await get_effective_tenant_id(user_id=user_id, session=session)
+            
             result = await session.execute(
                 select(Message, Conversation)
                 .join(Conversation, Message.conversation_id == Conversation.id)
-                .where(Conversation.tenant_id == user_id)
+                .where(Conversation.tenant_id == effective_tenant_id)
                 .order_by(Message.created_at.desc())
             )
             rows = result.all()
@@ -131,11 +138,14 @@ class ChannelAdapter:
     async def list_thread_messages(self, user_id: str, thread_id: str) -> List[dict]:
         session_factory = get_session_factory()
         async with session_factory() as session:
+            # Resolve the correct tenant_id from user_id
+            effective_tenant_id = await get_effective_tenant_id(user_id=user_id, session=session)
+            
             result = await session.execute(
                 select(Message, Conversation)
                 .join(Conversation, Message.conversation_id == Conversation.id)
                 .where(
-                    Conversation.tenant_id == user_id,
+                    Conversation.tenant_id == effective_tenant_id,
                     Message.message_metadata[self.THREAD_ID_KEY].as_string() == thread_id,
                 )
                 .order_by(Message.created_at.asc())
@@ -160,11 +170,14 @@ class ChannelAdapter:
             raise ValueError(f"{self.CHANNEL_NAME.title()} default sender ID is not configured")
         session_factory = get_session_factory()
         async with session_factory() as session:
+            # Resolve the correct tenant_id from user_id
+            effective_tenant_id = await get_effective_tenant_id(user_id=user_id, session=session)
+            
             result = await session.execute(
                 select(Message, Conversation)
                 .join(Conversation, Message.conversation_id == Conversation.id)
                 .where(
-                    Conversation.tenant_id == user_id,
+                    Conversation.tenant_id == effective_tenant_id,
                     Message.message_metadata[self.THREAD_ID_KEY].as_string() == thread_id,
                 )
                 .order_by(Message.created_at.desc())

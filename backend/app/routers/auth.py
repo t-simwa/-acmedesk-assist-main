@@ -18,7 +18,7 @@ import uuid
 from datetime import datetime, timedelta
 from typing import Optional
 
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, func
 from sqlalchemy.exc import IntegrityError
 
 from fastapi import APIRouter, HTTPException, status, Depends, Request
@@ -168,8 +168,9 @@ async def register(request_data: RegisterRequest, request: Request) -> RegisterR
     6. Returns 201 with NO JWT (must verify email first)
     """
     async with get_db_session() as session:
-        # Check if user with this email already exists
-        result = await session.execute(select(User).where(User.email == request_data.email))
+        # Check if user with this email already exists (case-insensitive)
+        email_lower = request_data.email.lower().strip()
+        result = await session.execute(select(User).where(func.lower(User.email) == email_lower))
         existing_user = result.scalar_one_or_none()
         
         if existing_user:
@@ -201,7 +202,7 @@ async def register(request_data: RegisterRequest, request: Request) -> RegisterR
         new_user = User(
             id=user_id,
             tenant_id=tenant_id,
-            email=request_data.email,
+            email=email_lower,
             full_name=request_data.full_name,
             password_hash=password_hash,
             role=UserRole.OWNER,
@@ -348,12 +349,13 @@ async def resend_verification(request_data: ResendVerificationRequest, request: 
             )
     
     async with get_db_session() as session:
-        # Find user by email
+        # Find user by email (case-insensitive)
+        email_lower = request_data.email.lower().strip()
         result = await session.execute(
-            select(User).where(User.email == request_data.email)
+            select(User).where(func.lower(User.email) == email_lower)
         )
         user = result.scalar_one_or_none()
-        
+
         # Always return success (security best practice)
         if user is None:
             return ResendVerificationResponse(
@@ -424,11 +426,13 @@ async def login(request_data: LoginRequest, request: Request) -> LoginResponse:
             )
     
     async with get_db_session() as session:
-        # Find user by email
-        result = await session.execute(select(User).where(User.email == request_data.email))
+        # Find user by email (case-insensitive)
+        email_lower = request_data.email.lower().strip()
+        result = await session.execute(select(User).where(func.lower(User.email) == email_lower))
         user = result.scalar_one_or_none()
-        
+
         if user is None:
+            logger.info("Login failed: no user found for email=%s", email_lower)
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password",
@@ -442,8 +446,8 @@ async def login(request_data: LoginRequest, request: Request) -> LoginResponse:
                 detail="User account is inactive",
             )
         
-        # Check if email is verified (per spec)
-        if not user.is_verified:
+        # Check if email is verified (per spec). In development, allow login without verification.
+        if not user.is_verified and settings.environment != "development":
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Please verify your email before logging in",
@@ -451,6 +455,7 @@ async def login(request_data: LoginRequest, request: Request) -> LoginResponse:
         
         # Verify password
         if not user.password_hash or not verify_password(request_data.password, user.password_hash):
+            logger.info("Login failed: password mismatch for email=%s (user_id=%s)", email_lower, user.id)
             # Increment rate limit on failed attempt
             if redis_service.is_enabled:
                 redis_service.increment_rate_limit(rate_limit_key, LOGIN_RATE_WINDOW)
@@ -726,9 +731,10 @@ async def forgot_password(request_data: ForgotPasswordRequest) -> ForgotPassword
     - Send password reset email
     """
     async with get_db_session() as session:
-        result = await session.execute(select(User).where(User.email == request_data.email))
+        email_lower = request_data.email.lower().strip()
+        result = await session.execute(select(User).where(func.lower(User.email) == email_lower))
         user = result.scalar_one_or_none()
-        
+
         # Always return success (security best practice)
         if user is None or not user.is_active:
             return ForgotPasswordResponse(

@@ -21,7 +21,7 @@ from sqlalchemy import select, func, delete, and_, case, cast, String, Date
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.base import get_session_factory
-from ..models.conversation import Conversation, Rating
+from ..models.conversation import Conversation, Rating, ConversationOutcome
 from ..models.document import Document
 from ..models.lead import Lead, LeadStatus
 from ..models.message import Message
@@ -30,6 +30,78 @@ from ..models.user_preferences import UserPreferences
 from ..models.knowledge_base import KnowledgeBase, UserKnowledgeBasePreference
 
 logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# Tenant ID Resolution Helper
+# ============================================================================
+
+async def resolve_tenant_id(user_id: Optional[str], session: Optional[AsyncSession] = None) -> Optional[str]:
+    """
+    Resolve a user_id to their actual tenant_id.
+    
+    This ensures conversations are stored with the correct tenant_id rather than
+    accidentally using user_id as tenant_id.
+    
+    Args:
+        user_id: The user's ID
+        session: Optional existing database session (creates new one if not provided)
+        
+    Returns:
+        The user's tenant_id if found, otherwise None
+    """
+    if not user_id:
+        return None
+    
+    from ..models.user import User
+    
+    async def _lookup(sess: AsyncSession) -> Optional[str]:
+        result = await sess.execute(
+            select(User.tenant_id).where(User.id == user_id)
+        )
+        return result.scalar_one_or_none()
+    
+    if session:
+        return await _lookup(session)
+    else:
+        session_factory = get_session_factory()
+        async with session_factory() as new_session:
+            return await _lookup(new_session)
+
+
+async def get_effective_tenant_id(
+    tenant_id: Optional[str] = None,
+    user_id: Optional[str] = None,
+    session: Optional[AsyncSession] = None,
+) -> str:
+    """
+    Get the effective tenant_id for storing records.
+    
+    Priority:
+    1. If tenant_id is provided, use it
+    2. If user_id is provided, look up the user's tenant_id
+    3. Fall back to user_id if lookup fails
+    4. Fall back to "anonymous" if nothing else available
+    
+    Args:
+        tenant_id: Explicit tenant_id (highest priority)
+        user_id: User's ID (will lookup their tenant_id)
+        session: Optional existing database session
+        
+    Returns:
+        The resolved tenant_id
+    """
+    if tenant_id:
+        return tenant_id
+    
+    if user_id:
+        resolved = await resolve_tenant_id(user_id, session)
+        if resolved:
+            return resolved
+        # Fall back to user_id if we can't find their tenant
+        return user_id
+    
+    return "anonymous"
 
 
 # Conversation management functions
@@ -41,6 +113,7 @@ async def save_conversation_turn(
     sources_count: int,
     query_time_ms: float,
     user_id: Optional[str] = None,
+    tenant_id: Optional[str] = None,
 ) -> Optional[str]:
     """
     Save a conversation turn to the database.
@@ -51,6 +124,8 @@ async def save_conversation_turn(
         answer: The generated answer
         sources_count: Number of sources used
         query_time_ms: Query processing time in milliseconds
+        user_id: Optional user ID (used when tenant_id not provided)
+        tenant_id: Optional tenant ID for admin list consistency (prefer over user_id)
 
     Returns:
         Optional message ID (returns actual ID for assistant message)
@@ -66,6 +141,9 @@ async def save_conversation_turn(
     session_factory = get_session_factory()
     async with session_factory() as session:
         try:
+            # Resolve the correct tenant_id (lookup user's tenant if needed)
+            effective_tenant = await get_effective_tenant_id(tenant_id, user_id, session)
+            
             # Check if conversation exists for this session_id
             result = await session.execute(
                 select(Conversation).where(Conversation.session_id == session_id)
@@ -77,7 +155,7 @@ async def save_conversation_turn(
                 conversation_id = str(uuid.uuid4())
                 conversation = Conversation(
                     id=conversation_id,
-                    tenant_id =user_id or "anonymous",  # Use user_id if provided, otherwise "anonymous"
+                    tenant_id=effective_tenant,
                     session_id=session_id,
                     started_at=datetime.utcnow(),
                     last_activity_at=datetime.utcnow(),
@@ -108,6 +186,9 @@ async def save_conversation_turn(
                 created_at=datetime.utcnow(),
             )
             session.add(assistant_message)
+
+            # Keep message_count in sync for admin list
+            conversation.message_count = (conversation.message_count or 0) + 2
 
             await session.commit()
 
@@ -1731,18 +1812,28 @@ async def get_active_knowledge_base_ids_by_tenant(tenant_id: str) -> List[str]:
 # Dashboard-specific functions (Milestone 7.2)
 # ============================================================================
 
+def _effective_tenant_ids(tenant_id: str, user_id: Optional[str] = None) -> List[str]:
+    """Return [tenant_id, user_id] deduplicated so list/dashboard include both org and user-owned rows."""
+    ids = [tenant_id]
+    if user_id and user_id not in ids:
+        ids.append(user_id)
+    return ids
+
+
 async def get_conversations_count_by_date_range(
     tenant_id: str,
     start_date: datetime,
-    end_date: datetime
+    end_date: datetime,
+    user_id: Optional[str] = None,
 ) -> int:
     """Get total conversation count within a date range."""
+    tenant_ids = _effective_tenant_ids(tenant_id, user_id)
     session_factory = get_session_factory()
     async with session_factory() as session:
         result = await session.execute(
             select(func.count(Conversation.id))
             .where(
-                Conversation.tenant_id == tenant_id,
+                Conversation.tenant_id.in_(tenant_ids),
                 Conversation.started_at >= start_date,
                 Conversation.started_at <= end_date
             )
@@ -1753,15 +1844,17 @@ async def get_conversations_count_by_date_range(
 async def get_leads_count_by_date_range(
     tenant_id: str,
     start_date: datetime,
-    end_date: datetime
+    end_date: datetime,
+    user_id: Optional[str] = None,
 ) -> int:
     """Get total leads count within a date range."""
+    tenant_ids = _effective_tenant_ids(tenant_id, user_id)
     session_factory = get_session_factory()
     async with session_factory() as session:
         result = await session.execute(
             select(func.count(Lead.id))
             .where(
-                Lead.tenant_id == tenant_id,
+                Lead.tenant_id.in_(tenant_ids),
                 Lead.created_at >= start_date,
                 Lead.created_at <= end_date
             )
@@ -1772,19 +1865,21 @@ async def get_leads_count_by_date_range(
 async def get_resolution_rate_by_date_range(
     tenant_id: str,
     start_date: datetime,
-    end_date: datetime
+    end_date: datetime,
+    user_id: Optional[str] = None,
 ) -> float:
     """Get resolution rate percentage within a date range."""
+    tenant_ids = _effective_tenant_ids(tenant_id, user_id)
     session_factory = get_session_factory()
     async with session_factory() as session:
         # Get resolved count
         resolved_result = await session.execute(
             select(func.count(Conversation.id))
             .where(
-                Conversation.tenant_id == tenant_id,
+                Conversation.tenant_id.in_(tenant_ids),
                 Conversation.started_at >= start_date,
                 Conversation.started_at <= end_date,
-                Conversation.outcome == "resolved"
+                Conversation.outcome == ConversationOutcome.RESOLVED
             )
         )
         resolved = resolved_result.scalar() or 0
@@ -1793,7 +1888,7 @@ async def get_resolution_rate_by_date_range(
         total_result = await session.execute(
             select(func.count(Conversation.id))
             .where(
-                Conversation.tenant_id == tenant_id,
+                Conversation.tenant_id.in_(tenant_ids),
                 Conversation.started_at >= start_date,
                 Conversation.started_at <= end_date,
                 Conversation.outcome.isnot(None)
@@ -1810,9 +1905,11 @@ async def get_resolution_rate_by_date_range(
 async def get_conversations_by_date_range(
     tenant_id: str,
     start_date: datetime,
-    end_date: datetime
+    end_date: datetime,
+    user_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """Get conversation counts grouped by date."""
+    tenant_ids = _effective_tenant_ids(tenant_id, user_id)
     session_factory = get_session_factory()
     async with session_factory() as session:
         result = await session.execute(
@@ -1821,7 +1918,7 @@ async def get_conversations_by_date_range(
                 func.count(Conversation.id).label("count")
             )
             .where(
-                Conversation.tenant_id == tenant_id,
+                Conversation.tenant_id.in_(tenant_ids),
                 Conversation.started_at >= start_date,
                 Conversation.started_at <= end_date
             )
@@ -1835,9 +1932,11 @@ async def get_conversations_by_date_range(
 async def get_conversation_outcomes(
     tenant_id: str,
     start_date: datetime,
-    end_date: datetime
+    end_date: datetime,
+    user_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """Get conversation outcomes breakdown."""
+    tenant_ids = _effective_tenant_ids(tenant_id, user_id)
     session_factory = get_session_factory()
     async with session_factory() as session:
         result = await session.execute(
@@ -1846,7 +1945,7 @@ async def get_conversation_outcomes(
                 func.count(Conversation.id).label("count")
             )
             .where(
-                Conversation.tenant_id == tenant_id,
+                Conversation.tenant_id.in_(tenant_ids),
                 Conversation.started_at >= start_date,
                 Conversation.started_at <= end_date,
                 Conversation.outcome.isnot(None)
@@ -1863,9 +1962,11 @@ async def get_conversation_outcomes(
 async def get_conversations_by_channel(
     tenant_id: str,
     start_date: datetime,
-    end_date: datetime
+    end_date: datetime,
+    user_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """Get conversation counts grouped by channel."""
+    tenant_ids = _effective_tenant_ids(tenant_id, user_id)
     session_factory = get_session_factory()
     async with session_factory() as session:
         result = await session.execute(
@@ -1874,7 +1975,7 @@ async def get_conversations_by_channel(
                 func.count(Conversation.id).label("count")
             )
             .where(
-                Conversation.tenant_id == tenant_id,
+                Conversation.tenant_id.in_(tenant_ids),
                 Conversation.started_at >= start_date,
                 Conversation.started_at <= end_date
             )
@@ -1905,12 +2006,14 @@ async def get_avg_response_time(
 
 async def get_recent_conversations(
     tenant_id: str,
-    limit: int = 5
+    limit: int = 5,
+    user_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """Get recent conversations with contact info."""
+    tenant_ids = _effective_tenant_ids(tenant_id, user_id)
     session_factory = get_session_factory()
     async with session_factory() as session:
-        from ..models.message import Message
+        from ..models.message import Message, MessageRole
         from ..models.contact import Contact
         
         result = await session.execute(
@@ -1920,10 +2023,10 @@ async def get_recent_conversations(
                 Message,
                 and_(
                     Message.conversation_id == Conversation.id,
-                    Message.role == "user"
+                    Message.role == MessageRole.USER
                 )
             )
-            .where(Conversation.tenant_id == tenant_id)
+            .where(Conversation.tenant_id.in_(tenant_ids))
             .order_by(Conversation.started_at.desc())
             .limit(limit)
         )
@@ -1944,14 +2047,16 @@ async def get_recent_conversations(
 
 async def get_recent_leads(
     tenant_id: str,
-    limit: int = 5
+    limit: int = 5,
+    user_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """Get recent leads with contact info."""
+    tenant_ids = _effective_tenant_ids(tenant_id, user_id)
     session_factory = get_session_factory()
     async with session_factory() as session:
         result = await session.execute(
             select(Lead)
-            .where(Lead.tenant_id == tenant_id)
+            .where(Lead.tenant_id.in_(tenant_ids))
             .order_by(Lead.created_at.desc())
             .limit(limit)
         )
@@ -1974,18 +2079,20 @@ async def get_recent_leads(
 async def get_unanswered_questions_count(
     tenant_id: str,
     start_date: datetime,
-    end_date: datetime
+    end_date: datetime,
+    user_id: Optional[str] = None,
 ) -> int:
     """Get count of conversations that were escalated (unanswered)."""
+    tenant_ids = _effective_tenant_ids(tenant_id, user_id)
     session_factory = get_session_factory()
     async with session_factory() as session:
         result = await session.execute(
             select(func.count(Conversation.id))
             .where(
-                Conversation.tenant_id == tenant_id,
+                Conversation.tenant_id.in_(tenant_ids),
                 Conversation.started_at >= start_date,
                 Conversation.started_at <= end_date,
-                Conversation.outcome == "escalated"
+                Conversation.outcome == ConversationOutcome.ESCALATED
             )
         )
         return result.scalar() or 0
@@ -2030,41 +2137,43 @@ async def get_chatbot_status(tenant_id: str) -> Dict[str, Any]:
 
 async def get_leads_analytics(
     tenant_id: str,
-    days: int = 30
+    days: int = 30,
+    user_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Get lead analytics for 7.3.6 - Lead analytics section."""
     from datetime import timedelta
     from ..models.lead import Lead, LeadStatus
     from ..models.conversation import Conversation, ConversationStatus
-    
+
+    tenant_ids = _effective_tenant_ids(tenant_id, user_id)
     session_factory = get_session_factory()
     async with session_factory() as session:
         end_date = datetime.utcnow()
         start_date = end_date - timedelta(days=days)
         prev_start = start_date - timedelta(days=days)
-        
+
         # Total leads in date range
         result = await session.execute(
             select(func.count(Lead.id))
             .where(
-                Lead.tenant_id == tenant_id,
+                Lead.tenant_id.in_(tenant_ids),
                 Lead.created_at >= start_date,
                 Lead.created_at <= end_date
             )
         )
         total_leads = result.scalar() or 0
-        
+
         # Previous period for trend
         result = await session.execute(
             select(func.count(Lead.id))
             .where(
-                Lead.tenant_id == tenant_id,
+                Lead.tenant_id.in_(tenant_ids),
                 Lead.created_at >= prev_start,
                 Lead.created_at < start_date
             )
         )
         prev_leads = result.scalar() or 0
-        
+
         # Leads by day
         result = await session.execute(
             select(
@@ -2072,7 +2181,7 @@ async def get_leads_analytics(
                 func.count(Lead.id).label("count")
             )
             .where(
-                Lead.tenant_id == tenant_id,
+                Lead.tenant_id.in_(tenant_ids),
                 Lead.created_at >= start_date,
                 Lead.created_at <= end_date
             )
@@ -2088,7 +2197,7 @@ async def get_leads_analytics(
                 func.count(Lead.id).label("count")
             )
             .where(
-                Lead.tenant_id == tenant_id,
+                Lead.tenant_id.in_(tenant_ids),
                 Lead.created_at >= start_date,
                 Lead.created_at <= end_date
             )
@@ -2109,39 +2218,39 @@ async def get_leads_analytics(
         result = await session.execute(
             select(func.count(Conversation.id))
             .where(
-                Conversation.tenant_id == tenant_id,
+                Conversation.tenant_id.in_(tenant_ids),
                 Conversation.started_at >= start_date,
                 Conversation.started_at <= end_date
             )
         )
         total_conversations = result.scalar() or 0
-        
+
         contacted = await session.execute(
             select(func.count(Lead.id))
             .where(
-                Lead.tenant_id == tenant_id,
+                Lead.tenant_id.in_(tenant_ids),
                 Lead.created_at >= start_date,
                 Lead.created_at <= end_date,
                 Lead.status.in_([LeadStatus.CONTACTED, LeadStatus.QUALIFIED, LeadStatus.CONVERTED])
             )
         )
         contacted_count = contacted.scalar() or 0
-        
+
         qualified = await session.execute(
             select(func.count(Lead.id))
             .where(
-                Lead.tenant_id == tenant_id,
+                Lead.tenant_id.in_(tenant_ids),
                 Lead.created_at >= start_date,
                 Lead.created_at <= end_date,
                 Lead.status.in_([LeadStatus.QUALIFIED, LeadStatus.CONVERTED])
             )
         )
         qualified_count = qualified.scalar() or 0
-        
+
         converted = await session.execute(
             select(func.count(Lead.id))
             .where(
-                Lead.tenant_id == tenant_id,
+                Lead.tenant_id.in_(tenant_ids),
                 Lead.created_at >= start_date,
                 Lead.created_at <= end_date,
                 Lead.status == LeadStatus.CONVERTED
@@ -2214,7 +2323,7 @@ async def get_channel_analytics(tenant_id: str) -> Dict[str, Any]:
                 .where(
                     Conversation.tenant_id == tenant_id,
                     Conversation.channel == channel,
-                    Conversation.outcome == "resolved"
+                    Conversation.outcome == ConversationOutcome.RESOLVED
                 )
             )
             resolved_count = resolved_result.scalar() or 0
@@ -2287,7 +2396,7 @@ async def get_content_analytics(
             .join(Conversation, Message.conversation_id == Conversation.id)
             .where(
                 Conversation.tenant_id == tenant_id,
-                Conversation.outcome == "escalated",
+                Conversation.outcome == ConversationOutcome.ESCALATED,
                 Message.role == "user",
                 Message.created_at >= start_date,
                 Message.created_at <= end_date
@@ -2305,7 +2414,7 @@ async def get_content_analytics(
                 .join(Conversation, Message.conversation_id == Conversation.id)
                 .where(
                     Conversation.tenant_id == tenant_id,
-                    Conversation.outcome == "escalated",
+                    Conversation.outcome == ConversationOutcome.ESCALATED,
                     Message.content == row.content
                 )
             )
@@ -2499,6 +2608,7 @@ async def get_admin_conversation_list(
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
     rating: Optional[str] = None,
+    user_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Get paginated list of conversations for the admin conversations table.
@@ -2509,10 +2619,15 @@ async def get_admin_conversation_list(
     from ..models.conversation import ConversationStatus, Rating as ConvRating, Channel as ConvChannel
     from sqlalchemy import or_, text
 
+    tenant_ids = _effective_tenant_ids(tenant_id, user_id)
+    logger.warning(
+        "get_admin_conversation_list DEBUG: tenant_id=%s user_id=%s tenant_ids=%s",
+        tenant_id, user_id, tenant_ids,
+    )
     session_factory = get_session_factory()
     async with session_factory() as session:
-        # Build base filter conditions
-        conditions = [Conversation.tenant_id == tenant_id]
+        # Build base filter conditions (include both org and user-owned conversations)
+        conditions = [Conversation.tenant_id.in_(tenant_ids)]
 
         if channel and channel != "all":
             try:
@@ -2558,6 +2673,7 @@ async def get_admin_conversation_list(
                 func.sum(case((Conversation.status == ConversationStatus.RESOLVED, 1), else_=0)).label("resolved"),
                 func.sum(case((Conversation.status == ConversationStatus.ESCALATED, 1), else_=0)).label("escalated"),
                 func.sum(case((Conversation.status == ConversationStatus.ABANDONED, 1), else_=0)).label("abandoned"),
+                func.sum(case((Conversation.status == ConversationStatus.NEEDS_REVIEW, 1), else_=0)).label("needs_review"),
             ).where(and_(*conditions))
         )
         stats_row = stats_result.fetchone()
@@ -2567,6 +2683,7 @@ async def get_admin_conversation_list(
             "resolved": stats_row.resolved or 0,
             "escalated": stats_row.escalated or 0,
             "abandoned": stats_row.abandoned or 0,
+            "needs_review": getattr(stats_row, "needs_review", 0) or 0,
         }
 
         # If search is provided, filter by contact name/phone/email or first message content
@@ -2608,6 +2725,10 @@ async def get_admin_conversation_list(
             select(func.count()).select_from(base_query.subquery())
         )
         total_matching = count_result.scalar() or 0
+        logger.info(
+            "get_admin_conversation_list: total_matching=%s page=%s per_page=%s",
+            total_matching, page, per_page,
+        )
 
         # Paginate
         offset = (page - 1) * per_page
@@ -2674,6 +2795,7 @@ async def get_admin_conversation_list(
 async def get_admin_conversation_detail(
     conversation_id: str,
     tenant_id: str,
+    user_id: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """
     Get full conversation detail with transcript, contact info, and timeline.
@@ -2682,13 +2804,14 @@ async def get_admin_conversation_detail(
 
     session_factory = get_session_factory()
     async with session_factory() as session:
-        # Get conversation with contact
+        # Get conversation with contact (allow access if tenant_id or user_id matches)
+        tenant_ids = _effective_tenant_ids(tenant_id, user_id)
         result = await session.execute(
             select(Conversation, Contact)
             .outerjoin(Contact, Conversation.contact_id == Contact.id)
             .where(
                 Conversation.id == conversation_id,
-                Conversation.tenant_id == tenant_id,
+                Conversation.tenant_id.in_(tenant_ids),
             )
         )
         row = result.fetchone()
@@ -2774,6 +2897,9 @@ async def get_admin_conversation_detail(
             for msg in messages
         ]
 
+        # Internal notes (in-memory store; contact.notes remains in contact_detail.notes)
+        internal_notes: List[Dict[str, str]] = list(_conversation_notes.get(conversation_id, []))
+
         return {
             "id": conv.id,
             "channel": conv.channel.value if conv.channel else "web",
@@ -2788,6 +2914,7 @@ async def get_admin_conversation_detail(
             "messages": messages_detail,
             "contact": contact_detail,
             "timeline": timeline,
+            "internal_notes": internal_notes,
             "is_flagged": _conversation_flags.get(conversation_id, False),
         }
 
@@ -3010,6 +3137,7 @@ async def get_admin_leads_list(
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
     source_page: Optional[str] = None,
+    user_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Return a paginated list of leads with stats for the admin Leads page (7.5).
@@ -3018,6 +3146,7 @@ async def get_admin_leads_list(
     from ..models.contact import Contact
     from ..models.lead import LeadStatus
 
+    tenant_ids = _effective_tenant_ids(tenant_id, user_id)
     session_factory = get_session_factory()
     async with session_factory() as session:
         # Base query: join Lead with Contact (optional) and Conversation (optional)
@@ -3025,7 +3154,7 @@ async def get_admin_leads_list(
             select(Lead, Contact, Conversation)
             .outerjoin(Contact, Lead.contact_id == Contact.id)
             .outerjoin(Conversation, Lead.conversation_id == Conversation.id)
-            .where(Lead.tenant_id == tenant_id)
+            .where(Lead.tenant_id.in_(tenant_ids))
         )
 
         # Apply filters
@@ -3068,7 +3197,7 @@ async def get_admin_leads_list(
         count_result = await session.execute(select(func.count()).select_from(base_q.subquery()))
         total_matching = count_result.scalar_one() or 0
 
-        # Stats — count per status for this tenant
+        # Stats — count per status for this tenant (and user-owned)
         stats_result = await session.execute(
             select(
                 func.count(Lead.id).label("total"),
@@ -3079,7 +3208,7 @@ async def get_admin_leads_list(
                 func.sum(
                     case((Lead.created_at >= datetime.utcnow().replace(day=1), 1), else_=0)
                 ).label("this_month"),
-            ).where(Lead.tenant_id == tenant_id)
+            ).where(Lead.tenant_id.in_(tenant_ids))
         )
         stats_row = stats_result.fetchone()
         stats = {
@@ -3129,19 +3258,21 @@ async def get_admin_leads_list(
 async def get_admin_lead_detail(
     lead_id: str,
     tenant_id: str,
+    user_id: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """
     Return full lead detail: contact info, conversation transcript, timeline, notes.
     """
     from ..models.contact import Contact, LeadScore
 
+    tenant_ids = _effective_tenant_ids(tenant_id, user_id)
     session_factory = get_session_factory()
     async with session_factory() as session:
         result = await session.execute(
             select(Lead, Contact, Conversation)
             .outerjoin(Contact, Lead.contact_id == Contact.id)
             .outerjoin(Conversation, Lead.conversation_id == Conversation.id)
-            .where(Lead.id == lead_id, Lead.tenant_id == tenant_id)
+            .where(Lead.id == lead_id, Lead.tenant_id.in_(tenant_ids))
         )
         row = result.fetchone()
         if not row:
@@ -3245,15 +3376,17 @@ async def update_lead_status(
     tenant_id: str,
     new_status: str,
     reason: Optional[str] = None,
+    user_id: Optional[str] = None,
 ) -> bool:
     """Update a lead's status. Also syncs the linked contact's lead_status. Returns True if updated."""
     from ..models.lead import LeadStatus
     from ..models.contact import Contact, LeadStatus as ContactLeadStatus
 
+    tenant_ids = _effective_tenant_ids(tenant_id, user_id)
     session_factory = get_session_factory()
     async with session_factory() as session:
         result = await session.execute(
-            select(Lead).where(Lead.id == lead_id, Lead.tenant_id == tenant_id)
+            select(Lead).where(Lead.id == lead_id, Lead.tenant_id.in_(tenant_ids))
         )
         lead = result.scalar_one_or_none()
         if not lead:
@@ -3287,6 +3420,7 @@ async def add_lead_note(
     lead_id: str,
     tenant_id: str,
     note: str,
+    user_id: Optional[str] = None,
 ) -> bool:
     """
     Add an internal note to a lead.
@@ -3303,10 +3437,11 @@ async def add_lead_note(
     })
 
     # Also persist in contact.notes when possible
+    tenant_ids = _effective_tenant_ids(tenant_id, user_id)
     session_factory = get_session_factory()
     async with session_factory() as session:
         lead_result = await session.execute(
-            select(Lead).where(Lead.id == lead_id, Lead.tenant_id == tenant_id)
+            select(Lead).where(Lead.id == lead_id, Lead.tenant_id.in_(tenant_ids))
         )
         lead = lead_result.scalar_one_or_none()
         if lead and lead.contact_id:
@@ -3327,6 +3462,7 @@ async def add_lead_note(
 async def calculate_lead_score(
     lead_id: str,
     tenant_id: str,
+    user_id: Optional[str] = None,
 ) -> Optional[str]:
     """
     Auto-calculate and persist lead score (High / Medium / Low).
@@ -3338,13 +3474,14 @@ async def calculate_lead_score(
     """
     from ..models.contact import Contact, LeadScore
 
+    tenant_ids = _effective_tenant_ids(tenant_id, user_id)
     session_factory = get_session_factory()
     async with session_factory() as session:
         result = await session.execute(
             select(Lead, Contact, Conversation)
             .outerjoin(Contact, Lead.contact_id == Contact.id)
             .outerjoin(Conversation, Lead.conversation_id == Conversation.id)
-            .where(Lead.id == lead_id, Lead.tenant_id == tenant_id)
+            .where(Lead.id == lead_id, Lead.tenant_id.in_(tenant_ids))
         )
         row = result.fetchone()
         if not row:
@@ -3392,6 +3529,7 @@ async def bulk_lead_action(
     action: str,
     status: Optional[str] = None,
     reason: Optional[str] = None,
+    user_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Execute a bulk action on a list of leads.
@@ -3400,6 +3538,7 @@ async def bulk_lead_action(
     from ..models.lead import LeadStatus
     from ..models.contact import Contact, LeadStatus as ContactLeadStatus
 
+    tenant_ids = _effective_tenant_ids(tenant_id, user_id)
     affected = 0
     failed = 0
     export_rows: List[Dict[str, Any]] = []
@@ -3412,7 +3551,7 @@ async def bulk_lead_action(
                     result = await session.execute(
                         select(Lead, Contact)
                         .outerjoin(Contact, Lead.contact_id == Contact.id)
-                        .where(Lead.id == lead_id, Lead.tenant_id == tenant_id)
+                        .where(Lead.id == lead_id, Lead.tenant_id.in_(tenant_ids))
                     )
                     row = result.fetchone()
                     if not row:
@@ -3444,7 +3583,7 @@ async def bulk_lead_action(
                 result = await session.execute(
                     select(Lead, Contact)
                     .outerjoin(Contact, Lead.contact_id == Contact.id)
-                    .where(Lead.id == lead_id, Lead.tenant_id == tenant_id)
+                    .where(Lead.id == lead_id, Lead.tenant_id.in_(tenant_ids))
                 )
                 row = result.fetchone()
                 if not row:
