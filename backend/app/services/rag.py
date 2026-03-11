@@ -260,7 +260,7 @@ async def retrieve_relevant_chunks(
         return []
 
 
-async def generate_answer(query: str, sources: List[SourceRef]) -> str:
+async def generate_answer(query: str, sources: List[SourceRef], system_prompt: Optional[str] = None) -> str:
     """
     Generate an answer using the query and retrieved sources.
 
@@ -344,6 +344,8 @@ Do NOT include citations in your answer."""
         
         settings = get_settings()
         generator = _get_llm_generator()
+        if system_prompt:
+            settings.system_prompt = system_prompt
         
         # Convert SourceRef to chunk format for prompt building
         # SourceRef.snippet already contains the full chunk text from retrieval
@@ -360,10 +362,14 @@ Do NOT include citations in your answer."""
             })
         
         # Build prompt
+        # build channel-specific system prompt if chatbot config available
+        from ..services.prompt_builder import build_system_prompt
+        system_prompt = settings.system_prompt
+        # note: message_router may already compute prompt; here we just include default
         prompt = build_prompt(
             context_chunks=context_chunks,
             user_query=query,
-            system_prompt=settings.system_prompt
+            system_prompt=system_prompt
         )
         
         # Generate answer
@@ -390,10 +396,12 @@ CONFIDENCE_THRESHOLD = 0.7
 
 async def process_chat_query(
     query: str,
+    channel: str = "web",
     top_k: int = 5,
     user_id: Optional[str] = None,
     active_kb_ids: Optional[List[str]] = None,
     fallback_message: str = "I'm not sure I understand. Would you like to speak with our team?",
+    system_prompt: Optional[str] = None,
 ) -> tuple[str, List[SourceRef], bool]:
     """
     Process a chat query through the RAG pipeline.
@@ -423,5 +431,5 @@ async def process_chat_query(
             )
             return fallback_message, sources, True
 
-    answer = await generate_answer(query, sources)
+    answer = await generate_answer(query, sources, system_prompt=system_prompt)
     return answer, sources, False

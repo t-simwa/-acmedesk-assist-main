@@ -37,8 +37,8 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             id={inputId}
             type={isPassword && showPassword ? "text" : type}
             className={cn(
-              "flex w-full bg-white/[0.05] dark:bg-white/[0.05] border-[1.5px] border-white/[0.1] dark:border-white/[0.1] rounded-[10px] px-4 py-2.5 text-sm text-foreground ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:border-[#4F8EF7] focus-visible:shadow-[0_0_0_3px_rgba(79,142,247,0.3)] disabled:cursor-not-allowed disabled:opacity-40 disabled:cursor-not-allowed transition-all",
-              error && "border-[#EF4444] focus-visible:border-[#EF4444] focus-visible:shadow-[0_0_0_3px_rgba(239,68,68,0.3)]",
+              "flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-50 transition-colors",
+              error && "border-[#EF4444] focus-visible:border-[#EF4444] focus-visible:ring-[#EF4444]",
               leftIcon && "pl-10",
               (rightIcon || (isPassword && showPasswordToggle)) && "pr-10",
               className

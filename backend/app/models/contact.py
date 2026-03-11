@@ -3,7 +3,7 @@ Contact model for storing customer/visitor information.
 """
 
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Dict
 from enum import Enum
 import json
 
@@ -44,6 +44,9 @@ class Contact(Base):
     instagram_handle: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     company: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     channels_used: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)  # Array of channel names
+    channel_identifiers: Mapped[Optional[Dict[str, str]]] = mapped_column(JSON, nullable=True)  # e.g. {"whatsapp":"wa_id","instagram":"ig_id"}
+    opted_out: Mapped[bool] = mapped_column(default=False)
+    opted_out_channels: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
     first_seen_channel: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     first_seen_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     last_active_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)

@@ -63,12 +63,25 @@ function LeadCaptureInlineForm({
   );
 }
 
-export function ChatWidget() {
+export interface ChatWidgetProps {
+  config?: Partial<Record<string, any>>;
+  preview?: boolean; // if true, widget starts open and hides launcher
+}
+
+export function ChatWidget({ config, preview = false }: ChatWidgetProps) {
   const { t } = useTranslation();
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(preview || false);
+
+  // when preview prop toggles, always open
+  useEffect(() => {
+    if (preview) setIsOpen(true);
+  }, [preview]);
   
-  // Load custom greeting or use default
+  // Load custom greeting or use default. Preference order: preview config -> localStorage -> default text
   const getGreetingMessage = (): string => {
+    if (config?.greeting_message) {
+      return config.greeting_message as string;
+    }
     const stored = localStorage.getItem(CHAT_GREETING_KEY);
     return stored || t("chat.greeting");
   };
@@ -936,7 +949,8 @@ export function ChatWidget() {
 
       {/* Floating Button — clean, no generic icons */}
       {/* F2.4 - Hide floating button on mobile when chat is open (to avoid overlap with send button) */}
-      {!(isMobile && isOpen) && (
+      {/* also hide during preview mode */}
+      {!preview && !(isMobile && isOpen) && (
         <button
           onClick={() => {
             setIsOpen(!isOpen);

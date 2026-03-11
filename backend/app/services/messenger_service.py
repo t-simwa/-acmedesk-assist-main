@@ -114,6 +114,35 @@ async def create_inbound_messenger_message(
         conversation.last_activity_at = now
 
         await session.commit()
+        # route through universal message router
+        from ..services.message_router import route_message
+        from ..models.message_event import MessageEvent
+
+        event = MessageEvent(
+            tenant_id=effective_tenant_id,
+            channel=MESSENGER_CHANNEL_NAME,
+            channel_user_id=sender_id,
+            channel_conversation_id=thread_id,
+            contact_phone=None,
+            contact_email=None,
+            contact_name=None,
+            contact_avatar_url=None,
+            message_id=provider_message_id or message.id,
+            message_type="text",
+            text=body,
+            raw_payload={"from": sender_id, "to": page_id},
+            timestamp=now,
+            reply_to_message_id=None,
+            media_url=None,
+            media_type=None,
+            media_caption=None,
+            button_payload=None,
+            selected_option=None,
+        )
+        try:
+            await route_message(event, session)
+        except Exception:
+            logger.exception("error routing messenger message")
         return message.to_dict()
 
 

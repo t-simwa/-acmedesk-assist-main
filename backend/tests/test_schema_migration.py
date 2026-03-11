@@ -47,3 +47,31 @@ async def test_fix_schema_adds_new_user_columns(tmp_path, monkeypatch):
     assert "reset_token_expires" in columns
     assert "is_active" in columns
     assert "is_verified" in columns
+
+
+@pytest.mark.asyncio
+async def test_fix_schema_adds_chatbot_columns(tmp_path, monkeypatch):
+    """Ensure chatbot_instances table receives the milestone 7.6 fields."""
+    db_file = tmp_path / "chatbot.db"
+    monkeypatch.setattr(
+        base,
+        "get_database_url",
+        lambda: f"sqlite+aiosqlite:///{db_file.resolve()}"
+    )
+
+    # run schema creation
+    await base.fix_schema()
+
+    engine = base.get_engine()
+    async with engine.connect() as conn:
+        result = await conn.execute(text("PRAGMA table_info(chatbot_instances)"))
+        cols = [row[1] for row in result.fetchall()]
+
+    # check a representative subset of new fields
+    for field in [
+        "business_hours_enabled",
+        "escalation_slack_webhook",
+        "lead_capture_enabled",
+        "notifications_config",
+    ]:
+        assert field in cols

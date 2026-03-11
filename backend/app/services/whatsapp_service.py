@@ -117,6 +117,36 @@ async def create_inbound_whatsapp_message(
         conversation.last_activity_at = now
 
         await session.commit()
+        await session.commit()
+        # route message through universal router too
+        try:
+            from ..services.message_router import route_message
+            from ..models.message_event import MessageEvent
+
+            event = MessageEvent(
+                tenant_id=effective_tenant_id,
+                channel=WHATSAPP_CHANNEL_NAME,
+                channel_user_id=wa_id,
+                channel_conversation_id=wa_id,
+                contact_phone=wa_id,
+                contact_email=None,
+                contact_name=None,
+                contact_avatar_url=None,
+                message_id=provider_message_id or message.id,
+                message_type="text",
+                text=body,
+                raw_payload={"wa_id": wa_id, "business_number": business_number},
+                timestamp=now,
+                reply_to_message_id=None,
+                media_url=media_urls[0] if media_urls else None,
+                media_type=None,
+                media_caption=caption,
+                button_payload=None,
+                selected_option=None,
+            )
+            await route_message(event, session)
+        except Exception:
+            logger.exception("error routing whatsapp message")
         return message.to_dict()
 
 

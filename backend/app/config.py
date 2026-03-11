@@ -90,7 +90,15 @@ class Settings(BaseSettings):
     jwt_remember_me_expire_days: int = 30  # Remember me token expiration (30 days)
     
     # Email/SMTP configuration
+    email_provider: str = "sendgrid"  # sendgrid | resend | smtp
+    # SendGrid credentials (used when email_provider=sendgrid)
+    sendgrid_api_key: Optional[str] = None
+    sendgrid_from_email: Optional[str] = None
+    sendgrid_default_subject: Optional[str] = None
+    # Resend credentials (used when email_provider=resend)
     resend_api_key: Optional[str] = None  # Resend API key (get from https://resend.com)
+    resend_from_email: Optional[str] = None
+    # SMTP configuration (used when email_provider=smtp)
     smtp_host: str = "localhost"  # SMTP server host (deprecated - use Resend)
     smtp_port: int = 587  # SMTP server port
     smtp_username: Optional[str] = None  # SMTP username (if required)
