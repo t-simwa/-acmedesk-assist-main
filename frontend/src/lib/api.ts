@@ -1310,6 +1310,14 @@ export interface ChatbotStatusResponse {
   chatbot_name?: string | null;
 }
 
+export interface Announcement {
+  id: string;
+  type: string;
+  message: string;
+  start_date?: string | null;
+  end_date?: string | null;
+}
+
 export interface DashboardSummary {
   total_conversations: number;
   leads_captured: number;
@@ -2401,7 +2409,7 @@ export const adminApi = {
   async updateAnnouncement(payload: Announcement): Promise<Announcement> {
     return apiClient<Announcement>("/api/admin/announcement", {
       method: "PUT",
-      data: payload,
+      body: JSON.stringify(payload),
     });
   },
   /**

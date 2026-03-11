@@ -33,9 +33,7 @@ import {
   Tablet,
   Send,
   Bot,
-  Zap,
   ChevronRight,
-  Check,
   X,
   Eye,
 } from "lucide-react";
@@ -157,7 +155,7 @@ function LivePreviewWidget({
   device: PreviewDevice;
   setDevice: (d: PreviewDevice) => void;
 }) {
-  const [isExpanded, setIsExpanded] = useState(true);
+  // expansion state currently unused — kept for future collapser
   const [demoMessages, setDemoMessages] = useState<
     { id: string; role: "user" | "assistant"; content: string }[]
   >([]);
@@ -477,7 +475,7 @@ export default function ChatbotPage() {
   const { data, isLoading, error } = useChatbotConfig();
   const updateMutation = useUpdateChatbotConfig();
 
-  const { register, handleSubmit, watch, control, formState, reset, setValue } = useForm<
+  const { register, handleSubmit, watch, control, formState, reset } = useForm<
     Partial<ChatbotConfig>
   >({
     defaultValues: data || {},
