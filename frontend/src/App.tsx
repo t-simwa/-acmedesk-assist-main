@@ -71,6 +71,7 @@ const Channels = lazy(() => import("./pages/admin/Channels"));
 const Chatbot = lazy(() => import("./pages/admin/Chatbot"));
 const Install = lazy(() => import("./pages/admin/Install"));
 const Integrations = lazy(() => import("./pages/admin/Integrations"));
+const ChannelHealth = lazy(() => import("./pages/admin/ChannelHealth"));
 const Privacy = lazy(() => import("./pages/Privacy"));
 const Terms = lazy(() => import("./pages/Terms"));
 const SuperAdminDashboard = lazy(() => import("./pages/admin/SuperAdminDashboard"));
@@ -465,6 +466,16 @@ const App = () => (
                   }
                 />
                 <Route
+                  path="channel-health"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <ChannelHealth />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
                   path="settings"
                   element={
                     <PageTransition>
@@ -671,6 +682,16 @@ const App = () => (
                     <PageTransition>
                       <Suspense fallback={<DashboardSkeleton />}>
                         <Channels />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="channel-health"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <ChannelHealth />
                       </Suspense>
                     </PageTransition>
                   }

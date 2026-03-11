@@ -218,7 +218,7 @@ async def register(request_data: RegisterRequest, request: Request) -> RegisterR
             tenant_id=tenant_id,
             name="Default Assistant",
             status=ChatbotStatus.PAUSED,
-            widget_position=WidgetPosition.BOTTOM_RIGHT,
+            widget_position=WidgetPosition.BOTTOM_RIGHT.value,
         )
         
         try:

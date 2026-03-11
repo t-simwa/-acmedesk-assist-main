@@ -16,13 +16,16 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional, Tuple
 
 import httpx
+import json
 from sqlalchemy import select
 
 from ..config import settings
 from ..models.base import get_session_factory
 from ..models.conversation import Conversation
-from ..models.message import Message
+from ..models.message import Message, MessageRole
 from ..services.database import get_effective_tenant_id
+from ..models.channel_config import ChannelConfig
+from ..services.crypto import decrypt
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +105,7 @@ async def create_inbound_messenger_message(
         message = Message(
             id=str(uuid.uuid4()),
             conversation_id=conversation.id,
-            role="user",
+            role=MessageRole.USER,
             content=body or "",
             created_at=now,
             message_metadata=metadata,
@@ -278,18 +281,97 @@ async def send_messenger_reply(user_id: str, thread_id: str, body: str) -> dict:
                 )
                 raise
 
+            # Persist assistant message and return
+            assistant_message = Message(
+                id=str(uuid.uuid4()),
+                conversation_id=conversation.id,
+                role=MessageRole.ASSISTANT,
+                content=body,
+                created_at=now,
+                message_metadata={
+                    MESSENGER_CHANNEL_METADATA_KEY: MESSENGER_CHANNEL_NAME,
+                    "direction": "outbound",
+                    "messenger_thread_id": thread_id,
+                    "from": settings.messenger_page_id,
+                    "to": sender_id,
+                },
+            )
+            session.add(assistant_message)
+            conversation.last_activity_at = now
+            await session.commit()
+
+            return assistant_message.to_dict()
+
+        # If outbound webhook is not configured, attempt to send via Facebook Graph API
+        # using a stored page access token in ChannelConfig.oauth_tokens for this tenant.
+        async with session_factory() as session2:
+            stmt = select(ChannelConfig).where(
+                ChannelConfig.tenant_id == effective_tenant_id,
+                ChannelConfig.channel == "messenger",
+            )
+            res = await session2.execute(stmt)
+            cfg = res.scalar_one_or_none()
+
+        page_access_token = None
+        # First check the persisted page_access_token in ChannelConfig.oauth_tokens
+        if cfg and cfg.oauth_tokens:
+            try:
+                token_json = decrypt(cfg.oauth_tokens)
+                token_data = json.loads(token_json)
+            except Exception:
+                token_data = json.loads(cfg.oauth_tokens)
+            # Accept either explicit page_access_token or access_token keys
+            page_access_token = token_data.get("page_access_token") or token_data.get("access_token")
+
+        if not page_access_token:
+            # No token available to call Graph API; persist message locally and return
+            assistant_message = Message(
+                id=str(uuid.uuid4()),
+                conversation_id=conversation.id,
+                role=MessageRole.ASSISTANT,
+                content=body,
+                created_at=now,
+                message_metadata={
+                    MESSENGER_CHANNEL_METADATA_KEY: MESSENGER_CHANNEL_NAME,
+                    "direction": "outbound",
+                    "messenger_thread_id": thread_id,
+                    "from": page_id,
+                    "to": sender_id,
+                },
+            )
+            session.add(assistant_message)
+            conversation.last_activity_at = now
+            await session.commit()
+
+            return assistant_message.to_dict()
+
+        # Call Facebook Graph API to send message via page
+        # Use page_id as the recipient page resource
+        send_url = f"https://graph.facebook.com/{settings.meta_api_version}/{page_id}/messages"
+        payload = {"recipient": {"id": sender_id}, "message": {"text": body}}
+        params = {"access_token": page_access_token}
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.post(send_url, json=payload, params=params)
+                resp.raise_for_status()
+        except Exception as exc:  # noqa: BLE001
+            logger.error("Failed to send Messenger message via Graph API: %s", exc, exc_info=True)
+            raise
+
+        # Persist assistant message after successful send
         assistant_message = Message(
             id=str(uuid.uuid4()),
             conversation_id=conversation.id,
-            role="assistant",
+            role=MessageRole.ASSISTANT,
             content=body,
             created_at=now,
             message_metadata={
                 MESSENGER_CHANNEL_METADATA_KEY: MESSENGER_CHANNEL_NAME,
                 "direction": "outbound",
                 "messenger_thread_id": thread_id,
-                "from": settings.messenger_page_id,
+                "from": page_id,
                 "to": sender_id,
+                "provider_sent": True,
             },
         )
         session.add(assistant_message)

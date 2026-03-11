@@ -39,6 +39,7 @@ from .audit_log import AuditLog, AuditAction, AuditResourceType
 from .api_key import APIKey
 from .team_member import TeamMember, TeamMemberRole, InvitationStatus
 from .knowledge_base import KnowledgeBase, UserKnowledgeBasePreference
+from .channel_config import ChannelConfig
 
 __all__ = [
     # Base
@@ -109,4 +110,5 @@ __all__ = [
     # Knowledge Base
     "KnowledgeBase",
     "UserKnowledgeBasePreference",
+    "ChannelConfig",
 ]

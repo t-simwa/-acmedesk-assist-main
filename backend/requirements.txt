@@ -8,6 +8,7 @@ httpx
 sqlalchemy>=2.0.0
 aiosqlite>=0.19.0
 alembic>=1.12.0  # Database migrations
+APScheduler>=3.10.1  # Scheduler for background token refresh jobs
 
 # RAG Pipeline - Embeddings & Vector Store
 sentence-transformers>=2.2.0
@@ -37,6 +38,9 @@ python-multipart>=0.0.6  # For form data parsing
 redis>=4.5.0  # Redis for rate limiting and session management
 pyotp>=2.9.0  # TOTP for Two-Factor Authentication
 qrcode[pil]>=7.4.0  # QR code generation for 2FA setup
+
+# Optional: encryption support for OAuth tokens
+cryptography>=40.0.0
 
 # Email
 resend>=0.1.0  # Resend email API

@@ -149,6 +149,28 @@ class Settings(BaseSettings):
 
     # Widget configuration
     widget_url: Optional[str] = None  # URL for the embeddable chat widget
+    # Backend origin used to construct OAuth redirect URIs when running locally
+    backend_origin: str = "http://localhost:8000"
+    # Meta / Facebook OAuth
+    meta_client_id: Optional[str] = None
+    meta_client_secret: Optional[str] = None
+    meta_api_version: str = "v16.0"
+    meta_app_secret: Optional[str] = None  # Meta app secret for webhook signature verification
+    
+    # Webhook verification tokens (generated per-tenant or globally)
+    meta_webhook_verify_token: Optional[str] = None  # Token for WhatsApp/Messenger/Instagram webhook verification
+    messenger_webhook_verify_token: Optional[str] = None
+    instagram_webhook_verify_token: Optional[str] = None
+    
+    # Twilio configuration for SMS webhooks
+    twilio_account_sid: Optional[str] = None
+    twilio_auth_token: Optional[str] = None  # For webhook verification
+    twilio_phone_number: Optional[str] = None  # Default Twilio phone number
+    # Token refresh scheduler
+    token_refresh_enabled: bool = True
+    token_refresh_interval_seconds: int = 3600  # run hourly by default
+    # Encryption key used to protect OAuth tokens at rest (Fernet key or passphrase)
+    encryption_key: Optional[str] = None
     
     # Cloudflare R2 storage configuration (supports both old and new env var names)
     r2_bucket_name: Optional[str] = None  # R2 bucket name

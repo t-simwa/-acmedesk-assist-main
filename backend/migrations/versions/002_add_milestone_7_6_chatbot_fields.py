@@ -7,6 +7,7 @@ Create Date: 2026-03-03
 """
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import text
 
 
 # revision identifiers, used by Alembic.
@@ -18,47 +19,63 @@ depends_on = None
 
 def upgrade() -> None:
     """Add new fields to chatbot_instances table for Milestone 7.6."""
-    # Tab 1: Appearance - new fields
-    op.add_column('chatbot_instances', sa.Column('user_message_color', sa.String(7), nullable=False, server_default='#4F8EF7'))
-    op.add_column('chatbot_instances', sa.Column('font_size', sa.String(20), nullable=False, server_default='medium'))
-    
-    # Tab 2: Behavior - new fields
-    op.add_column('chatbot_instances', sa.Column('response_language', sa.String(5), nullable=False, server_default='auto'))
-    op.add_column('chatbot_instances', sa.Column('farewell_message', sa.Text(), nullable=True))
-    op.add_column('chatbot_instances', sa.Column('read_receipts', sa.Boolean(), nullable=False, server_default='false'))
-    op.add_column('chatbot_instances', sa.Column('suggested_starter_questions', sa.JSON(), nullable=True))
-    op.add_column('chatbot_instances', sa.Column('conversation_starters_display', sa.String(50), nullable=False, server_default='first_visit_only'))
-    
-    # Tab 3: Business Hours - new fields
-    op.add_column('chatbot_instances', sa.Column('business_hours_enabled', sa.Boolean(), nullable=False, server_default='false'))
-    op.add_column('chatbot_instances', sa.Column('timezone', sa.String(100), nullable=True))
-    op.add_column('chatbot_instances', sa.Column('weekly_schedule', sa.JSON(), nullable=True))
-    op.add_column('chatbot_instances', sa.Column('outside_hours_behavior', sa.String(50), nullable=False, server_default='continue_answering'))
-    op.add_column('chatbot_instances', sa.Column('back_online_message', sa.Text(), nullable=True))
-    op.add_column('chatbot_instances', sa.Column('holiday_hours', sa.JSON(), nullable=True))
-    
-    # Tab 4: Escalation Triggers - new fields
-    op.add_column('chatbot_instances', sa.Column('auto_escalation_enabled', sa.Boolean(), nullable=False, server_default='false'))
-    op.add_column('chatbot_instances', sa.Column('confidence_threshold', sa.Float(), nullable=False, server_default='50.0'))
-    op.add_column('chatbot_instances', sa.Column('unanswered_questions_threshold', sa.String(3), nullable=False, server_default='3'))
-    op.add_column('chatbot_instances', sa.Column('sentiment_escalation_enabled', sa.Boolean(), nullable=False, server_default='false'))
-    op.add_column('chatbot_instances', sa.Column('keyword_triggers', sa.JSON(), nullable=True))
-    op.add_column('chatbot_instances', sa.Column('escalation_email_addresses', sa.JSON(), nullable=True))
-    op.add_column('chatbot_instances', sa.Column('escalation_slack_webhook', sa.String(500), nullable=True))
-    op.add_column('chatbot_instances', sa.Column('escalation_whatsapp_notification', sa.Boolean(), nullable=False, server_default='false'))
-    
-    # Tab 5: Lead Capture - new fields
-    op.add_column('chatbot_instances', sa.Column('lead_capture_enabled', sa.Boolean(), nullable=False, server_default='false'))
-    op.add_column('chatbot_instances', sa.Column('lead_capture_trigger', sa.String(50), nullable=False, server_default='never'))
-    op.add_column('chatbot_instances', sa.Column('lead_capture_fields_config', sa.JSON(), nullable=True))
-    op.add_column('chatbot_instances', sa.Column('lead_capture_message', sa.Text(), nullable=True))
-    op.add_column('chatbot_instances', sa.Column('lead_capture_thank_you_message', sa.Text(), nullable=True))
-    op.add_column('chatbot_instances', sa.Column('lead_capture_skip_enabled', sa.Boolean(), nullable=False, server_default='false'))
-    op.add_column('chatbot_instances', sa.Column('lead_capture_skip_button_text', sa.String(100), nullable=True))
-    
-    # Tab 6: Notifications - new fields
-    op.add_column('chatbot_instances', sa.Column('notifications_config', sa.JSON(), nullable=True))
-    op.add_column('chatbot_instances', sa.Column('notification_email_addresses', sa.JSON(), nullable=True))
+    conn = op.get_bind()
+    dialect = conn.dialect.name
+
+    # For SQLite, guard against adding columns that already exist (idempotent)
+    existing_cols = set()
+    if dialect == 'sqlite':
+        try:
+            rows = conn.execute(text("PRAGMA table_info(chatbot_instances)"))
+            existing_cols = {row[1] for row in rows.fetchall()}
+        except Exception:
+            existing_cols = set()
+
+    # List of (column_name, Column) to add
+    columns_to_add = [
+        # Tab 1: Appearance
+        ('user_message_color', sa.Column('user_message_color', sa.String(7), nullable=False, server_default='#4F8EF7')),
+        ('font_size', sa.Column('font_size', sa.String(20), nullable=False, server_default='medium')),
+        # Tab 2: Behavior
+        ('response_language', sa.Column('response_language', sa.String(5), nullable=False, server_default='auto')),
+        ('farewell_message', sa.Column('farewell_message', sa.Text(), nullable=True)),
+        ('read_receipts', sa.Column('read_receipts', sa.Boolean(), nullable=False, server_default='false')),
+        ('suggested_starter_questions', sa.Column('suggested_starter_questions', sa.JSON(), nullable=True)),
+        ('conversation_starters_display', sa.Column('conversation_starters_display', sa.String(50), nullable=False, server_default='first_visit_only')),
+        # Tab 3: Business Hours
+        ('business_hours_enabled', sa.Column('business_hours_enabled', sa.Boolean(), nullable=False, server_default='false')),
+        ('timezone', sa.Column('timezone', sa.String(100), nullable=True)),
+        ('weekly_schedule', sa.Column('weekly_schedule', sa.JSON(), nullable=True)),
+        ('outside_hours_behavior', sa.Column('outside_hours_behavior', sa.String(50), nullable=False, server_default='continue_answering')),
+        ('back_online_message', sa.Column('back_online_message', sa.Text(), nullable=True)),
+        ('holiday_hours', sa.Column('holiday_hours', sa.JSON(), nullable=True)),
+        # Tab 4: Escalation Triggers
+        ('auto_escalation_enabled', sa.Column('auto_escalation_enabled', sa.Boolean(), nullable=False, server_default='false')),
+        ('confidence_threshold', sa.Column('confidence_threshold', sa.Float(), nullable=False, server_default='50.0')),
+        ('unanswered_questions_threshold', sa.Column('unanswered_questions_threshold', sa.String(3), nullable=False, server_default='3')),
+        ('sentiment_escalation_enabled', sa.Column('sentiment_escalation_enabled', sa.Boolean(), nullable=False, server_default='false')),
+        ('keyword_triggers', sa.Column('keyword_triggers', sa.JSON(), nullable=True)),
+        ('escalation_email_addresses', sa.Column('escalation_email_addresses', sa.JSON(), nullable=True)),
+        ('escalation_slack_webhook', sa.Column('escalation_slack_webhook', sa.String(500), nullable=True)),
+        ('escalation_whatsapp_notification', sa.Column('escalation_whatsapp_notification', sa.Boolean(), nullable=False, server_default='false')),
+        # Tab 5: Lead Capture
+        ('lead_capture_enabled', sa.Column('lead_capture_enabled', sa.Boolean(), nullable=False, server_default='false')),
+        ('lead_capture_trigger', sa.Column('lead_capture_trigger', sa.String(50), nullable=False, server_default='never')),
+        ('lead_capture_fields_config', sa.Column('lead_capture_fields_config', sa.JSON(), nullable=True)),
+        ('lead_capture_message', sa.Column('lead_capture_message', sa.Text(), nullable=True)),
+        ('lead_capture_thank_you_message', sa.Column('lead_capture_thank_you_message', sa.Text(), nullable=True)),
+        ('lead_capture_skip_enabled', sa.Column('lead_capture_skip_enabled', sa.Boolean(), nullable=False, server_default='false')),
+        ('lead_capture_skip_button_text', sa.Column('lead_capture_skip_button_text', sa.String(100), nullable=True)),
+        # Tab 6: Notifications
+        ('notifications_config', sa.Column('notifications_config', sa.JSON(), nullable=True)),
+        ('notification_email_addresses', sa.Column('notification_email_addresses', sa.JSON(), nullable=True)),
+    ]
+
+    for col_name, col in columns_to_add:
+        if dialect == 'sqlite' and col_name in existing_cols:
+            # Skip adding existing column
+            continue
+        op.add_column('chatbot_instances', col)
 
 
 def downgrade() -> None:

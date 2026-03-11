@@ -105,7 +105,7 @@ async def init_db():
     from app.models import (  # noqa: F401
         tenant, user, chatbot_instance, conversation, document, message,
         contact, lead, campaign, booking, plan, setting, user_preferences,
-        audit_log, api_key, team_member, knowledge_base
+        audit_log, api_key, team_member, knowledge_base, channel_config
     )
     
     engine = get_engine()
@@ -206,7 +206,7 @@ async def _ensure_schema_updates(conn):
         
         missing_columns = {
             "user_message_color": "VARCHAR(7) NOT NULL DEFAULT '#4F8EF7'",
-            "widget_position": "VARCHAR(50) NOT NULL DEFAULT 'bottom-right'",
+            "widget_position": "VARCHAR(50) NOT NULL DEFAULT 'bottom_right'",
             "response_language": "VARCHAR(20) NOT NULL DEFAULT 'auto'",
             "response_tone": "VARCHAR(50) NOT NULL DEFAULT 'professional'",
             "response_length": "VARCHAR(50) NOT NULL DEFAULT 'concise'",

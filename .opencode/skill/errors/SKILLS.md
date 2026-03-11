@@ -4,67 +4,53 @@ Add error reports here when you encounter bugs during development.
 
 Format:
 ```
-fix this: [http://localhost:8000/api/dashboard/summary?preset=7days
-Request Method
-GET
-Status Code
-500 Internal Server Error
-Remote Address
-127.0.0.1:8000
-Referrer Policy
-strict-origin-when-cross-origin
-access-control-allow-credentials
-true
-access-control-allow-origin
-http://localhost:8080
-access-control-expose-headers
-*
-content-length
-77
-content-type
-application/json
-date
-Sat, 07 Mar 2026 20:01:31 GMT
-server
-uvicorn
-vary
-Origin
-accept
-*/*
-accept-encoding
-gzip, deflate, br, zstd
-accept-language
-en-US,en;q=0.9,de;q=0.8
-authorization
-Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhMjMxYTgzMy0wOGUzLTQ1MTMtOWUyZC05ZTc0NmNjNDUzODEiLCJlbWFpbCI6InRkc2ltd2ExOUBnbWFpbC5jb20iLCJ0ZW5hbnRfaWQiOiI2OGVjNzllYy01MzUxLTQzMTUtOWJhYi1mMjdkZThjZjE4MTIiLCJyb2xlIjoib3duZXIiLCJleHAiOjE3NzI5MTcwNjAsInR5cGUiOiJhY2Nlc3MifQ.3_gXSXG8xztO5StS2F87Sf8PH99u28PTWqp9maSTAKk
-cache-control
-no-cache
-connection
-keep-alive
-content-type
-application/json
-host
-localhost:8000
-origin
-http://localhost:8080
-pragma
-no-cache
-referer
-http://localhost:8080/
-sec-ch-ua
-"Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"
-sec-ch-ua-mobile
-?0
-sec-ch-ua-platform
-"Windows"
-sec-fetch-dest
-empty
-sec-fetch-mode
-cors
-sec-fetch-site
-same-site
-user-agent
-Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36
+fix this: [Process SpawnProcess-1:
+Traceback (most recent call last):
+  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\process.py", line 314, in _bootstrap
+    self.run()
+  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\uvicorn\_subprocess.py", line 76, in subprocess_started
+    target(sockets=sockets)
+  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\uvicorn\server.py", line 61, in run
+    return asyncio.run(self.serve(sockets=sockets))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py", line 194, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 687, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\uvicorn\server.py", line 68, in serve
+    config.load()
+  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\uvicorn\config.py", line 467, in load
+    self.loaded_app = import_from_string(self.app)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\site-packages\uvicorn\importer.py", line 21, in import_from_string
+    module = importlib.import_module(module_str)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ted Simwa\AppData\Local\Programs\Python\Python312\Lib\importlib\__init__.py", line 90, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1310, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 995, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "C:\Users\Ted Simwa\Desktop\Vanity\Work\IT\my-projects\acmedesk-assist-main\backend\app\__init__.py", line 7, in <module>
+    from .main import app
+  File "C:\Users\Ted Simwa\Desktop\Vanity\Work\IT\my-projects\acmedesk-assist-main\backend\app\main.py", line 221
+    app.include_router(channel_settings.router)
+IndentationError: unexpected indent
+
 ]
 ```
 

@@ -16,7 +16,7 @@ from sqlalchemy import select, func, desc
 from ..models.base import get_session_factory
 from ..models.contact import Contact
 from ..models.conversation import Conversation
-from ..models.message import Message
+from ..models.message import Message, MessageRole
 from ..models.user import User
 from ..routers.auth import get_current_user
 from ..schemas.inbox import (
@@ -142,10 +142,10 @@ async def get_inbox_thread(
             messages=[
                 InboxMessageItem(
                     id=m.id,
-                    role=m.role,
+                    role=m.role.value if getattr(m, "role", None) else None,
                     content=m.content or "",
                     created_at=m.created_at.isoformat() + "Z" if m.created_at else None,
-                    metadata=m.message_metadata,
+                    metadata=m.message_metadata or None,
                 )
                 for m in messages
             ],
@@ -181,7 +181,7 @@ async def reply_to_inbox_thread(
         message = Message(
             id=str(uuid.uuid4()),
             conversation_id=conversation.id,
-            role="assistant",
+            role=MessageRole.ASSISTANT,
             content=request.body,
             created_at=now,
             message_metadata={
@@ -198,7 +198,7 @@ async def reply_to_inbox_thread(
         return InboxReplyResponse(
             message=InboxMessageItem(
                 id=message.id,
-                role=message.role,
+                role=message.role.value if getattr(message, "role", None) else None,
                 content=message.content or "",
                 created_at=now.isoformat() + "Z",
                 metadata=message.message_metadata,

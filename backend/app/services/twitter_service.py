@@ -21,7 +21,7 @@ from sqlalchemy import select
 from ..config import settings
 from ..models.base import get_session_factory
 from ..models.conversation import Conversation
-from ..models.message import Message
+from ..models.message import Message, MessageRole
 from ..services.database import get_effective_tenant_id
 
 logger = logging.getLogger(__name__)
@@ -102,7 +102,7 @@ async def create_inbound_twitter_message(
         message = Message(
             id=str(uuid.uuid4()),
             conversation_id=conversation.id,
-            role="user",
+            role=MessageRole.USER,
             content=body or "",
             created_at=now,
             message_metadata=metadata,
@@ -281,7 +281,7 @@ async def send_twitter_reply(user_id: str, thread_id: str, body: str) -> dict:
         assistant_message = Message(
             id=str(uuid.uuid4()),
             conversation_id=conversation.id,
-            role="assistant",
+            role=MessageRole.ASSISTANT,
             content=body,
             created_at=now,
             message_metadata={

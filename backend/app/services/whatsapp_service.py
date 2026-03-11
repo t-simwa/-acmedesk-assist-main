@@ -21,8 +21,11 @@ from sqlalchemy import select
 from ..config import settings
 from ..models.base import get_session_factory
 from ..models.conversation import Conversation
-from ..models.message import Message
+from ..models.message import Message, MessageRole
 from ..services.database import get_effective_tenant_id
+from ..models.channel_config import ChannelConfig
+from ..services.crypto import decrypt
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -48,10 +51,10 @@ def _build_thread_id(wa_id: str, business_number: str) -> str:
 
 
 async def create_inbound_whatsapp_message(
-    user_id: str,
     wa_id: str,
     business_number: str,
     body: str,
+    user_id: Optional[str] = None,
     provider_message_id: Optional[str] = None,
     media_urls: Optional[List[str]] = None,
     caption: Optional[str] = None,
@@ -105,7 +108,7 @@ async def create_inbound_whatsapp_message(
         message = Message(
             id=str(uuid.uuid4()),
             conversation_id=conversation.id,
-            role="user",
+            role=MessageRole.USER,
             content=body or "",
             created_at=now,
             message_metadata=metadata,
@@ -255,38 +258,38 @@ async def send_whatsapp_reply(user_id: str, thread_id: str, body: str) -> dict:
 
         now = datetime.utcnow()
 
-        # Optionally call outbound webhook so an external provider can deliver the WhatsApp message
-        if settings.whatsapp_outbound_webhook_url:
-            payload = {
-                "channel": WHATSAPP_CHANNEL_NAME,
-                "thread_id": thread_id,
-                "from": settings.whatsapp_default_from_number,
-                "to": wa_id,
-                "body": body,
-                "user_id": user_id,
-            }
-            headers: Dict[str, str] = {"Content-Type": "application/json"}
-            if settings.whatsapp_outbound_webhook_token:
-                headers["Authorization"] = f"Bearer {settings.whatsapp_outbound_webhook_token}"
+    # Optionally call outbound webhook so an external provider can deliver the WhatsApp message
+    if settings.whatsapp_outbound_webhook_url:
+        payload = {
+            "channel": WHATSAPP_CHANNEL_NAME,
+            "thread_id": thread_id,
+            "from": settings.whatsapp_default_from_number,
+            "to": wa_id,
+            "body": body,
+            "user_id": user_id,
+        }
+        headers: Dict[str, str] = {"Content-Type": "application/json"}
+        if settings.whatsapp_outbound_webhook_token:
+            headers["Authorization"] = f"Bearer {settings.whatsapp_outbound_webhook_token}"
 
-            try:
-                async with httpx.AsyncClient(timeout=10) as client:
-                    response = await client.post(
-                        settings.whatsapp_outbound_webhook_url,
-                        json=payload,
-                        headers=headers,
-                    )
-                    response.raise_for_status()
-            except Exception as exc:  # noqa: BLE001
-                logger.error(
-                    "Error calling WhatsApp outbound webhook: %s", exc, exc_info=True
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                response = await client.post(
+                    settings.whatsapp_outbound_webhook_url,
+                    json=payload,
+                    headers=headers,
                 )
-                raise
+                response.raise_for_status()
+        except Exception as exc:  # noqa: BLE001
+            logger.error(
+                "Error calling WhatsApp outbound webhook: %s", exc, exc_info=True
+            )
+            raise
 
         assistant_message = Message(
             id=str(uuid.uuid4()),
             conversation_id=conversation.id,
-            role="assistant",
+            role=MessageRole.ASSISTANT,
             content=body,
             created_at=now,
             message_metadata={
@@ -302,4 +305,88 @@ async def send_whatsapp_reply(user_id: str, thread_id: str, body: str) -> dict:
         await session.commit()
 
         return assistant_message.to_dict()
+
+    # If no outbound webhook is configured, attempt to send via Meta Graph API
+    # using a stored phone_number_id from ChannelConfig.config and access token from oauth_tokens.
+    session_factory = get_session_factory()
+    async with session_factory() as session2:
+        stmt = select(ChannelConfig).where(
+            ChannelConfig.tenant_id == effective_tenant_id,
+            ChannelConfig.channel == "whatsapp",
+        )
+        res = await session2.execute(stmt)
+        cfg = res.scalar_one_or_none()
+
+    phone_number_id = None
+    access_token = None
+    if cfg:
+        # config may contain the selected phone_number_id
+        try:
+            cfg_config = cfg.config or {}
+            phone_number_id = cfg_config.get("phone_number_id") or cfg_config.get("display_phone_number")
+        except Exception:
+            cfg_config = {}
+
+        if cfg and cfg.oauth_tokens:
+            try:
+                token_json = decrypt(cfg.oauth_tokens)
+                token_data = json.loads(token_json)
+            except Exception:
+                token_data = json.loads(cfg.oauth_tokens)
+            access_token = token_data.get("access_token")
+
+    if not phone_number_id or not access_token:
+        # Persist assistant message locally and return when unable to send
+        assistant_message = Message(
+            id=str(uuid.uuid4()),
+            conversation_id=conversation.id,
+            role=MessageRole.ASSISTANT,
+            content=body,
+            created_at=now,
+            message_metadata={
+                WHATSAPP_CHANNEL_METADATA_KEY: WHATSAPP_CHANNEL_NAME,
+                "direction": "outbound",
+                "whatsapp_thread_id": thread_id,
+                "from": business_number,
+                "to": wa_id,
+            },
+        )
+        session.add(assistant_message)
+        conversation.last_activity_at = now
+        await session.commit()
+
+        return assistant_message.to_dict()
+
+    # Call Graph API to send WhatsApp message via phone_number_id
+    send_url = f"https://graph.facebook.com/{settings.meta_api_version}/{phone_number_id}/messages"
+    payload = {"messaging_product": "whatsapp", "to": wa_id, "type": "text", "text": {"body": body}}
+    params = {"access_token": access_token}
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.post(send_url, json=payload, params=params)
+            resp.raise_for_status()
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Failed to send WhatsApp message via Graph API: %s", exc, exc_info=True)
+        raise
+
+    assistant_message = Message(
+        id=str(uuid.uuid4()),
+        conversation_id=conversation.id,
+        role=MessageRole.ASSISTANT,
+        content=body,
+        created_at=now,
+        message_metadata={
+            WHATSAPP_CHANNEL_METADATA_KEY: WHATSAPP_CHANNEL_NAME,
+            "direction": "outbound",
+            "whatsapp_thread_id": thread_id,
+            "from": business_number,
+            "to": wa_id,
+            "provider_sent": True,
+        },
+    )
+    session.add(assistant_message)
+    conversation.last_activity_at = now
+    await session.commit()
+
+    return assistant_message.to_dict()
 

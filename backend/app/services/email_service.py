@@ -26,7 +26,7 @@ from sqlalchemy import select
 from ..config import settings
 from ..models.base import get_session_factory
 from ..models.conversation import Conversation
-from ..models.message import Message
+from ..models.message import Message, MessageRole
 
 logger = logging.getLogger(__name__)
 
@@ -179,7 +179,7 @@ async def fetch_and_store_new_emails(tenant_id: str) -> int:
                 message_record = Message(
                     id=str(uuid.uuid4()),
                     conversation_id=conversation_id,
-                    role="user",
+                    role=MessageRole.USER,
                     content=body,
                     created_at=email.utils.parsedate_to_datetime(msg.get("Date"))
                     if msg.get("Date")
@@ -410,7 +410,7 @@ async def send_email_reply(
             assistant_message = Message(
                 id=str(uuid.uuid4()),
                 conversation_id=conversation.id,
-                role="assistant",
+                role=MessageRole.ASSISTANT,
                 content=body,
                 created_at=None,
                 message_metadata={

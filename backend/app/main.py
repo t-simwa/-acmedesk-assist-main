@@ -86,17 +86,33 @@ async def lifespan(app: FastAPI):
     try:
         from app.config import get_vector_store_persist_dir, get_settings
         persist_dir = get_vector_store_persist_dir()
-        settings = get_settings()
+        rag_settings = get_settings()
         from app.rag.vector_store import VectorStore
-        vs = VectorStore(collection_name=settings.vector_collection_name, persist_directory=persist_dir)
+        vs = VectorStore(collection_name=rag_settings.vector_collection_name, persist_directory=persist_dir)
         count = vs.collection.count()
         import logging
-        logging.getLogger(__name__).info("RAG vector store: %s (collection %s has %d chunks)", persist_dir, settings.vector_collection_name, count)
+        logging.getLogger(__name__).info("RAG vector store: %s (collection %s has %d chunks)", persist_dir, rag_settings.vector_collection_name, count)
     except Exception as e:
         import logging
         logging.getLogger(__name__).warning("RAG vector store check at startup: %s", e)
+    # Start token refresh scheduler if enabled
+    try:
+        if settings.token_refresh_enabled:
+            from .services.token_refresh_scheduler import start_scheduler
+
+            start_scheduler()
+    except Exception as e:
+        logger.warning("Failed to start token refresh scheduler: %s", e)
     yield
     # Shutdown: Close database connections
+    # Stop token refresh scheduler if running
+    try:
+        from .services.token_refresh_scheduler import shutdown_scheduler
+
+        shutdown_scheduler()
+    except Exception:
+        pass
+
     await close_db()
 
 
@@ -193,6 +209,20 @@ app.include_router(sms.router)
 app.include_router(whatsapp.router)
 app.include_router(messenger.router)
 app.include_router(instagram.router)
+# Meta OAuth endpoints (handles Facebook/Instagram/WhatsApp OAuth exchanges)
+from .routers import meta_oauth
+app.include_router(meta_oauth.router)
+# Channel configuration helpers
+from .routers import channel_config
+app.include_router(channel_config.router)
+# Channel settings endpoints (behavior, appearance, profiles)
+from .routers import channel_settings
+from .routers import test_stream
+app.include_router(channel_settings.router)
+app.include_router(test_stream.router)
+# WhatsApp templates management
+from .routers import whatsapp_templates
+app.include_router(whatsapp_templates.router)
 app.include_router(billing.router)
 app.include_router(security.router)
 app.include_router(oauth.router)
@@ -205,6 +235,13 @@ app.include_router(bookings.router)
 app.include_router(channels.router)
 app.include_router(inbox.router)
 app.include_router(email_unsubscribe.router)
+
+# Webhook endpoints for receiving inbound messages
+from .routers.webhooks import whatsapp_webhook, messenger_webhook, instagram_webhook, sms_webhook
+app.include_router(whatsapp_webhook.router)
+app.include_router(messenger_webhook.router)
+app.include_router(instagram_webhook.router)
+app.include_router(sms_webhook.router)
 
 
 @app.get("/")
@@ -328,4 +365,3 @@ async def debug_dashboard():
         "unanswered_count": unanswered,
         "chatbot": chatbot,
     }
-

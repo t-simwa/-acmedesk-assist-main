@@ -13,6 +13,9 @@ class ChannelConfigItem(BaseModel):
     connected: bool = False
     display_name: str = ""
     description: str = ""
+    # plan gating
+    locked: Optional[bool] = Field(False, description="Whether this feature is locked on the current plan")
+    lock_reason: Optional[str] = Field(None, description="Human readable reason (e.g. 'growth plan required')")
 
 
 class ChannelConfigListResponse(BaseModel):

@@ -1618,6 +1618,62 @@ export const whatsappApi = {
 };
 
 // ============================================================================
+// WhatsApp Templates API (admin)
+// ============================================================================
+export interface WhatsAppTemplateCreateRequest {
+  name: string;
+  category: "UTILITY" | "MARKETING" | "AUTHENTICATION";
+  language?: string;
+  body_text: string;
+  header_text?: string | null;
+  footer_text?: string | null;
+  buttons?: Array<Record<string, any>> | null;
+}
+
+export interface WhatsAppTemplateSubmitResult {
+  id?: string;
+  name: string;
+  status: string;
+  message?: string;
+}
+
+export const whatsappTemplatesApi = {
+  async list(): Promise<WhatsAppTemplateSubmitResult[]> {
+    return apiClient<WhatsAppTemplateSubmitResult[]>("/api/channels/whatsapp/templates");
+  },
+
+  async submit(template: WhatsAppTemplateCreateRequest): Promise<WhatsAppTemplateSubmitResult> {
+    return apiClient<WhatsAppTemplateSubmitResult>("/api/channels/whatsapp/templates", {
+      method: "POST",
+      body: JSON.stringify(template),
+    });
+  },
+
+  async submitBatch(templates: WhatsAppTemplateCreateRequest[]): Promise<any> {
+    return apiClient<any>("/api/channels/whatsapp/templates/batch", {
+      method: "POST",
+      body: JSON.stringify(templates),
+    });
+  },
+
+  async get(name: string): Promise<WhatsAppTemplateSubmitResult> {
+    return apiClient<WhatsAppTemplateSubmitResult>(`/api/channels/whatsapp/templates/${encodeURIComponent(name)}`);
+  },
+
+  async delete(name: string): Promise<{ message: string }> {
+    return apiClient<{ message: string }>(`/api/channels/whatsapp/templates/${encodeURIComponent(name)}`, {
+      method: "DELETE",
+    });
+  },
+
+  async refresh(): Promise<WhatsAppTemplateSubmitResult[]> {
+    return apiClient<WhatsAppTemplateSubmitResult[]>("/api/channels/whatsapp/templates/refresh", {
+      method: "POST",
+    });
+  },
+};
+
+// ============================================================================
 // Facebook Messenger Channel API (J3.1)
 // ============================================================================
 
@@ -1662,6 +1718,139 @@ export const messengerApi = {
       method: "POST",
       body: JSON.stringify({ body }),
     });
+  },
+};
+
+// Meta OAuth & provider helpers
+export const metaApi = {
+  async getAuthUrl(): Promise<{ url: string }> {
+    return apiClient<{ url: string }>(`/api/auth/meta/url`);
+  },
+
+  async listPages(): Promise<{ pages: Array<{ id: string; name: string; access_token?: string }> }>
+  {
+    return apiClient(`/api/auth/meta/pages`);
+  },
+
+  async listWhatsappAccounts(): Promise<any> {
+    return apiClient(`/api/auth/meta/whatsapp_accounts`);
+  },
+
+  async listInstagramAccounts(): Promise<any> {
+    return apiClient(`/api/auth/meta/instagram_accounts`);
+  },
+
+  async disconnect(): Promise<{ message: string }> {
+    return apiClient(`/api/auth/meta/disconnect`, { method: "POST" });
+  }
+};
+
+// Channel settings API (configuration persistence for each channel)
+export const channelSettingsApi = {
+  // Whatsapp
+  async getWhatsappBehavior(): Promise<any> {
+    return apiClient(`/api/channels/whatsapp/settings/behavior`);
+  },
+  async saveWhatsappBehavior(settings: any): Promise<any> {
+    return apiClient(`/api/channels/whatsapp/settings/behavior`, {
+      method: "PUT",
+      body: JSON.stringify(settings),
+    });
+  },
+  // Email
+  async getEmailBehavior(): Promise<any> {
+    return apiClient(`/api/channels/email/settings/behavior`);
+  },
+  async saveEmailBehavior(settings: any): Promise<any> {
+    return apiClient(`/api/channels/email/settings/behavior`, {
+      method: "PUT",
+      body: JSON.stringify(settings),
+    });
+  },
+  // SMS
+  async getSmsBehavior(): Promise<any> {
+    return apiClient(`/api/channels/sms/settings/behavior`);
+  },
+  async saveSmsBehavior(settings: any): Promise<any> {
+    return apiClient(`/api/channels/sms/settings/behavior`, {
+      method: "PUT",
+      body: JSON.stringify(settings),
+    });
+  },
+  async saveSmsCredentials(creds: any): Promise<any> {
+    return apiClient(`/api/channels/sms/settings/credentials`, {
+      method: "PUT",
+      body: JSON.stringify(creds),
+    });
+  },
+  // Messenger
+  async getMessengerBehavior(): Promise<any> {
+    return apiClient(`/api/channels/messenger/settings/behavior`);
+  },
+  async saveMessengerBehavior(settings: any): Promise<any> {
+    return apiClient(`/api/channels/messenger/settings/behavior`, {
+      method: "PUT",
+      body: JSON.stringify(settings),
+    });
+  },
+  async getMessengerProfile(): Promise<any> {
+    return apiClient(`/api/channels/messenger/settings/profile`);
+  },
+  async saveMessengerProfile(profile: any): Promise<any> {
+    return apiClient(`/api/channels/messenger/settings/profile`, {
+      method: "PUT",
+      body: JSON.stringify(profile),
+    });
+  },
+  // Instagram
+  async getInstagramBehavior(): Promise<any> {
+    return apiClient(`/api/channels/instagram/settings/behavior`);
+  },
+  async saveInstagramBehavior(settings: any): Promise<any> {
+    return apiClient(`/api/channels/instagram/settings/behavior`, {
+      method: "PUT",
+      body: JSON.stringify(settings),
+    });
+  },
+  async getInstagramProfile(): Promise<any> {
+    return apiClient(`/api/channels/instagram/settings/profile`);
+  },
+  async saveInstagramProfile(profile: any): Promise<any> {
+    return apiClient(`/api/channels/instagram/settings/profile`, {
+      method: "PUT",
+      body: JSON.stringify(profile),
+    });
+  },
+  // Widget
+  async getWidgetAppearance(): Promise<any> {
+    return apiClient(`/api/channels/widget/settings/appearance`);
+  },
+  async saveWidgetAppearance(appearance: any): Promise<any> {
+    return apiClient(`/api/channels/widget/settings/appearance`, {
+      method: "PUT",
+      body: JSON.stringify(appearance),
+    });
+  },
+  async getWidgetBehavior(): Promise<any> {
+    return apiClient(`/api/channels/widget/settings/behavior`);
+  },
+  async saveWidgetBehavior(behavior: any): Promise<any> {
+    return apiClient(`/api/channels/widget/settings/behavior`, {
+      method: "PUT",
+      body: JSON.stringify(behavior),
+    });
+  },
+  async getWidgetDomains(): Promise<any> {
+    return apiClient(`/api/channels/widget/settings/domains`);
+  },
+  async saveWidgetDomains(domains: any): Promise<any> {
+    return apiClient(`/api/channels/widget/settings/domains`, {
+      method: "PUT",
+      body: JSON.stringify(domains),
+    });
+  },
+  async getWidgetEmbedCode(): Promise<any> {
+    return apiClient(`/api/channels/widget/embed-code`);
   },
 };
 
@@ -2251,6 +2440,64 @@ export const adminApi = {
     return apiClient<{ message: string; id: string }>(`/api/admin/team/${memberId}`, {
       method: "DELETE",
     });
+  },
+};
+
+// ============================================================================
+// Super Admin API (platform-wide admin endpoints)
+// ============================================================================
+
+export interface SuperAdminDashboardCard {
+  label: string;
+  value: number;
+  suffix?: string | null;
+  trend?: number | null;
+}
+
+export interface SuperAdminSystemStatusItem {
+  name: string;
+  status: "operational" | "degraded" | "down" | string;
+  value?: string | number | null;
+}
+
+export interface SuperAdminFailedJobItem {
+  id: string;
+  tenant_name: string;
+  created_at: string;
+  error: string;
+}
+
+export interface SuperAdminDashboard {
+  cards: SuperAdminDashboardCard[];
+  system_status: SuperAdminSystemStatusItem[];
+  recent_signups: Array<{ tenant_id: string; business_name: string; created_at: string; plan?: string | null; status?: string | null }>;
+  recent_failed_jobs: SuperAdminFailedJobItem[];
+}
+
+export interface SuperAdminClientItem {
+  id: string;
+  tenant_id?: string | null;
+  business_name: string;
+  owner_email?: string | null;
+  join_date: string;
+  plan?: string | null;
+  status?: string | null;
+  conversations_this_month: number;
+  mrr_contribution: number;
+}
+
+export interface SuperAdminClients {
+  clients: SuperAdminClientItem[];
+  total?: number;
+}
+
+export const superAdminApi = {
+  async getDashboard(): Promise<SuperAdminDashboard> {
+    return apiClient<SuperAdminDashboard>("/api/super-admin/dashboard");
+  },
+
+  async getClients(): Promise<SuperAdminClients> {
+    return apiClient<SuperAdminClients>("/api/super-admin/clients");
   },
 };
 
@@ -3281,6 +3528,8 @@ export interface ChannelConfigItem {
   connected: boolean;
   display_name: string;
   description: string;
+  locked?: boolean;
+  lock_reason?: string;
 }
 
 export interface ChannelConfigListResponse {
@@ -3293,6 +3542,37 @@ export interface ChannelToggleResponse {
   message: string;
 }
 
+export interface ChannelHealthItem {
+  channel: string;
+  status: "active" | "warning" | "error" | "disconnected";
+  messages_today: number;
+  messages_change: number;
+  delivery_rate: number;
+  last_error?: string;
+  last_error_at?: string;
+  connected_at?: string;
+  phone_number?: string;
+  account_name?: string;
+}
+
+export interface ChannelHealthResponse {
+  channels: ChannelHealthItem[];
+  total_messages_today: number;
+  avg_delivery_rate: number;
+}
+
+export interface EmailVerifyResponse {
+  verified: boolean;
+  message: string;
+  inbound_address: string;
+}
+
+export interface SmsVerifyResponse {
+  verified: boolean;
+  message: string;
+  phone_number?: string;
+}
+
 export const channelsApi = {
   async list(): Promise<ChannelConfigListResponse> {
     return apiClient<ChannelConfigListResponse>("/api/channels");
@@ -3303,5 +3583,36 @@ export const channelsApi = {
       method: "POST",
       body: JSON.stringify({ enabled }),
     });
+  },
+
+  async disconnect(channel: string): Promise<{ message: string }> {
+    return apiClient<{ message: string }>(`/api/channels/${channel}/disconnect`, {
+      method: "POST",
+    });
+  },
+
+  async getHealth(): Promise<ChannelHealthResponse> {
+    return apiClient<ChannelHealthResponse>("/api/channels/health");
+  },
+
+  async verifyEmailForwarding(emailAddress: string): Promise<EmailVerifyResponse> {
+    return apiClient<EmailVerifyResponse>("/api/channels/email/verify-forwarding", {
+      method: "POST",
+      body: JSON.stringify({ email_address: emailAddress }),
+    });
+  },
+
+  async verifySmsCredentials(provider: string, credentials: Record<string, string>): Promise<SmsVerifyResponse> {
+    return apiClient<SmsVerifyResponse>("/api/channels/sms/verify-credentials", {
+      method: "POST",
+      body: JSON.stringify({ provider, credentials }),
+    });
+  },
+
+  async getWhatsAppTestStatus(): Promise<{received: boolean; received_at?: string}> {
+    return apiClient<{received: boolean; received_at?: string}>("/api/channels/whatsapp/test-status");
+  },
+  async getInstagramTestStatus(): Promise<{received: boolean; received_at?: string}> {
+    return apiClient<{received: boolean; received_at?: string}>("/api/channels/instagram/test-status");
   },
 };

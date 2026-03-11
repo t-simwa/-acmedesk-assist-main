@@ -24,12 +24,23 @@ from ..models.base import get_session_factory
 from ..models.conversation import Conversation, Rating, ConversationOutcome
 from ..models.document import Document
 from ..models.lead import Lead, LeadStatus
-from ..models.message import Message
+from ..models.message import Message, MessageRole
 from ..models.setting import Setting
 from ..models.user_preferences import UserPreferences
 from ..models.knowledge_base import KnowledgeBase, UserKnowledgeBasePreference
 
 logger = logging.getLogger(__name__)
+
+
+def safe_value(val, default=None):
+    """Return the underlying enum value if present, otherwise the raw value.
+
+    This makes code tolerant of attributes that may be either Enum members or
+    plain strings (DB row drift). If val is None, returns default.
+    """
+    if val is None:
+        return default
+    return getattr(val, "value", val)
 
 
 # ============================================================================
@@ -170,7 +181,7 @@ async def save_conversation_turn(
             user_message = Message(
                 id=user_message_id,
                 conversation_id=conversation_id,
-                role="user",
+                role=MessageRole.USER,
                 content=message,
                 created_at=datetime.utcnow(),
             )
@@ -181,7 +192,7 @@ async def save_conversation_turn(
             assistant_message = Message(
                 id=assistant_message_id,
                 conversation_id=conversation_id,
-                role="assistant",
+                role=MessageRole.ASSISTANT,
                 content=answer,
                 created_at=datetime.utcnow(),
             )
@@ -1093,7 +1104,7 @@ async def get_response_accuracy_metrics(user_id: Optional[str] = None) -> Dict[s
             query = (
                 select(Message.confidence_score, Message.citations)
                 .join(Conversation)
-                .where(Message.role == "assistant")
+                .where(Message.role == MessageRole.ASSISTANT)
             )
             if user_id:
                 query = query.where(Conversation.tenant_id == user_id)
@@ -1195,7 +1206,7 @@ async def get_api_usage_metrics(user_id: Optional[str] = None) -> Dict[str, Any]
             query = (
                 select(func.count(Message.id))
                 .join(Conversation)
-                .where(Message.role == "assistant")
+                .where(Message.role == MessageRole.ASSISTANT)
             )
             if user_id:
                 query = query.where(Conversation.tenant_id == user_id)
@@ -1244,7 +1255,7 @@ async def get_top_queries(limit: int = 10, user_id: Optional[str] = None) -> tup
                     func.count(Message.id).label("count")
                 )
                 .join(Conversation)
-                .where(Message.role == "user")
+                .where(Message.role == MessageRole.USER)
             )
             if user_id:
                 query = query.where(Conversation.tenant_id == user_id)
@@ -1257,7 +1268,7 @@ async def get_top_queries(limit: int = 10, user_id: Optional[str] = None) -> tup
             total_query = (
                 select(func.count(func.distinct(Message.content)))
                 .join(Conversation)
-                .where(Message.role == "user")
+                .where(Message.role == MessageRole.USER)
             )
             if user_id:
                 total_query = total_query.where(Conversation.tenant_id == user_id)
@@ -1274,7 +1285,7 @@ async def get_top_queries(limit: int = 10, user_id: Optional[str] = None) -> tup
                 user_messages_query = (
                     select(Message)
                     .join(Conversation)
-                    .where(Message.role == "user", Message.content == query_text)
+                    .where(Message.role == MessageRole.USER, Message.content == query_text)
                 )
                 if user_id:
                     user_messages_query = user_messages_query.where(Conversation.tenant_id == user_id)
@@ -2022,7 +2033,7 @@ async def get_recent_conversations(
             .outerjoin(
                 Message,
                 and_(
-                    Message.conversation_id == Conversation.id,
+                Message.conversation_id == Conversation.id,
                     Message.role == MessageRole.USER
                 )
             )
@@ -2127,7 +2138,7 @@ async def get_chatbot_status(tenant_id: str) -> Dict[str, Any]:
         embed_code = f'<script src="https://nexachat.com/widget.js" data-chatbot-id="{chatbot.id}" async></script>'
         
         return {
-            "status": chatbot.status.value if chatbot.status else "paused",
+            "status": safe_value(chatbot.status, "paused"),
             "last_active": chatbot.updated_at.isoformat() + "Z" if chatbot.updated_at else None,
             "embed_code": embed_code,
             "chatbot_name": chatbot.name
@@ -2368,7 +2379,7 @@ async def get_content_analytics(
             .join(Conversation, Message.conversation_id == Conversation.id)
             .where(
                 Conversation.tenant_id == tenant_id,
-                Message.role == "user",
+                Message.role == MessageRole.USER,
                 Message.created_at >= start_date,
                 Message.created_at <= end_date
             )
@@ -2400,7 +2411,7 @@ async def get_content_analytics(
             .where(
                 Conversation.tenant_id == tenant_id,
                 Conversation.outcome == ConversationOutcome.ESCALATED,
-                Message.role == "user",
+                Message.role == MessageRole.USER,
                 Message.created_at >= start_date,
                 Message.created_at <= end_date
             )
@@ -2697,7 +2708,7 @@ async def get_admin_conversation_list(
                 select(Message.conversation_id)
                 .where(
                     Message.content.ilike(search_term),
-                    Message.role == "user",
+                    Message.role == MessageRole.USER,
                 )
                 .limit(500)
                 .scalar_subquery()
@@ -2748,7 +2759,7 @@ async def get_admin_conversation_list(
                 select(Message.conversation_id, Message.content)
                 .where(
                     Message.conversation_id.in_(conv_ids),
-                    Message.role == "user",
+                    Message.role == MessageRole.USER,
                 )
                 .order_by(Message.created_at.asc())
             )

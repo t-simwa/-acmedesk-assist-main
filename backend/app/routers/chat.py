@@ -317,7 +317,8 @@ from ..schemas.chat import (
     WidgetFeedbackResponse,
 )
 from ..models.base import get_db_session
-from ..models.chatbot_instance import ChatbotInstance
+from ..models.message import MessageRole
+from ..models.chatbot_instance import ChatbotInstance, WidgetPosition
 from ..models.conversation import Conversation, ConversationStatus, ConversationOutcome, Channel
 from ..models.message import Message
 from ..models.lead import Lead
@@ -411,7 +412,7 @@ async def get_widget_config(
         showCitations=chatbot.show_citations,
         showTyping=chatbot.show_typing,
         showPoweredBy=chatbot.show_powered_by,
-        position=chatbot.widget_position.value if chatbot.widget_position else "bottom_right",
+        position=chatbot.widget_position.value if hasattr(chatbot.widget_position, "value") else (chatbot.widget_position or "bottom_right"),
         suggestedQuestions=suggested_questions
     )
 
@@ -477,7 +478,7 @@ async def widget_message(
             user_message = Message(
                 id=user_message_id,
                 conversation_id=conversation.id,
-                role="user",
+                role=MessageRole.USER,
                 content=request_data.message,
                 created_at=datetime.utcnow()
             )
@@ -507,7 +508,7 @@ async def widget_message(
                 assistant_message = Message(
                     id=assistant_message_id,
                     conversation_id=conversation.id,
-                    role="assistant",
+                    role=MessageRole.ASSISTANT,
                     content=escalation_message,
                     created_at=datetime.utcnow()
                 )
@@ -561,7 +562,7 @@ async def widget_message(
             assistant_message = Message(
                 id=assistant_message_id,
                 conversation_id=conversation.id,
-                role="assistant",
+                role=MessageRole.ASSISTANT,
                 content=answer,
                 created_at=datetime.utcnow()
             )
@@ -668,7 +669,7 @@ async def _widget_stream_generator(
             session.add(Message(
                 id=user_message_id,
                 conversation_id=conversation.id,
-                role="user",
+                role=MessageRole.USER,
                 content=request_data.message,
                 created_at=datetime.utcnow()
             ))
@@ -695,7 +696,7 @@ async def _widget_stream_generator(
                 session.add(Message(
                     id=assistant_message_id,
                     conversation_id=conversation.id,
-                    role="assistant",
+                    role=MessageRole.ASSISTANT,
                     content=escalation_message,
                     created_at=datetime.utcnow()
                 ))
@@ -738,7 +739,7 @@ async def _widget_stream_generator(
             session.add(Message(
                 id=assistant_message_id,
                 conversation_id=conversation.id,
-                role="assistant",
+                role=MessageRole.ASSISTANT,
                 content=answer,
                 created_at=datetime.utcnow()
             ))

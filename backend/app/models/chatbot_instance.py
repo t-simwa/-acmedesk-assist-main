@@ -8,7 +8,7 @@ from typing import Optional, List, Dict, Any
 from enum import Enum
 import json
 
-from sqlalchemy import String, DateTime, Boolean, Enum as SQLEnum, Text, JSON, ForeignKey, Float
+from sqlalchemy import String, DateTime, Boolean, Text, JSON, ForeignKey, Float
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base
@@ -83,25 +83,27 @@ class ChatbotInstance(Base):
     brand_color: Mapped[str] = mapped_column(String(7), nullable=False, default="#4F8EF7")  # Hex color
     secondary_color: Mapped[str] = mapped_column(String(7), nullable=False, default="#7C3AED")  # Hex color
     user_message_color: Mapped[str] = mapped_column(String(7), nullable=False, default="#4F8EF7")  # User message color
-    widget_position: Mapped[WidgetPosition] = mapped_column(
-        SQLEnum(WidgetPosition),
+    # Stored as a plain string for broader DB compatibility; accept enum or string on assignment
+    widget_position: Mapped[str] = mapped_column(
+        String(50),
         nullable=False,
-        default=WidgetPosition.BOTTOM_RIGHT
+        default="bottom_right"
     )
     show_powered_by: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     font_size: Mapped[str] = mapped_column(String(20), nullable=False, default="medium")  # small | medium | large
     
     # ─── Tab 2: Behavior ───────────────────────────────────────────────────────
     response_language: Mapped[str] = mapped_column(String(5), nullable=False, default="auto")  # auto | language code (en, es, fr, etc.)
-    response_tone: Mapped[ResponseTone] = mapped_column(
-        SQLEnum(ResponseTone),
+    # Store as plain strings for compatibility with existing DB values
+    response_tone: Mapped[str] = mapped_column(
+        String(50),
         nullable=False,
-        default=ResponseTone.PROFESSIONAL
+        default=ResponseTone.PROFESSIONAL.value,
     )
-    response_length: Mapped[ResponseLength] = mapped_column(
-        SQLEnum(ResponseLength),
+    response_length: Mapped[str] = mapped_column(
+        String(50),
         nullable=False,
-        default=ResponseLength.MEDIUM
+        default=ResponseLength.MEDIUM.value,
     )
     greeting_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     farewell_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -111,20 +113,20 @@ class ChatbotInstance(Base):
     show_citations: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     read_receipts: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     suggested_starter_questions: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)  # Up to 5 questions
-    conversation_starters_display: Mapped[ConversationStarterDisplay] = mapped_column(
-        SQLEnum(ConversationStarterDisplay),
+    conversation_starters_display: Mapped[str] = mapped_column(
+        String(50),
         nullable=False,
-        default=ConversationStarterDisplay.FIRST_VISIT_ONLY
+        default=ConversationStarterDisplay.FIRST_VISIT_ONLY.value,
     )
     
     # ─── Tab 3: Business Hours ─────────────────────────────────────────────────
     business_hours_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     timezone: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)  # e.g., "America/New_York"
     weekly_schedule: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)  # Day-based schedule config
-    outside_hours_behavior: Mapped[OutsideHoursBehavior] = mapped_column(
-        SQLEnum(OutsideHoursBehavior),
+    outside_hours_behavior: Mapped[str] = mapped_column(
+        String(100),
         nullable=False,
-        default=OutsideHoursBehavior.CONTINUE_ANSWERING
+        default=OutsideHoursBehavior.CONTINUE_ANSWERING.value,
     )
     offline_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     back_online_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -142,10 +144,10 @@ class ChatbotInstance(Base):
     
     # ─── Tab 5: Lead Capture ───────────────────────────────────────────────────
     lead_capture_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    lead_capture_trigger: Mapped[LeadCaptureTrigger] = mapped_column(
-        SQLEnum(LeadCaptureTrigger),
+    lead_capture_trigger: Mapped[str] = mapped_column(
+        String(50),
         nullable=False,
-        default=LeadCaptureTrigger.NEVER
+        default=LeadCaptureTrigger.NEVER.value,
     )
     lead_capture_fields_config: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)  # Field configuration
     lead_capture_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -158,10 +160,10 @@ class ChatbotInstance(Base):
     notification_email_addresses: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)  # Multiple email recipients
     
     # ─── Core ──────────────────────────────────────────────────────────────────
-    status: Mapped[ChatbotStatus] = mapped_column(
-        SQLEnum(ChatbotStatus),
+    status: Mapped[str] = mapped_column(
+        String(50),
         nullable=False,
-        default=ChatbotStatus.PAUSED
+        default=ChatbotStatus.PAUSED.value,
     )
     allowed_domains: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)  # Array of domain strings
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
@@ -173,7 +175,7 @@ class ChatbotInstance(Base):
             # Core
             "id": self.id,
             "tenant_id": self.tenant_id,
-            "status": self.status.value if self.status else "paused",
+            "status": getattr(self.status, "value", self.status) if self.status else "paused",
             "created_at": self.created_at.isoformat() + "Z" if self.created_at else None,
             "updated_at": self.updated_at.isoformat() + "Z" if self.updated_at else None,
             # Tab 1: Appearance
@@ -182,13 +184,13 @@ class ChatbotInstance(Base):
             "brand_color": self.brand_color,
             "secondary_color": self.secondary_color,
             "user_message_color": self.user_message_color,
-            "widget_position": self.widget_position.value if self.widget_position else None,
+            "widget_position": getattr(self.widget_position, "value", self.widget_position),
             "show_powered_by": self.show_powered_by,
             "font_size": self.font_size,
             # Tab 2: Behavior
             "response_language": self.response_language,
-            "response_tone": self.response_tone.value if self.response_tone else None,
-            "response_length": self.response_length.value if self.response_length else None,
+            "response_tone": getattr(self.response_tone, "value", self.response_tone),
+            "response_length": getattr(self.response_length, "value", self.response_length),
             "greeting_message": self.greeting_message,
             "farewell_message": self.farewell_message,
             "fallback_message": self.fallback_message,
@@ -197,12 +199,12 @@ class ChatbotInstance(Base):
             "show_citations": self.show_citations,
             "read_receipts": self.read_receipts,
             "suggested_starter_questions": self.suggested_starter_questions,
-            "conversation_starters_display": self.conversation_starters_display.value if self.conversation_starters_display else None,
+            "conversation_starters_display": getattr(self.conversation_starters_display, "value", self.conversation_starters_display),
             # Tab 3: Business Hours
             "business_hours_enabled": self.business_hours_enabled,
             "timezone": self.timezone,
             "weekly_schedule": self.weekly_schedule,
-            "outside_hours_behavior": self.outside_hours_behavior.value if self.outside_hours_behavior else None,
+            "outside_hours_behavior": getattr(self.outside_hours_behavior, "value", self.outside_hours_behavior),
             "offline_message": self.offline_message,
             "back_online_message": self.back_online_message,
             "holiday_hours": self.holiday_hours,
@@ -217,7 +219,7 @@ class ChatbotInstance(Base):
             "escalation_whatsapp_notification": self.escalation_whatsapp_notification,
             # Tab 5: Lead Capture
             "lead_capture_enabled": self.lead_capture_enabled,
-            "lead_capture_trigger": self.lead_capture_trigger.value if self.lead_capture_trigger else None,
+            "lead_capture_trigger": getattr(self.lead_capture_trigger, "value", self.lead_capture_trigger),
             "lead_capture_fields_config": self.lead_capture_fields_config,
             "lead_capture_message": self.lead_capture_message,
             "lead_capture_thank_you_message": self.lead_capture_thank_you_message,

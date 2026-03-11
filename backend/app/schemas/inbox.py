@@ -29,7 +29,7 @@ class InboxListResponse(BaseModel):
 
 class InboxMessageItem(BaseModel):
     id: str
-    role: str
+    role: Optional[str] = None
     content: str
     created_at: Optional[str] = None
     metadata: Optional[dict] = None

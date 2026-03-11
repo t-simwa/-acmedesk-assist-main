@@ -33,6 +33,7 @@ class Message(Base):
     citations: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)  # jsonb - sources used for answer
     confidence_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)  # AI confidence 0-1
     token_count: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # Number of tokens in message
+    message_metadata: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow, index=True)
     
     def to_dict(self) -> dict:
@@ -43,6 +44,7 @@ class Message(Base):
             "role": self.role.value if self.role else None,
             "content": self.content,
             "citations": self.citations,
+            "metadata": self.message_metadata,
             "confidence_score": self.confidence_score,
             "token_count": self.token_count,
             "created_at": self.created_at.isoformat() + "Z" if self.created_at else None,

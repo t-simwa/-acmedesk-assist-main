@@ -17,7 +17,7 @@ from sqlalchemy import select
 
 from ..models.base import get_session_factory
 from ..models.conversation import Conversation
-from ..models.message import Message
+from ..models.message import Message, MessageRole
 from ..services.database import get_effective_tenant_id
 
 logger = logging.getLogger(__name__)
@@ -81,7 +81,7 @@ class ChannelAdapter:
                 metadata.update(extra_metadata)
             message = Message(
                 id=str(uuid.uuid4()), conversation_id=conversation.id,
-                role="user", content=body or "", created_at=now,
+                role=MessageRole.USER, content=body or "", created_at=now,
                 message_metadata=metadata,
             )
             session.add(message)
@@ -210,7 +210,7 @@ class ChannelAdapter:
                     raise
             assistant_message = Message(
                 id=str(uuid.uuid4()), conversation_id=conversation.id,
-                role="assistant", content=body, created_at=now,
+                role=MessageRole.ASSISTANT, content=body, created_at=now,
                 message_metadata={
                     self.METADATA_CHANNEL_KEY: self.CHANNEL_NAME,
                     "direction": "outbound", self.THREAD_ID_KEY: thread_id,

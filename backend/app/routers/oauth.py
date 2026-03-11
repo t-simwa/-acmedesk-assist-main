@@ -188,7 +188,7 @@ async def google_callback(request: GoogleOAuthCallbackRequest, http_request: Req
                 status=ChatbotStatus.PAUSED,
                 greeting_message="Hi! I'm your AI assistant. How can I help you today?",
                 fallback_message="I'm not sure I understand. Would you like to speak with our team?",
-                widget_position=WidgetPosition.BOTTOM_RIGHT,
+                widget_position=WidgetPosition.BOTTOM_RIGHT.value,
                 show_citations=True,
                 show_typing=True,
                 show_powered_by=True,

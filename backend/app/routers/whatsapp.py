@@ -84,10 +84,10 @@ async def create_inbound_whatsapp_test_message(
     """
     try:
         message_dict = await whatsapp_service.create_inbound_whatsapp_message(
+            request.wa_id,
+            request.business_number,
+            request.body,
             user_id=current_user.id,
-            wa_id=request.wa_id,
-            business_number=request.business_number,
-            body=request.body,
             provider_message_id=None,
             media_urls=request.media_urls,
             caption=request.caption,
