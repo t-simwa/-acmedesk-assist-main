@@ -7,7 +7,7 @@ import logging
 from typing import Optional, Dict, Any, List
 
 from fastapi import APIRouter, HTTPException, status, Depends
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 
 from ..dependencies.auth import get_current_user
@@ -29,6 +29,7 @@ class Tab1AppearanceRequest(BaseModel):
     """Tab 1 — Appearance configuration."""
     name: str = Field(..., min_length=1, max_length=100)
     avatar_url: Optional[str] = None
+    role_text: Optional[str] = None
     brand_color: str = Field(default="#4F8EF7")
     secondary_color: str = Field(default="#7C3AED")
     user_message_color: str = Field(default="#4F8EF7")
@@ -98,6 +99,7 @@ class ChatbotConfigRequest(BaseModel):
     # Tab 1
     name: Optional[str] = None
     avatar_url: Optional[str] = None
+    role_text: Optional[str] = None
     brand_color: Optional[str] = None
     secondary_color: Optional[str] = None
     user_message_color: Optional[str] = None
@@ -145,6 +147,54 @@ class ChatbotConfigRequest(BaseModel):
     # Tab 6
     notifications_config: Optional[Dict[str, Any]] = None
     notification_email_addresses: Optional[List[str]] = None
+
+    # ------------------------------------------------------------------
+    # Validators
+    # ------------------------------------------------------------------
+    @field_validator('keyword_triggers', mode='before')
+    def _split_keywords(cls, v):
+        if isinstance(v, str):
+            return [s.strip() for s in v.split(',') if s.strip()]
+        return v
+
+    @field_validator('escalation_email_addresses', mode='before')
+    def _split_escalation_emails(cls, v):
+        if isinstance(v, str):
+            return [s.strip() for s in v.split(',') if s.strip()]
+        return v
+
+    @field_validator('notification_email_addresses', mode='before')
+    def _split_notification_emails(cls, v):
+        if isinstance(v, str):
+            return [s.strip() for s in v.split(',') if s.strip()]
+        return v
+
+    @field_validator('unanswered_questions_threshold', mode='before')
+    def _threshold_to_str(cls, v):
+        if v is None:
+            return v
+        return str(v)
+
+    @field_validator('suggested_starter_questions', mode='before')
+    def _clean_starters(cls, v):
+        if isinstance(v, list):
+            return [s for s in v if s is not None and s != ""]
+        return v
+
+    @field_validator(
+        'notifications_config',
+        'lead_capture_fields_config',
+        'weekly_schedule',
+        'holiday_hours',
+        mode='before',
+    )
+    def _parse_json_fields(cls, v):
+        if isinstance(v, str):
+            try:
+                return __import__('json').loads(v)
+            except Exception:
+                pass
+        return v
 
 
 # ─── Endpoints ─────────────────────────────────────────────────────────────────
@@ -200,7 +250,7 @@ async def update_chatbot_config(
         # All allowed fields across 6 tabs
         allowed_fields = {
             # Tab 1
-            'name', 'avatar_url', 'brand_color', 'secondary_color', 'user_message_color',
+            'name', 'avatar_url', 'role_text', 'brand_color', 'secondary_color', 'user_message_color',
             'widget_position', 'show_powered_by', 'font_size',
             # Tab 2
             'response_language', 'response_tone', 'response_length', 'greeting_message',
@@ -224,7 +274,35 @@ async def update_chatbot_config(
         
         # Update only provided fields
         config_dict = config.model_dump(exclude_unset=True)
+        # Some frontends may send CSV strings or JSON strings; normalize here so
+        # the database accepts them and clients don't all need to be perfect.
+        list_fields = {
+            'keyword_triggers',
+            'escalation_email_addresses',
+            'notification_email_addresses',
+        }
+        json_fields = {
+            'notifications_config',
+            'lead_capture_fields_config',
+            'weekly_schedule',
+            'holiday_hours',
+        }
         for key, value in config_dict.items():
+            if key in list_fields and isinstance(value, str):
+                # convert comma-separated string to list
+                config_dict[key] = [s.strip() for s in value.split(',') if s.strip()]
+                value = config_dict[key]
+            if key in json_fields and isinstance(value, str):
+                try:
+                    config_dict[key] = __import__('json').loads(value)
+                    value = config_dict[key]
+                except Exception:
+                    # leave as-is, pydantic will raise if invalid
+                    pass
+            if key == 'unanswered_questions_threshold' and value is not None and not isinstance(value, str):
+                config_dict[key] = str(value)
+                value = config_dict[key]
+
             if key in allowed_fields and hasattr(chatbot, key):
                 # Handle enum conversions
                 if key == 'widget_position' and value:

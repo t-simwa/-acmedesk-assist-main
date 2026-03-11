@@ -2738,6 +2738,7 @@ export interface BusinessProfileRequest {
 export interface ChatbotConfigRequest {
   name?: string;
   avatar_url?: string;
+  role_text?: string;
   brand_color?: string;
   secondary_color?: string;
   greeting_message?: string;
@@ -2897,6 +2898,7 @@ export interface ChatbotConfig {
   // Tab1
   name: string;
   avatar_url?: string;
+  role_text?: string;
   brand_color: string;
   secondary_color: string;
   user_message_color: string;

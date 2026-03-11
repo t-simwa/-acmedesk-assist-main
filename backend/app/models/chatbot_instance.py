@@ -80,6 +80,7 @@ class ChatbotInstance(Base):
     # ─── Tab 1: Appearance ──────────────────────────────────────────────────────
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     avatar_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    role_text: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     brand_color: Mapped[str] = mapped_column(String(7), nullable=False, default="#4F8EF7")  # Hex color
     secondary_color: Mapped[str] = mapped_column(String(7), nullable=False, default="#7C3AED")  # Hex color
     user_message_color: Mapped[str] = mapped_column(String(7), nullable=False, default="#4F8EF7")  # User message color
@@ -154,6 +155,9 @@ class ChatbotInstance(Base):
     lead_capture_thank_you_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     lead_capture_skip_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     lead_capture_skip_button_text: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+
+    # New: channel-specific overrides stored as JSON
+    channel_overrides: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
     
     # ─── Tab 6: Notifications ──────────────────────────────────────────────────
     notifications_config: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)  # Notification preferences matrix
@@ -181,6 +185,7 @@ class ChatbotInstance(Base):
             # Tab 1: Appearance
             "name": self.name,
             "avatar_url": self.avatar_url,
+            "role_text": self.role_text,
             "brand_color": self.brand_color,
             "secondary_color": self.secondary_color,
             "user_message_color": self.user_message_color,
@@ -225,6 +230,7 @@ class ChatbotInstance(Base):
             "lead_capture_thank_you_message": self.lead_capture_thank_you_message,
             "lead_capture_skip_enabled": self.lead_capture_skip_enabled,
             "lead_capture_skip_button_text": self.lead_capture_skip_button_text,
+            "channel_overrides": self.channel_overrides,
             # Tab 6: Notifications
             "notifications_config": self.notifications_config,
             "notification_email_addresses": self.notification_email_addresses,
