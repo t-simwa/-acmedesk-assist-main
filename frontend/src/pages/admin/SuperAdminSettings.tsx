@@ -1,11 +1,51 @@
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
+import { adminApi, type Announcement, type ApiError } from "@/lib/api";
 
 export default function SuperAdminSettings() {
+  const queryClient = useQueryClient();
+
+  const [annType, setAnnType] = useState<string>("info");
+  const [annStart, setAnnStart] = useState<string | undefined>(undefined);
+  const [annEnd, setAnnEnd] = useState<string | undefined>(undefined);
+  const [annMessage, setAnnMessage] = useState<string>("");
+
+  const { data: announcement } = useQuery<Announcement, ApiError>({
+    queryKey: ["admin","announcement"],
+    queryFn: () => adminApi.getAnnouncement(),
+    onSuccess: (a) => {
+      setAnnType(a.type);
+      setAnnStart(a.start_date);
+      setAnnEnd(a.end_date);
+      setAnnMessage(a.message);
+    },
+    enabled: true,
+    retry: false,
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (payload: Announcement) => adminApi.updateAnnouncement(payload),
+    onSuccess: (newAnn) => {
+      queryClient.setQueryData(["admin","announcement"], newAnn);
+    },
+  });
+
+  const saveAnnouncement = () => {
+    updateMutation.mutate({
+      id: announcement?.id || "",
+      type: annType,
+      message: annMessage,
+      start_date: annStart,
+      end_date: annEnd,
+    });
+  };
+
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8 pb-32 max-w-[1600px] mx-auto w-full">
       {/* Page header */}
@@ -151,7 +191,7 @@ export default function SuperAdminSettings() {
               <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Type
               </Label>
-              <Select defaultValue="info">
+              <Select value={annType} onValueChange={(v) => setAnnType(v)}>
                 <SelectTrigger className="h-9 text-xs">
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
@@ -166,13 +206,23 @@ export default function SuperAdminSettings() {
               <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Start Date
               </Label>
-              <Input type="date" className="h-9 text-xs" />
+              <Input
+                type="date"
+                value={annStart || ""}
+                onChange={(e) => setAnnStart(e.target.value)}
+                className="h-9 text-xs"
+              />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 End Date
               </Label>
-              <Input type="date" className="h-9 text-xs" />
+              <Input
+                type="date"
+                value={annEnd || ""}
+                onChange={(e) => setAnnEnd(e.target.value)}
+                className="h-9 text-xs"
+              />
             </div>
           </div>
           <div className="space-y-1.5">
@@ -182,14 +232,33 @@ export default function SuperAdminSettings() {
             <Input
               className="h-10 text-xs"
               placeholder="Short announcement message shown in all client dashboards"
+              value={annMessage}
+              onChange={(e) => setAnnMessage(e.target.value)}
             />
           </div>
           <div className="flex items-center justify-end gap-2">
-            <Button variant="outline" size="sm" className="h-8 text-xs">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs"
+              onClick={() => {
+                if (announcement) {
+                  setAnnType(announcement.type);
+                  setAnnStart(announcement.start_date);
+                  setAnnEnd(announcement.end_date);
+                  setAnnMessage(announcement.message);
+                }
+              }}
+            >
               Reset
             </Button>
-            <Button size="sm" className="h-8 text-xs gap-1.5">
-              Save Settings
+            <Button
+              size="sm"
+              className="h-8 text-xs gap-1.5"
+              onClick={saveAnnouncement}
+              disabled={updateMutation.isLoading}
+            >
+              {updateMutation.isLoading ? "Saving…" : "Save Settings"}
             </Button>
           </div>
         </CardContent>

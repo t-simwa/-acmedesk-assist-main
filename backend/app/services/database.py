@@ -880,6 +880,95 @@ async def get_document_by_tenant(doc_id: str, tenant_id: str) -> Optional[dict]:
 
 # Settings management functions
 
+
+async def get_announcement() -> Optional[Dict[str, Any]]:
+    """Retrieve the active announcement banner from the settings table.
+
+    Returns:
+        Dict with keys id,type,message,start_date,end_date if an announcement
+        is currently in range, otherwise None.
+    """
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        try:
+            result = await session.execute(
+                select(Setting).where(Setting.key == "announcement_banner")
+            )
+            setting = result.scalar_one_or_none()
+            if not setting:
+                return None
+
+            # parse and check date range
+            data = json.loads(setting.value)
+            # include id for dismissal tracking
+            ann = {
+                "id": setting.id,
+                **data,
+            }
+
+            # if start_date/end_date provided, ensure current UTC is within
+            now = datetime.utcnow()
+            sd = None
+            ed = None
+            if ann.get("start_date"):
+                try:
+                    sd = datetime.fromisoformat(ann["start_date"].replace("Z", "+00:00"))
+                except ValueError:
+                    sd = None
+            if ann.get("end_date"):
+                try:
+                    ed = datetime.fromisoformat(ann["end_date"].replace("Z", "+00:00"))
+                except ValueError:
+                    ed = None
+
+            if sd and now < sd:
+                return None
+            if ed and now > ed:
+                return None
+
+            return ann
+        except Exception as e:
+            logger.error(f"Error getting announcement: {e}", exc_info=True)
+            raise
+
+
+async def update_announcement(announcement: Dict[str, Any]) -> Dict[str, Any]:
+    """Insert or update the announcement_banner setting.
+
+    Announcement is stored as JSON value under key "announcement_banner".
+    """
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        try:
+            result = await session.execute(
+                select(Setting).where(Setting.key == "announcement_banner")
+            )
+            setting = result.scalar_one_or_none()
+
+            if setting:
+                setting.value = json.dumps(announcement)
+                setting.updated_at = datetime.utcnow()
+            else:
+                setting_id = str(uuid.uuid4())
+                setting = Setting(
+                    id=setting_id,
+                    key="announcement_banner",
+                    value=json.dumps(announcement),
+                    description="Global announcement banner for dashboards",
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow(),
+                )
+                session.add(setting)
+
+            await session.commit()
+            await session.refresh(setting)
+            # return complete record with id
+            return {"id": setting.id, **announcement}
+        except Exception as e:
+            await session.rollback()
+            logger.error(f"Error updating announcement: {e}", exc_info=True)
+            raise
+
 async def get_rag_settings() -> Optional[Dict[str, Any]]:
     """
     Get RAG configuration settings from database.

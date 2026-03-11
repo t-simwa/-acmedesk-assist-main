@@ -1326,6 +1326,7 @@ export interface DashboardSummary {
   recent_leads: RecentLeadItem[];
   unanswered_count: number;
   chatbot_status: ChatbotStatusResponse;
+  announcement?: Announcement;
 }
 
 export const dashboardApi = {
@@ -1333,9 +1334,16 @@ export const dashboardApi = {
    * Get dashboard summary with all metrics
    * @param preset Date range preset: "today", "7days", "30days"
    */
-  async getSummary(preset: string = "7days"): Promise<DashboardSummary> {
+  async getSummary(
+    preset: string = "7days",
+    start_date?: string,
+    end_date?: string,
+  ): Promise<DashboardSummary> {
+    const params: Record<string, string> = { preset };
+    if (start_date) params.start_date = start_date;
+    if (end_date) params.end_date = end_date;
     return apiClient<DashboardSummary>("/api/dashboard/summary", {
-      params: { preset },
+      params,
     });
   },
 };
@@ -2134,6 +2142,34 @@ export const conversationsApi = {
       body: JSON.stringify(request),
     });
   },
+
+  // ─── In-platform Chat Widget Methods ─────────────────────────────────────────
+
+  /**
+   * Submit feedback for a conversation (Was this helpful? 👍/👎)
+   */
+  async submitFeedback(
+    sessionId: string,
+    rating: "positive" | "negative"
+  ): Promise<{ success: boolean; message: string }> {
+    return apiClient<{ success: boolean; message: string }>("/api/conversations/feedback", {
+      method: "POST",
+      body: JSON.stringify({ session_id: sessionId, rating }),
+    });
+  },
+
+  /**
+   * Submit lead capture data from in-platform chat
+   */
+  async submitLead(
+    sessionId: string,
+    leadData: { name?: string; email?: string; phone?: string; company?: string }
+  ): Promise<{ success: boolean; message: string }> {
+    return apiClient<{ success: boolean; message: string }>("/api/conversations/lead", {
+      method: "POST",
+      body: JSON.stringify({ session_id: sessionId, lead_data: leadData }),
+    });
+  },
 };
 
 // ============================================================================
@@ -2358,6 +2394,16 @@ export interface TeamMemberUpdateRoleRequest {
 }
 
 export const adminApi = {
+  /** Announcement banner (owner only) */
+  async getAnnouncement(): Promise<Announcement> {
+    return apiClient<Announcement>("/api/admin/announcement");
+  },
+  async updateAnnouncement(payload: Announcement): Promise<Announcement> {
+    return apiClient<Announcement>("/api/admin/announcement", {
+      method: "PUT",
+      data: payload,
+    });
+  },
   /**
    * Get current user information and permissions
    */
@@ -2893,9 +2939,13 @@ export const onboardingApi = {
 // ============================================================================
 
 export interface ChatbotConfig {
+  // Core
   id: string;
+  tenant_id: string;
   status: string;
-  // Tab1
+  created_at?: string;
+  updated_at?: string;
+  // Tab1 - Appearance
   name: string;
   avatar_url?: string;
   role_text?: string;
@@ -2905,7 +2955,9 @@ export interface ChatbotConfig {
   widget_position: string;
   show_powered_by: boolean;
   font_size: string;
-  // Tab2
+  launcher_style?: "icon" | "icon_text" | "text_only";
+  launcher_size?: "small" | "medium" | "large";
+  // Tab2 - Behavior
   response_language: string;
   response_tone: string;
   response_length: string;
@@ -2918,15 +2970,15 @@ export interface ChatbotConfig {
   read_receipts: boolean;
   suggested_starter_questions?: string[];
   conversation_starters_display: string;
-  // Tab3
+  // Tab3 - Business Hours
   business_hours_enabled: boolean;
   timezone?: string;
-  weekly_schedule?: any;
+  weekly_schedule?: Record<string, { enabled: boolean; start: string; end: string }>;
   outside_hours_behavior: string;
   offline_message?: string;
   back_online_message?: string;
-  holiday_hours?: any;
-  // Tab4
+  holiday_hours?: Array<{ date: string; name: string; hours?: { start: string; end: string } }>;
+  // Tab4 - Escalation
   auto_escalation_enabled: boolean;
   confidence_threshold: number;
   unanswered_questions_threshold: string;
@@ -2935,17 +2987,20 @@ export interface ChatbotConfig {
   escalation_email_addresses?: string[];
   escalation_slack_webhook?: string;
   escalation_whatsapp_notification: boolean;
-  // Tab5
+  // Tab5 - Lead Capture
   lead_capture_enabled: boolean;
   lead_capture_trigger: string;
-  lead_capture_fields_config?: any;
+  lead_capture_fields_config?: Record<string, { enabled: boolean; required: boolean; label?: string }>;
   lead_capture_message?: string;
   lead_capture_thank_you_message?: string;
   lead_capture_skip_enabled: boolean;
   lead_capture_skip_button_text?: string;
-  // Tab6
-  notifications_config?: any;
+  // Tab6 - Notifications
+  notifications_config?: Record<string, { email: boolean; slack: boolean; inApp: boolean }>;
   notification_email_addresses?: string[];
+  // Channel overrides and domains
+  channel_overrides?: Record<string, Partial<ChatbotConfig>>;
+  allowed_domains?: string[];
 }
 
 

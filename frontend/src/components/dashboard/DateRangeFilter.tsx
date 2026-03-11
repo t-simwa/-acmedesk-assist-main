@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { Calendar, ChevronDown, Check } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -7,6 +8,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 interface DateRangeFilterProps {
   value: string;
   onChange: (value: string) => void;
+  // called when a custom range is applied
+  onCustomRange?: (start: string, end: string) => void;
   className?: string;
 }
 
@@ -14,12 +17,16 @@ const presets = [
   { value: "today", label: "Today" },
   { value: "7days", label: "Last 7 days" },
   { value: "30days", label: "Last 30 days" },
+  { value: "90days", label: "Last 90 days" },
+  { value: "custom", label: "Custom range" },
 ];
 
 export function DateRangeFilter({ value, onChange, className }: DateRangeFilterProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   const currentPreset = presets.find(p => p.value === value) || presets[1];
+  const [customStart, setCustomStart] = useState<string>("");
+  const [customEnd, setCustomEnd] = useState<string>("");
 
   const handleSelect = useCallback((presetValue: string) => {
     onChange(presetValue);
@@ -72,6 +79,36 @@ export function DateRangeFilter({ value, onChange, className }: DateRangeFilterP
               )}
             </button>
           ))}
+          {value === "custom" && (
+            <div className="mt-2 space-y-2">
+              <label className="text-xs">Start date</label>
+              <input
+                type="date"
+                value={customStart}
+                onChange={(e) => setCustomStart(e.target.value)}
+                className="w-full rounded-lg border px-2 py-1 text-sm"
+              />
+              <label className="text-xs">End date</label>
+              <input
+                type="date"
+                value={customEnd}
+                onChange={(e) => setCustomEnd(e.target.value)}
+                className="w-full rounded-lg border px-2 py-1 text-sm"
+              />
+              <Button
+                size="sm"
+                className="w-full"
+                onClick={() => {
+                  if (customStart && customEnd && onCustomRange) {
+                    onCustomRange(customStart, customEnd);
+                  }
+                  setIsOpen(false);
+                }}
+              >
+                Apply
+              </Button>
+            </div>
+          )}
         </div>
       </PopoverContent>
     </Popover>

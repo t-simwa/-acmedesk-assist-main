@@ -26,6 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import settings
 from ..models.base import get_db_session
+from ..services import database
 from ..models.user import User, UserRole
 from ..models.audit_log import AuditLog, AuditAction, AuditResourceType
 from ..models.api_key import APIKey
@@ -47,6 +48,8 @@ from ..schemas.admin import (
     TeamMemberInviteResponse,
     TeamMemberUpdateRoleRequest,
     TeamMemberUpdateRoleResponse,
+    AnnouncementRequest,
+    AnnouncementResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -388,6 +391,54 @@ async def create_api_key(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create API key",
         )
+
+
+# ---------------------------------------------------------------------------
+# Announcement banner API
+# ---------------------------------------------------------------------------
+
+@router.get("/announcement", response_model=AnnouncementResponse)
+async def get_announcement(
+    current_user: User = Depends(require_owner())
+) -> AnnouncementResponse:
+    """Return the current announcement banner (if any).
+
+    Only owners may read or modify this value.
+    """
+    try:
+        ann = await database.get_announcement()
+        if not ann:
+            # return 404 to indicate none
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No announcement set")
+        return AnnouncementResponse(**ann)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching announcement: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to fetch announcement")
+
+
+@router.put("/announcement", response_model=AnnouncementResponse)
+async def update_announcement_endpoint(
+    request_body: AnnouncementRequest,
+    current_user: User = Depends(require_owner())
+) -> AnnouncementResponse:
+    """Create or update the global announcement banner."""
+    try:
+        ann = await database.update_announcement(request_body.dict())
+        # record audit log
+        await create_audit_log(
+            action=AuditAction.UPDATE,
+            resource_type=AuditResourceType.SETTING,
+            description="Updated announcement banner",
+            user_id=current_user.id,
+            user_email=current_user.email,
+            metadata={"announcement": request_body.dict()},
+        )
+        return AnnouncementResponse(**ann)
+    except Exception as e:
+        logger.error(f"Error updating announcement: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update announcement")
 
 
 @router.delete("/api-keys/{key_id}", status_code=status.HTTP_200_OK)

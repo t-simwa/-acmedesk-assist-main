@@ -193,6 +193,27 @@ class TeamMemberUpdateRoleResponse(BaseModel):
 
 
 # ============================================================================
+# Announcement Banner Schemas
+# ============================================================================
+
+class AnnouncementRequest(BaseModel):
+    """Payload for creating/updating announcement banner."""
+    type: str = Field(..., description="Type of banner: info, warning, maintenance")
+    message: str = Field(..., min_length=1, max_length=500)
+    start_date: Optional[str] = Field(None, description="ISO start datetime, inclusive")
+    end_date: Optional[str] = Field(None, description="ISO end datetime, inclusive")
+
+
+class AnnouncementResponse(BaseModel):
+    """Returned announcement information."""
+    id: str
+    type: str
+    message: str
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+
+
+# ============================================================================
 # Accept Invite Schemas
 # ============================================================================
 

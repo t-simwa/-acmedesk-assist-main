@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { SetupChecklistBanner } from "@/components/onboarding/SetupChecklistBanner";
 import { DateRangeFilter } from "@/components/dashboard/DateRangeFilter";
+import { DashboardAnnouncement } from "@/components/dashboard/DashboardAnnouncement";
 import { ConversationVolumeChart } from "@/components/dashboard/ConversationVolumeChart";
 import { ConversationOutcomesDonut } from "@/components/dashboard/ConversationOutcomesDonut";
 import { ChannelBreakdown } from "@/components/dashboard/ChannelBreakdown";
@@ -155,8 +156,14 @@ function TrendIndicator({ value, invert }: { value: number | null | undefined; i
 
 export default function Dashboard() {
   const [dateRange, setDateRange] = useState("7days");
+  const [customStart, setCustomStart] = useState<string | undefined>(undefined);
+  const [customEnd, setCustomEnd] = useState<string | undefined>(undefined);
 
-  const { data, isLoading, error, refetch } = useDashboardSummary(dateRange);
+  const { data, isLoading, error, refetch } = useDashboardSummary(
+    dateRange,
+    customStart,
+    customEnd,
+  );
 
   const summary = data || MOCK_DATA;
 
@@ -225,9 +232,30 @@ export default function Dashboard() {
             <RefreshCw size={13} />
             <span className="hidden sm:inline">Refresh</span>
           </Button>
-          <DateRangeFilter value={dateRange} onChange={setDateRange} />
+              <DateRangeFilter
+            value={dateRange}
+            onChange={(val) => {
+              setDateRange(val);
+              if (val !== "custom") {
+                setCustomStart(undefined);
+                setCustomEnd(undefined);
+              }
+            }}
+            onCustomRange={(start, end) => {
+              setCustomStart(start);
+              setCustomEnd(end);
+            }}
+          />
         </div>
       </div>
+
+      {/* ─── Announcement (conditional) ─────────────────────────────────── */}
+      {summary.announcement && (
+        <DashboardAnnouncement
+          announcement={summary.announcement}
+          className="mb-4"
+        />
+      )}
 
       {/* ─── Setup Checklist Banner ─────────────────────────────────────── */}
       <SetupChecklistBanner />

@@ -87,6 +87,14 @@ class ChatbotStatusResponse(BaseModel):
     chatbot_name: Optional[str] = None
 
 
+class Announcement(BaseModel):
+    id: str
+    type: str
+    message: str
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+
+
 class DashboardSummary(BaseModel):
     # KPI Metrics
     total_conversations: int
@@ -112,6 +120,7 @@ class DashboardSummary(BaseModel):
     # Alerts
     unanswered_count: int
     chatbot_status: ChatbotStatusResponse
+    announcement: Optional[Announcement] = None
 
 
 # ============================================================================
@@ -139,6 +148,8 @@ def get_date_range(preset: str = "7days") -> tuple[datetime, datetime]:
         start_date = end_date - timedelta(days=7)
     elif preset == "30days":
         start_date = end_date - timedelta(days=30)
+    elif preset == "90days":
+        start_date = end_date - timedelta(days=90)
     
     return start_date, end_date
 
@@ -161,6 +172,11 @@ def get_previous_date_range(preset: str = "7days") -> tuple[datetime, datetime]:
         start_date = end_date - timedelta(days=30)
         prev_end = start_date - timedelta(seconds=1)
         prev_start = prev_end - timedelta(days=30)
+        return prev_start, prev_end
+    elif preset == "90days":
+        start_date = end_date - timedelta(days=90)
+        prev_end = start_date - timedelta(seconds=1)
+        prev_start = prev_end - timedelta(days=90)
         return prev_start, prev_end
     
     # Default fallback
@@ -352,6 +368,10 @@ async def get_dashboard_summary(
             embed_code=chatbot_status_raw.get("embed_code"),
             chatbot_name=chatbot_status_raw.get("chatbot_name"),
         )
+
+        # Announcement banner (optional)
+        announcement_raw = await database.get_announcement()
+        announcement = Announcement(**announcement_raw) if announcement_raw else None
         
         return DashboardSummary(
             total_conversations=total_conversations,
@@ -368,7 +388,8 @@ async def get_dashboard_summary(
             recent_conversations=recent_conversations,
             recent_leads=recent_leads_list,
             unanswered_count=unanswered_count,
-            chatbot_status=chatbot_status
+            chatbot_status=chatbot_status,
+            announcement=announcement
         )
         
     except HTTPException:
