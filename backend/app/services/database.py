@@ -26,6 +26,8 @@ from ..models.document import Document
 from ..models.lead import Lead, LeadStatus
 from ..models.message import Message, MessageRole
 from ..models.setting import Setting
+from ..models.channel_config import ChannelConfig
+from ..models.notification import Notification
 from ..models.user_preferences import UserPreferences
 from ..models.knowledge_base import KnowledgeBase, UserKnowledgeBasePreference
 
@@ -2029,6 +2031,93 @@ async def get_conversations_by_date_range(
         return [{"date": str(row.date), "count": row.count} for row in result.fetchall()]
 
 
+async def get_document_count_by_tenant(
+    tenant_id: str,
+    user_id: Optional[str] = None,
+) -> int:
+    """Get the total number of documents for a tenant."""
+    tenant_ids = _effective_tenant_ids(tenant_id, user_id)
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        result = await session.execute(
+            select(func.count(Document.id)).where(Document.tenant_id.in_(tenant_ids))
+        )
+        return result.scalar() or 0
+
+
+async def get_channel_statuses(
+    tenant_id: str,
+) -> dict:
+    """Return connection status for each known channel."""
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        result = await session.execute(
+            select(ChannelConfig.channel, ChannelConfig.enabled, ChannelConfig.connected)
+            .where(ChannelConfig.tenant_id == tenant_id)
+        )
+        statuses: dict = {}
+        for channel, enabled, connected in result.fetchall():
+            if not enabled:
+                statuses[channel] = "disabled"
+            elif connected:
+                statuses[channel] = "connected"
+            else:
+                statuses[channel] = "disconnected"
+        return statuses
+
+
+async def get_notifications(
+    tenant_id: str,
+    limit: int = 20,
+    unread_only: bool = False,
+) -> List[dict]:
+    """Get notifications for a tenant."""
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        stmt = select(Notification).where(Notification.tenant_id == tenant_id)
+        if unread_only:
+            stmt = stmt.where(Notification.read == False)  # noqa: E712
+        stmt = stmt.order_by(Notification.created_at.desc()).limit(limit)
+
+        result = await session.execute(stmt)
+        notifications = result.scalars().all()
+        return [n.to_dict() for n in notifications]
+
+
+async def mark_notification_read(
+    tenant_id: str,
+    notification_id: str,
+) -> Optional[dict]:
+    """Mark a notification as read."""
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        stmt = select(Notification).where(
+            Notification.tenant_id == tenant_id,
+            Notification.id == notification_id,
+        )
+        result = await session.execute(stmt)
+        notification = result.scalar_one_or_none()
+        if not notification:
+            return None
+        notification.read = True
+        notification.updated_at = datetime.utcnow()
+        await session.commit()
+        await session.refresh(notification)
+        return notification.to_dict()
+
+
+async def mark_all_notifications_read(tenant_id: str) -> None:
+    """Mark all notifications as read for a tenant."""
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        await session.execute(
+            Notification.__table__.update()
+            .where(Notification.tenant_id == tenant_id)
+            .values(read=True, updated_at=datetime.utcnow())
+        )
+        await session.commit()
+
+
 async def get_conversation_outcomes(
     tenant_id: str,
     start_date: datetime,
@@ -2203,12 +2292,14 @@ async def get_unanswered_questions_count(
 
 async def get_chatbot_status(tenant_id: str) -> Dict[str, Any]:
     """Get chatbot status for the dashboard."""
+    from sqlalchemy.orm import load_only
     from ..models.chatbot_instance import ChatbotInstance, ChatbotStatus
     
     session_factory = get_session_factory()
     async with session_factory() as session:
         result = await session.execute(
             select(ChatbotInstance)
+            .options(load_only(ChatbotInstance.id, ChatbotInstance.status, ChatbotInstance.updated_at, ChatbotInstance.name))
             .where(ChatbotInstance.tenant_id == tenant_id)
             .order_by(ChatbotInstance.created_at.desc())
             .limit(1)
@@ -2542,10 +2633,10 @@ async def get_content_analytics(
         most_referenced = []
         underutilized = []
         
-        for doc in result:
+        for doc in result.scalars():
             # Mock data - in production, track citations from messages
             ref_count = 0  # Would query message citations
-            
+
             if ref_count > 5:
                 most_referenced.append({
                     "document_id": doc.id,

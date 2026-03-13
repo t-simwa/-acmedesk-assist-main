@@ -60,6 +60,7 @@ class ChannelData(BaseModel):
     channel: str
     count: int
     icon: str
+    status: str  # connected | disconnected | disabled
 
 
 class RecentConversationItem(BaseModel):
@@ -108,6 +109,9 @@ class DashboardSummary(BaseModel):
     resolution_trend: Optional[float] = None
     response_time_trend: Optional[float] = None
     
+    # Checklist
+    document_count: int
+
     # Charts Data
     conversation_volume: List[ConversationVolumeData]
     conversation_outcomes: List[ConversationOutcomeData]
@@ -119,6 +123,7 @@ class DashboardSummary(BaseModel):
     
     # Alerts
     unanswered_count: int
+    unanswered_questions: Optional[List[Dict[str, Any]]] = None
     chatbot_status: ChatbotStatusResponse
     announcement: Optional[Announcement] = None
 
@@ -320,7 +325,8 @@ async def get_dashboard_summary(
             ChannelData(
                 channel=c["channel"],
                 count=c["count"],
-                icon=channel_icons.get(c["channel"], "💬")
+                icon=channel_icons.get(c["channel"], "💬"),
+                status="connected",
             )
             for c in channels
         ]
@@ -359,6 +365,10 @@ async def get_dashboard_summary(
         
         # Unanswered questions
         unanswered_count = await database.get_unanswered_questions_count(tenant_id, start, end, user_id=current_user.id)
+
+        # For dashboard, include top unanswered questions (for UI list)
+        content_analytics = await database.get_content_analytics(tenant_id, 30)
+        unanswered_questions = content_analytics.get("unanswered_questions", [])[:3]
         
         # Chatbot status (build response model explicitly for validation)
         chatbot_status_raw = await database.get_chatbot_status(tenant_id)
@@ -368,6 +378,9 @@ async def get_dashboard_summary(
             embed_code=chatbot_status_raw.get("embed_code"),
             chatbot_name=chatbot_status_raw.get("chatbot_name"),
         )
+
+        # Document counts (for setup checklist)
+        document_count = await database.get_document_count_by_tenant(tenant_id, user_id=current_user.id)
 
         # Announcement banner (optional)
         announcement_raw = await database.get_announcement()
@@ -382,12 +395,14 @@ async def get_dashboard_summary(
             leads_trend=leads_trend,
             resolution_trend=resolution_trend,
             response_time_trend=response_time_trend,
+            document_count=document_count,
             conversation_volume=conversation_volume,
             conversation_outcomes=conversation_outcomes,
             channel_breakdown=channel_breakdown,
             recent_conversations=recent_conversations,
             recent_leads=recent_leads_list,
             unanswered_count=unanswered_count,
+            unanswered_questions=unanswered_questions,
             chatbot_status=chatbot_status,
             announcement=announcement
         )

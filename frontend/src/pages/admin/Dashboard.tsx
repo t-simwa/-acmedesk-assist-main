@@ -10,14 +10,15 @@
  * - Refined editorial SaaS aesthetic
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   MessageSquare, Users, Percent, Clock,
   TrendingUp, TrendingDown, Minus, RefreshCw,
 } from "lucide-react";
-import { SetupChecklistBanner } from "@/components/onboarding/SetupChecklistBanner";
+import { SetupChecklist } from "@/components/dashboard/SetupChecklist";
 import { DateRangeFilter } from "@/components/dashboard/DateRangeFilter";
-import { DashboardAnnouncement } from "@/components/dashboard/DashboardAnnouncement";
+import { DashboardAnnouncement } from "../../components/dashboard/DashboardAnnouncement";
 import { ConversationVolumeChart } from "@/components/dashboard/ConversationVolumeChart";
 import { ConversationOutcomesDonut } from "@/components/dashboard/ConversationOutcomesDonut";
 import { ChannelBreakdown } from "@/components/dashboard/ChannelBreakdown";
@@ -32,62 +33,6 @@ import { NetworkErrorState } from "@/components/error/NetworkErrorState";
 import { cn } from "@/lib/utils";
 import type { ApiError } from "@/lib/api";
 
-/* ═══════════════════════════════════════════════════════════════════════════════
-   MOCK DATA
-   ═══════════════════════════════════════════════════════════════════════════════ */
-
-const MOCK_DATA = {
-  total_conversations: 247,
-  leads_captured: 38,
-  resolution_rate: 82.5,
-  avg_response_time: "1.2s",
-  conversations_trend: 12.5,
-  leads_trend: 8.3,
-  resolution_trend: 5.2,
-  response_time_trend: -15.0,
-  conversation_volume: [
-    { date: "2026-02-24", count: 32 },
-    { date: "2026-02-25", count: 45 },
-    { date: "2026-02-26", count: 28 },
-    { date: "2026-02-27", count: 51 },
-    { date: "2026-02-28", count: 39 },
-    { date: "2026-03-01", count: 29 },
-    { date: "2026-03-02", count: 23 },
-  ],
-  conversation_outcomes: [
-    { outcome: "resolved", count: 203, percentage: 82.2 },
-    { outcome: "escalated", count: 29, percentage: 11.7 },
-    { outcome: "abandoned", count: 15, percentage: 6.1 },
-  ],
-  channel_breakdown: [
-    { channel: "web", count: 189, icon: "🌐" },
-    { channel: "whatsapp", count: 34, icon: "💬" },
-    { channel: "instagram", count: 15, icon: "📸" },
-    { channel: "facebook", count: 6, icon: "📘" },
-    { channel: "email", count: 3, icon: "📧" },
-    { channel: "sms", count: 0, icon: "📱" },
-  ],
-  recent_conversations: [
-    { id: "1", channel: "web", contact_name: "John Smith", first_message: "What's your return policy?", status: "resolved", time_ago: "5m" },
-    { id: "2", channel: "whatsapp", contact_name: "Sarah Johnson", first_message: "Do you have this in blue?", status: "active", time_ago: "12m" },
-    { id: "3", channel: "web", contact_name: "Mike Davis", first_message: "How much is shipping?", status: "escalated", time_ago: "28m" },
-    { id: "4", channel: "instagram", contact_name: "Emily Brown", first_message: "Love your products!", status: "resolved", time_ago: "1h" },
-    { id: "5", channel: "web", contact_name: "Anonymous", first_message: "Where are you located?", status: "abandoned", time_ago: "2h" },
-  ],
-  recent_leads: [
-    { id: "1", name: "Alex Thompson", email: "alex@example.com", channel: "web", status: "new", time_ago: "3m" },
-    { id: "2", name: "Maria Garcia", email: "maria@example.com", channel: "whatsapp", status: "contacted", time_ago: "15m" },
-    { id: "3", name: "James Wilson", email: "james@example.com", channel: "web", status: "qualified", time_ago: "1h" },
-    { id: "4", name: "Lisa Anderson", email: "lisa@example.com", channel: "instagram", status: "converted", time_ago: "3h" },
-    { id: "5", name: "David Martinez", email: "david@example.com", channel: "web", status: "new", time_ago: "5h" },
-  ],
-  unanswered_count: 3,
-  chatbot_status: {
-    status: "live" as const,
-    last_active: new Date().toISOString(),
-    chatbot_name: "Aria Assistant",
-  },
-};
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    CONSTANTS
@@ -155,17 +100,51 @@ function TrendIndicator({ value, invert }: { value: number | null | undefined; i
    ═══════════════════════════════════════════════════════════════════════════════ */
 
 export default function Dashboard() {
-  const [dateRange, setDateRange] = useState("7days");
-  const [customStart, setCustomStart] = useState<string | undefined>(undefined);
-  const [customEnd, setCustomEnd] = useState<string | undefined>(undefined);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialRange = searchParams.get("range") || "7days";
+  const initialFrom = searchParams.get("from") || undefined;
+  const initialTo = searchParams.get("to") || undefined;
+
+  const [dateRange, setDateRange] = useState(initialRange);
+  const [customStart, setCustomStart] = useState<string | undefined>(initialFrom);
+  const [customEnd, setCustomEnd] = useState<string | undefined>(initialTo);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    params.set("range", dateRange);
+    if (dateRange === "custom" && customStart && customEnd) {
+      params.set("from", customStart);
+      params.set("to", customEnd);
+    }
+    setSearchParams(params, { replace: true });
+  }, [dateRange, customStart, customEnd, setSearchParams]);
 
   const { data, isLoading, error, refetch } = useDashboardSummary(
     dateRange,
-    customStart,
-    customEnd,
+    dateRange === "custom" ? customStart : undefined,
+    dateRange === "custom" ? customEnd : undefined,
   );
 
-  const summary = data || MOCK_DATA;
+  const summary = data ?? {
+    total_conversations: 0,
+    leads_captured: 0,
+    resolution_rate: 0,
+    avg_response_time: "0s",
+    conversations_trend: 0,
+    leads_trend: 0,
+    resolution_trend: 0,
+    response_time_trend: 0,
+    document_count: 0,
+    conversation_volume: [],
+    conversation_outcomes: [],
+    channel_breakdown: [],
+    recent_conversations: [],
+    recent_leads: [],
+    unanswered_count: 0,
+    unanswered_questions: [],
+    chatbot_status: { status: "not_installed", last_active: null, chatbot_name: null },
+    announcement: null,
+  };
 
   /* ─── Error State ──────────────────────────────────────────────────────── */
   if (error && !data) {
@@ -257,8 +236,8 @@ export default function Dashboard() {
         />
       )}
 
-      {/* ─── Setup Checklist Banner ─────────────────────────────────────── */}
-      <SetupChecklistBanner />
+      {/* ─── Setup Checklist ───────────────────────────────────────────── */}
+      <SetupChecklist summary={data} isLoading={isLoading} />
 
       {/* ─── KPI Stats Grid ─────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -271,6 +250,7 @@ export default function Dashboard() {
         ) : (
           KPI_CARDS.map((card, i) => {
             const kpi = kpiValues[card.key];
+            if (!kpi) return null;
             return (
               <div
                 key={card.key}
@@ -334,7 +314,10 @@ export default function Dashboard() {
       )}
 
       {/* ─── Unanswered Alert ───────────────────────────────────────────── */}
-      <UnansweredAlert count={summary.unanswered_count} />
+      <UnansweredAlert
+        count={summary.unanswered_count}
+        questions={summary.unanswered_questions ?? []}
+      />
 
       {/* ─── Chatbot Status ─────────────────────────────────────────────── */}
       {isLoading ? (
@@ -342,8 +325,8 @@ export default function Dashboard() {
       ) : (
         <ChatbotStatusCard
           status={summary.chatbot_status.status}
-          lastActive={summary.chatbot_status.last_active}
-          chatbotName={summary.chatbot_status.chatbot_name}
+          lastActive={summary.chatbot_status.last_active ?? null}
+          chatbotName={summary.chatbot_status.chatbot_name ?? null}
         />
       )}
 

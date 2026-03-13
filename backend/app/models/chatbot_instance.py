@@ -92,6 +92,8 @@ class ChatbotInstance(Base):
     )
     show_powered_by: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     font_size: Mapped[str] = mapped_column(String(20), nullable=False, default="medium")  # small | medium | large
+    launcher_style: Mapped[str] = mapped_column(String(20), nullable=False, default="icon")  # icon | icon_text | text_only
+    launcher_size: Mapped[str] = mapped_column(String(20), nullable=False, default="medium")  # small | medium | large
     
     # ─── Tab 2: Behavior ───────────────────────────────────────────────────────
     response_language: Mapped[str] = mapped_column(String(5), nullable=False, default="auto")  # auto | language code (en, es, fr, etc.)
@@ -192,6 +194,8 @@ class ChatbotInstance(Base):
             "widget_position": getattr(self.widget_position, "value", self.widget_position),
             "show_powered_by": self.show_powered_by,
             "font_size": self.font_size,
+            "launcher_style": self.launcher_style,
+            "launcher_size": self.launcher_size,
             # Tab 2: Behavior
             "response_language": self.response_language,
             "response_tone": getattr(self.response_tone, "value", self.response_tone),

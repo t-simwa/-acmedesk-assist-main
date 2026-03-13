@@ -10,6 +10,7 @@
  */
 
 import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import {
   Search,
@@ -26,6 +27,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useRole, UserRole } from "@/contexts/RoleContext";
 import { GlobalSearch } from "./GlobalSearch";
+import { notificationApi } from "@/lib/api";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,59 +43,16 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
-// ─── Mock notifications ───────────────────────────────────────────────────────
+// ─── Notifications (real) ─────────────────────────────────────────────────────
 
 interface Notification {
   id: string;
-  type: "lead" | "escalation" | "warning" | "document" | "system";
+  type: "lead" | "escalation" | "warning" | "document" | "system" | string;
   title: string;
-  body: string;
+  body?: string;
   time: string;
   read: boolean;
 }
-
-const MOCK_NOTIFICATIONS: Notification[] = [
-  {
-    id: "n1",
-    type: "lead",
-    title: "New lead captured",
-    body: "John Smith from Web Widget",
-    time: "2 min ago",
-    read: false,
-  },
-  {
-    id: "n2",
-    type: "escalation",
-    title: "Escalation required",
-    body: "Sarah Lee needs human support",
-    time: "15 min ago",
-    read: false,
-  },
-  {
-    id: "n3",
-    type: "warning",
-    title: "Usage at 82%",
-    body: "You're close to your conversation limit",
-    time: "1 hour ago",
-    read: false,
-  },
-  {
-    id: "n4",
-    type: "document",
-    title: "Document indexed",
-    body: "Product Catalog 2026.pdf is ready",
-    time: "3 hours ago",
-    read: true,
-  },
-  {
-    id: "n5",
-    type: "system",
-    title: "Chatbot is live",
-    body: "Your widget is active on your website",
-    time: "Yesterday",
-    read: true,
-  },
-];
 
 const NOTIFICATION_ICONS: Record<
   Notification["type"],
@@ -136,10 +95,28 @@ export function TopBar({ onMenuClick, isMobile }: TopBarProps) {
   const { user: roleUser } = useRole();
 
   const [searchOpen, setSearchOpen] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS);
   const [whatsNewRead, setWhatsNewRead] = useState(() =>
     localStorage.getItem("nexachat-whatsnew-read") === "true"
   );
+
+  const queryClient = useQueryClient();
+
+  const { data: notifications = [], isFetching: isFetchingNotifications } = useQuery({
+    queryKey: ["notifications"],
+    queryFn: () => notificationApi.list(false, 20),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+
+  const markReadMutation = useMutation({
+    mutationFn: (id: string) => notificationApi.markRead(id),
+    onSuccess: () => queryClient.invalidateQueries(["notifications"]),
+  });
+
+  const markAllReadMutation = useMutation({
+    mutationFn: () => notificationApi.markAllRead(),
+    onSuccess: () => queryClient.invalidateQueries(["notifications"]),
+  });
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -159,7 +136,7 @@ export function TopBar({ onMenuClick, isMobile }: TopBarProps) {
   }, []);
 
   const markAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    markAllReadMutation.mutate();
   };
 
   const initials = (() => {
@@ -285,6 +262,9 @@ export function TopBar({ onMenuClick, isMobile }: TopBarProps) {
                   return (
                     <div
                       key={n.id}
+                      onClick={() => {
+                        if (!n.read) markReadMutation.mutate(n.id);
+                      }}
                       className={cn(
                         "flex items-start gap-3 px-4 py-3 cursor-pointer transition-colors duration-100 border-b border-white/[0.04] hover:bg-white/[0.04]",
                         !n.read && "bg-primary/[0.06]"

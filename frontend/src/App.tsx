@@ -68,7 +68,7 @@ const ContactProfile = lazy(() => import("./pages/admin/ContactProfile"));
 const Campaigns = lazy(() => import("./pages/admin/Campaigns"));
 const Bookings = lazy(() => import("./pages/admin/Bookings"));
 const Channels = lazy(() => import("./pages/admin/Channels"));
-const Chatbot = lazy(() => import("./pages/admin/Chatbot"));
+const Chatbot = lazy(() => import("./pages/admin/Chatbot.tsx"));
 const Install = lazy(() => import("./pages/admin/Install"));
 const Integrations = lazy(() => import("./pages/admin/Integrations"));
 const ChannelHealth = lazy(() => import("./pages/admin/ChannelHealth"));

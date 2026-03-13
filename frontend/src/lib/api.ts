@@ -1318,6 +1318,12 @@ export interface Announcement {
   end_date?: string | null;
 }
 
+export interface UnansweredQuestion {
+  query: string;
+  count: number;
+  last_asked: string;
+}
+
 export interface DashboardSummary {
   total_conversations: number;
   leads_captured: number;
@@ -1327,12 +1333,14 @@ export interface DashboardSummary {
   leads_trend?: number | null;
   resolution_trend?: number | null;
   response_time_trend?: number | null;
+  document_count?: number;
   conversation_volume: ConversationVolumeData[];
   conversation_outcomes: ConversationOutcomeData[];
   channel_breakdown: ChannelData[];
   recent_conversations: RecentConversationItem[];
   recent_leads: RecentLeadItem[];
   unanswered_count: number;
+  unanswered_questions?: UnansweredQuestion[];
   chatbot_status: ChatbotStatusResponse;
   announcement?: Announcement;
 }
@@ -2938,6 +2946,36 @@ export const onboardingApi = {
   async dismissChecklist(): Promise<{ message: string }> {
     return apiClient("/api/onboarding/dismiss-checklist", {
       method: "POST",
+    });
+  },
+};
+
+export interface NotificationItem {
+  id: string;
+  type: string;
+  title: string;
+  body?: string;
+  read: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export const notificationApi = {
+  async list(unreadOnly: boolean = false, limit: number = 20): Promise<NotificationItem[]> {
+    return apiClient<NotificationItem[]>("/api/notifications", {
+      params: { unread_only: unreadOnly, limit },
+    });
+  },
+
+  async markRead(id: string): Promise<NotificationItem> {
+    return apiClient<NotificationItem>(`/api/notifications/${id}/read`, {
+      method: "PUT",
+    });
+  },
+
+  async markAllRead(): Promise<void> {
+    return apiClient<void>("/api/notifications/mark-all-read", {
+      method: "PUT",
     });
   },
 };
