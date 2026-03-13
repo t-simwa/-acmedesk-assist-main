@@ -251,7 +251,7 @@ async def update_chatbot_config(
         allowed_fields = {
             # Tab 1
             'name', 'avatar_url', 'role_text', 'brand_color', 'secondary_color', 'user_message_color',
-            'widget_position', 'show_powered_by', 'font_size',
+            'widget_position', 'show_powered_by', 'font_size', 'launcher_style', 'launcher_size',
             # Tab 2
             'response_language', 'response_tone', 'response_length', 'greeting_message',
             'farewell_message', 'fallback_message', 'escalation_message', 'show_typing',

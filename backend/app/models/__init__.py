@@ -40,6 +40,7 @@ from .api_key import APIKey
 from .team_member import TeamMember, TeamMemberRole, InvitationStatus
 from .knowledge_base import KnowledgeBase, UserKnowledgeBasePreference
 from .channel_config import ChannelConfig
+from .notification import Notification
 
 __all__ = [
     # Base
@@ -111,4 +112,5 @@ __all__ = [
     "KnowledgeBase",
     "UserKnowledgeBasePreference",
     "ChannelConfig",
+    "Notification",
 ]

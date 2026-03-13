@@ -14,16 +14,18 @@ import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 
 const CHAT_GREETING_KEY = "nexachat-chat-greeting";
+const CHAT_SESSION_KEY = "nexachat-session-id";
 
 function LeadCaptureInlineForm({
   onSubmit,
   onSkip,
 }: {
-  onSubmit: (name: string, email: string) => void;
+  onSubmit: (name: string, email: string, phone?: string) => void;
   onSkip: () => void;
 }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   return (
     <div className="px-4 py-3 border-t border-border bg-muted/30 space-y-2">
       <p className="text-sm font-medium text-foreground">
@@ -43,10 +45,17 @@ function LeadCaptureInlineForm({
         onChange={(e) => setEmail(e.target.value)}
         className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
       />
+      <input
+        type="tel"
+        placeholder="Phone (optional)"
+        value={phone}
+        onChange={(e) => setPhone(e.target.value)}
+        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+      />
       <div className="flex gap-2">
         <button
           type="button"
-          onClick={() => onSubmit(name.trim(), email.trim())}
+          onClick={() => onSubmit(name.trim(), email.trim(), phone.trim() || undefined)}
           className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground"
         >
           Submit
@@ -97,7 +106,14 @@ export function ChatWidget({ config, preview = false }: ChatWidgetProps) {
   const [isTyping, setIsTyping] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [hasNewMessage, setHasNewMessage] = useState(false);
-  const [sessionId] = useState<string>(() => `session-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`);
+  const [sessionId] = useState<string>(() => {
+    // Persist session ID in localStorage for conversation continuity
+    const stored = localStorage.getItem(CHAT_SESSION_KEY);
+    if (stored) return stored;
+    const newId = `session-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+    localStorage.setItem(CHAT_SESSION_KEY, newId);
+    return newId;
+  });
   const [isClearing, setIsClearing] = useState(false);
   const [showClearDialog, setShowClearDialog] = useState(false);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
@@ -601,9 +617,9 @@ export function ChatWidget({ config, preview = false }: ChatWidgetProps) {
     }
   };
 
-  const handleLeadSubmit = async (name: string, email: string) => {
+  const handleLeadSubmit = async (name: string, email: string, phone?: string) => {
     try {
-      await conversationsApi.submitLead(sessionId, { name, email });
+      await conversationsApi.submitLead(sessionId, { name, email, ...(phone ? { phone } : {}) });
       setShowLeadCapture(false);
       setMessages((prev) => [
         ...prev,
@@ -632,6 +648,9 @@ export function ChatWidget({ config, preview = false }: ChatWidgetProps) {
     try {
       await conversationsApi.deleteConversation(sessionId);
       
+      // Clear session from localStorage so a fresh one is created on next page load
+      localStorage.removeItem(CHAT_SESSION_KEY);
+      
       // Reset to welcome message
       setMessages([
         {
@@ -643,6 +662,9 @@ export function ChatWidget({ config, preview = false }: ChatWidgetProps) {
       ]);
       lastMessageCountRef.current = 1;
       userMessageMapRef.current.clear();
+      setFeedbackSubmitted(false);
+      setShowFeedbackPrompt(false);
+      setShowLeadCapture(false);
       
       toast({
         title: t("chat.clearConversation"),

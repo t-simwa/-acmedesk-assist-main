@@ -87,15 +87,16 @@ async def process_instagram_message(messaging: dict, ig_id: str) -> dict:
         content = "[Liked a message]"
     
     try:
+        # Build media_urls list if media is present
+        media_urls = [media_url] if media_url else None
+        
         message_dict = await instagram_service.create_inbound_instagram_message(
             user_id=None,  # Will be resolved from IG account mapping
-            ig_user_id=user_id,
-            ig_account_id=ig_id,
-            message_content=content,
+            sender_id=user_id,
+            account_id=ig_id,
+            body=content,
             provider_message_id=message_id,
-            timestamp=timestamp,
-            media_url=media_url,
-            media_type=media_type,
+            media_urls=media_urls,
         )
         
         return {

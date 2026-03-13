@@ -335,3 +335,32 @@ async def send_sms_reply(user_id: str, thread_id: str, body: str) -> dict:
 
         return assistant_message.to_dict()
 
+
+# ─── Opt-out Management (TCPA/CTIA Compliance) ─────────────────────────────────
+
+# In-memory opt-out store for now; replace with database table in production
+_opt_out_numbers: set[str] = set()
+
+
+async def set_opt_out_status(phone_number: str, opted_out: bool = True) -> None:
+    """
+    Set the opt-out status for a phone number.
+    
+    When opted_out=True, the number will no longer receive messages.
+    When opted_out=False (re-subscribe), the number is removed from opt-out list.
+    
+    TODO: Persist this to a database table for production use.
+    """
+    normalized = phone_number.strip()
+    if opted_out:
+        _opt_out_numbers.add(normalized)
+        logger.info(f"Phone number {normalized} opted out of SMS messages")
+    else:
+        _opt_out_numbers.discard(normalized)
+        logger.info(f"Phone number {normalized} opted back in to SMS messages")
+
+
+async def is_opted_out(phone_number: str) -> bool:
+    """Check if a phone number has opted out of receiving messages."""
+    return phone_number.strip() in _opt_out_numbers
+

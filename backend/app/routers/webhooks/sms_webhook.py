@@ -19,6 +19,50 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/webhooks/sms", tags=["webhooks"])
 
+# SMS opt-out keywords (TCPA/CTIA compliance)
+OPT_OUT_KEYWORDS = {"stop", "unsubscribe", "cancel", "end", "quit"}
+HELP_KEYWORDS = {"help", "info"}
+OPT_IN_KEYWORDS = {"start", "yes", "unstop"}
+
+
+async def _handle_keyword_message(from_number: str, body: str, provider: str) -> dict | None:
+    """
+    Handle STOP/HELP/START keyword messages per TCPA/CTIA compliance.
+    Returns a dict with action taken, or None if not a keyword message.
+    """
+    body_lower = body.strip().lower()
+    
+    # Check for opt-out
+    if body_lower in OPT_OUT_KEYWORDS:
+        logger.info(f"SMS opt-out received from {from_number}: {body}")
+        await sms_service.set_opt_out_status(from_number, opted_out=True)
+        return {
+            "action": "opt_out",
+            "from_number": from_number,
+            "response": "You have been unsubscribed and will no longer receive messages."
+        }
+    
+    # Check for help request
+    if body_lower in HELP_KEYWORDS:
+        logger.info(f"SMS help request from {from_number}: {body}")
+        return {
+            "action": "help",
+            "from_number": from_number,
+            "response": "Reply STOP to unsubscribe. Msg&Data rates may apply. Contact support@example.com for help."
+        }
+    
+    # Check for opt-in (re-subscribe)
+    if body_lower in OPT_IN_KEYWORDS:
+        logger.info(f"SMS opt-in received from {from_number}: {body}")
+        await sms_service.set_opt_out_status(from_number, opted_out=False)
+        return {
+            "action": "opt_in",
+            "from_number": from_number,
+            "response": "You have been re-subscribed and will receive messages again."
+        }
+    
+    return None
+
 
 class TwilioWebhook(BaseModel):
     """Twilio incoming SMS webhook format"""
@@ -47,12 +91,29 @@ async def process_twilio_sms(from_number: str, to_number: str, body: str, messag
     """Process incoming SMS from Twilio"""
     
     try:
+        # Check for STOP/HELP/START keywords first (TCPA/CTIA compliance)
+        keyword_result = await _handle_keyword_message(from_number, body, "twilio")
+        if keyword_result is not None:
+            return {
+                "message_id": message_sid,
+                "status": "keyword_handled",
+                **keyword_result
+            }
+        
+        # Check if sender has opted out
+        if await sms_service.is_opted_out(from_number):
+            logger.info(f"Ignoring message from opted-out number: {from_number}")
+            return {
+                "message_id": message_sid,
+                "status": "ignored",
+                "reason": "sender_opted_out"
+            }
+        
         message_dict = await sms_service.create_inbound_sms_message(
             user_id=None,  # Will be resolved from phone number mapping
             from_number=from_number,
             to_number=to_number,
             body=body,
-            provider="twilio",
             provider_message_id=message_sid,
         )
         
@@ -74,14 +135,30 @@ async def process_africas_talking_sms(from_number: str, to_number: str, body: st
     """Process incoming SMS from Africa's Talking"""
     
     try:
+        # Check for STOP/HELP/START keywords first (TCPA/CTIA compliance)
+        keyword_result = await _handle_keyword_message(from_number, body, "africas_talking")
+        if keyword_result is not None:
+            return {
+                "message_id": message_id,
+                "status": "keyword_handled",
+                **keyword_result
+            }
+        
+        # Check if sender has opted out
+        if await sms_service.is_opted_out(from_number):
+            logger.info(f"Ignoring message from opted-out number: {from_number}")
+            return {
+                "message_id": message_id,
+                "status": "ignored",
+                "reason": "sender_opted_out"
+            }
+        
         message_dict = await sms_service.create_inbound_sms_message(
             user_id=None,
             from_number=from_number,
             to_number=to_number,
             body=body,
-            provider="africas_talking",
             provider_message_id=message_id,
-            link_id=link_id,
         )
         
         return {

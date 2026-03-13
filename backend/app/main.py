@@ -67,6 +67,7 @@ from .routers import (
     bookings,
     channels,
     inbox,
+    notifications,
     super_admin,
     email_unsubscribe,
 )
@@ -234,6 +235,7 @@ app.include_router(campaigns.router)
 app.include_router(bookings.router)
 app.include_router(channels.router)
 app.include_router(inbox.router)
+app.include_router(notifications.router)
 app.include_router(email_unsubscribe.router)
 
 # Webhook endpoints for receiving inbound messages

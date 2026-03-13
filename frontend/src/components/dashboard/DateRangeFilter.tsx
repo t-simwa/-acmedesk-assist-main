@@ -2,7 +2,6 @@ import { useState, useCallback } from "react";
 import { Calendar, ChevronDown, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface DateRangeFilterProps {
@@ -21,12 +20,31 @@ const presets = [
   { value: "custom", label: "Custom range" },
 ];
 
-export function DateRangeFilter({ value, onChange, className }: DateRangeFilterProps) {
+export function DateRangeFilter({ value, onChange, onCustomRange, className }: DateRangeFilterProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   const currentPreset = presets.find(p => p.value === value) || presets[1];
   const [customStart, setCustomStart] = useState<string>("");
   const [customEnd, setCustomEnd] = useState<string>("");
+  const [error, setError] = useState<string | null>(null);
+
+  const validateCustomRange = useCallback(() => {
+    if (!customStart || !customEnd) return "";
+    const start = new Date(customStart);
+    const end = new Date(customEnd);
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return "Invalid date";
+    }
+    if (end < start) {
+      return "End date must be after start date";
+    }
+    const deltaMs = end.getTime() - start.getTime();
+    const days = deltaMs / (1000 * 60 * 60 * 24);
+    if (days > 90) {
+      return "Max range is 90 days";
+    }
+    return "";
+  }, [customStart, customEnd]);
 
   const handleSelect = useCallback((presetValue: string) => {
     onChange(presetValue);
@@ -85,20 +103,35 @@ export function DateRangeFilter({ value, onChange, className }: DateRangeFilterP
               <input
                 type="date"
                 value={customStart}
-                onChange={(e) => setCustomStart(e.target.value)}
+                onChange={(e) => {
+                  setCustomStart(e.target.value);
+                  setError(null);
+                }}
                 className="w-full rounded-lg border px-2 py-1 text-sm"
               />
               <label className="text-xs">End date</label>
               <input
                 type="date"
                 value={customEnd}
-                onChange={(e) => setCustomEnd(e.target.value)}
+                onChange={(e) => {
+                  setCustomEnd(e.target.value);
+                  setError(null);
+                }}
                 className="w-full rounded-lg border px-2 py-1 text-sm"
               />
+              {error && (
+                <p className="text-xs text-destructive mt-1">{error}</p>
+              )}
               <Button
                 size="sm"
                 className="w-full"
+                disabled={Boolean(error) || !customStart || !customEnd}
                 onClick={() => {
+                  const validationError = validateCustomRange();
+                  if (validationError) {
+                    setError(validationError);
+                    return;
+                  }
                   if (customStart && customEnd && onCustomRange) {
                     onCustomRange(customStart, customEnd);
                   }
