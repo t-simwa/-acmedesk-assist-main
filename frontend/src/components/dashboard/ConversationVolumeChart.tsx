@@ -1,7 +1,15 @@
+/**
+ * Conversation Volume Chart Component
+ * 
+ * Follows STYLE_GUIDE.md specifications:
+ * - Section card styling with proper borders
+ * - View toggle button group
+ * - Responsive chart sizing
+ * - Consistent typography
+ */
+
 import { useMemo, useState } from "react";
 import {
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -11,7 +19,7 @@ import {
   AreaChart,
 } from "recharts";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+import { BarChart3 } from "lucide-react";
 
 interface ConversationVolumeChartProps {
   data: Array<{ date: string; count: number }>;
@@ -54,111 +62,147 @@ export function ConversationVolumeChart({ data, className }: ConversationVolumeC
     if (viewMode === "weekly") {
       return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
     }
-    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    return date.toLocaleDateString("en-US", { weekday: "short" });
+  };
+
+  const formatTooltipDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString("en-US", { 
+      month: "short", 
+      day: "numeric",
+      year: "numeric",
+    });
   };
 
   return (
     <div className={cn(
-      "rounded-xl border border-border bg-card p-4 sm:p-5",
+      "rounded-xl border bg-card overflow-hidden transition-all duration-200 hover:border-border/80",
       className
     )}>
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-semibold font-heading text-foreground">
+      <div className="flex items-center justify-between px-4 sm:px-6 py-4 sm:py-5 border-b border-border">
+        <h2 className="text-sm sm:text-base font-semibold font-heading text-foreground">
           Conversation Volume
-        </h3>
-        <div className="flex items-center gap-0.5 rounded-lg bg-muted p-0.5">
+        </h2>
+        
+        {/* View toggle */}
+        <div className="flex rounded-lg border bg-card overflow-hidden">
           {(["daily", "weekly", "monthly"] as ViewMode[]).map((mode) => (
             <button
               key={mode}
               onClick={() => setViewMode(mode)}
               className={cn(
-                "h-7 px-2.5 rounded-md text-xs font-medium capitalize transition-all duration-150 font-description",
-                viewMode === mode
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground",
+                "flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold font-heading transition-all capitalize",
+                viewMode === mode 
+                  ? "bg-primary/10 text-primary" 
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
               )}
             >
-              {mode}
+              <span className="hidden sm:inline">{mode}</span>
+              <span className="sm:hidden">{mode.charAt(0).toUpperCase()}</span>
             </button>
           ))}
         </div>
       </div>
 
       {/* Chart */}
-      <div className="h-[200px] sm:h-[250px] lg:h-[300px]">
-        {processedData.length > 0 ? (
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={processedData} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
-              <defs>
-                <linearGradient id="volumeGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.2} />
-                  <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke="hsl(var(--border))"
-                vertical={false}
-              />
-              <XAxis
-                dataKey="date"
-                tickFormatter={formatDate}
-                stroke="hsl(var(--border))"
-                tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
-                axisLine={{ stroke: "hsl(var(--border))" }}
-                tickLine={false}
-              />
-              <YAxis
-                stroke="hsl(var(--border))"
-                tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
-                axisLine={{ stroke: "hsl(var(--border))" }}
-                tickLine={false}
-                width={35}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: "8px",
-                  boxShadow: "0 4px 16px hsl(var(--foreground) / 0.08)",
-                }}
-                labelStyle={{
-                  color: "hsl(var(--foreground))",
-                  fontWeight: 600,
-                  fontFamily: "Plus Jakarta Sans, sans-serif",
-                }}
-                itemStyle={{
-                  color: "hsl(var(--primary))",
-                  fontFamily: "Geist Mono, monospace",
-                }}
-                labelFormatter={(label) => formatDate(label)}
-                formatter={(value: number) => [value, "Conversations"]}
-              />
-              <Area
-                type="monotone"
-                dataKey="count"
-                stroke="hsl(var(--primary))"
-                strokeWidth={2.5}
-                fill="url(#volumeGradient)"
-                dot={{ fill: "hsl(var(--primary))", strokeWidth: 0, r: 3 }}
-                activeDot={{
-                  fill: "hsl(var(--primary))",
-                  r: 5,
-                  stroke: "hsl(var(--background))",
-                  strokeWidth: 2,
-                }}
-                animationDuration={500}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        ) : (
-          <div className="h-full flex items-center justify-center">
-            <p className="text-sm font-description text-muted-foreground">
-              No conversation data available
-            </p>
-          </div>
-        )}
+      <div className="px-4 sm:px-6 py-5 sm:py-6">
+        <div className="h-[200px] sm:h-[240px] lg:h-[280px]">
+          {processedData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={processedData} margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
+                <defs>
+                  <linearGradient id="volumeGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.15} />
+                    <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid
+                  strokeDasharray="4 4"
+                  stroke="hsl(var(--border))"
+                  vertical={false}
+                />
+                <XAxis
+                  dataKey="date"
+                  tickFormatter={formatDate}
+                  stroke="transparent"
+                  tick={{ 
+                    fill: "hsl(var(--muted-foreground))", 
+                    fontSize: 11,
+                    fontFamily: "Satoshi, sans-serif",
+                  }}
+                  axisLine={false}
+                  tickLine={false}
+                  dy={8}
+                />
+                <YAxis
+                  stroke="transparent"
+                  tick={{ 
+                    fill: "hsl(var(--muted-foreground))", 
+                    fontSize: 11,
+                    fontFamily: "Geist Mono, monospace",
+                  }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={35}
+                  tickFormatter={(value) => value >= 1000 ? `${(value/1000).toFixed(1)}k` : value}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "10px",
+                    padding: "12px 16px",
+                    boxShadow: "0 4px 16px hsl(var(--foreground) / 0.08)",
+                  }}
+                  labelStyle={{
+                    color: "hsl(var(--foreground))",
+                    fontWeight: 600,
+                    fontFamily: "Plus Jakarta Sans, sans-serif",
+                    fontSize: "13px",
+                    marginBottom: "4px",
+                  }}
+                  itemStyle={{
+                    color: "hsl(var(--primary))",
+                    fontFamily: "Geist Mono, monospace",
+                    fontSize: "14px",
+                    fontWeight: 600,
+                  }}
+                  labelFormatter={formatTooltipDate}
+                  formatter={(value: number) => [value.toLocaleString(), "Conversations"]}
+                  cursor={{ stroke: "hsl(var(--primary))", strokeWidth: 1, strokeDasharray: "4 4" }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="count"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth={2.5}
+                  fill="url(#volumeGradient)"
+                  dot={false}
+                  activeDot={{
+                    fill: "hsl(var(--primary))",
+                    r: 5,
+                    stroke: "hsl(var(--background))",
+                    strokeWidth: 2,
+                  }}
+                  animationDuration={500}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-full flex flex-col items-center justify-center">
+              <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-3">
+                <BarChart3 className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <p className="text-sm text-muted-foreground font-medium">
+                No conversation data yet
+              </p>
+              <p className="text-xs text-muted-foreground/60 mt-1">
+                Data will appear once your chatbot starts receiving messages
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

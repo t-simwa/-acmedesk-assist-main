@@ -1,6 +1,17 @@
+/**
+ * Unanswered Questions Alert Component
+ * 
+ * Follows STYLE_GUIDE.md specifications:
+ * - Alert card styling with proper colors
+ * - Question list with counts
+ * - Success state when no unanswered questions
+ * - Responsive design
+ */
+
 import { useNavigate } from "react-router-dom";
-import { AlertTriangle, ArrowRight } from "lucide-react";
+import { AlertTriangle, ArrowRight, CheckCircle2, HelpCircle, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 interface UnansweredAlertProps {
   count: number;
@@ -12,78 +23,116 @@ export function UnansweredAlert({ count, questions = [], className }: Unanswered
   const navigate = useNavigate();
 
   const hasQuestions = Array.isArray(questions) && questions.length > 0;
+  const hasUnanswered = count > 0;
 
   return (
     <div
       className={cn(
-        "rounded-xl border overflow-hidden",
-        count > 0 ? "bg-amber-500/5 border-amber-500/20" : "bg-emerald-500/5 border-emerald-500/20",
+        "rounded-xl border overflow-hidden transition-all duration-200",
+        hasUnanswered 
+          ? "bg-amber-500/5 border-amber-500/20 hover:border-amber-500/30" 
+          : "bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/30",
         className
       )}
     >
-      <div className="flex items-start gap-3 p-4 sm:p-5">
-        <div
-          className={cn(
-            "w-10 h-10 rounded-lg flex items-center justify-center shrink-0",
-            count > 0 ? "bg-amber-500/10" : "bg-emerald-500/10",
-          )}
-        >
-          <AlertTriangle
-            className={cn(
-              "w-5 h-5",
-              count > 0 ? "text-amber-500" : "text-emerald-500"
+      <div className="p-4 sm:p-5">
+        <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+          {/* Icon */}
+          <div className={cn(
+            "h-10 w-10 sm:h-12 sm:w-12 rounded-xl flex items-center justify-center shrink-0",
+            hasUnanswered ? "bg-amber-500/10" : "bg-emerald-500/10",
+          )}>
+            {hasUnanswered ? (
+              <AlertTriangle className="h-5 w-5 sm:h-6 sm:w-6 text-amber-500" />
+            ) : (
+              <CheckCircle2 className="h-5 w-5 sm:h-6 sm:w-6 text-emerald-500" />
             )}
-          />
-        </div>
-        <div className="flex-1">
-          {count > 0 ? (
-            <>
-              <p className="text-sm font-semibold font-heading text-amber-500">
-                {count} question{count > 1 ? "s" : ""} couldn't be answered this week
-              </p>
-              <p className="text-xs mt-1 font-description text-muted-foreground">
-                Add more documents to fill these knowledge gaps and improve your chatbot's responses.
-              </p>
-              {hasQuestions && (
-                <div className="mt-3 space-y-2">
-                  {questions.slice(0, 3).map((q) => (
-                    <div
-                      key={q.query}
-                      className="rounded-lg border border-white/10 bg-white/5 p-3"
-                    >
-                      <p className="text-sm font-medium text-foreground truncate">
-                        {q.query}
-                      </p>
-                      <div className="mt-1 flex items-center justify-between text-[11px] text-muted-foreground">
-                        <span>{q.count}x</span>
-                        <span>{new Date(q.last_asked).toLocaleDateString()}</span>
-                      </div>
-                    </div>
-                  ))}
-                  {questions.length > 3 && (
-                    <p className="text-xs text-muted-foreground">
-                      +{questions.length - 3} more
-                    </p>
-                  )}
+          </div>
+          
+          {/* Content */}
+          <div className="flex-1 min-w-0">
+            {hasUnanswered ? (
+              <>
+                {/* Warning header */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+                  <h3 className="text-sm sm:text-base font-semibold font-heading text-amber-500">
+                    {count} Unanswered Question{count > 1 ? "s" : ""} This Week
+                  </h3>
                 </div>
-              )}
-              <button
-                onClick={() => navigate("/dashboard/documents")}
-                className="inline-flex items-center gap-1 mt-3 text-xs font-medium text-amber-500 hover:text-amber-400 transition-colors"
-              >
-                Add documents <ArrowRight className="h-3.5 w-3.5" />
-              </button>
-            </>
-          ) : (
-            <>
-              <p className="text-sm font-semibold font-heading text-emerald-500">
-                All questions answered
-              </p>
-              <p className="text-xs mt-1 font-description text-muted-foreground">
-                Your chatbot answered 100% of questions in the selected period.
-              </p>
-            </>
-          )}
+                
+                <p className="text-xs sm:text-sm font-description text-muted-foreground mb-4">
+                  Your chatbot couldn't answer these questions. Add relevant documents to fill these knowledge gaps.
+                </p>
+                
+                {/* Questions list */}
+                {hasQuestions && (
+                  <div className="space-y-2 mb-4">
+                    {questions.slice(0, 3).map((q, idx) => (
+                      <div
+                        key={idx}
+                        className={cn(
+                          "flex items-start gap-3 rounded-lg border p-3",
+                          "bg-card/50 border-border/50",
+                        )}
+                      >
+                        <HelpCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">
+                            {q.query}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-[10px] font-mono text-amber-500 font-medium">
+                              {q.count}x
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">
+                              Last asked: {new Date(q.last_asked).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {questions.length > 3 && (
+                      <p className="text-xs text-muted-foreground pl-7">
+                        + {questions.length - 3} more unanswered questions
+                      </p>
+                    )}
+                  </div>
+                )}
+                
+                {/* Actions */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => navigate("/dashboard/documents")}
+                    className="h-8 text-xs gap-1.5 bg-amber-500 hover:bg-amber-600 text-white"
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Add Documents to Fix This</span>
+                    <span className="sm:hidden">Add Documents</span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => navigate("/dashboard/analytics?tab=questions&filter=unanswered")}
+                    className="h-8 text-xs text-amber-500 hover:text-amber-600 hover:bg-amber-500/10"
+                  >
+                    View Full Report <ArrowRight className="h-3.5 w-3.5 ml-1" />
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Success state */}
+                <h3 className="text-sm sm:text-base font-semibold font-heading text-emerald-500 mb-1">
+                  All Questions Answered
+                </h3>
+                <p className="text-xs sm:text-sm font-description text-muted-foreground">
+                  Your chatbot answered 100% of questions this week. Great knowledge base coverage!
+                </p>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>

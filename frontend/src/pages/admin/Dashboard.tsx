@@ -1,20 +1,21 @@
 /**
  * Dashboard — Overview Page
  *
- * Redesigned with:
+ * Redesigned to match STYLE_GUIDE.md specifications:
+ * - Consistent with Leads page patterns
  * - Proper Tailwind design tokens (no hardcoded hex colors)
- * - Inline KPI stat cards with gradient accents on hover
- * - Responsive grid layout for all device sizes
- * - Consistent aesthetic with Leads and Conversations pages
- * - Area chart with gradient fill for conversation volume
- * - Refined editorial SaaS aesthetic
+ * - Elite responsive design across all devices
+ * - Section headers with horizontal dividers
+ * - World-class SaaS dashboard aesthetic
  */
 
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   MessageSquare, Users, Percent, Clock,
   TrendingUp, TrendingDown, Minus, RefreshCw,
+  BarChart3, Activity, Zap, Target,
+  ArrowRight, Settings,
 } from "lucide-react";
 import { SetupChecklist } from "@/components/dashboard/SetupChecklist";
 import { DateRangeFilter } from "@/components/dashboard/DateRangeFilter";
@@ -42,35 +43,78 @@ const KPI_CARDS = [
   {
     key: "conversations" as const,
     label: "Total Conversations",
-    icon: <MessageSquare size={18} />,
-    accent: "from-blue-500/20 to-blue-500/0",
+    icon: <MessageSquare className="h-4 w-4" />,
+    accent: "from-primary/5 to-transparent",
+    iconBg: "bg-primary/10",
+    iconColor: "text-primary",
     invertTrend: false,
   },
   {
     key: "leads" as const,
     label: "Leads Captured",
-    icon: <Users size={18} />,
-    accent: "from-emerald-500/20 to-emerald-500/0",
+    icon: <Users className="h-4 w-4" />,
+    accent: "from-emerald-500/5 to-transparent",
+    iconBg: "bg-emerald-500/10",
+    iconColor: "text-emerald-500",
     invertTrend: false,
   },
   {
     key: "resolution" as const,
     label: "Resolution Rate",
-    icon: <Percent size={18} />,
-    accent: "from-violet-500/20 to-violet-500/0",
+    icon: <Percent className="h-4 w-4" />,
+    accent: "from-violet-500/5 to-transparent",
+    iconBg: "bg-violet-500/10",
+    iconColor: "text-violet-500",
     invertTrend: false,
   },
   {
     key: "response_time" as const,
     label: "Avg Response Time",
-    icon: <Clock size={18} />,
-    accent: "from-amber-500/20 to-amber-500/0",
+    icon: <Clock className="h-4 w-4" />,
+    accent: "from-amber-500/5 to-transparent",
+    iconBg: "bg-amber-500/10",
+    iconColor: "text-amber-500",
     invertTrend: true, // lower is better
   },
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════════════
-   HELPERS
+   SECTION HEADER COMPONENT
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+function SectionHeader({ 
+  icon: Icon, 
+  title, 
+  action,
+  className,
+}: { 
+  icon: React.ElementType; 
+  title: string;
+  action?: { label: string; onClick: () => void };
+  className?: string;
+}) {
+  return (
+    <div className={cn("flex items-center gap-2 mb-4", className)}>
+      <Icon className="h-4 w-4 shrink-0 text-primary" />
+      <span className="text-xs font-semibold uppercase tracking-wider font-heading text-muted-foreground whitespace-nowrap">
+        {title}
+      </span>
+      <div className="flex-1 h-px bg-border" />
+      {action && (
+        <button 
+          onClick={action.onClick}
+          className="flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors whitespace-nowrap"
+        >
+          {action.label}
+          <ArrowRight className="h-3.5 w-3.5" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   TREND INDICATOR
    ═══════════════════════════════════════════════════════════════════════════════ */
 
 function TrendIndicator({ value, invert }: { value: number | null | undefined; invert?: boolean }) {
@@ -87,11 +131,47 @@ function TrendIndicator({ value, invert }: { value: number | null | undefined; i
       isNegative && "text-rose-500",
       !isPositive && !isNegative && "text-muted-foreground",
     )}>
-      {value > 0 && <TrendingUp className="h-3.5 w-3.5" />}
-      {value < 0 && <TrendingDown className="h-3.5 w-3.5" />}
-      {value === 0 && <Minus className="h-3.5 w-3.5" />}
-      {value > 0 ? "+" : ""}{value}%
+      {value > 0 && <TrendingUp className="h-3 w-3" />}
+      {value < 0 && <TrendingDown className="h-3 w-3" />}
+      {value === 0 && <Minus className="h-3 w-3" />}
+      {Math.abs(value)}%
     </span>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   SKELETON COMPONENTS
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+function KPICardsSkeleton() {
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <Skeleton key={i} className="h-[120px] rounded-xl" />
+      ))}
+    </div>
+  );
+}
+
+function ChartsSkeleton() {
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+      <div className="lg:col-span-2">
+        <Skeleton className="h-[300px] sm:h-[340px] rounded-xl" />
+      </div>
+      <div>
+        <Skeleton className="h-[300px] sm:h-[340px] rounded-xl" />
+      </div>
+    </div>
+  );
+}
+
+function RecentItemsSkeleton() {
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+      <Skeleton className="h-[320px] rounded-xl" />
+      <Skeleton className="h-[320px] rounded-xl" />
+    </div>
   );
 }
 
@@ -100,6 +180,7 @@ function TrendIndicator({ value, invert }: { value: number | null | undefined; i
    ═══════════════════════════════════════════════════════════════════════════════ */
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialRange = searchParams.get("range") || "7days";
   const initialFrom = searchParams.get("from") || undefined;
@@ -191,7 +272,7 @@ export default function Dashboard() {
   /* ─── Render ───────────────────────────────────────────────────────────── */
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8 pb-32 max-w-[1600px] mx-auto w-full">
-      {/* ─── Header ─────────────────────────────────────────────────────── */}
+      {/* ─── Page Header ─────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="font-heading text-xl sm:text-2xl font-bold text-foreground tracking-tight leading-none">
@@ -201,17 +282,17 @@ export default function Dashboard() {
             Overview of your chatbot performance
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button
             variant="outline"
             size="sm"
             onClick={() => void refetch()}
-            className="gap-1.5 text-xs"
+            className="h-9 text-xs gap-1.5"
           >
-            <RefreshCw size={13} />
+            <RefreshCw className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Refresh</span>
           </Button>
-              <DateRangeFilter
+          <DateRangeFilter
             value={dateRange}
             onChange={(val) => {
               setDateRange(val);
@@ -228,27 +309,22 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ─── Announcement (conditional) ─────────────────────────────────── */}
+      {/* ─── Announcement Banner (conditional) ───────────────────────────── */}
       {summary.announcement && (
         <DashboardAnnouncement
           announcement={summary.announcement}
-          className="mb-4"
         />
       )}
 
-      {/* ─── Setup Checklist ───────────────────────────────────────────── */}
+      {/* ─── Setup Checklist (conditional) ───────────────────────────────── */}
       <SetupChecklist summary={data} isLoading={isLoading} />
 
       {/* ─── KPI Stats Grid ─────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {isLoading ? (
-          <>
-            {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-[120px] rounded-xl" />
-            ))}
-          </>
-        ) : (
-          KPI_CARDS.map((card, i) => {
+      {isLoading ? (
+        <KPICardsSkeleton />
+      ) : (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {KPI_CARDS.map((card) => {
             const kpi = kpiValues[card.key];
             if (!kpi) return null;
             return (
@@ -258,7 +334,6 @@ export default function Dashboard() {
                   "relative overflow-hidden rounded-xl border bg-card p-3 sm:p-4",
                   "transition-all duration-200 hover:border-primary/20 hover:shadow-soft-sm group",
                 )}
-                style={{ animationDelay: `${i * 50}ms` }}
               >
                 {/* Gradient accent on hover */}
                 <div className={cn(
@@ -266,86 +341,134 @@ export default function Dashboard() {
                   card.accent,
                 )} />
                 <div className="relative">
-                  <div className="text-muted-foreground mb-2">
-                    {card.icon}
+                  {/* Icon */}
+                  <div className={cn(
+                    "h-8 w-8 rounded-lg flex items-center justify-center mb-3",
+                    card.iconBg,
+                  )}>
+                    <div className={card.iconColor}>
+                      {card.icon}
+                    </div>
                   </div>
+                  
+                  {/* Label */}
                   <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider font-heading text-muted-foreground mb-1">
                     {card.label}
                   </p>
-                  <div className="flex items-end gap-2">
+                  
+                  {/* Value + Trend */}
+                  <div className="flex items-end gap-2 flex-wrap">
                     <p className="text-xl sm:text-2xl lg:text-3xl font-bold font-mono tracking-tight text-foreground">
                       {kpi.value}
                     </p>
-                    <TrendIndicator value={kpi.trend} invert={card.invertTrend} />
+                    <div className="pb-0.5">
+                      <TrendIndicator value={kpi.trend} invert={card.invertTrend} />
+                    </div>
                   </div>
+                  
+                  {/* Subtext */}
                   <p className="text-[10px] mt-1.5 font-description text-muted-foreground">
                     vs last period{card.invertTrend ? " (lower is better)" : ""}
                   </p>
                 </div>
               </div>
             );
-          })
+          })}
+        </div>
+      )}
+
+      {/* ─── Analytics Section ───────────────────────────────────────────── */}
+      <div>
+        <SectionHeader 
+          icon={BarChart3} 
+          title="Analytics Overview"
+          action={{ 
+            label: "Full Analytics", 
+            onClick: () => navigate("/dashboard/analytics") 
+          }}
+        />
+        {isLoading ? (
+          <ChartsSkeleton />
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            <div className="lg:col-span-2">
+              <ConversationVolumeChart data={summary.conversation_volume} />
+            </div>
+            <div>
+              <ConversationOutcomesDonut data={summary.conversation_outcomes} />
+            </div>
+          </div>
         )}
       </div>
 
-      {/* ─── Charts Row ─────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2">
-          {isLoading ? (
-            <Skeleton className="h-[300px] rounded-xl" />
-          ) : (
-            <ConversationVolumeChart data={summary.conversation_volume} />
-          )}
-        </div>
-        <div>
-          {isLoading ? (
-            <Skeleton className="h-[300px] rounded-xl" />
-          ) : (
-            <ConversationOutcomesDonut data={summary.conversation_outcomes} />
-          )}
-        </div>
+      {/* ─── Channel Breakdown Section ───────────────────────────────────── */}
+      <div>
+        <SectionHeader 
+          icon={Activity} 
+          title="Channel Performance"
+          action={{ 
+            label: "Manage Channels", 
+            onClick: () => navigate("/dashboard/channels") 
+          }}
+        />
+        {isLoading ? (
+          <Skeleton className="h-[180px] rounded-xl" />
+        ) : (
+          <ChannelBreakdown data={summary.channel_breakdown} />
+        )}
       </div>
 
-      {/* ─── Channel Breakdown ──────────────────────────────────────────── */}
-      {isLoading ? (
-        <Skeleton className="h-[180px] rounded-xl" />
-      ) : (
-        <ChannelBreakdown data={summary.channel_breakdown} />
-      )}
-
-      {/* ─── Unanswered Alert ───────────────────────────────────────────── */}
-      <UnansweredAlert
-        count={summary.unanswered_count}
-        questions={summary.unanswered_questions ?? []}
-      />
-
-      {/* ─── Chatbot Status ─────────────────────────────────────────────── */}
-      {isLoading ? (
-        <Skeleton className="h-[140px] rounded-xl" />
-      ) : (
-        <ChatbotStatusCard
-          status={summary.chatbot_status.status}
-          lastActive={summary.chatbot_status.last_active ?? null}
-          chatbotName={summary.chatbot_status.chatbot_name ?? null}
+      {/* ─── Intelligence Section ────────────────────────────────────────── */}
+      <div>
+        <SectionHeader 
+          icon={Zap} 
+          title="AI Intelligence"
+          action={{ 
+            label: "View Reports", 
+            onClick: () => navigate("/dashboard/analytics?tab=questions") 
+          }}
         />
-      )}
+        <UnansweredAlert
+          count={summary.unanswered_count}
+          questions={summary.unanswered_questions ?? []}
+        />
+      </div>
 
-      {/* ─── Recent Items Row ───────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div>
-          {isLoading ? (
-            <Skeleton className="h-[280px] rounded-xl" />
-          ) : (
+      {/* ─── Recent Activity Section ─────────────────────────────────────── */}
+      <div>
+        <SectionHeader 
+          icon={Target} 
+          title="Recent Activity"
+        />
+        {isLoading ? (
+          <RecentItemsSkeleton />
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             <RecentConversations data={summary.recent_conversations} />
-          )}
-        </div>
-        <div>
-          {isLoading ? (
-            <Skeleton className="h-[280px] rounded-xl" />
-          ) : (
             <RecentLeads data={summary.recent_leads} />
-          )}
-        </div>
+          </div>
+        )}
+      </div>
+
+      {/* ─── Chatbot Status Section ──────────────────────────────────────── */}
+      <div>
+        <SectionHeader 
+          icon={Settings} 
+          title="Chatbot Status"
+          action={{ 
+            label: "Configure", 
+            onClick: () => navigate("/dashboard/chatbot") 
+          }}
+        />
+        {isLoading ? (
+          <Skeleton className="h-[140px] rounded-xl" />
+        ) : (
+          <ChatbotStatusCard
+            status={summary.chatbot_status.status}
+            lastActive={summary.chatbot_status.last_active ?? null}
+            chatbotName={summary.chatbot_status.chatbot_name ?? null}
+          />
+        )}
       </div>
     </div>
   );
