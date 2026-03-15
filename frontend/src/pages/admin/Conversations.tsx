@@ -19,8 +19,11 @@ import {
   RefreshCw, ChevronLeft, ChevronRight,
   Flag, User, MoreHorizontal, Send,
   Mail, Phone, ExternalLink, FileText,
-  SlidersHorizontal, AlertCircle, Eye,
+  SlidersHorizontal, AlertCircle, Eye, Sparkles,
 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -103,6 +106,14 @@ function formatTimestamp(isoDate: string): string {
 function getInitials(name: string | null): string {
   if (!name) return "?";
   return name.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase();
+}
+
+/** Convert citation brackets [1, 2] to superscript HTML for AI messages */
+function formatCitations(content: string): string {
+  return content.replace(
+    /\s*\[(\d+(?:,\s*\d+)*)\]/g,
+    (_, nums) => `<sup class="citation">[${nums}]</sup>`
+  );
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
@@ -352,8 +363,8 @@ function DetailDialog({
 
             {/* ── Two-column Body ── */}
             <div className="flex flex-col sm:flex-row flex-1 min-h-0 overflow-hidden">
-              {/* LEFT: Transcript */}
-              <div className="flex-1 overflow-auto p-4 sm:p-5 sm:border-r order-2 sm:order-1">
+              {/* LEFT: Transcript - hidden scrollbar */}
+              <div className="flex-1 overflow-auto p-4 sm:p-5 sm:border-r order-2 sm:order-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 <h3 className="text-[10px] font-bold uppercase tracking-wider font-heading text-muted-foreground mb-4">
                   Transcript
                 </h3>
@@ -364,71 +375,134 @@ function DetailDialog({
                     <p className="text-xs text-muted-foreground">No messages in this conversation</p>
                   </div>
                 ) : (
-                  <div className="flex flex-col gap-3">
-                    {detail.messages.map(msg => {
+                  <div className="flex flex-col gap-2.5">
+                    {detail.messages.map((msg, idx) => {
                       if (msg.role === "system") {
                         return (
-                          <p key={msg.id} className="text-center text-xs text-muted-foreground italic py-1">
-                            {msg.content}
-                          </p>
-                        );
-                      }
-                      const isUser = msg.role === "user";
-                      return (
-                        <div key={msg.id} className={cn("flex", isUser ? "justify-end" : "justify-start")}>
-                          <div className="max-w-[85%] sm:max-w-[78%]">
-                            <div className={cn(
-                              "px-3.5 py-2.5 text-[13px] leading-relaxed",
-                              isUser
-                                ? "bg-primary text-primary-foreground rounded-2xl rounded-br-md"
-                                : "bg-muted border rounded-2xl rounded-bl-md text-foreground",
-                            )}>
-                              {msg.content}
-                            </div>
-                            {/* Citations */}
-                            {!isUser && msg.citations && msg.citations.length > 0 && (
-                              <div className="flex gap-1 flex-wrap mt-1.5">
-                                {msg.citations.map((c, i) => (
-                                  <span
-                                    key={i}
-                                    className="inline-flex items-center gap-1 rounded-md border border-primary/15 bg-primary/8 px-1.5 py-0.5 text-[10px] text-primary"
-                                  >
-                                    <FileText size={9} /> {c.source ?? "Source"}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                            {/* Confidence + timestamp */}
-                            <div className={cn(
-                              "flex items-center gap-2 mt-1",
-                              isUser ? "justify-end" : "justify-start",
-                            )}>
-                              {!isUser && msg.confidence_score != null && (
-                                <span className={cn(
-                                  "text-[9px] font-mono px-1 py-0.5 rounded",
-                                  msg.confidence_score >= 0.9
-                                    ? "text-emerald-400/70"
-                                    : msg.confidence_score >= 0.7
-                                      ? "text-amber-400/70"
-                                      : "text-red-400/70",
-                                )}>
-                                  {Math.round(msg.confidence_score * 100)}%
-                                </span>
-                              )}
-                              <span className="text-[10px] text-muted-foreground font-mono">
+                          <div key={msg.id} className="flex justify-center">
+                            <div className="max-w-[60%] px-3 py-1.5 rounded-full text-center bg-muted/30 border border-dashed border-muted/40">
+                              <p className="text-[11px] text-muted-foreground italic leading-relaxed">
+                                {msg.content}
+                              </p>
+                              <span className="text-[9px] text-muted-foreground/50 font-mono">
                                 {formatTimestamp(msg.created_at)}
                               </span>
                             </div>
                           </div>
-                        </div>
-                      );
+                        );
+                      }
+                      const isUser = msg.role === "user";
+                      const isAssistant = msg.role === "assistant";
+                      const prevMsg = detail.messages[idx - 1];
+                      const isFirstInSequence = !prevMsg || prevMsg.role !== msg.role;
+                      
+                      // User message - compact
+                      if (isUser) {
+                        return (
+                          <div key={msg.id} className="flex justify-end">
+                            <div className="max-w-[85%] sm:max-w-[75%]">
+                              <div className="bg-primary text-primary-foreground rounded-2xl rounded-br-sm px-3 py-2">
+                                <div className="text-[13px] leading-[1.6]">
+                                  {msg.content}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1 text-[9px] text-muted-foreground/50 font-mono mt-0.5 justify-end">
+                                <span>{formatTimestamp(msg.created_at)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+                      
+                      // AI Assistant message - matches Inbox styling
+                      if (isAssistant) {
+                        return (
+                          <div key={msg.id} className="flex justify-start group/ai">
+                            <div className="flex items-start gap-2 max-w-[85%] sm:max-w-[78%]">
+                              {/* AI Avatar - only show for first in sequence */}
+                              {isFirstInSequence ? (
+                                <div className="flex-shrink-0 h-5 w-5 rounded-full bg-gradient-to-br from-primary to-violet-500 flex items-center justify-center shadow-sm mt-0.5">
+                                  <Sparkles className="h-2.5 w-2.5 text-white" />
+                                </div>
+                              ) : (
+                                <div className="w-5 flex-shrink-0" />
+                              )}
+                              
+                              <div className="flex-1 min-w-0">
+                                {/* AI Header - only show for first in sequence */}
+                                {isFirstInSequence && (
+                                  <div className="flex items-center gap-1 mb-0.5">
+                                    <span className="text-[10px] font-medium text-muted-foreground/70 font-heading">
+                                      NexaChat AI
+                                    </span>
+                                    {msg.confidence_score != null && msg.confidence_score < 0.8 && (
+                                      <span className="text-[9px] text-amber-400 flex items-center gap-0.5" title="Lower confidence">
+                                        <span className="inline-block">⚠</span>
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                                
+                                {/* AI Bubble with distinct styling */}
+                                <div className={cn(
+                                  "px-3 py-2 rounded-[3px_14px_14px_14px]",
+                                  "bg-primary/[0.05] border border-primary/[0.10]",
+                                  "transition-all duration-150",
+                                  "group-hover/ai:border-primary/15 group-hover/ai:bg-primary/[0.07]",
+                                )}>
+                                  {/* Compact prose styling with superscript citations */}
+                                  <div className="text-[13px] text-foreground/90 leading-[1.6] space-y-1.5 [&_p]:m-0 [&_p]:leading-[1.6] [&_pre]:my-1.5 [&_pre]:rounded-md [&_pre]:bg-background/60 [&_pre]:border [&_pre]:border-border/40 [&_pre]:text-[11px] [&_pre]:p-2 [&_code]:text-primary/80 [&_code]:font-mono [&_code]:text-[11px] [&_code]:before:content-none [&_code]:after:content-none [&_ul]:my-1 [&_ul]:pl-3.5 [&_ul]:space-y-0.5 [&_ol]:my-1 [&_ol]:pl-3.5 [&_ol]:space-y-0.5 [&_li]:text-[13px] [&_li]:leading-[1.5] [&_h1]:text-[13px] [&_h1]:font-semibold [&_h1]:mt-2 [&_h1]:mb-1 [&_h2]:text-[12px] [&_h2]:font-semibold [&_h2]:mt-1.5 [&_h2]:mb-0.5 [&_h3]:text-[12px] [&_h3]:font-medium [&_h3]:mt-1 [&_h3]:mb-0.5 [&_h4]:text-[11px] [&_h4]:font-medium [&_h4]:mt-1 [&_h4]:mb-0.5 [&_strong]:text-foreground [&_strong]:font-medium [&_a]:text-primary [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-primary/30 [&_blockquote]:pl-2 [&_blockquote]:text-[12px] [&_blockquote]:text-muted-foreground [&_blockquote]:italic [&_.citation]:text-[9px] [&_.citation]:text-primary/70 [&_.citation]:font-mono [&_.citation]:ml-px">
+                                    <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                                      {formatCitations(msg.content || "")}
+                                    </ReactMarkdown>
+                                  </div>
+                                </div>
+
+                                {/* Citations as source chips */}
+                                {msg.citations && msg.citations.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-1.5">
+                                    {msg.citations.map((c, i) => (
+                                      <span
+                                        key={i}
+                                        className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[9px] font-medium text-primary/80 bg-primary/[0.06] border border-primary/[0.12]"
+                                      >
+                                        <span className="text-[8px]">📄</span>
+                                        <span className="truncate max-w-[100px]">{c.source ?? "Source"}</span>
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+
+                                {/* Timestamp + confidence */}
+                                <div className="flex items-center gap-1.5 text-[9px] text-muted-foreground/50 font-mono mt-1">
+                                  {msg.confidence_score != null && (
+                                    <span className={cn(
+                                      "px-1 py-0.5 rounded",
+                                      msg.confidence_score >= 0.9
+                                        ? "text-emerald-400/70"
+                                        : msg.confidence_score >= 0.7
+                                          ? "text-amber-400/70"
+                                          : "text-red-400/70",
+                                    )}>
+                                      {Math.round(msg.confidence_score * 100)}%
+                                    </span>
+                                  )}
+                                  <span>{formatTimestamp(msg.created_at)}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+                      
+                      return null;
                     })}
                   </div>
                 )}
               </div>
 
-              {/* RIGHT: Contact + Timeline + Notes */}
-              <div className="w-full sm:w-[40%] sm:max-w-[340px] overflow-auto p-4 sm:p-5 space-y-5 order-1 sm:order-2 border-b sm:border-b-0">
+              {/* RIGHT: Contact + Timeline + Notes - hidden scrollbar */}
+              <div className="w-full sm:w-[40%] sm:max-w-[340px] overflow-auto p-4 sm:p-5 space-y-5 order-1 sm:order-2 border-b sm:border-b-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
 
                 {/* Contact info card */}
                 <div className="rounded-lg border bg-muted/30 p-3.5">

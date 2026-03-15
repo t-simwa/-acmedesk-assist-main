@@ -3555,10 +3555,15 @@ export interface InboxThreadItem {
   contact_email: string | null;
   contact_phone: string | null;
   last_message: string | null;
+  last_message_role?: string | null;
   last_message_at: string | null;
   message_count: number;
   status: string;
   is_unread: boolean;
+  handled_by?: string | null;
+  assigned_to?: string | null;
+  escalated_at?: string | null;
+  sla_deadline?: string | null;
 }
 
 export interface InboxListResponse {
@@ -3566,6 +3571,15 @@ export interface InboxListResponse {
   total: number;
   page: number;
   per_page: number;
+  counts: {
+    all: number;
+    unread: number;
+    escalated: number;
+    ai_active: number;
+    mine: number;
+    resolved: number;
+  };
+  channel_counts: Record<string, number>;
 }
 
 export interface InboxMessageItem {
@@ -3576,6 +3590,18 @@ export interface InboxMessageItem {
   metadata: Record<string, unknown> | null;
 }
 
+export interface InboxTemplateItem {
+  id: string;
+  name: string;
+  content: string;
+  created_by?: string | null;
+  created_at?: string | null;
+}
+
+export interface InboxTemplatesResponse {
+  templates: InboxTemplateItem[];
+}
+
 export interface InboxThreadDetailResponse {
   conversation_id: string;
   channel: string;
@@ -3583,19 +3609,70 @@ export interface InboxThreadDetailResponse {
   contact_name: string | null;
   contact_email: string | null;
   contact_phone: string | null;
+  handled_by: string | null;
+  assigned_to: string | null;
+  escalated_at: string | null;
+  sla_deadline: string | null;
+  last_user_message_at?: string | null;
   messages: InboxMessageItem[];
+}
+
+export interface InboxContactHistoryItem {
+  conversation_id: string;
+  status: string;
+  last_activity_at?: string | null;
+  message_count: number;
+}
+
+export interface InboxContactHistoryResponse {
+  history: InboxContactHistoryItem[];
 }
 
 export interface InboxReplyResponse {
   message: InboxMessageItem;
 }
 
+export interface InboxConversationCreateRequest {
+  channel: string;
+  contact_name?: string | null;
+  contact_email?: string | null;
+  contact_phone?: string | null;
+  initial_message: string;
+}
+
+export interface InboxConversationCreateResponse {
+  conversation_id: string;
+  message_id: string;
+}
+
+export interface InboxEscalationItem {
+  id: string;
+  type: string;
+  reason?: string | null;
+  created_by?: string | null;
+  created_at?: string | null;
+}
+
+export interface InboxEscalationsResponse {
+  escalations: InboxEscalationItem[];
+}
+
 export interface InboxListFilters {
   page?: number;
   per_page?: number;
-  channel?: string;
+  channel?: string | string[];
   status?: string;
   search?: string;
+}
+
+export interface InboxEvent {
+  type: "thread_updated";
+  conversation_id: string;
+  unread_count?: number;
+  handled_by?: string | null;
+  assigned_to?: string | null;
+  status?: string | null;
+  message?: InboxMessageItem;
 }
 
 export const inboxApi = {
@@ -3603,21 +3680,213 @@ export const inboxApi = {
     const params = new URLSearchParams();
     if (filters.page) params.set("page", String(filters.page));
     if (filters.per_page) params.set("per_page", String(filters.per_page));
-    if (filters.channel) params.set("channel", filters.channel);
+    if (filters.channel) {
+      if (Array.isArray(filters.channel)) {
+        filters.channel.forEach(ch => params.append("channel", ch));
+      } else {
+        params.set("channel", filters.channel);
+      }
+    }
     if (filters.status) params.set("status", filters.status);
     if (filters.search) params.set("search", filters.search);
     return apiClient<InboxListResponse>(`/api/inbox?${params.toString()}`);
+  },
+
+  async getHistory(conversationId: string): Promise<InboxContactHistoryResponse> {
+    return apiClient<InboxContactHistoryResponse>(`/api/inbox/${conversationId}/history`);
   },
 
   async getThread(conversationId: string): Promise<InboxThreadDetailResponse> {
     return apiClient<InboxThreadDetailResponse>(`/api/inbox/${conversationId}`);
   },
 
-  async reply(conversationId: string, body: string): Promise<InboxReplyResponse> {
+  async getMessages(
+    conversationId: string,
+    before?: string,
+    limit: number = 50,
+  ): Promise<InboxMessagesResponse> {
+    const params = new URLSearchParams();
+    if (before) params.set("before", before);
+    params.set("limit", String(limit));
+    return apiClient<InboxMessagesResponse>(`/api/inbox/${conversationId}/messages?${params.toString()}`);
+  },
+
+  async getContact(conversationId: string): Promise<InboxContactResponse> {
+    return apiClient<InboxContactResponse>(`/api/inbox/${conversationId}/contact`);
+  },
+
+  async updateContact(
+    conversationId: string,
+    payload: { notes?: string; tags?: string[]; lead_status?: string },
+  ): Promise<InboxContactResponse> {
+    return apiClient<InboxContactResponse>(`/api/inbox/${conversationId}/contact`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async takeover(conversationId: string): Promise<{ success: boolean }> {
+    return apiClient<{ success: boolean }>(`/api/inbox/${conversationId}/takeover`, {
+      method: "POST",
+    });
+  },
+
+  async handback(conversationId: string): Promise<{ success: boolean }> {
+    return apiClient<{ success: boolean }>(`/api/inbox/${conversationId}/handback`, {
+      method: "POST",
+    });
+  },
+
+  async escalate(conversationId: string): Promise<{ success: boolean }> {
+    return apiClient<{ success: boolean }>(`/api/inbox/${conversationId}/escalate`, {
+      method: "POST",
+    });
+  },
+
+  async deescalate(conversationId: string): Promise<{ success: boolean }> {
+    return apiClient<{ success: boolean }>(`/api/inbox/${conversationId}/deescalate`, {
+      method: "POST",
+    });
+  },
+
+  async resolve(conversationId: string): Promise<{ success: boolean }> {
+    return apiClient<{ success: boolean }>(`/api/inbox/${conversationId}/resolve`, {
+      method: "POST",
+    });
+  },
+
+  async reopen(conversationId: string): Promise<{ success: boolean }> {
+    return apiClient<{ success: boolean }>(`/api/inbox/${conversationId}/reopen`, {
+      method: "POST",
+    });
+  },
+
+  async flagTraining(
+    conversationId: string,
+    payload: { message_id: string; priority: string; comment?: string },
+  ): Promise<{ success: boolean; feedback_id: string }> {
+    return apiClient<{ success: boolean; feedback_id: string }>(
+      `/api/inbox/${conversationId}/flag-training`,
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+    );
+  },
+
+  async aiDraft(
+    conversationId: string,
+    channel: string,
+  ): Promise<{ draft: string; confidence: number; sources_used: string[] }> {
+    return apiClient<{ draft: string; confidence: number; sources_used: string[] }>(
+      "/api/inbox/ai-draft",
+      {
+        method: "POST",
+        body: JSON.stringify({ conversation_id: conversationId, channel }),
+      },
+    );
+  },
+
+  async reply(
+    conversationId: string,
+    body: string,
+    internal_note?: boolean,
+  ): Promise<InboxReplyResponse> {
     return apiClient<InboxReplyResponse>(`/api/inbox/${conversationId}/reply`, {
       method: "POST",
-      body: JSON.stringify({ body }),
+      body: JSON.stringify({ body, internal_note: internal_note ?? false }),
     });
+  },
+
+  async listTemplates(): Promise<InboxTemplatesResponse> {
+    return apiClient<InboxTemplatesResponse>("/api/inbox/templates");
+  },
+
+  async createTemplate(template: { name: string; content: string }): Promise<InboxTemplateItem> {
+    return apiClient<InboxTemplateItem>("/api/inbox/templates", {
+      method: "POST",
+      body: JSON.stringify(template),
+    });
+  },
+
+  async createConversation(
+    payload: InboxConversationCreateRequest,
+  ): Promise<InboxConversationCreateResponse> {
+    return apiClient<InboxConversationCreateResponse>("/api/inbox/conversations", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async getEscalations(conversationId: string): Promise<InboxEscalationsResponse> {
+    return apiClient<InboxEscalationsResponse>(`/api/inbox/${conversationId}/escalations`);
+  },
+
+  subscribe(
+    onEvent: (event: InboxEvent) => void,
+    onError?: (err: unknown) => void,
+  ): () => void {
+    const controller = new AbortController();
+    const accessToken = localStorage.getItem("access_token");
+
+    const headers: Record<string, string> = {};
+    if (accessToken) {
+      headers["Authorization"] = `Bearer ${accessToken}`;
+    }
+
+    const url = `${API_BASE_URL}/api/inbox/stream`;
+
+    const parseStream = async () => {
+      const response = await fetch(url, { headers, signal: controller.signal });
+      if (!response.ok) {
+        throw new Error(`Stream request failed with status ${response.status}`);
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error("Stream response has no body");
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let boundary;
+        while ((boundary = buffer.indexOf("\n\n")) !== -1) {
+          const chunk = buffer.slice(0, boundary);
+          buffer = buffer.slice(boundary + 2);
+
+          // Parse lines in SSE chunk
+          const lines = chunk.split(/\r?\n/);
+          let data = "";
+          for (const line of lines) {
+            if (line.startsWith("data:")) {
+              data += line.slice(5).trim();
+            }
+          }
+
+          if (data) {
+            try {
+              const payload = JSON.parse(data);
+              onEvent(payload);
+            } catch (err) {
+              // ignore malformed event payloads
+              console.warn("Failed to parse inbox stream event", err, data);
+            }
+          }
+        }
+      }
+    };
+
+    parseStream().catch(err => {
+      onError?.(err);
+    });
+
+    return () => controller.abort();
   },
 };
 

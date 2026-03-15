@@ -6,6 +6,9 @@
  * - Badge styling for status
  * - Proper hover states
  * - Responsive design
+ * 
+ * NOTE: This component fetches its own data from the same API as the Conversations page
+ * to ensure consistency between dashboard and admin pages.
  */
 
 import { useNavigate } from "react-router-dom";
@@ -13,9 +16,12 @@ import { ArrowRight, MessageSquare, Inbox } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CHANNEL_META, ChannelIcon } from "@/lib/channelMeta";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useConversationsList } from "@/hooks/useConversations";
 
 interface RecentConversationsProps {
-  data: Array<{
+  /** @deprecated - data is now fetched internally from conversations API */
+  data?: Array<{
     id: string;
     channel: string;
     contact_name: string;
@@ -26,15 +32,43 @@ interface RecentConversationsProps {
   className?: string;
 }
 
+/** Format relative time from ISO date string */
+function relativeTime(isoDate: string | null): string {
+  if (!isoDate) return "--";
+  const diff = Date.now() - new Date(isoDate).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days === 1) return "Yesterday";
+  return `${days}d ago`;
+}
+
 const STATUS_META: Record<string, { dot: string; badge: string }> = {
-  active:    { dot: "bg-blue-400",    badge: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
-  resolved:  { dot: "bg-emerald-400", badge: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" },
-  escalated: { dot: "bg-amber-400",   badge: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
-  abandoned: { dot: "bg-gray-400",    badge: "bg-gray-500/10 text-gray-400 border-gray-500/20" },
+  active:       { dot: "bg-blue-400",    badge: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
+  resolved:     { dot: "bg-emerald-400", badge: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" },
+  escalated:    { dot: "bg-amber-400",   badge: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
+  abandoned:    { dot: "bg-gray-400",    badge: "bg-gray-500/10 text-gray-400 border-gray-500/20" },
+  needs_review: { dot: "bg-violet-400",  badge: "bg-violet-500/10 text-violet-400 border-violet-500/20" },
 };
 
-export function RecentConversations({ data, className }: RecentConversationsProps) {
+export function RecentConversations({ className }: RecentConversationsProps) {
   const navigate = useNavigate();
+  
+  // Fetch recent conversations from the same API as Conversations page
+  const { data: listData, isLoading } = useConversationsList({ page: 1, per_page: 5 });
+  
+  // Transform API data to component format
+  const conversations = (listData?.conversations ?? []).map(conv => ({
+    id: conv.id,
+    channel: conv.channel ?? "web",
+    contact_name: conv.contact_name ?? conv.contact_phone ?? "Anonymous",
+    first_message: conv.first_message ?? "",
+    status: conv.status,
+    time_ago: relativeTime(conv.last_activity_at ?? conv.started_at),
+  }));
 
   return (
     <div className={cn(
@@ -59,7 +93,21 @@ export function RecentConversations({ data, className }: RecentConversationsProp
 
       {/* Desktop Table */}
       <div className="hidden sm:block">
-        {data.length > 0 ? (
+        {isLoading ? (
+          <div className="p-4 space-y-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <Skeleton className="h-8 w-8 rounded-lg" />
+                <div className="flex-1 space-y-1.5">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+                <Skeleton className="h-5 w-16 rounded-full" />
+                <Skeleton className="h-3 w-12" />
+              </div>
+            ))}
+          </div>
+        ) : conversations.length > 0 ? (
           <table className="w-full">
             <thead>
               <tr className="border-b bg-muted/30">
@@ -78,7 +126,7 @@ export function RecentConversations({ data, className }: RecentConversationsProp
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {data.map((item) => {
+              {conversations.map((item) => {
                 const channel = CHANNEL_META[item.channel] || CHANNEL_META.web;
                 const status = STATUS_META[item.status] || STATUS_META.active;
 
@@ -86,7 +134,7 @@ export function RecentConversations({ data, className }: RecentConversationsProp
                   <tr
                     key={item.id}
                     className="cursor-pointer transition-colors hover:bg-muted/50"
-                    onClick={() => navigate(`/dashboard/conversations/${item.id}`)}
+                    onClick={() => navigate(`/dashboard/conversations?id=${item.id}`)}
                   >
                     {/* Contact */}
                     <td className="px-4 sm:px-5 py-3">
@@ -120,7 +168,7 @@ export function RecentConversations({ data, className }: RecentConversationsProp
                         status.badge,
                       )}>
                         <span className={cn("h-1.5 w-1.5 rounded-full", status.dot)} />
-                        {item.status}
+                        {item.status.replace("_", " ")}
                       </span>
                     </td>
                     
@@ -160,8 +208,21 @@ export function RecentConversations({ data, className }: RecentConversationsProp
 
       {/* Mobile Card List */}
       <div className="sm:hidden divide-y divide-border">
-        {data.length > 0 ? (
-          data.map((item) => {
+        {isLoading ? (
+          <div className="p-4 space-y-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="flex items-start gap-3">
+                <Skeleton className="h-9 w-9 rounded-lg" />
+                <div className="flex-1 space-y-1.5">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : conversations.length > 0 ? (
+          conversations.map((item) => {
             const channel = CHANNEL_META[item.channel] || CHANNEL_META.web;
             const status = STATUS_META[item.status] || STATUS_META.active;
 
@@ -169,7 +230,7 @@ export function RecentConversations({ data, className }: RecentConversationsProp
               <div
                 key={item.id}
                 className="flex items-start gap-3 p-4 cursor-pointer hover:bg-muted/50 transition-colors"
-                onClick={() => navigate(`/dashboard/conversations/${item.id}`)}
+                onClick={() => navigate(`/dashboard/conversations?id=${item.id}`)}
               >
                 {/* Channel icon */}
                 <div className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0 bg-muted">
@@ -188,7 +249,7 @@ export function RecentConversations({ data, className }: RecentConversationsProp
                       status.badge,
                     )}>
                       <span className={cn("h-1 w-1 rounded-full", status.dot)} />
-                      {item.status}
+                      {item.status.replace("_", " ")}
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5 truncate">

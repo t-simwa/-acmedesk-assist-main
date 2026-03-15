@@ -92,22 +92,23 @@ function processCitationsInText(text: string, sources?: SourceInfo[]): string {
     
     if (allSourcesExist && sources && uniqueNumbers.length > 0) {
       const citationLinks = uniqueNumbers.map((num: number) => {
-        return `<a href="#source-${num}" class="citation-link text-primary hover:text-primary/80 font-normal underline decoration-dotted underline-offset-2 transition-colors cursor-pointer font-chat text-xs" data-citation="${num}" title="View source ${num}">${num}</a>`;
+        return `<a href="#source-${num}" class="citation-link text-primary/70 hover:text-primary font-normal underline decoration-dotted underline-offset-1 transition-colors cursor-pointer font-mono text-[9px]" data-citation="${num}" title="View source ${num}">${num}</a>`;
       }).join(', ');
       
-      return `<sup class="font-chat text-xs leading-none align-baseline">[${citationLinks}]</sup>`;
+      return `<sup class="font-mono text-[9px] leading-none align-super ml-px">[${citationLinks}]</sup>`;
     }
     
     // If sources don't match, still show the cleaned citation (without links)
-    return `<sup class="font-chat text-xs text-primary font-normal leading-none align-baseline">[${numsString}]</sup>`;
+    return `<sup class="font-mono text-[9px] text-primary/70 font-normal leading-none align-super ml-px">[${numsString}]</sup>`;
   });
 }
 
 /**
  * Create custom components for react-markdown with citation support
+ * COMPACT STYLING - matches Inbox page formatting
  */
 function createMarkdownComponents(sources?: SourceInfo[], isUser: boolean = false): Components {
-  const textColor = isUser ? "text-background" : "text-foreground";
+  const textColor = isUser ? "text-background" : "text-foreground/90";
   const textColorClasses = isUser 
     ? "text-background [&_*]:text-background [&_strong]:text-background [&_em]:text-background [&_code]:text-background/90 [&_a]:text-background/90 [&_a:hover]:text-background"
     : "";
@@ -115,60 +116,60 @@ function createMarkdownComponents(sources?: SourceInfo[], isUser: boolean = fals
   const chatFontClass = "font-chat";
 
   return {
-    // Headers
+    // Headers - COMPACT: much smaller sizes
     h1: ({ children, ...props }) => (
-      <h1 className={`text-lg font-bold mt-4 mb-2 ${chatFontClass} ${textColorClasses}`} {...props}>
+      <h1 className={`text-[13px] font-semibold mt-2 mb-1 ${chatFontClass} ${textColorClasses}`} {...props}>
         {children}
       </h1>
     ),
     h2: ({ children, ...props }) => (
-      <h2 className={`text-sm font-normal mt-3 mb-2 ${chatFontClass} ${textColorClasses}`} {...props}>
+      <h2 className={`text-[12px] font-semibold mt-1.5 mb-0.5 ${chatFontClass} ${textColorClasses}`} {...props}>
         {children}
       </h2>
     ),
     h3: ({ children, ...props }) => (
-      <h3 className={`text-sm font-semibold mt-2 mb-1 ${chatFontClass} ${textColorClasses}`} {...props}>
+      <h3 className={`text-[12px] font-medium mt-1 mb-0.5 ${chatFontClass} ${textColorClasses}`} {...props}>
         {children}
       </h3>
     ),
     h4: ({ children, ...props }) => (
-      <h4 className={`text-sm font-medium mt-2 mb-1 ${chatFontClass} ${textColorClasses}`} {...props}>
+      <h4 className={`text-[11px] font-medium mt-1 mb-0.5 ${chatFontClass} ${textColorClasses}`} {...props}>
         {children}
       </h4>
     ),
     h5: ({ children, ...props }) => (
-      <h5 className={`text-xs font-medium mt-1 mb-1 ${chatFontClass} ${textColorClasses}`} {...props}>
+      <h5 className={`text-[11px] font-medium mt-0.5 mb-0.5 ${chatFontClass} ${textColorClasses}`} {...props}>
         {children}
       </h5>
     ),
     h6: ({ children, ...props }) => (
-      <h6 className={`text-xs font-medium mt-1 mb-1 ${chatFontClass} ${textColorClasses}`} {...props}>
+      <h6 className={`text-[11px] font-medium mt-0.5 mb-0.5 ${chatFontClass} ${textColorClasses}`} {...props}>
         {children}
       </h6>
     ),
     
-    // Paragraphs
+    // Paragraphs - COMPACT
     p: ({ children, ...props }) => (
-      <p className={`block ${chatFontClass} ${textColorClasses}`} {...props}>
+      <p className={`block leading-[1.6] ${chatFontClass} ${textColorClasses}`} {...props}>
         {children}
       </p>
     ),
     
-    // Lists
+    // Lists - COMPACT with tighter spacing
     ul: ({ children, ...props }) => (
-      <ul className={`list-none space-y-0.5 ${chatFontClass} ${textColorClasses}`} {...props}>
+      <ul className={`list-none space-y-0.5 my-1 pl-3.5 ${chatFontClass} ${textColorClasses}`} {...props}>
         {children}
       </ul>
     ),
     ol: ({ children, ...props }) => (
-      <ol className={`list-none space-y-0.5 ${chatFontClass} ${textColorClasses}`} {...props}>
+      <ol className={`list-none space-y-0.5 my-1 pl-3.5 ${chatFontClass} ${textColorClasses}`} {...props}>
         {children}
       </ol>
     ),
     li: ({ children, ...props }) => {
       return (
-        <li className={`flex items-start gap-2 py-0.5 ${chatFontClass}`} {...props}>
-          <span className={`${textColor} mt-0.5`}>•</span>
+        <li className={`flex items-start gap-1.5 leading-[1.5] ${chatFontClass}`} {...props}>
+          <span className={`${textColor} mt-0.5 text-[10px]`}>•</span>
           <span className="flex-1">{children}</span>
         </li>
       );
@@ -176,21 +177,21 @@ function createMarkdownComponents(sources?: SourceInfo[], isUser: boolean = fals
     
     // Strong and emphasis
     strong: ({ children, ...props }) => (
-      <strong className={`${chatFontClass} ${textColorClasses}`} {...props}>{children}</strong>
+      <strong className={`font-medium ${chatFontClass} ${textColorClasses}`} {...props}>{children}</strong>
     ),
     em: ({ children, ...props }) => (
       <em className={`${chatFontClass} ${textColorClasses}`} {...props}>{children}</em>
     ),
     
-    // Code
+    // Code - COMPACT
     code: ({ children, className, ...props }) => {
       const isInline = !className;
       return isInline ? (
-        <code className={`px-1 py-0.5 rounded text-technical bg-muted/50 ${textColorClasses}`} {...props}>
+        <code className={`px-1 py-0.5 rounded text-[11px] font-mono bg-muted/50 ${textColorClasses}`} {...props}>
           {children}
         </code>
       ) : (
-        <code className={`block p-3 rounded text-technical bg-muted/50 overflow-x-auto ${textColorClasses}`} {...props}>
+        <code className={`block p-2 rounded text-[11px] font-mono bg-muted/50 overflow-x-auto my-1.5 ${textColorClasses}`} {...props}>
           {children}
         </code>
       );
@@ -215,22 +216,22 @@ function createMarkdownComponents(sources?: SourceInfo[], isUser: boolean = fals
       );
     },
     
-    // Blockquote
+    // Blockquote - COMPACT
     blockquote: ({ children, ...props }) => (
-      <blockquote className={`${chatFontClass} border-l-2 border-border pl-4 italic ${textColorClasses}`} {...props}>
+      <blockquote className={`${chatFontClass} border-l-2 border-primary/30 pl-2 text-[12px] text-muted-foreground italic ${textColorClasses}`} {...props}>
         {children}
       </blockquote>
     ),
     
     // Horizontal rule
     hr: ({ ...props }) => (
-      <hr className="my-4 border-border" {...props} />
+      <hr className="my-2 border-border" {...props} />
     ),
     
-    // Tables (from remark-gfm) - use Geist Mono for technical data
+    // Tables (from remark-gfm) - COMPACT
     table: ({ children, ...props }) => (
-      <div className="overflow-x-auto my-2">
-        <table className="min-w-full border-collapse text-technical" {...props}>
+      <div className="overflow-x-auto my-1.5">
+        <table className="min-w-full border-collapse text-[11px] font-mono" {...props}>
           {children}
         </table>
       </div>
@@ -245,12 +246,12 @@ function createMarkdownComponents(sources?: SourceInfo[], isUser: boolean = fals
       <tr className="border-b border-border" {...props}>{children}</tr>
     ),
     th: ({ children, ...props }) => (
-      <th className={`px-3 py-2 text-left font-semibold ${textColorClasses}`} {...props}>
+      <th className={`px-2 py-1.5 text-left font-semibold ${textColorClasses}`} {...props}>
         {children}
       </th>
     ),
     td: ({ children, ...props }) => (
-      <td className={`px-3 py-2 ${textColorClasses}`} {...props}>
+      <td className={`px-2 py-1.5 ${textColorClasses}`} {...props}>
         {children}
       </td>
     ),
@@ -332,22 +333,22 @@ export const MessageBubble = memo(function MessageBubble({ message, onRetry, onR
       role="article"
       aria-label={isUser ? "Your message" : "Assistant message"}
     >
-      <div className="max-w-[85%] space-y-1 relative">
+      <div className="max-w-[85%] sm:max-w-[78%] space-y-0.5 relative">
         {!isUser && (
-          <div className="flex items-center gap-2 px-1 mb-1" aria-label="NexaChat assistant">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center" aria-hidden="true">
-              <Zap size={15} className="text-white" strokeWidth={2.5} />
+          <div className="flex items-center gap-2 px-0.5 mb-0.5" aria-label="NexaChat assistant">
+            <div className="w-5 h-5 rounded-full bg-gradient-to-br from-primary to-violet-500 flex items-center justify-center shadow-sm" aria-hidden="true">
+              <Zap size={11} className="text-white" strokeWidth={2.5} />
             </div>
-            <span className="text-[11px] font-medium text-muted-foreground">NexaChat</span>
+            <span className="text-[10px] font-medium text-muted-foreground/70">NexaChat</span>
           </div>
         )}
         <div
-          className={`px-4 py-2.5 text-chat relative ${
+          className={`px-3 py-2 text-[13px] leading-[1.6] relative ${
             isUser
-              ? "bg-foreground text-background rounded-[18px] rounded-br-[4px] shadow-md border border-foreground/20"
+              ? "bg-foreground text-background rounded-2xl rounded-br-sm shadow-md border border-foreground/20"
               : isError
-              ? "bg-destructive/10 text-destructive border border-destructive/20 rounded-[18px] rounded-bl-[4px] shadow-sm"
-              : "bg-gradient-to-br from-muted via-muted to-muted/95 rounded-[18px] rounded-bl-[4px] shadow-soft-sm border border-border/30 backdrop-blur-sm"
+              ? "bg-destructive/10 text-destructive border border-destructive/20 rounded-[3px_14px_14px_14px] shadow-sm"
+              : "bg-primary/[0.05] border border-primary/[0.10] rounded-[3px_14px_14px_14px] shadow-soft-sm transition-all duration-150 group-hover:border-primary/15 group-hover:bg-primary/[0.07]"
           }`}
         >
           {/* Copy button - only for assistant messages, shows on hover */}
@@ -388,7 +389,7 @@ export const MessageBubble = memo(function MessageBubble({ message, onRetry, onR
             </ReactMarkdown>
           </div>
           
-          {/* Sources section inside the bubble - only show if response has actual content */}
+          {/* Sources section inside the bubble - COMPACT styling */}
           {!isUser && !isError && message.sources && message.sources.length > 0 && (() => {
             // Don't show sources if response indicates no information was found
             const noInfoMessages = [
@@ -407,17 +408,17 @@ export const MessageBubble = memo(function MessageBubble({ message, onRetry, onR
             // Only show sources if we have actual content and it's not a "no info" message
             if (!hasNoInfo && !hasMinimalContent) {
               return (
-                <div className="mt-3 pt-3 border-t border-border/50">
-                  <div className="font-chat text-xs font-normal text-muted-foreground mb-1.5">
+                <div className="mt-2 pt-2 border-t border-border/30">
+                  <div className="font-chat text-[10px] font-medium text-muted-foreground/60 mb-1">
                     Sources:
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-1">
                     {message.sources.map((source) => (
                       <a
                         key={source.index}
                         id={`source-${source.index}`}
                         href={`#source-${source.index}`}
-                        className="source-badge inline-flex items-center gap-1.5 px-2.5 py-1.5 font-chat text-xs font-normal text-primary bg-primary/10 hover:bg-primary/20 hover:text-primary border border-primary/20 rounded-md transition-all duration-200 hover:scale-105 hover:shadow-sm active:scale-100 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-1"
+                        className="source-badge inline-flex items-center gap-0.5 px-2 py-0.5 font-mono text-[9px] font-medium text-primary/80 bg-primary/[0.06] hover:bg-primary/[0.10] border border-primary/[0.12] rounded-full transition-all duration-150 hover:scale-105 active:scale-100 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-1"
                         data-source={source.index}
                         aria-label={`Source ${source.index}: ${source.title}`}
                         onClick={(e) => {
@@ -438,8 +439,8 @@ export const MessageBubble = memo(function MessageBubble({ message, onRetry, onR
                           }
                         }}
                       >
-                        <span className="font-normal text-primary">[{source.index}]</span>
-                        <span className="truncate max-w-[120px]">{source.title}</span>
+                        <span className="text-[8px]">📄</span>
+                        <span className="truncate max-w-[100px]">{source.title}</span>
                       </a>
                     ))}
                   </div>
@@ -449,12 +450,12 @@ export const MessageBubble = memo(function MessageBubble({ message, onRetry, onR
             return null;
           })()}
         </div>
-        <div className={`flex items-center gap-2 px-1 ${isUser ? "justify-end" : "justify-start"}`}>
+        <div className={`flex items-center gap-1.5 px-0.5 ${isUser ? "justify-end" : "justify-start"}`}>
           <Tooltip>
             <TooltipTrigger asChild>
               <time 
                 dateTime={message.timestamp.toISOString()}
-                className="text-[12px] font-chat text-muted-foreground cursor-help"
+                className="text-[9px] font-mono text-muted-foreground/50 cursor-help"
                 aria-label={`Message sent ${formatRelativeTime(message.timestamp)}`}
               >
                 {formatRelativeTime(message.timestamp)}

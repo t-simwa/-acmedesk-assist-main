@@ -65,8 +65,16 @@ class Conversation(Base):
     )
     outcome: Mapped[Optional[ConversationOutcome]] = mapped_column(SQLEnum(ConversationOutcome), nullable=True)
     message_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    # Multi-agent support & routing
+    handled_by: Mapped[Optional[str]] = mapped_column(String(36), nullable=False, default="ai")
+    assigned_to: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
+    unread_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
     started_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    escalated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    sla_deadline: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     last_activity_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     page_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     rating: Mapped[Optional[Rating]] = mapped_column(SQLEnum(Rating), nullable=True)
@@ -93,4 +101,9 @@ class Conversation(Base):
             "rating": self.rating.value if self.rating else None,
             "created_at": self.created_at.isoformat() + "Z" if self.created_at else None,
             "updated_at": self.updated_at.isoformat() + "Z" if self.updated_at else None,
+            "handled_by": self.handled_by,
+            "assigned_to": self.assigned_to,
+            "unread_count": self.unread_count,
+            "escalated_at": self.escalated_at.isoformat() + "Z" if self.escalated_at else None,
+            "sla_deadline": self.sla_deadline.isoformat() + "Z" if self.sla_deadline else None,
         }

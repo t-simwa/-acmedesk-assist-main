@@ -22,6 +22,7 @@ This module defines SQLAlchemy models for:
 """
 
 from .base import Base
+from .escalation import ConversationEscalation, EscalationType
 from .tenant import Tenant, SubscriptionStatus, PlanTier
 from .user import User, UserRole
 from .chatbot_instance import ChatbotInstance, ChatbotStatus, WidgetPosition, ResponseTone, ResponseLength
@@ -41,6 +42,7 @@ from .team_member import TeamMember, TeamMemberRole, InvitationStatus
 from .knowledge_base import KnowledgeBase, UserKnowledgeBasePreference
 from .channel_config import ChannelConfig
 from .notification import Notification
+from .training_feedback import TrainingFeedback, FeedbackPriority
 
 __all__ = [
     # Base
@@ -113,4 +115,8 @@ __all__ = [
     "UserKnowledgeBasePreference",
     "ChannelConfig",
     "Notification",
+
+    # Training feedback
+    "TrainingFeedback",
+    "FeedbackPriority",
 ]

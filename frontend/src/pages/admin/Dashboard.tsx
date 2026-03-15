@@ -28,6 +28,7 @@ import { RecentLeads } from "@/components/dashboard/RecentLeads";
 import { UnansweredAlert } from "@/components/dashboard/UnansweredAlert";
 import { ChatbotStatusCard } from "@/components/dashboard/ChatbotStatusCard";
 import { useDashboardSummary } from "@/hooks/useDashboard";
+import { useConversationsList } from "@/hooks/useConversations";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { NetworkErrorState } from "@/components/error/NetworkErrorState";
@@ -205,6 +206,9 @@ export default function Dashboard() {
     dateRange === "custom" ? customStart : undefined,
     dateRange === "custom" ? customEnd : undefined,
   );
+  
+  // Fetch conversations stats from the same API as Conversations page for consistency
+  const { data: conversationsData } = useConversationsList({ page: 1, per_page: 1 });
 
   const summary = data ?? {
     total_conversations: 0,
@@ -226,6 +230,9 @@ export default function Dashboard() {
     chatbot_status: { status: "not_installed", last_active: null, chatbot_name: null },
     announcement: null,
   };
+  
+  // Use conversations total from conversations API for consistency with Conversations page
+  const conversationsTotal = conversationsData?.total ?? summary.total_conversations;
 
   /* ─── Error State ──────────────────────────────────────────────────────── */
   if (error && !data) {
@@ -252,7 +259,8 @@ export default function Dashboard() {
   /* ─── KPI values ───────────────────────────────────────────────────────── */
   const kpiValues: Record<string, { value: string; trend: number | null | undefined }> = {
     conversations: {
-      value: summary.total_conversations.toLocaleString(),
+      // Use conversations API total for consistency with Conversations page
+      value: conversationsTotal.toLocaleString(),
       trend: summary.conversations_trend,
     },
     leads: {
@@ -440,14 +448,18 @@ export default function Dashboard() {
           icon={Target} 
           title="Recent Activity"
         />
-        {isLoading ? (
-          <RecentItemsSkeleton />
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            <RecentConversations data={summary.recent_conversations} />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          <RecentConversations />
+          {isLoading ? (
+            <div className="rounded-xl border bg-card p-4 space-y-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full" />
+              ))}
+            </div>
+          ) : (
             <RecentLeads data={summary.recent_leads} />
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* ─── Chatbot Status Section ──────────────────────────────────────── */}
