@@ -1,9 +1,10 @@
-import { useState, useCallback, useMemo, Fragment } from "react";
+import { useState, useCallback, useMemo, useEffect, Fragment } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   Users, Search, X, Download, Trash2,
   Phone, Mail, Clock, ChevronLeft, ChevronRight,
   MoreHorizontal, Star, Calendar,
-  CheckCircle2, RefreshCw,
+  CheckCircle2, RefreshCw, Plus,
   MessageSquare, Send, FileText, Building2, Layers,
   Globe, ArrowUpRight, AlertCircle, Eye,
   GripVertical, Sparkles, ExternalLink, SlidersHorizontal,
@@ -33,8 +34,11 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
-  useLeadsList, useLeadDetail, useUpdateLeadStatus,
-  useAddLeadNote, useRecalculateLeadScore, useBulkLeadAction,
+  useLeadsList, useLeadDetail, useUpdateLeadStatus, useUpdateLead,
+  useAddLeadNote, useDeleteLeadNote, useRecalculateLeadScore, useBulkLeadAction,
+  useLeadStats, useLeadPipeline, useCreateLead,
+  useLeadTags, useLeadAssignees,
+  useGenerateFollowupDraft, useSendFollowup,
 } from "@/hooks/useLeads";
 import {
   type LeadListItem, type LeadDetailResponse, type LeadListFilters,
@@ -220,7 +224,7 @@ function KanbanCard({ lead, onOpen }: { lead: LeadListItem; onOpen: (id: string)
       {/* View button */}
       <button
         onPointerDown={e => e.stopPropagation()}
-        onClick={e => { e.stopPropagation(); onOpen(lead.id); }}
+        onClick={e => { e.stopPropagation(); navigate(`/leads/${lead.id}`); }}
         className={cn(
           "mt-3 w-full rounded-lg py-1.5 text-[11px] font-semibold font-heading",
           "bg-primary/8 border border-primary/15 text-primary",
@@ -300,25 +304,71 @@ function PipelineStepper({
    ═══════════════════════════════════════════════════════════════════════════════ */
 
 export default function Leads() {
+  const navigate = useNavigate();
+  const params = useParams<{ id?: string }>();
+
   const [view, setView] = useState<"table" | "kanban">("table");
   const [filters, setFilters] = useState<LeadListFilters>({ page: 1, per_page: 20 });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [activeLead, setActiveLead] = useState<string | null>(null);
+  const [addLeadOpen, setAddLeadOpen] = useState(false);
+  const [convertModalOpen, setConvertModalOpen] = useState(false);
+  const [convertLeadId, setConvertLeadId] = useState<string | null>(null);
+  const [convertEstValue, setConvertEstValue] = useState("");
+  const [followupOpen, setFollowupOpen] = useState(false);
+  const [followupChannel, setFollowupChannel] = useState("email");
+  const [followupSubject, setFollowupSubject] = useState("");
+  const [followupMessage, setFollowupMessage] = useState("");
+  const [followupIsAi, setFollowupIsAi] = useState(false);
+  const [followupScheduledAt, setFollowupScheduledAt] = useState<string | null>(null);
   const [noteText, setNoteText] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [kanbanMobileOpen, setKanbanMobileOpen] = useState<string | null>("new");
 
   const { data: listData, isLoading, refetch } = useLeadsList(filters);
+  const { data: statsData } = useLeadStats();
+  const { data: tagOptions } = useLeadTags();
+  const { data: assignees } = useLeadAssignees();
+  const PIPELINE_MAX_PER_COLUMN = 25;
+  const { data: pipelineData } = useLeadPipeline({
+    status: filters.status,
+    channel: filters.channel,
+    search: filters.search,
+    max_per_column: PIPELINE_MAX_PER_COLUMN,
+  });
+  const createLead = useCreateLead();
   const { data: detailData, isLoading: detailLoading } = useLeadDetail(activeLead);
   const updateStatus = useUpdateLeadStatus();
+  const updateLead = useUpdateLead();
   const addNote = useAddLeadNote();
+  const deleteNote = useDeleteLeadNote();
   const recalcScore = useRecalculateLeadScore();
+  const generateFollowup = useGenerateFollowupDraft();
+  const sendFollowup = useSendFollowup();
   const bulkAction = useBulkLeadAction();
   const { toast } = useToast();
 
+  const [newLeadName, setNewLeadName] = useState("");
+  const [newLeadEmail, setNewLeadEmail] = useState("");
+  const [newLeadPhone, setNewLeadPhone] = useState("");
+  const [newLeadStatus, setNewLeadStatus] = useState("new");
+  const [newLeadScore, setNewLeadScore] = useState<number | undefined>(undefined);
+  const [newLeadEstValue, setNewLeadEstValue] = useState<string>("");
+  const [newLeadChannel, setNewLeadChannel] = useState("");
+  const [newLeadSource, setNewLeadSource] = useState("");
+  const [newLeadTags, setNewLeadTags] = useState("");
+  const [newLeadInterest, setNewLeadInterest] = useState("");
+
+  // Sync active lead from URL param
+  useEffect(() => {
+    if (params.id) {
+      setActiveLead(params.id);
+    }
+  }, [params.id]);
+
   const leads = listData?.leads ?? [];
-  const stats = listData?.stats ?? { total: 0, new: 0, contacted: 0, qualified: 0, converted: 0, this_month: 0 };
+  const stats = statsData?.stats ?? listData?.stats ?? { total: 0, new: 0, contacted: 0, qualified: 0, converted: 0, this_month: 0 };
   const totalPages = Math.ceil((listData?.total ?? 0) / (filters.per_page ?? 20)) || 1;
   const detail = detailData ?? null;
 
@@ -374,6 +424,14 @@ export default function Leads() {
     const activeLd = leads.find(l => l.id === draggedId);
     if (!activeLd || !targetStatus || activeLd.status === targetStatus) return;
 
+    // If moving to converted, show a confirmation dialog to capture revenue
+    if (targetStatus === "converted") {
+      setConvertLeadId(draggedId);
+      setConvertEstValue(activeLd.est_value ? String(activeLd.est_value) : "");
+      setConvertModalOpen(true);
+      return;
+    }
+
     updateStatus.mutate({ id: draggedId, status: targetStatus }, {
       onSuccess: () => {
         toast({ description: `Lead moved to ${targetStatus}` });
@@ -387,9 +445,9 @@ export default function Leads() {
 
   /* ── Bulk actions ────────────────────────────────────────────────────────── */
 
-  const handleBulkExport = useCallback(async () => {
+  const handleBulkExport = useCallback(async (format?: string) => {
     try {
-      const result = await bulkAction.mutateAsync({ action: "export", lead_ids: Array.from(selectedIds) });
+      const result = await bulkAction.mutateAsync({ action: "export", lead_ids: Array.from(selectedIds), format });
       if (result.export_data && result.export_data.length > 0) {
         const headers = Object.keys(result.export_data[0]).join(",");
         const rows = result.export_data.map(row =>
@@ -399,7 +457,7 @@ export default function Leads() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = "leads-export.csv";
+        a.download = `leads-export${format ? `-${format}` : ""}.csv`;
         a.click();
         URL.revokeObjectURL(url);
         toast({ description: `Exported ${result.affected} leads` });
@@ -433,14 +491,136 @@ export default function Leads() {
     });
   }, [bulkAction, selectedIds, toast, refetch]);
 
+  const handleCreateLead = useCallback(async () => {
+    try {
+      const scoreVal = newLeadScore != null ? Number(newLeadScore) : undefined;
+      const estValue = newLeadEstValue ? Number(newLeadEstValue) : undefined;
+      await createLead.mutateAsync({
+        name: newLeadName || undefined,
+        email: newLeadEmail || undefined,
+        phone: newLeadPhone || undefined,
+        status: newLeadStatus,
+        score: scoreVal,
+        est_value: estValue,
+        channel: newLeadChannel || undefined,
+        source: newLeadSource || undefined,
+        tags: newLeadTags ? newLeadTags.split(",").map(t => t.trim()).filter(Boolean) : undefined,
+        interest: newLeadInterest || undefined,
+      });
+      toast({ description: "Lead created" });
+      setAddLeadOpen(false);
+      setNewLeadName("");
+      setNewLeadEmail("");
+      setNewLeadPhone("");
+      setNewLeadStatus("new");
+      setNewLeadScore(undefined);
+      setNewLeadEstValue("");
+      setNewLeadChannel("");
+      setNewLeadSource("");
+      setNewLeadTags("");
+      setNewLeadInterest("");
+      void refetch();
+    } catch {
+      toast({ variant: "destructive", description: "Failed to create lead" });
+    }
+  }, [
+    createLead,
+    newLeadName,
+    newLeadEmail,
+    newLeadPhone,
+    newLeadStatus,
+    newLeadScore,
+    newLeadEstValue,
+    newLeadChannel,
+    newLeadSource,
+    newLeadTags,
+    newLeadInterest,
+    toast,
+    refetch,
+  ]);
+
+  const handleConfirmConvert = useCallback(() => {
+    if (!convertLeadId) return;
+
+    updateStatus.mutate({ id: convertLeadId, status: "converted" }, {
+      onSuccess: () => {
+        if (convertEstValue) {
+          updateLead.mutate({ id: convertLeadId, updates: { est_value: Number(convertEstValue) } });
+        }
+        toast({ description: "Lead converted" });
+        setConvertModalOpen(false);
+        setConvertLeadId(null);
+        setConvertEstValue("");
+        void refetch();
+      },
+      onError: () => {
+        toast({ variant: "destructive", description: "Failed to convert lead" });
+      },
+    });
+  }, [convertLeadId, convertEstValue, updateLead, updateStatus, toast, refetch]);
+
+  const handleCancelConvert = useCallback(() => {
+    setConvertModalOpen(false);
+    setConvertLeadId(null);
+    setConvertEstValue("");
+  }, []);
+
+  const openFollowupDrawer = useCallback(() => {
+    setFollowupChannel("email");
+    setFollowupSubject("");
+    setFollowupMessage("");
+    setFollowupIsAi(false);
+    setFollowupScheduledAt(null);
+    setFollowupOpen(true);
+  }, []);
+
+  const handleGenerateFollowupDraft = useCallback(async () => {
+    if (!detail?.id) return;
+    try {
+      const response = await generateFollowup.mutateAsync({ lead_id: detail.id, channel: followupChannel });
+      setFollowupSubject(response.draft.subject || "");
+      setFollowupMessage(response.draft.body || "");
+      setFollowupIsAi(true);
+      toast({ description: "AI follow-up draft generated" });
+    } catch {
+      toast({ variant: "destructive", description: "Failed to generate draft" });
+    }
+  }, [detail?.id, followupChannel, generateFollowup, toast]);
+
+  const handleSendFollowup = useCallback(async () => {
+    if (!detail?.id) return;
+    try {
+      await sendFollowup.mutateAsync({
+        lead_id: detail.id,
+        channel: followupChannel,
+        subject: followupSubject,
+        content: followupMessage,
+        is_ai_assisted: followupIsAi,
+        scheduled_at: followupScheduledAt || undefined,
+      });
+      toast({ description: "Follow-up recorded" });
+      setFollowupOpen(false);
+      void refetch();
+    } catch {
+      toast({ variant: "destructive", description: "Failed to send follow-up" });
+    }
+  }, [detail?.id, followupChannel, followupSubject, followupMessage, followupIsAi, followupScheduledAt, sendFollowup, toast, refetch]);
+
   /* ── Kanban columns ──────────────────────────────────────────────────────── */
 
-  const kanbanColumns = useMemo(() =>
-    STATUS_PIPELINE.map(status => ({
+  const kanbanColumns = useMemo(() => {
+    const pipeline = pipelineData?.pipeline;
+    if (pipeline) {
+      return STATUS_PIPELINE.map(status => ({
+        status,
+        leads: pipeline[status]?.leads ?? [],
+      }));
+    }
+    return STATUS_PIPELINE.map(status => ({
       status,
       leads: leads.filter(l => l.status === status),
-    }))
-  , [leads]);
+    }));
+  }, [leads, pipelineData]);
 
   /* ── Pagination ──────────────────────────────────────────────────────────── */
 
@@ -489,6 +669,15 @@ export default function Leads() {
           </div>
 
           <Button
+            variant="secondary" size="sm"
+            onClick={() => setAddLeadOpen(true)}
+            className="gap-1.5 text-xs"
+          >
+            <Plus size={13} />
+            <span className="hidden sm:inline">Add Lead</span>
+          </Button>
+
+          <Button
             variant="outline" size="sm"
             onClick={() => void refetch()}
             className="gap-1.5 text-xs"
@@ -525,6 +714,11 @@ export default function Leads() {
               <p className="text-xl sm:text-2xl lg:text-3xl font-bold font-mono tracking-tight text-foreground">
                 {(stats[card.key] ?? 0).toLocaleString()}
               </p>
+              {card.key === "converted" && stats["converted_value"] != null && (
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  {`KSh ${Number(stats["converted_value"]).toLocaleString()}`} 
+                </p>
+              )}
             </div>
           </div>
         ))}
@@ -653,6 +847,34 @@ export default function Leads() {
               onChange={e => updateFilter("source_page", e.target.value || undefined)}
               className="h-9 w-[200px] text-xs bg-card"
             />
+
+            <Select value={filters.tags || "_all"} onValueChange={v => updateFilter("tags", v === "_all" ? undefined : v)}>
+              <SelectTrigger className="w-[180px] h-9 text-xs bg-card">
+                <SelectValue placeholder="All tags" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_all">All Tags</SelectItem>
+                {(tagOptions || []).map(tag => (
+                  <SelectItem key={tag} value={tag}>
+                    {tag}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={filters.assigned_to || "_all"} onValueChange={v => updateFilter("assigned_to", v === "_all" ? undefined : v)}>
+              <SelectTrigger className="w-[180px] h-9 text-xs bg-card">
+                <SelectValue placeholder="Assignee" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_all">Anyone</SelectItem>
+                {(assignees || []).map(a => (
+                  <SelectItem key={a.id} value={a.id}>
+                    {a.full_name || a.email || a.id}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         )}
       </div>
@@ -721,7 +943,7 @@ export default function Leads() {
               ) : leads.map(lead => (
                 <tr
                   key={lead.id}
-                  onClick={() => setActiveLead(lead.id)}
+                  onClick={() => navigate(`/leads/${lead.id}`)}
                   className={cn(
                     "cursor-pointer transition-colors group",
                     selectedIds.has(lead.id)
@@ -855,7 +1077,7 @@ export default function Leads() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="min-w-[160px]">
-                        <DropdownMenuItem className="text-xs gap-2" onClick={() => setActiveLead(lead.id)}>
+                        <DropdownMenuItem className="text-xs gap-2" onClick={() => navigate(`/leads/${lead.id}`)}>
                           <Eye size={13} /> View Detail
                         </DropdownMenuItem>
                         <DropdownMenuItem className="text-xs gap-2" onClick={() => updateStatus.mutate({ id: lead.id, status: "qualified" }, {
@@ -993,6 +1215,22 @@ export default function Leads() {
            ═══════════════════════════════════════════════════════════════════════ */
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
 
+          {pipelineData?.pipeline && (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-3 p-3 rounded-xl border bg-card/40">
+              <span className="text-[11px] text-muted-foreground">
+                Pipeline Value: <span className="font-medium text-foreground">KSh {Object.values(pipelineData.pipeline).reduce((sum, col) => sum + (col.total_value ?? 0), 0).toLocaleString()}</span>
+              </span>
+              <span className="text-[11px] text-muted-foreground">
+                Converted: <span className="font-medium text-foreground">KSh {(pipelineData.pipeline.converted?.total_value ?? 0).toLocaleString()}</span>
+              </span>
+              {pipelineData.max_per_column && Object.values(pipelineData.pipeline).some(p => p.limit_exceeded) && (
+                <span className="text-[11px] text-amber-600 font-medium">
+                  Showing first {pipelineData.max_per_column} leads per column. Some columns have more leads than shown.
+                </span>
+              )}
+            </div>
+          )}
+
           {/* ── MOBILE: Stacked collapsible sections ──────────────────────── */}
           <div className="flex flex-col gap-2 sm:hidden">
             {kanbanColumns.map(col => {
@@ -1036,6 +1274,14 @@ export default function Leads() {
                           <KanbanCard key={lead.id} lead={lead} onOpen={setActiveLead} />
                         ))}
                         <ColumnDropTarget columnId={col.status} />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full mt-2"
+                          onClick={() => setAddLeadOpen(true)}
+                        >
+                          + Add lead
+                        </Button>
                       </div>
                     </SortableContext>
                   )}
@@ -1076,9 +1322,17 @@ export default function Leads() {
                         </div>
                       )}
                       {col.leads.map(lead => (
-                        <KanbanCard key={lead.id} lead={lead} onOpen={setActiveLead} />
+                        <KanbanCard key={lead.id} lead={lead} onOpen={(id) => navigate(`/leads/${id}`)} />
                       ))}
                       <ColumnDropTarget columnId={col.status} />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full mt-2"
+                        onClick={() => setAddLeadOpen(true)}
+                      >
+                        + Add lead
+                      </Button>
                     </div>
                   </SortableContext>
                 </div>
@@ -1091,7 +1345,7 @@ export default function Leads() {
       {/* ═══════════════════════════════════════════════════════════════════════
          LEAD DETAIL MODAL
          ═══════════════════════════════════════════════════════════════════════ */}
-      <Dialog open={!!activeLead} onOpenChange={open => { if (!open) setActiveLead(null); }}>
+      <Dialog open={!!activeLead} onOpenChange={open => { if (!open) { setActiveLead(null); navigate("/leads"); } }}>
         <DialogContent
           className={cn(
             "p-0 overflow-hidden flex flex-col gap-0",
@@ -1310,7 +1564,18 @@ export default function Leads() {
                     </h4>
                     {detail.notes.map((note, i) => (
                       <div key={i} className="rounded-lg border bg-muted/30 p-3 mb-2">
-                        <p className="text-[12px] text-foreground leading-relaxed">{note.note}</p>
+                        <div className="flex items-start justify-between gap-3">
+                          <p className="text-[12px] text-foreground leading-relaxed">{note.note}</p>
+                          <button
+                            onClick={() => deleteNote.mutate({ id: detail.id, noteId: note.id }, {
+                              onSuccess: () => toast({ description: "Note deleted" }),
+                              onError: () => toast({ variant: "destructive", description: "Failed to delete note" }),
+                            })}
+                            className="text-muted-foreground hover:text-foreground"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                         <p className="text-[10px] text-muted-foreground/60 font-mono mt-1.5">{relativeTime(note.created_at)}</p>
                       </div>
                     ))}
@@ -1354,8 +1619,16 @@ export default function Leads() {
               <div className="shrink-0 border-t p-4 sm:px-6 flex gap-2.5 flex-wrap">
                 <Button
                   size="sm"
+                  variant="outline"
+                  onClick={openFollowupDrawer}
+                  className="gap-1.5 text-xs"
+                >
+                  <Send size={13} /> Send follow-up
+                </Button>
+                <Button
+                  size="sm"
                   onClick={() => updateStatus.mutate({ id: detail.id, status: "converted" }, {
-                    onSuccess: () => { toast({ description: "Lead marked as Converted" }); void refetch(); setActiveLead(null); },
+                    onSuccess: () => { toast({ description: "Lead marked as Converted" }); void refetch(); setActiveLead(null); navigate("/leads"); },
                   })}
                   className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
                 >
@@ -1365,7 +1638,7 @@ export default function Leads() {
                   size="sm"
                   variant="outline"
                   onClick={() => updateStatus.mutate({ id: detail.id, status: "lost" }, {
-                    onSuccess: () => { toast({ description: "Lead marked as Lost" }); void refetch(); setActiveLead(null); },
+                    onSuccess: () => { toast({ description: "Lead marked as Lost" }); void refetch(); setActiveLead(null); navigate("/leads"); },
                   })}
                   className="gap-1.5 text-xs border-destructive/30 text-destructive hover:bg-destructive/10"
                 >
@@ -1374,6 +1647,191 @@ export default function Leads() {
               </div>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══════════════════════════════════════════════════════════════════════
+         Add Lead Drawer
+         ═══════════════════════════════════════════════════════════════════════ */}
+      <Dialog open={addLeadOpen} onOpenChange={setAddLeadOpen}>
+        <DialogContent className="max-w-lg w-[90vw]">
+          <DialogHeader>
+            <DialogTitle>Add Lead</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input
+                placeholder="Full Name"
+                value={newLeadName}
+                onChange={e => setNewLeadName(e.target.value)}
+                className="h-10"
+              />
+              <Input
+                placeholder="Email"
+                value={newLeadEmail}
+                onChange={e => setNewLeadEmail(e.target.value)}
+                className="h-10"
+              />
+              <Input
+                placeholder="Phone"
+                value={newLeadPhone}
+                onChange={e => setNewLeadPhone(e.target.value)}
+                className="h-10"
+              />
+              <Select value={newLeadStatus} onValueChange={setNewLeadStatus}>
+                <SelectTrigger className="h-10 text-xs">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="new">New</SelectItem>
+                  <SelectItem value="contacted">Contacted</SelectItem>
+                  <SelectItem value="qualified">Qualified</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input
+                placeholder="Estimated value (e.g. 5000)"
+                value={newLeadEstValue}
+                onChange={e => setNewLeadEstValue(e.target.value)}
+                className="h-10"
+                type="number"
+              />
+              <Input
+                placeholder="Channel (whatsapp, email, web)"
+                value={newLeadChannel}
+                onChange={e => setNewLeadChannel(e.target.value)}
+                className="h-10"
+              />
+            </div>
+
+            <Input
+              placeholder="Source (e.g. Website, Manual Entry)"
+              value={newLeadSource}
+              onChange={e => setNewLeadSource(e.target.value)}
+              className="h-10"
+            />
+
+            <Input
+              placeholder="Tags (comma separated)"
+              value={newLeadTags}
+              onChange={e => setNewLeadTags(e.target.value)}
+              className="h-10"
+            />
+
+            <Textarea
+              placeholder="Interest / what they asked about"
+              value={newLeadInterest}
+              onChange={e => setNewLeadInterest(e.target.value)}
+              rows={3}
+              className="text-sm"
+            />
+
+            <div className="flex items-center justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setAddLeadOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleCreateLead}
+                disabled={createLead.isLoading}
+              >
+                Create Lead
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={convertModalOpen} onOpenChange={open => { if (!open) handleCancelConvert(); }}>
+        <DialogContent className="max-w-md p-5 bg-card border rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Convert Lead</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Set the estimated value for this lead when converting. This helps track pipeline value.
+            </p>
+            <Input
+              type="number"
+              placeholder="Estimated value (e.g. 5000)"
+              value={convertEstValue}
+              onChange={e => setConvertEstValue(e.target.value)}
+              className="h-10"
+            />
+          </div>
+          <DialogFooter className="mt-4">
+            <Button variant="ghost" size="sm" onClick={handleCancelConvert}>
+              Cancel
+            </Button>
+            <Button size="sm" onClick={handleConfirmConvert}>
+              Convert Lead
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={followupOpen} onOpenChange={open => { if (!open) setFollowupOpen(false); }}>
+        <DialogContent className="max-w-md p-5 bg-card border rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Send Follow-up</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Select value={followupChannel} onValueChange={setFollowupChannel}>
+                <SelectTrigger className="h-10 text-xs">
+                  <SelectValue placeholder="Channel" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="email">Email</SelectItem>
+                  <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                  <SelectItem value="sms">SMS</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input
+                placeholder="Subject"
+                value={followupSubject}
+                onChange={e => setFollowupSubject(e.target.value)}
+                className="h-10"
+              />
+            </div>
+
+            <Textarea
+              placeholder="Message"
+              value={followupMessage}
+              onChange={e => setFollowupMessage(e.target.value)}
+              rows={5}
+              className="text-sm"
+            />
+
+            <div className="flex items-center gap-2">
+              <Checkbox
+                checked={followupIsAi}
+                onCheckedChange={checked => setFollowupIsAi(Boolean(checked))}
+              />
+              <span className="text-xs text-muted-foreground">AI draft</span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleGenerateFollowupDraft}
+                disabled={!detail?.id}
+              >
+                Generate draft
+              </Button>
+            </div>
+          </div>
+
+          <DialogFooter className="mt-4">
+            <Button variant="ghost" size="sm" onClick={() => setFollowupOpen(false)}>
+              Cancel
+            </Button>
+            <Button size="sm" onClick={handleSendFollowup}>
+              Send
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -1417,6 +1875,24 @@ export default function Leads() {
             className="gap-1.5 text-[11px] h-7"
           >
             <Download size={12} /> CSV
+          </Button>
+          <Button
+            size="sm"
+            disabled={bulkAction.isPending}
+            onClick={() => void handleBulkExport("hubspot")}
+            variant="outline"
+            className="gap-1.5 text-[11px] h-7"
+          >
+            HubSpot
+          </Button>
+          <Button
+            size="sm"
+            disabled={bulkAction.isPending}
+            onClick={() => void handleBulkExport("salesforce")}
+            variant="outline"
+            className="gap-1.5 text-[11px] h-7"
+          >
+            Salesforce
           </Button>
 
           <Button

@@ -80,7 +80,8 @@ class LeadDetailResponse(BaseModel):
     message_count: int = 0
     messages: List[LeadMessageItem] = []
     timeline: List[LeadTimelineEvent] = []
-    notes: List[Dict[str, str]] = []
+    activity: List[Dict[str, Any]] = []
+    notes: List[Dict[str, Any]] = []
     created_at: str
     updated_at: Optional[str] = None
 
@@ -91,6 +92,24 @@ class LeadStatusUpdateRequest(BaseModel):
 
 
 class LeadStatusUpdateResponse(BaseModel):
+    id: str
+    status: str
+    updated_at: str
+
+
+class LeadUpdateRequest(BaseModel):
+    status: Optional[str] = None
+    est_value: Optional[float] = None
+    actual_value: Optional[float] = None
+    tags: Optional[List[str]] = None
+    assigned_to: Optional[str] = None
+    name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    score: Optional[int] = None
+
+
+class LeadUpdateResponse(BaseModel):
     id: str
     status: str
     updated_at: str
@@ -117,6 +136,7 @@ class LeadBulkRequest(BaseModel):
     lead_ids: List[str]
     status: Optional[str] = None  # for status_change action
     reason: Optional[str] = None
+    format: Optional[str] = None  # for export: "hubspot" | "salesforce" | "generic"
 
 
 class LeadBulkResponse(BaseModel):
@@ -124,3 +144,71 @@ class LeadBulkResponse(BaseModel):
     affected: int
     failed: int
     export_data: Optional[List[Dict[str, Any]]] = None
+
+
+class LeadCreateRequest(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    status: Optional[str] = "new"
+    score: Optional[int] = None
+    est_value: Optional[float] = None
+    source: Optional[str] = None
+    channel: Optional[str] = None
+    assigned_to: Optional[str] = None
+    tags: Optional[List[str]] = None
+    notes: Optional[str] = None
+    interest: Optional[str] = None
+
+
+class LeadCreateResponse(BaseModel):
+    id: str
+    status: str
+
+
+class LeadStatsResponse(BaseModel):
+    stats: LeadStats
+
+
+class LeadPipelineStatus(BaseModel):
+    count: int
+    total_value: Optional[float] = None
+    leads: List[LeadListItem]
+    limit_exceeded: Optional[bool] = False
+
+
+class LeadPipelineResponse(BaseModel):
+    pipeline: Dict[str, LeadPipelineStatus]
+    max_per_column: Optional[int] = None
+
+
+class LeadFollowupDraftRequest(BaseModel):
+    lead_id: str
+    channel: str
+
+
+class LeadFollowupDraftResponse(BaseModel):
+    draft: Dict[str, Any]
+    suggested_cta: Optional[str] = None
+    tone: Optional[str] = None
+
+
+class LeadFollowupSendRequest(BaseModel):
+    lead_id: str
+    channel: str
+    subject: Optional[str] = None
+    content: str
+    is_ai_assisted: bool = False
+    scheduled_at: Optional[str] = None
+
+
+class LeadFollowupSendResponse(BaseModel):
+    success: bool
+    message_id: Optional[str] = None
+    sent_at: Optional[str] = None
+
+
+class LeadAssignee(BaseModel):
+    id: str
+    full_name: Optional[str] = None
+    email: Optional[str] = None

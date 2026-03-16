@@ -31,6 +31,9 @@ from .document import Document, DocumentStatus
 from .message import Message, MessageRole
 from .contact import Contact, LeadStatus, LeadScore
 from .lead import Lead
+from .lead_note import LeadNote
+from .lead_activity import LeadActivity
+from .scheduled_followup import ScheduledFollowup
 from .campaign import Campaign, CampaignStatus, Channel as CampaignChannel
 from .booking import Booking, BookingStatus
 from .plan import Plan
@@ -86,6 +89,9 @@ __all__ = [
     "LeadStatus",
     "LeadScore",
     "Lead",
+    "LeadNote",
+    "LeadActivity",
+    "ScheduledFollowup",
     
     # Campaigns
     "Campaign",

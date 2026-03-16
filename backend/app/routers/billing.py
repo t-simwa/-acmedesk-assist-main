@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 if settings.stripe_secret_key:
   stripe.api_key = settings.stripe_secret_key
 else:
-  logger.warning("Stripe secret key not configured. Billing endpoints will be disabled.")
+  logger.info("Stripe secret key not configured. Billing endpoints will be disabled (optional feature).")
 
 
 class CheckoutSessionRequest(BaseModel):

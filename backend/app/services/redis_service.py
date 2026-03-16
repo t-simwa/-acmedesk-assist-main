@@ -40,7 +40,7 @@ class RedisService:
                 logger.warning(f"Redis connection failed: {e}. Rate limiting disabled.")
                 self._enabled = False
         else:
-            logger.warning("REDIS_URL not configured. Rate limiting disabled.")
+            logger.info("REDIS_URL not configured. Rate limiting disabled (optional feature).")
 
     @property
     def client(self) -> Optional[redis.Redis]:

@@ -3162,6 +3162,74 @@ export interface LeadStats {
   qualified: number;
   converted: number;
   this_month: number;
+  converted_value?: number;
+}
+
+export interface LeadAssignee {
+  id: string;
+  full_name?: string;
+  email?: string;
+}
+
+export interface LeadPipelineStatus {
+  leads: LeadListItem[];
+  count: number;
+  total_value: number;
+  limit_exceeded?: boolean;
+}
+
+export interface LeadPipelineResponse {
+  pipeline: Record<string, LeadPipelineStatus>;
+  max_per_column?: number;
+}
+
+export interface LeadCreateRequest {
+  name?: string;
+  email?: string;
+  phone?: string;
+  status?: string;
+  score?: number;
+  est_value?: number;
+  source?: string;
+  channel?: string;
+  assigned_to?: string;
+  tags?: string[];
+  notes?: string;
+  interest?: string;
+}
+
+export interface LeadCreateResponse {
+  id: string;
+  status: string;
+}
+
+export interface LeadFollowupDraftRequest {
+  lead_id: string;
+  channel: string;
+}
+
+export interface LeadFollowupDraftResponse {
+  draft: {
+    subject?: string;
+    body: string;
+  };
+  suggested_cta?: string;
+  tone?: string;
+}
+
+export interface LeadFollowupSendRequest {
+  lead_id: string;
+  channel: string;
+  subject?: string;
+  content: string;
+  is_ai_assisted: boolean;
+  scheduled_at?: string;
+}
+
+export interface LeadFollowupSendResponse {
+  success: boolean;
+  message_id?: string;
+  sent_at?: string;
 }
 
 export interface LeadListItem {
@@ -3229,7 +3297,7 @@ export interface LeadDetailResponse {
   message_count: number;
   messages: LeadMessageItem[];
   timeline: LeadTimelineEvent[];
-  notes: Array<{ note: string; created_at: string }>;
+  notes: Array<{ id: string; note: string; created_at: string; agent_id?: string }>;
   created_at: string;
   updated_at: string | null;
 }
@@ -3248,6 +3316,24 @@ export interface LeadBulkResponse {
   export_data: Array<Record<string, unknown>> | null;
 }
 
+export interface LeadUpdateRequest {
+  status?: string;
+  est_value?: number;
+  actual_value?: number;
+  tags?: string[];
+  assigned_to?: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  score?: number;
+}
+
+export interface LeadUpdateResponse {
+  id: string;
+  status: string;
+  updated_at: string;
+}
+
 export interface LeadListFilters {
   page?: number;
   per_page?: number;
@@ -3257,6 +3343,8 @@ export interface LeadListFilters {
   date_from?: string;
   date_to?: string;
   source_page?: string;
+  tags?: string;
+  assigned_to?: string;
 }
 
 export const leadsApi = {
@@ -3270,6 +3358,8 @@ export const leadsApi = {
     if (filters.date_from) params.set("date_from", filters.date_from);
     if (filters.date_to) params.set("date_to", filters.date_to);
     if (filters.source_page) params.set("source_page", filters.source_page);
+    if (filters.tags) params.set("tags", filters.tags);
+    if (filters.assigned_to) params.set("assigned_to", filters.assigned_to);
     return apiClient<LeadListResponse>(`/api/leads/list?${params.toString()}`);
   },
 
@@ -3284,10 +3374,23 @@ export const leadsApi = {
     });
   },
 
+  async updateLead(id: string, data: LeadUpdateRequest): Promise<LeadUpdateResponse> {
+    return apiClient<LeadUpdateResponse>(`/api/leads/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  },
+
   async addNote(id: string, note: string): Promise<{ id: string; note: string; timestamp: string }> {
     return apiClient(`/api/leads/${id}/notes`, {
       method: "POST",
       body: JSON.stringify({ note }),
+    });
+  },
+
+  async deleteNote(id: string, noteId: string): Promise<{ success: boolean }> {
+    return apiClient(`/api/leads/${id}/notes/${noteId}`, {
+      method: "DELETE",
     });
   },
 
@@ -3302,6 +3405,48 @@ export const leadsApi = {
       method: "POST",
       body: JSON.stringify(request),
     });
+  },
+
+  async getStats(): Promise<LeadStatsResponse> {
+    return apiClient<LeadStatsResponse>("/api/leads/stats");
+  },
+
+  async getPipeline(filters: { status?: string; channel?: string; search?: string; max_per_column?: number } = {}): Promise<LeadPipelineResponse> {
+    const params = new URLSearchParams();
+    if (filters.status) params.set("status", filters.status);
+    if (filters.channel) params.set("channel", filters.channel);
+    if (filters.search) params.set("search", filters.search);
+    if (filters.max_per_column) params.set("max_per_column", String(filters.max_per_column));
+    return apiClient<LeadPipelineResponse>(`/api/leads/pipeline?${params.toString()}`);
+  },
+
+  async createLead(request: LeadCreateRequest): Promise<LeadCreateResponse> {
+    return apiClient<LeadCreateResponse>(`/api/leads/`, {
+      method: "POST",
+      body: JSON.stringify(request),
+    });
+  },
+
+  async generateFollowupDraft(request: LeadFollowupDraftRequest): Promise<LeadFollowupDraftResponse> {
+    return apiClient<LeadFollowupDraftResponse>(`/api/leads/${encodeURIComponent(request.lead_id)}/ai-followup`, {
+      method: "POST",
+      body: JSON.stringify(request),
+    });
+  },
+
+  async sendFollowup(request: LeadFollowupSendRequest): Promise<LeadFollowupSendResponse> {
+    return apiClient<LeadFollowupSendResponse>(`/api/leads/followup/send`, {
+      method: "POST",
+      body: JSON.stringify(request),
+    });
+  },
+
+  async getTags(): Promise<string[]> {
+    return apiClient<string[]>(`/api/leads/tags`);
+  },
+
+  async getAssignees(): Promise<LeadAssignee[]> {
+    return apiClient<LeadAssignee[]>(`/api/leads/assignees`);
   },
 };
 

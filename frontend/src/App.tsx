@@ -416,6 +416,16 @@ const App = () => (
                   }
                 />
                 <Route
+                  path="leads/:id"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <Leads />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
                   path="contacts"
                   element={
                     <PageTransition>
@@ -628,6 +638,16 @@ const App = () => (
                 />
                 <Route
                   path="leads"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <Leads />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+                <Route
+                  path="leads/:id"
                   element={
                     <PageTransition>
                       <Suspense fallback={<DashboardSkeleton />}>

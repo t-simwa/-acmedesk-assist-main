@@ -41,6 +41,11 @@ from ..models.knowledge_base import KnowledgeBase, UserKnowledgeBasePreference
 
 logger = logging.getLogger(__name__)
 
+# In-memory caching used for lead stats endpoints to reduce DB load.
+# This cache is intentionally simple and not shared across processes.
+_STATS_CACHE: Dict[str, Dict[str, Any]] = {}
+_STATS_CACHE_TTL = timedelta(seconds=30)
+
 
 def safe_value(val, default=None):
     """Return the underlying enum value if present, otherwise the raw value.
@@ -3727,8 +3732,6 @@ async def bulk_conversation_action(
 # Leads admin functions (Milestone 7.5)
 # ──────────────────────────────────────────────────────────────────────────────
 
-# In-memory notes store for leads (MVP: persisted in contact.notes when possible)
-_lead_notes: Dict[str, List[Dict[str, str]]] = {}
 
 # Intent keywords for lead score calculation
 _INTENT_KEYWORDS = {"book", "price", "when can", "how much", "cost", "purchase", "buy", "demo", "trial", "plan"}
@@ -3744,6 +3747,8 @@ async def get_admin_leads_list(
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
     source_page: Optional[str] = None,
+    tags: Optional[str] = None,
+    assigned_to: Optional[str] = None,
     user_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
@@ -3799,6 +3804,15 @@ async def get_admin_leads_list(
 
         if source_page:
             base_q = base_q.where(Lead.source_page_url.like(f"%{source_page}%"))
+
+        if tags:
+            # tags is expected as a comma-separated string
+            tag_list = [t.strip().lower() for t in tags.split(",") if t.strip()]
+            for tag in tag_list:
+                base_q = base_q.where(func.lower(func.json_extract(Lead.tags, '$')) .like(f"%\"{tag}\"%"))
+
+        if assigned_to:
+            base_q = base_q.where(Lead.assigned_to == assigned_to)
 
         # Count total matching
         count_result = await session.execute(select(func.count()).select_from(base_q.subquery()))
@@ -3862,6 +3876,193 @@ async def get_admin_leads_list(
         }
 
 
+async def get_admin_leads_stats(
+    tenant_id: str,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    user_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Return an aggregated stats payload for the Leads dashboard."""
+    from ..models.lead import LeadStatus
+
+    # Simple in-memory cache to reduce pressure on the DB when the dashboard
+    # refreshes frequently.
+    cache_key = f"{tenant_id}:{user_id}:{date_from or ''}:{date_to or ''}"
+    cached = _STATS_CACHE.get(cache_key)
+    if cached:
+        if datetime.utcnow() - cached["ts"] < _STATS_CACHE_TTL:
+            return cached["value"]
+        _STATS_CACHE.pop(cache_key, None)
+
+    tenant_ids = _effective_tenant_ids(tenant_id, user_id)
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        q = select(
+            func.count(Lead.id).label("total"),
+            func.sum(case((Lead.status == LeadStatus.NEW, 1), else_=0)).label("new"),
+            func.sum(case((Lead.status == LeadStatus.CONTACTED, 1), else_=0)).label("contacted"),
+            func.sum(case((Lead.status == LeadStatus.QUALIFIED, 1), else_=0)).label("qualified"),
+            func.sum(case((Lead.status == LeadStatus.CONVERTED, 1), else_=0)).label("converted"),
+            func.sum(case((Lead.created_at >= datetime.utcnow().replace(day=1), 1), else_=0)).label("this_month"),
+            func.coalesce(func.sum(Lead.actual_value).filter(Lead.status == LeadStatus.CONVERTED), 0).label("converted_value"),
+        ).where(Lead.tenant_id.in_(tenant_ids))
+
+        if date_from:
+            try:
+                dt_from = datetime.fromisoformat(date_from)
+                q = q.where(Lead.created_at >= dt_from)
+            except ValueError:
+                pass
+        if date_to:
+            try:
+                dt_to = datetime.fromisoformat(date_to)
+                q = q.where(Lead.created_at <= dt_to)
+            except ValueError:
+                pass
+
+        stats_row = (await session.execute(q)).fetchone()
+        if not stats_row:
+            return {
+                "stats": {
+                    "total": 0,
+                    "new": 0,
+                    "contacted": 0,
+                    "qualified": 0,
+                    "converted": 0,
+                    "this_month": 0,
+                    "converted_value": 0,
+                }
+            }
+
+        result = {
+            "stats": {
+                "total": stats_row.total or 0,
+                "new": stats_row.new or 0,
+                "contacted": stats_row.contacted or 0,
+                "qualified": stats_row.qualified or 0,
+                "converted": stats_row.converted or 0,
+                "this_month": stats_row.this_month or 0,
+                "converted_value": float(stats_row.converted_value or 0),
+            }
+        }
+        _STATS_CACHE[cache_key] = {"ts": datetime.utcnow(), "value": result}
+        return result
+
+
+async def get_admin_lead_tags(
+    tenant_id: str,
+    user_id: Optional[str] = None,
+) -> List[str]:
+    """Return distinct tag values used by leads for the tenant."""
+    tenant_ids = _effective_tenant_ids(tenant_id, user_id)
+    session_factory = get_session_factory()
+    tags_set: Set[str] = set()
+    async with session_factory() as session:
+        result = await session.execute(
+            select(Lead.tags).where(Lead.tenant_id.in_(tenant_ids))
+        )
+        for row in result.scalars().all():
+            if not row:
+                continue
+            if isinstance(row, list):
+                for t in row:
+                    if isinstance(t, str) and t.strip():
+                        tags_set.add(t.strip())
+    return sorted(tags_set)
+
+
+async def get_admin_lead_assignees(
+    tenant_id: str,
+    user_id: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """Return users (assignees) for a given tenant."""
+    from ..models.user import User
+
+    tenant_ids = _effective_tenant_ids(tenant_id, user_id)
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        result = await session.execute(
+            select(User).where(User.tenant_id.in_(tenant_ids), User.is_active == True)
+        )
+        users = result.scalars().all()
+    return [
+        {"id": u.id, "full_name": u.full_name, "email": u.email}
+        for u in users
+    ]
+
+
+async def get_admin_leads_pipeline(
+    tenant_id: str,
+    status_filter: Optional[str] = None,
+    channel: Optional[str] = None,
+    search: Optional[str] = None,
+    max_per_column: Optional[int] = None,
+    user_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Return leads grouped by status for a pipeline view."""
+    from ..models.contact import Contact
+    from ..models.lead import LeadStatus
+
+    tenant_ids = _effective_tenant_ids(tenant_id, user_id)
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        base_q = (
+            select(Lead, Contact)
+            .outerjoin(Contact, Lead.contact_id == Contact.id)
+            .where(Lead.tenant_id.in_(tenant_ids))
+        )
+
+        if status_filter:
+            try:
+                base_q = base_q.where(Lead.status == LeadStatus(status_filter.lower()))
+            except ValueError:
+                pass
+        if channel:
+            base_q = base_q.where(Lead.source_channel == channel.lower())
+        if search:
+            search_lower = f"%{search.lower()}%"
+            base_q = base_q.where(
+                func.lower(Contact.full_name).like(search_lower)
+                | func.lower(Contact.email).like(search_lower)
+                | func.lower(Contact.phone).like(search_lower)
+                | func.lower(Lead.first_message_preview).like(search_lower)
+            )
+
+        rows = await session.execute(base_q.order_by(Lead.created_at.desc()))
+        rows = rows.fetchall()
+
+        pipeline = {s.value: {"leads": [], "count": 0, "total_value": 0.0, "limit_exceeded": False} for s in LeadStatus}
+        for lead, contact in rows:
+            status = lead.status.value if lead.status else "new"
+            entry = {
+                "id": lead.id,
+                "contact_id": lead.contact_id,
+                "conversation_id": lead.conversation_id,
+                "contact_name": contact.full_name if contact else None,
+                "contact_email": contact.email if contact else None,
+                "contact_phone": contact.phone if contact else None,
+                "channel": lead.source_channel,
+                "status": status,
+                "lead_score": contact.lead_score.value if (contact and contact.lead_score) else None,
+                "est_value": float(lead.est_value or 0),
+                "created_at": lead.created_at.isoformat() + "Z" if lead.created_at else "",
+                "first_message": lead.first_message_preview,
+            }
+            pipeline[status]["count"] += 1
+            pipeline[status]["total_value"] += entry["est_value"]
+
+            if max_per_column is not None and pipeline[status]["count"] > max_per_column:
+                pipeline[status]["limit_exceeded"] = True
+                continue
+
+            pipeline[status]["leads"].append(entry)
+
+        result = {"pipeline": pipeline}
+        if max_per_column is not None:
+            result["max_per_column"] = max_per_column
+        return result
+
+
 async def get_admin_lead_detail(
     lead_id: str,
     tenant_id: str,
@@ -3871,6 +4072,8 @@ async def get_admin_lead_detail(
     Return full lead detail: contact info, conversation transcript, timeline, notes.
     """
     from ..models.contact import Contact, LeadScore
+    from ..models.lead_note import LeadNote
+    from ..models.lead_activity import LeadActivity
 
     tenant_ids = _effective_tenant_ids(tenant_id, user_id)
     session_factory = get_session_factory()
@@ -3957,8 +4160,34 @@ async def get_admin_lead_detail(
                 "detail": None,
             })
 
-        # Notes
-        notes = _lead_notes.get(lead_id, [])
+        # Notes (persisted)
+        notes_result = await session.execute(
+            select(LeadNote).where(LeadNote.lead_id == lead_id).order_by(LeadNote.created_at.desc())
+        )
+        notes = [
+            {
+                "id": n.id,
+                "note": n.content,
+                "created_at": n.created_at.isoformat() + "Z" if n.created_at else None,
+                "agent_id": n.user_id,
+            }
+            for n in notes_result.scalars().all()
+        ]
+
+        # Activity timeline
+        activity_result = await session.execute(
+            select(LeadActivity).where(LeadActivity.lead_id == lead_id).order_by(LeadActivity.occurred_at.desc())
+        )
+        activity = [
+            {
+                "id": a.id,
+                "type": a.type,
+                "title": a.title,
+                "data": a.data,
+                "occurred_at": a.occurred_at.isoformat() + "Z" if a.occurred_at else None,
+            }
+            for a in activity_result.scalars().all()
+        ]
 
         return {
             "id": lead.id,
@@ -3972,6 +4201,7 @@ async def get_admin_lead_detail(
             "message_count": message_count,
             "messages": messages_detail,
             "timeline": timeline,
+            "activity": activity,
             "notes": notes,
             "created_at": lead.created_at.isoformat() + "Z" if lead.created_at else "",
             "updated_at": lead.updated_at.isoformat() + "Z" if lead.updated_at else None,
@@ -4020,7 +4250,137 @@ async def update_lead_status(
                     pass
 
         await session.commit()
+
+        # Record activity for status change
+        await add_lead_activity(
+            lead_id=lead_id,
+            tenant_id=tenant_id,
+            activity_type="status_changed",
+            title=f"Status changed to {lead.status.value}",
+            data={"status": lead.status.value, "reason": reason},
+            user_id=user_id,
+        )
+
         return True
+
+
+async def update_admin_lead(
+    lead_id: str,
+    tenant_id: str,
+    updates: Dict[str, Any],
+    user_id: Optional[str] = None,
+) -> bool:
+    """Update lead fields (status, tags, assignment, values, contact data)."""
+    from ..models.contact import Contact, LeadStatus as ContactLeadStatus
+
+    tenant_ids = _effective_tenant_ids(tenant_id, user_id)
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        result = await session.execute(
+            select(Lead).where(Lead.id == lead_id, Lead.tenant_id.in_(tenant_ids))
+        )
+        lead = result.scalar_one_or_none()
+        if not lead:
+            return False
+
+        # Update allowed fields
+        if "status" in updates and updates["status"]:
+            try:
+                lead.status = LeadStatus(updates["status"].lower())
+            except ValueError:
+                pass
+        if "est_value" in updates:
+            lead.est_value = updates.get("est_value")
+        if "actual_value" in updates:
+            lead.actual_value = updates.get("actual_value")
+        if "tags" in updates:
+            lead.tags = updates.get("tags")
+        if "assigned_to" in updates:
+            lead.assigned_to = updates.get("assigned_to")
+        if "name" in updates:
+            lead.name = updates.get("name")
+        if "email" in updates:
+            lead.email = updates.get("email")
+        if "phone" in updates:
+            lead.phone = updates.get("phone")
+        if "score" in updates and updates.get("score") is not None:
+            lead.score = str(updates.get("score"))
+            lead.score_manual_override = True
+            lead.score_updated_at = datetime.utcnow()
+
+        lead.updated_at = datetime.utcnow()
+
+        # Sync contact fields if linked
+        if lead.contact_id:
+            contact_result = await session.execute(
+                select(Contact).where(Contact.id == lead.contact_id)
+            )
+            contact = contact_result.scalar_one_or_none()
+            if contact:
+                if "status" in updates and updates.get("status"):
+                    try:
+                        contact.lead_status = ContactLeadStatus(updates["status"].lower())
+                    except ValueError:
+                        pass
+                if "name" in updates and updates.get("name"):
+                    contact.full_name = updates.get("name")
+                if "email" in updates and updates.get("email"):
+                    contact.email = updates.get("email")
+                if "phone" in updates and updates.get("phone"):
+                    contact.phone = updates.get("phone")
+                if "tags" in updates and updates.get("tags"):
+                    contact.tags = updates.get("tags")
+                contact.updated_at = datetime.utcnow()
+
+        await session.commit()
+
+        # Record activity for update
+        await add_lead_activity(
+            lead_id=lead_id,
+            tenant_id=tenant_id,
+            activity_type="lead_updated",
+            title="Lead updated",
+            data=updates,
+            user_id=user_id,
+        )
+
+    return True
+
+
+async def add_lead_activity(
+    lead_id: str,
+    tenant_id: str,
+    activity_type: str,
+    title: Optional[str] = None,
+    data: Optional[dict] = None,
+    user_id: Optional[str] = None,
+) -> bool:
+    """Record an activity entry for a lead."""
+    from ..models.lead_activity import LeadActivity
+
+    tenant_ids = _effective_tenant_ids(tenant_id, user_id)
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        lead_result = await session.execute(
+            select(Lead).where(Lead.id == lead_id, Lead.tenant_id.in_(tenant_ids))
+        )
+        lead = lead_result.scalar_one_or_none()
+        if not lead:
+            return False
+
+        activity = LeadActivity(
+            id=str(uuid.uuid4()),
+            lead_id=lead_id,
+            tenant_id=tenant_id,
+            user_id=user_id,
+            type=activity_type,
+            title=title,
+            data=data or {},
+        )
+        session.add(activity)
+        await session.commit()
+
+    return True
 
 
 async def add_lead_note(
@@ -4029,41 +4389,222 @@ async def add_lead_note(
     note: str,
     user_id: Optional[str] = None,
 ) -> bool:
-    """
-    Add an internal note to a lead.
-    Stored in-memory (MVP); also appended to contact.notes when possible.
-    """
-    from ..models.contact import Contact
+    """Add an internal note to a lead (persisted in the database)."""
+    from ..models.lead_note import LeadNote
 
-    # Always store in in-memory dict
-    if lead_id not in _lead_notes:
-        _lead_notes[lead_id] = []
-    _lead_notes[lead_id].append({
-        "note": note,
-        "created_at": datetime.utcnow().isoformat() + "Z",
-    })
-
-    # Also persist in contact.notes when possible
     tenant_ids = _effective_tenant_ids(tenant_id, user_id)
     session_factory = get_session_factory()
     async with session_factory() as session:
+        # Verify lead exists and belongs to tenant
         lead_result = await session.execute(
             select(Lead).where(Lead.id == lead_id, Lead.tenant_id.in_(tenant_ids))
         )
         lead = lead_result.scalar_one_or_none()
-        if lead and lead.contact_id:
-            contact_result = await session.execute(
-                select(Contact).where(Contact.id == lead.contact_id)
-            )
-            contact = contact_result.scalar_one_or_none()
-            if contact:
-                timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M")
-                existing = contact.notes or ""
-                contact.notes = f"{existing}\n[{timestamp}] {note}".strip()
-                contact.updated_at = datetime.utcnow()
-                await session.commit()
+        if not lead:
+            return False
+
+        note_obj = LeadNote(
+            id=str(uuid.uuid4()),
+            lead_id=lead_id,
+            tenant_id=tenant_id,
+            user_id=user_id,
+            content=note,
+        )
+        session.add(note_obj)
+        await session.commit()
 
     return True
+
+
+async def delete_lead_note(
+    lead_id: str,
+    note_id: str,
+    tenant_id: str,
+    user_id: Optional[str] = None,
+) -> bool:
+    """Delete an internal note from a lead."""
+    from ..models.lead_note import LeadNote
+
+    tenant_ids = _effective_tenant_ids(tenant_id, user_id)
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        result = await session.execute(
+            select(LeadNote)
+            .where(
+                LeadNote.id == note_id,
+                LeadNote.lead_id == lead_id,
+                LeadNote.tenant_id.in_(tenant_ids),
+            )
+        )
+        note = result.scalar_one_or_none()
+        if not note:
+            return False
+
+        await session.delete(note)
+        await session.commit()
+
+    return True
+
+
+async def create_admin_lead(
+    tenant_id: str,
+    name: Optional[str] = None,
+    email: Optional[str] = None,
+    phone: Optional[str] = None,
+    status: str = "new",
+    score: Optional[int] = None,
+    est_value: Optional[float] = None,
+    source: Optional[str] = None,
+    channel: Optional[str] = None,
+    assigned_to: Optional[str] = None,
+    tags: Optional[List[str]] = None,
+    notes: Optional[str] = None,
+    interest: Optional[str] = None,
+    user_id: Optional[str] = None,
+) -> Optional[str]:
+    """Create a lead record (manual lead entry)."""
+    from ..models.contact import Contact
+    from ..models.lead_activity import LeadActivity
+
+    if not any([name, email, phone]):
+        return None
+
+    tenant_ids = _effective_tenant_ids(tenant_id, user_id)
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        # Attempt to resolve existing contact by email/phone
+        contact_id = None
+        if email:
+            result = await session.execute(
+                select(Contact).where(Contact.tenant_id.in_(tenant_ids), Contact.email == email)
+            )
+            contact = result.scalar_one_or_none()
+            if contact:
+                contact_id = contact.id
+        if not contact_id and phone:
+            result = await session.execute(
+                select(Contact).where(Contact.tenant_id.in_(tenant_ids), Contact.phone == phone)
+            )
+            contact = result.scalar_one_or_none()
+            if contact:
+                contact_id = contact.id
+
+        lead_id = str(uuid.uuid4())
+        new_lead = Lead(
+            id=lead_id,
+            tenant_id=tenant_id,
+            contact_id=contact_id,
+            name=name,
+            email=email,
+            phone=phone,
+            status=LeadStatus(status.lower()) if status else LeadStatus.NEW,
+            score=str(score) if score is not None else None,
+            est_value=est_value,
+            source_channel=channel,
+            tags=tags,
+            assigned_to=assigned_to,
+            first_message_preview=interest,
+        )
+        session.add(new_lead)
+        if notes:
+            activity = LeadActivity(
+                id=str(uuid.uuid4()),
+                lead_id=lead_id,
+                tenant_id=tenant_id,
+                user_id=user_id,
+                type="note_added",
+                title="Lead note",
+                data={"note": notes},
+            )
+            session.add(activity)
+        await session.commit()
+
+    return lead_id
+
+
+async def generate_lead_followup_draft(
+    lead_id: str,
+    channel: str,
+    tenant_id: str,
+    user_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Generate a follow-up draft using the LLM based on the lead's context."""
+    from ..services.rag import _get_llm_generator
+
+    detail = await get_admin_lead_detail(lead_id=lead_id, tenant_id=tenant_id, user_id=user_id)
+    if not detail:
+        return {"draft": {}, "suggested_cta": None, "tone": None}
+
+    # Build prompt
+    name = detail.get("contact", {}).get("full_name") or "there"
+    first_msg = detail.get("first_message") or ""
+    status = detail.get("status")
+    prompt = (
+        f"You are writing a follow-up {channel} message to a lead. "
+        f"The lead is named {name}. Their status is {status}. "
+        f"Their initial message was: \"{first_msg}\". "
+        f"Write a short, friendly, and professional follow-up message encouraging them to take the next step."
+    )
+
+    generator = _get_llm_generator()
+    draft_text = generator.generate(prompt)
+
+    return {
+        "draft": {
+            "subject": f"Following up on your {channel} message",
+            "body": draft_text,
+        },
+        "suggested_cta": "Book a call",
+        "tone": "warm_professional",
+    }
+
+
+async def send_lead_followup(
+    lead_id: str,
+    channel: str,
+    subject: Optional[str],
+    content: str,
+    is_ai_assisted: bool,
+    scheduled_at: Optional[str],
+    tenant_id: str,
+    user_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Record a follow-up send action (does not actually dispatch messages)."""
+    # For now, we record activity and scheduled followups.
+    success = True
+    message_id = str(uuid.uuid4())
+    sent_at = datetime.utcnow().isoformat() + "Z"
+
+    # Persist as scheduled followup or immediate activity
+    if scheduled_at:
+        from ..models.scheduled_followup import ScheduledFollowup
+        sched = ScheduledFollowup(
+            id=str(uuid.uuid4()),
+            lead_id=lead_id,
+            tenant_id=tenant_id,
+            channel=channel,
+            subject=subject,
+            content=content,
+            is_ai_assisted=is_ai_assisted,
+            scheduled_at=datetime.fromisoformat(scheduled_at),
+            status="pending",
+            user_id=user_id,
+        )
+        session_factory = get_session_factory()
+        async with session_factory() as session:
+            session.add(sched)
+            await session.commit()
+    else:
+        await add_lead_activity(
+            lead_id=lead_id,
+            tenant_id=tenant_id,
+            activity_type="follow_up_sent",
+            title=f"Follow-up sent via {channel}",
+            data={"subject": subject, "content": content, "is_ai_assisted": is_ai_assisted},
+            user_id=user_id,
+        )
+
+    return {"success": success, "message_id": message_id, "sent_at": sent_at}
 
 
 async def calculate_lead_score(
@@ -4136,6 +4677,7 @@ async def bulk_lead_action(
     action: str,
     status: Optional[str] = None,
     reason: Optional[str] = None,
+    format: Optional[str] = None,
     user_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
@@ -4181,9 +4723,43 @@ async def bulk_lead_action(
                 except Exception as e:
                     logger.error("Export failed for lead %s: %s", lead_id, str(e))
                     failed += 1
-        return {"action": action, "affected": affected, "failed": failed, "export_data": export_rows}
 
-    session_factory = get_session_factory()
+        # Format exports for common CRM formats
+        if format:
+            fmt = format.lower().strip()
+            if fmt == "hubspot":
+                export_rows = [
+                    {
+                        "Email": r.get("email", ""),
+                        "First Name": (r.get("name") or "").split(" ")[0] if r.get("name") else "",
+                        "Last Name": (r.get("name") or "").split(" ").slice(1).join(" ") if r.get("name") else "",
+                        "Phone Number": r.get("phone", ""),
+                        "Company": r.get("company", ""),
+                        "Lead Status": r.get("status", ""),
+                        "Lead Score": r.get("lead_score", ""),
+                        "Lead Source": r.get("channel", ""),
+                        "First Message": r.get("first_message", ""),
+                        "Created At": r.get("created_at", ""),
+                    }
+                    for r in export_rows
+                ]
+            elif fmt == "salesforce":
+                export_rows = [
+                    {
+                        "Email": r.get("email", ""),
+                        "FirstName": (r.get("name") or "").split(" ")[0] if r.get("name") else "",
+                        "LastName": (r.get("name") or "").split(" ").slice(1).join(" ") if r.get("name") else "",
+                        "Phone": r.get("phone", ""),
+                        "Company": r.get("company", ""),
+                        "LeadStatus": r.get("status", ""),
+                        "LeadScore": r.get("lead_score", ""),
+                        "LeadSource": r.get("channel", ""),
+                        "Description": r.get("first_message", ""),
+                        "CreatedDate": r.get("created_at", ""),
+                    }
+                    for r in export_rows
+                ]
+
     async with session_factory() as session:
         for lead_id in lead_ids:
             try:

@@ -41,3 +41,10 @@ docs/
 !docs/architecture.md
 !docs/RAG_EVALUATION_SUMMARY.md
 !README.md
+
+# Python artifacts
+__pycache__/
+*.pyc
+
+# Local dev database and vector store
+backend/data/

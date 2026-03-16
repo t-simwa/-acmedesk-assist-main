@@ -57,6 +57,18 @@ export function useUpdateLeadStatus() {
   });
 }
 
+export function useUpdateLead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: Partial<import("@/lib/api").LeadUpdateRequest> }) =>
+      leadsApi.updateLead(id, updates),
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: leadKeys.detail(id) });
+      qc.invalidateQueries({ queryKey: leadKeys.all });
+    },
+  });
+}
+
 /**
  * 7.5.4: Add internal note mutation.
  */
@@ -65,6 +77,17 @@ export function useAddLeadNote() {
   return useMutation({
     mutationFn: ({ id, note }: { id: string; note: string }) =>
       leadsApi.addNote(id, note),
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: leadKeys.detail(id) });
+    },
+  });
+}
+
+export function useDeleteLeadNote() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, noteId }: { id: string; noteId: string }) =>
+      leadsApi.deleteNote(id, noteId),
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: leadKeys.detail(id) });
     },
@@ -94,6 +117,70 @@ export function useBulkLeadAction() {
     mutationFn: (request: LeadBulkRequest) => leadsApi.bulkAction(request),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: leadKeys.all });
+    },
+  });
+}
+
+export function useCreateLead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (request: LeadCreateRequest) => leadsApi.createLead(request),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: leadKeys.all });
+    },
+  });
+}
+
+export function useLeadStats() {
+  return useQuery({
+    queryKey: [...leadKeys.all, "stats"],
+    queryFn: () => leadsApi.getStats(),
+    staleTime: 30_000,
+    retry: 1,
+  });
+}
+
+export function useLeadTags() {
+  return useQuery({
+    queryKey: [...leadKeys.all, "tags"],
+    queryFn: () => leadsApi.getTags(),
+    staleTime: 60_000,
+    retry: 1,
+  });
+}
+
+export function useLeadAssignees() {
+  return useQuery({
+    queryKey: [...leadKeys.all, "assignees"],
+    queryFn: () => leadsApi.getAssignees(),
+    staleTime: 60_000,
+    retry: 1,
+  });
+}
+
+export function useLeadPipeline(filters: { status?: string; channel?: string; search?: string; max_per_column?: number } = {}) {
+  return useQuery({
+    queryKey: [...leadKeys.all, "pipeline", filters],
+    queryFn: () => leadsApi.getPipeline(filters),
+    staleTime: 30_000,
+    retry: 1,
+  });
+}
+
+export function useGenerateFollowupDraft() {
+  return useMutation({
+    mutationFn: (request: import("@/lib/api").LeadFollowupDraftRequest) =>
+      leadsApi.generateFollowupDraft(request),
+  });
+}
+
+export function useSendFollowup() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (request: import("@/lib/api").LeadFollowupSendRequest) =>
+      leadsApi.sendFollowup(request),
+    onSuccess: (_, { lead_id }) => {
+      qc.invalidateQueries({ queryKey: leadKeys.detail(lead_id) });
     },
   });
 }
