@@ -81,7 +81,6 @@ class Lead(Base):
             "source_channel": self.source_channel,
             "source_page_url": self.source_page_url,
             "first_message_preview": self.first_message_preview,
-            "lead_capture_data": self.lead_capture_data,
             "name": self.name,
             "email": self.email,
             "phone": self.phone,

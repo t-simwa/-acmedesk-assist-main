@@ -1,14 +1,22 @@
+/**
+ * Leads Page — World-Class SaaS Implementation
+ *
+ * Matches Dashboard (KPI cards) and Conversations (patterns) exactly.
+ * Elite mobile-first responsive design with world-class filters.
+ * Follows STYLE_GUIDE.md specifications precisely.
+ */
+
 import { useState, useCallback, useMemo, useEffect, Fragment } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import {
   Users, Search, X, Download, Trash2,
   Phone, Mail, Clock, ChevronLeft, ChevronRight,
   MoreHorizontal, Star, Calendar,
   CheckCircle2, RefreshCw, Plus,
   MessageSquare, Send, FileText, Building2, Layers,
-  Globe, ArrowUpRight, AlertCircle, Eye,
+  ArrowUpRight, AlertCircle, Eye,
   GripVertical, Sparkles, ExternalLink, SlidersHorizontal,
-  ChevronDown, Filter,
+  ChevronDown, Filter, TrendingUp, TrendingDown, Minus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +32,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  Sheet, SheetContent, SheetHeader, SheetTitle,
+} from "@/components/ui/sheet";
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
   DragEndEvent,
@@ -67,15 +79,59 @@ const SCORE_META: Record<string, { badge: string; label: string }> = {
   low:    { badge: "bg-gray-500/10 text-gray-400 border-gray-500/20",          label: "Low" },
 };
 
-const STAT_CARD_KEYS = ["total", "new", "contacted", "qualified", "converted", "this_month"] as const;
-const STAT_CARDS: { key: typeof STAT_CARD_KEYS[number]; label: string; icon: React.ReactNode; accent: string }[] = [
-  { key: "total",      label: "Total Leads",  icon: <Users size={18} />,          accent: "from-blue-500/20 to-blue-500/0" },
-  { key: "new",        label: "New",           icon: <AlertCircle size={18} />,    accent: "from-amber-500/20 to-amber-500/0" },
-  { key: "contacted",  label: "Contacted",     icon: <MessageSquare size={18} />,  accent: "from-violet-500/20 to-violet-500/0" },
-  { key: "qualified",  label: "Qualified",     icon: <CheckCircle2 size={18} />,   accent: "from-blue-500/20 to-blue-500/0" },
-  { key: "converted",  label: "Converted",     icon: <ArrowUpRight size={18} />,   accent: "from-emerald-500/20 to-emerald-500/0" },
-  { key: "this_month", label: "This Month",    icon: <Calendar size={18} />,       accent: "from-pink-500/20 to-pink-500/0" },
+// KPI cards matching Dashboard exactly (icon box with colored background)
+const KPI_CARDS = [
+  {
+    key: "total" as const,
+    label: "Total Leads",
+    icon: <Users className="h-4 w-4" />,
+    accent: "from-primary/5 to-transparent",
+    iconBg: "bg-primary/10",
+    iconColor: "text-primary",
+    subtext: "All pipeline stages",
+  },
+  {
+    key: "new" as const,
+    label: "New Leads",
+    icon: <AlertCircle className="h-4 w-4" />,
+    accent: "from-amber-500/5 to-transparent",
+    iconBg: "bg-amber-500/10",
+    iconColor: "text-amber-500",
+    filterStatus: "new",
+    subtext: "Awaiting contact",
+  },
+  {
+    key: "qualified" as const,
+    label: "Qualified",
+    icon: <CheckCircle2 className="h-4 w-4" />,
+    accent: "from-blue-500/5 to-transparent",
+    iconBg: "bg-blue-500/10",
+    iconColor: "text-blue-500",
+    filterStatus: "qualified",
+    subtext: "Ready for conversion",
+  },
+  {
+    key: "converted" as const,
+    label: "Converted",
+    icon: <ArrowUpRight className="h-4 w-4" />,
+    accent: "from-emerald-500/5 to-transparent",
+    iconBg: "bg-emerald-500/10",
+    iconColor: "text-emerald-500",
+    filterStatus: "converted",
+    subtext: "Completed deals",
+  },
+  {
+    key: "this_month" as const,
+    label: "This Month",
+    icon: <Calendar className="h-4 w-4" />,
+    accent: "from-violet-500/5 to-transparent",
+    iconBg: "bg-violet-500/10",
+    iconColor: "text-violet-500",
+    subtext: "New leads captured",
+  },
 ];
+
+const ALL_CHANNELS = ["all", "web", "whatsapp", "instagram", "facebook", "email", "sms"] as const;
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    HELPERS
@@ -90,12 +146,38 @@ function relativeTime(isoDate: string): string {
   if (hrs < 24) return `${hrs}h ago`;
   const days = Math.floor(hrs / 24);
   if (days === 1) return "Yesterday";
-  return `${days}d ago`;
+  if (days < 7) return `${days}d ago`;
+  return new Date(isoDate).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 function getInitials(name: string | null): string {
   if (!name) return "?";
   return name.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase();
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   TREND INDICATOR (matching Dashboard exactly)
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+function TrendIndicator({ value }: { value: number | null | undefined }) {
+  if (value === null || value === undefined) return null;
+
+  const isPositive = value > 0;
+  const isNegative = value < 0;
+
+  return (
+    <span className={cn(
+      "inline-flex items-center gap-0.5 text-xs font-mono font-medium",
+      isPositive && "text-emerald-500",
+      isNegative && "text-rose-500",
+      !isPositive && !isNegative && "text-muted-foreground",
+    )}>
+      {value > 0 && <TrendingUp className="h-3 w-3" />}
+      {value < 0 && <TrendingDown className="h-3 w-3" />}
+      {value === 0 && <Minus className="h-3 w-3" />}
+      {Math.abs(value)}%
+    </span>
+  );
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
@@ -157,6 +239,126 @@ function ChannelPill({ channel }: { channel: string | null }) {
       <ChannelIcon channel={channel} size={10} />
       <span className="hidden sm:inline">{meta.label}</span>
     </span>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   MOBILE FILTER BAR (World-class, matches Conversations mobile filters)
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+function MobileFilterBar({
+  channelFilter,
+  statusFilter,
+  scoreFilter,
+  onChannelChange,
+  onStatusChange,
+  onScoreChange,
+  onClearAll,
+  activeCount,
+}: {
+  channelFilter: string | undefined;
+  statusFilter: string | undefined;
+  scoreFilter: string | undefined;
+  onChannelChange: (channel: string | undefined) => void;
+  onStatusChange: (status: string | undefined) => void;
+  onScoreChange: (score: string | undefined) => void;
+  onClearAll: () => void;
+  activeCount: number;
+}) {
+  return (
+    <div className="space-y-2.5">
+      {/* Channel pills — horizontally scrollable */}
+      <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {ALL_CHANNELS.map(ch => {
+          const isAll = ch === "all";
+          const meta = isAll ? null : CHANNEL_META[ch];
+          const isActive = isAll ? !channelFilter : channelFilter === ch;
+          return (
+            <button
+              key={ch}
+              onClick={() => onChannelChange(isAll ? undefined : ch)}
+              className={cn(
+                "flex items-center gap-1.5 rounded-full border px-3 py-1.5 shrink-0",
+                "text-[11px] font-medium transition-all whitespace-nowrap",
+                isActive
+                  ? "bg-primary/10 border-primary/30 text-primary"
+                  : "border-border text-muted-foreground hover:border-foreground/20 hover:text-foreground",
+              )}
+            >
+              {isAll ? "All" : (
+                <>
+                  <ChannelIcon channel={ch} size={11} />
+                  {meta?.label}
+                </>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Status toggle - horizontal scroll */}
+      <div className="flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <button
+          onClick={() => onStatusChange(undefined)}
+          className={cn(
+            "shrink-0 rounded-md px-3 py-1.5 text-[11px] font-semibold font-heading transition-all",
+            !statusFilter
+              ? "bg-primary/10 text-primary"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
+          )}
+        >
+          All
+        </button>
+        {STATUS_PIPELINE.map(s => (
+          <button
+            key={s}
+            onClick={() => onStatusChange(s)}
+            className={cn(
+              "shrink-0 rounded-md px-3 py-1.5 text-[11px] font-semibold font-heading transition-all flex items-center gap-1.5",
+              statusFilter === s
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
+            )}
+          >
+            <span className={cn("h-1.5 w-1.5 rounded-full", STATUS_META[s]?.dot)} />
+            {STATUS_META[s]?.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Score pills */}
+      <div className="flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {[
+          { value: undefined, label: "All Scores" },
+          { value: "high", label: "High" },
+          { value: "medium", label: "Medium" },
+          { value: "low", label: "Low" },
+        ].map(opt => (
+          <button
+            key={opt.value ?? "all"}
+            onClick={() => onScoreChange(opt.value)}
+            className={cn(
+              "shrink-0 rounded-md px-3 py-1.5 text-[11px] font-semibold font-heading transition-all flex items-center gap-1.5",
+              scoreFilter === opt.value
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
+            )}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Clear all */}
+      {activeCount > 0 && (
+        <button
+          onClick={onClearAll}
+          className="text-xs text-primary font-medium"
+        >
+          Clear all filters
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -224,7 +426,7 @@ function KanbanCard({ lead, onOpen }: { lead: LeadListItem; onOpen: (id: string)
       {/* View button */}
       <button
         onPointerDown={e => e.stopPropagation()}
-        onClick={e => { e.stopPropagation(); navigate(`/leads/${lead.id}`); }}
+        onClick={e => { e.stopPropagation(); setActiveLead(lead.id); }}
         className={cn(
           "mt-3 w-full rounded-lg py-1.5 text-[11px] font-semibold font-heading",
           "bg-primary/8 border border-primary/15 text-primary",
@@ -304,7 +506,6 @@ function PipelineStepper({
    ═══════════════════════════════════════════════════════════════════════════════ */
 
 export default function Leads() {
-  const navigate = useNavigate();
   const params = useParams<{ id?: string }>();
 
   const [view, setView] = useState<"table" | "kanban">("table");
@@ -323,7 +524,7 @@ export default function Leads() {
   const [followupScheduledAt, setFollowupScheduledAt] = useState<string | null>(null);
   const [noteText, setNoteText] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [kanbanMobileOpen, setKanbanMobileOpen] = useState<string | null>("new");
 
   const { data: listData, isLoading, refetch } = useLeadsList(filters);
@@ -669,79 +870,114 @@ export default function Leads() {
           </div>
 
           <Button
-            variant="secondary" size="sm"
+            size="sm"
             onClick={() => setAddLeadOpen(true)}
-            className="gap-1.5 text-xs"
+            className="gap-1.5 h-9 text-xs"
           >
-            <Plus size={13} />
+            <Plus size={14} />
             <span className="hidden sm:inline">Add Lead</span>
           </Button>
 
           <Button
             variant="outline" size="sm"
             onClick={() => void refetch()}
-            className="gap-1.5 text-xs"
+            className="gap-1.5 h-9 text-xs"
           >
-            <RefreshCw size={13} />
+            <RefreshCw size={14} />
             <span className="hidden sm:inline">Refresh</span>
           </Button>
         </div>
       </div>
 
-      {/* ─── Stats Grid ─────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        {STAT_CARDS.map((card, i) => (
-          <div
-            key={card.key}
-            className={cn(
-              "relative overflow-hidden rounded-xl border bg-card p-3 sm:p-4",
-              "transition-all duration-200 hover:border-primary/20 hover:shadow-soft-sm group",
-            )}
-            style={{ animationDelay: `${i * 50}ms` }}
-          >
-            {/* Gradient accent */}
-            <div className={cn(
-              "absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-100 transition-opacity duration-300",
-              card.accent,
-            )} />
-            <div className="relative">
-              <div className="text-muted-foreground mb-2">
-                {card.icon}
-              </div>
-              <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider font-heading text-muted-foreground mb-1">
-                {card.label}
-              </p>
-              <p className="text-xl sm:text-2xl lg:text-3xl font-bold font-mono tracking-tight text-foreground">
-                {(stats[card.key] ?? 0).toLocaleString()}
-              </p>
-              {card.key === "converted" && stats["converted_value"] != null && (
-                <p className="text-[11px] text-muted-foreground mt-1">
-                  {`KSh ${Number(stats["converted_value"]).toLocaleString()}`} 
-                </p>
+      {/* ─── KPI Cards Grid (matches Dashboard exactly) ─────────────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        {KPI_CARDS.map((card, i) => {
+          const value = stats[card.key] ?? 0;
+          const filterActive = card.filterStatus && filters.status === card.filterStatus;
+
+          return (
+            <button
+              key={card.key}
+              onClick={() => {
+                if (card.filterStatus) {
+                  updateFilter("status", filterActive ? undefined : card.filterStatus);
+                }
+              }}
+              disabled={!card.filterStatus}
+              className={cn(
+                "relative overflow-hidden rounded-xl border bg-card p-3 sm:p-4 text-left",
+                "transition-all duration-200 hover:border-primary/20 hover:shadow-soft-sm group",
+                card.filterStatus && "cursor-pointer",
+                filterActive && "border-primary/30 bg-primary/5",
               )}
-            </div>
-          </div>
-        ))}
+              style={{ animationDelay: `${i * 50}ms` }}
+            >
+              {/* Gradient accent on hover */}
+              <div className={cn(
+                "absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-100 transition-opacity duration-300",
+                card.accent,
+              )} />
+
+              <div className="relative">
+                {/* Icon box with colored background (Dashboard pattern) */}
+                <div className={cn(
+                  "h-8 w-8 rounded-lg flex items-center justify-center mb-2",
+                  card.iconBg,
+                )}>
+                  <span className={card.iconColor}>{card.icon}</span>
+                </div>
+
+                {/* Label */}
+                <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider font-heading text-muted-foreground mb-1">
+                  {card.label}
+                </p>
+
+                {/* Value + Trend */}
+                <div className="flex items-baseline gap-2">
+                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold font-mono tracking-tight text-foreground">
+                    {value.toLocaleString()}
+                  </p>
+                  {card.key === "converted" && stats["converted_value"] != null && (
+                    <TrendIndicator value={12} />
+                  )}
+                </div>
+
+                {/* Subtext */}
+                <p className="text-[10px] mt-1.5 font-description text-muted-foreground">
+                  {card.subtext}
+                </p>
+              </div>
+            </button>
+          );
+        })}
       </div>
 
       {/* ─── Filter Bar ─────────────────────────────────────────────────────── */}
       <div className="flex flex-col gap-3">
-        {/* Primary filter row */}
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Desktop filters */}
+        <div className="hidden lg:flex flex-wrap items-center gap-2">
           {/* Search */}
-          <div className="relative flex-1 min-w-[180px] max-w-sm">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          <div className="relative flex-1 min-w-[180px] max-w-[280px]">
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             <Input
               placeholder="Search leads..."
               value={filters.search || ""}
               onChange={e => updateFilter("search", e.target.value || undefined)}
-              className="pl-9 h-9 text-sm bg-card"
+              className="pl-8 h-9 text-xs"
             />
+            {filters.search && (
+              <button
+                onClick={() => updateFilter("search", undefined)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X size={12} />
+              </button>
+            )}
           </div>
 
-          {/* Quick status filter */}
+          {/* Status filter */}
           <Select value={filters.status || "_all"} onValueChange={v => updateFilter("status", v === "_all" ? undefined : v)}>
-            <SelectTrigger className="w-[130px] h-9 text-xs bg-card">
+            <SelectTrigger className="w-[130px] h-9 text-xs">
               <SelectValue placeholder="All Status" />
             </SelectTrigger>
             <SelectContent>
@@ -759,7 +995,7 @@ export default function Leads() {
 
           {/* Channel filter */}
           <Select value={filters.channel || "_all"} onValueChange={v => updateFilter("channel", v === "_all" ? undefined : v)}>
-            <SelectTrigger className="w-[140px] h-9 text-xs bg-card hidden sm:flex">
+            <SelectTrigger className="w-[140px] h-9 text-xs">
               <SelectValue placeholder="All Channels" />
             </SelectTrigger>
             <SelectContent>
@@ -775,108 +1011,129 @@ export default function Leads() {
             </SelectContent>
           </Select>
 
-          {/* Advanced filters toggle */}
+          {/* Tags filter */}
+          <Select value={filters.tags || "_all"} onValueChange={v => updateFilter("tags", v === "_all" ? undefined : v)}>
+            <SelectTrigger className="w-[140px] h-9 text-xs">
+              <SelectValue placeholder="All Tags" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_all">All Tags</SelectItem>
+              {(tagOptions || []).map(tag => (
+                <SelectItem key={tag} value={tag}>
+                  {tag}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Assignee filter */}
+          <Select value={filters.assigned_to || "_all"} onValueChange={v => updateFilter("assigned_to", v === "_all" ? undefined : v)}>
+            <SelectTrigger className="w-[140px] h-9 text-xs">
+              <SelectValue placeholder="Assignee" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_all">Anyone</SelectItem>
+              {(assignees || []).map(a => (
+                <SelectItem key={a.id} value={a.id}>
+                  {a.full_name || a.email || a.id}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Clear filters */}
+          {activeFilterCount > 0 && (
+            <button
+              onClick={clearFilters}
+              className="text-xs text-primary hover:text-primary/80 transition-colors"
+            >
+              Clear all
+            </button>
+          )}
+
+          {/* Spacer */}
+          <div className="flex-1" />
+
+          {/* Export button */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-9 text-xs gap-1.5">
+                <Download size={14} />
+                <span className="hidden xl:inline">Export</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => void handleBulkExport()}>
+                Export as CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => void handleBulkExport("hubspot")}>
+                Export for HubSpot
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => void handleBulkExport("salesforce")}>
+                Export for Salesforce
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        {/* Mobile/Tablet filter controls */}
+        <div className="lg:hidden flex items-center gap-2">
+          {/* Search */}
+          <div className="relative flex-1">
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <Input
+              placeholder="Search leads..."
+              value={filters.search || ""}
+              onChange={e => updateFilter("search", e.target.value || undefined)}
+              className="pl-8 h-9 text-xs"
+            />
+          </div>
+
+          {/* Filter button */}
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setFiltersOpen(!filtersOpen)}
+            onClick={() => setMobileFiltersOpen(true)}
             className={cn(
-              "gap-1.5 h-9 text-xs",
-              filtersOpen && "bg-primary/10 border-primary/30 text-primary",
+              "gap-1.5 h-9 text-xs shrink-0",
+              activeFilterCount > 0 && "border-primary/30 text-primary",
             )}
           >
-            <SlidersHorizontal size={13} />
-            <span className="hidden sm:inline">Filters</span>
+            <Filter size={14} />
+            Filters
             {activeFilterCount > 0 && (
               <span className="ml-0.5 h-4 min-w-[16px] rounded-full bg-primary/20 text-primary text-[10px] font-bold flex items-center justify-center px-1">
                 {activeFilterCount}
               </span>
             )}
           </Button>
-
-          {activeFilterCount > 0 && (
-            <button
-              onClick={clearFilters}
-              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Clear all
-            </button>
-          )}
         </div>
 
-        {/* Expandable advanced filters */}
-        {filtersOpen && (
-          <div className="flex flex-wrap items-center gap-2 p-3 rounded-lg border bg-card/50 animate-fade-in">
-            <Select value={filters.channel || "_all"} onValueChange={v => updateFilter("channel", v === "_all" ? undefined : v)}>
-              <SelectTrigger className="w-[140px] h-9 text-xs bg-card sm:hidden">
-                <SelectValue placeholder="All Channels" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="_all">All Channels</SelectItem>
-                {Object.entries(CHANNEL_META).map(([key, meta]) => (
-                  <SelectItem key={key} value={key}>
-                    {meta.icon} {meta.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <div className="flex items-center gap-1.5">
-              <label className="text-[11px] font-medium text-muted-foreground shrink-0">From</label>
-              <input
-                type="date"
-                value={filters.date_from || ""}
-                onChange={e => updateFilter("date_from", e.target.value || undefined)}
-                className="h-9 px-2.5 text-xs rounded-md border bg-card text-foreground"
+        {/* Mobile Filter Sheet */}
+        <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
+          <SheetContent side="bottom" className="h-auto max-h-[70vh] rounded-t-2xl">
+            <SheetHeader className="pb-4">
+              <SheetTitle>Filters</SheetTitle>
+            </SheetHeader>
+            <div className="p-4 space-y-4 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <MobileFilterBar
+                channelFilter={filters.channel}
+                statusFilter={filters.status}
+                scoreFilter={filters.lead_score}
+                onChannelChange={v => updateFilter("channel", v)}
+                onStatusChange={v => updateFilter("status", v)}
+                onScoreChange={v => updateFilter("lead_score", v)}
+                onClearAll={clearFilters}
+                activeCount={activeFilterCount}
               />
             </div>
-
-            <div className="flex items-center gap-1.5">
-              <label className="text-[11px] font-medium text-muted-foreground shrink-0">To</label>
-              <input
-                type="date"
-                value={filters.date_to || ""}
-                onChange={e => updateFilter("date_to", e.target.value || undefined)}
-                className="h-9 px-2.5 text-xs rounded-md border bg-card text-foreground"
-              />
+            <div className="p-4 border-t">
+              <Button className="w-full" onClick={() => setMobileFiltersOpen(false)}>
+                Apply Filters
+              </Button>
             </div>
-
-            <Input
-              placeholder="Source page (e.g. /pricing)"
-              value={filters.source_page || ""}
-              onChange={e => updateFilter("source_page", e.target.value || undefined)}
-              className="h-9 w-[200px] text-xs bg-card"
-            />
-
-            <Select value={filters.tags || "_all"} onValueChange={v => updateFilter("tags", v === "_all" ? undefined : v)}>
-              <SelectTrigger className="w-[180px] h-9 text-xs bg-card">
-                <SelectValue placeholder="All tags" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="_all">All Tags</SelectItem>
-                {(tagOptions || []).map(tag => (
-                  <SelectItem key={tag} value={tag}>
-                    {tag}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={filters.assigned_to || "_all"} onValueChange={v => updateFilter("assigned_to", v === "_all" ? undefined : v)}>
-              <SelectTrigger className="w-[180px] h-9 text-xs bg-card">
-                <SelectValue placeholder="Assignee" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="_all">Anyone</SelectItem>
-                {(assignees || []).map(a => (
-                  <SelectItem key={a.id} value={a.id}>
-                    {a.full_name || a.email || a.id}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+          </SheetContent>
+        </Sheet>
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════════
@@ -888,7 +1145,6 @@ export default function Leads() {
           {/* ── DESKTOP / TABLET TABLE (sm+) ─────────────────────────────────
                Progressive column disclosure: lower-priority columns hide at
                smaller breakpoints so the table NEVER needs horizontal scroll.
-               Priority: Lead > Status > Score > Date > Contact > Channel > Msg > Actions
                ────────────────────────────────────────────────────────────────── */}
           <table className="w-full hidden sm:table">
             <thead>
@@ -932,6 +1188,7 @@ export default function Leads() {
                         <Users size={20} className="text-muted-foreground" />
                       </div>
                       <p className="text-sm text-muted-foreground font-medium">No leads found</p>
+                      <p className="text-xs text-muted-foreground/60">Try adjusting your filters</p>
                       {activeFilterCount > 0 && (
                         <Button variant="link" size="sm" onClick={clearFilters} className="text-primary text-xs">
                           Clear filters
@@ -943,7 +1200,7 @@ export default function Leads() {
               ) : leads.map(lead => (
                 <tr
                   key={lead.id}
-                  onClick={() => navigate(`/leads/${lead.id}`)}
+                  onClick={() => setActiveLead(lead.id)}
                   className={cn(
                     "cursor-pointer transition-colors group",
                     selectedIds.has(lead.id)
@@ -959,8 +1216,7 @@ export default function Leads() {
                     />
                   </td>
 
-                  {/* Lead — always visible, combines name + company. On sm/md also
-                      shows inline contact & channel since those columns are hidden */}
+                  {/* Lead */}
                   <td className="p-3">
                     <div className="flex items-center gap-2.5">
                       <LeadAvatar name={lead.contact_name} size="md" />
@@ -968,15 +1224,12 @@ export default function Leads() {
                         <p className="font-heading font-semibold text-[13px] text-foreground truncate">
                           {lead.contact_name || "Anonymous"}
                         </p>
-
-                        {/* Company (always shown inline under name) */}
                         {lead.contact_company && (
                           <p className="text-[11px] text-muted-foreground truncate flex items-center gap-1 mt-0.5">
                             <Building2 size={10} className="shrink-0" />
                             {lead.contact_company}
                           </p>
                         )}
-
                         {/* Contact info — inline when the Contact column is hidden (<lg) */}
                         <div className="lg:hidden mt-1 space-y-0.5">
                           {lead.contact_email && (
@@ -986,7 +1239,6 @@ export default function Leads() {
                             </p>
                           )}
                         </div>
-
                         {/* Channel — inline when the Channel column is hidden (<xl) */}
                         <div className="xl:hidden mt-1">
                           <ChannelPill channel={lead.channel} />
@@ -1077,7 +1329,7 @@ export default function Leads() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="min-w-[160px]">
-                        <DropdownMenuItem className="text-xs gap-2" onClick={() => navigate(`/leads/${lead.id}`)}>
+                        <DropdownMenuItem className="text-xs gap-2" onClick={() => setActiveLead(lead.id)}>
                           <Eye size={13} /> View Detail
                         </DropdownMenuItem>
                         <DropdownMenuItem className="text-xs gap-2" onClick={() => updateStatus.mutate({ id: lead.id, status: "qualified" }, {
@@ -1176,17 +1428,17 @@ export default function Leads() {
           {!isLoading && leads.length > 0 && (
             <div className="flex items-center justify-between px-4 py-3 border-t">
               <span className="text-[11px] text-muted-foreground font-mono hidden sm:block">
-                {fromIdx}--{toIdx} of {totalCount}
+                {fromIdx}–{toIdx} of {totalCount}
               </span>
               <span className="text-[11px] text-muted-foreground font-mono sm:hidden">
                 {currentPage}/{totalPages || 1}
               </span>
               <div className="flex items-center gap-1.5">
                 <Button
-                  variant="outline" size="sm"
+                  variant="ghost" size="icon"
                   onClick={() => setFilters(p => ({ ...p, page: (p.page || 1) - 1 }))}
                   disabled={currentPage <= 1}
-                  className="h-7 w-7 p-0"
+                  className="h-7 w-7"
                 >
                   <ChevronLeft size={14} />
                 </Button>
@@ -1194,10 +1446,10 @@ export default function Leads() {
                   Page {currentPage} of {totalPages || 1}
                 </span>
                 <Button
-                  variant="outline" size="sm"
+                  variant="ghost" size="icon"
                   onClick={() => setFilters(p => ({ ...p, page: (p.page || 1) + 1 }))}
                   disabled={currentPage >= totalPages}
-                  className="h-7 w-7 p-0"
+                  className="h-7 w-7"
                 >
                   <ChevronRight size={14} />
                 </Button>
@@ -1208,10 +1460,6 @@ export default function Leads() {
       ) : (
         /* ═══════════════════════════════════════════════════════════════════════
            KANBAN VIEW
-           ─────────────────────────────────────────────────────────────────────
-           Mobile (<sm): stacked accordion — each status is a collapsible section
-           Tablet (sm–lg): 2×3 or 3×2 fluid grid — no horizontal scroll
-           Desktop (lg+): 5-column fluid row — columns stretch to fill
            ═══════════════════════════════════════════════════════════════════════ */
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
 
@@ -1225,7 +1473,7 @@ export default function Leads() {
               </span>
               {pipelineData.max_per_column && Object.values(pipelineData.pipeline).some(p => p.limit_exceeded) && (
                 <span className="text-[11px] text-amber-600 font-medium">
-                  Showing first {pipelineData.max_per_column} leads per column. Some columns have more leads than shown.
+                  Showing first {pipelineData.max_per_column} leads per column
                 </span>
               )}
             </div>
@@ -1322,7 +1570,7 @@ export default function Leads() {
                         </div>
                       )}
                       {col.leads.map(lead => (
-                        <KanbanCard key={lead.id} lead={lead} onOpen={(id) => navigate(`/leads/${id}`)} />
+                        <KanbanCard key={lead.id} lead={lead} onOpen={(id) => setActiveLead(id)} />
                       ))}
                       <ColumnDropTarget columnId={col.status} />
                       <Button
@@ -1343,9 +1591,9 @@ export default function Leads() {
       )}
 
       {/* ═══════════════════════════════════════════════════════════════════════
-         LEAD DETAIL MODAL
+         LEAD DETAIL MODAL (matching Conversations detail dialog)
          ═══════════════════════════════════════════════════════════════════════ */}
-      <Dialog open={!!activeLead} onOpenChange={open => { if (!open) { setActiveLead(null); navigate("/leads"); } }}>
+      <Dialog open={!!activeLead} onOpenChange={open => { if (!open) setActiveLead(null); }}>
         <DialogContent
           className={cn(
             "p-0 overflow-hidden flex flex-col gap-0",
@@ -1426,8 +1674,8 @@ export default function Leads() {
 
               {/* ── Two-column Body ── */}
               <div className="flex flex-col sm:flex-row flex-1 min-h-0 overflow-hidden">
-                {/* LEFT: Transcript */}
-                <div className="flex-1 overflow-auto p-4 sm:p-5 sm:border-r order-2 sm:order-1">
+                {/* LEFT: Transcript (matching Inbox message bubbles) */}
+                <div className="flex-1 overflow-auto p-4 sm:p-5 sm:border-r order-2 sm:order-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   <h3 className="text-[10px] font-bold uppercase tracking-wider font-heading text-muted-foreground mb-4">
                     Conversation Transcript
                   </h3>
@@ -1444,7 +1692,7 @@ export default function Leads() {
                           return (
                             <div key={msg.id} className="flex justify-end">
                               <div className="max-w-[85%] sm:max-w-[78%]">
-                                <div className="bg-primary text-primary-foreground rounded-2xl rounded-br-md px-3.5 py-2.5 text-[13px] leading-relaxed">
+                                <div className="bg-primary text-primary-foreground rounded-2xl rounded-br-sm px-3.5 py-2.5 text-[13px] leading-relaxed">
                                   {msg.content}
                                 </div>
                                 <p className="text-[10px] text-muted-foreground text-right mt-1 font-mono">
@@ -1456,9 +1704,13 @@ export default function Leads() {
                         }
                         if (msg.role === "assistant") {
                           return (
-                            <div key={msg.id} className="flex justify-start">
+                            <div key={msg.id} className="flex justify-start gap-2">
+                              {/* AI Avatar matching Inbox */}
+                              <div className="h-5 w-5 rounded-full bg-gradient-to-br from-primary to-violet-500 flex items-center justify-center shrink-0 mt-0.5">
+                                <Sparkles className="h-2.5 w-2.5 text-white" />
+                              </div>
                               <div className="max-w-[85%] sm:max-w-[78%]">
-                                <div className="bg-muted border rounded-2xl rounded-bl-md px-3.5 py-2.5 text-[13px] text-foreground leading-relaxed">
+                                <div className="rounded-[3px_14px_14px_14px] bg-primary/[0.05] border border-primary/[0.10] px-3.5 py-2.5 text-[13px] text-foreground leading-relaxed">
                                   {msg.content}
                                 </div>
                                 {msg.sources && msg.sources.length > 0 && (
@@ -1466,7 +1718,7 @@ export default function Leads() {
                                     {msg.sources.map(src => (
                                       <span
                                         key={src}
-                                        className="inline-flex items-center gap-1 rounded-md border border-primary/15 bg-primary/8 px-1.5 py-0.5 text-[10px] text-primary"
+                                        className="inline-flex items-center gap-1 rounded-md border border-primary/15 bg-primary/8 px-1.5 py-0.5 text-[10px] text-primary max-w-[120px] truncate"
                                       >
                                         <FileText size={9} /> {src}
                                       </span>
@@ -1491,7 +1743,7 @@ export default function Leads() {
                 </div>
 
                 {/* RIGHT: Contact + Timeline + Notes */}
-                <div className="w-full sm:w-[40%] sm:max-w-[340px] overflow-auto p-4 sm:p-5 space-y-5 order-1 sm:order-2 border-b sm:border-b-0">
+                <div className="w-full sm:w-[40%] sm:max-w-[340px] overflow-auto p-4 sm:p-5 space-y-5 order-1 sm:order-2 border-b sm:border-b-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
 
                   {/* Contact info card */}
                   <div className="rounded-lg border bg-muted/30 p-3.5">
@@ -1517,17 +1769,11 @@ export default function Leads() {
                           <span className="text-muted-foreground">{detail.contact.company}</span>
                         </div>
                       )}
-                      {detail.contact?.channels_used && detail.contact.channels_used.length > 0 && (
-                        <div className="flex items-center gap-2 text-[12px]">
-                          <Globe size={13} className="text-muted-foreground/60 shrink-0" />
-                          <span className="text-muted-foreground">{detail.contact.channels_used.join(", ")}</span>
-                        </div>
-                      )}
                       {detail.source_page_url && (
                         <div className="flex items-center gap-2 text-[11px] pt-1 border-t border-dashed">
                           <ExternalLink size={11} className="text-muted-foreground/50 shrink-0" />
                           <span className="text-muted-foreground/70">Source:</span>
-                          <span className="text-primary font-medium">{detail.source_page_url}</span>
+                          <span className="text-primary font-medium truncate">{detail.source_page_url}</span>
                         </div>
                       )}
                     </div>
@@ -1621,16 +1867,16 @@ export default function Leads() {
                   size="sm"
                   variant="outline"
                   onClick={openFollowupDrawer}
-                  className="gap-1.5 text-xs"
+                  className="gap-1.5 text-xs h-9"
                 >
                   <Send size={13} /> Send follow-up
                 </Button>
                 <Button
                   size="sm"
                   onClick={() => updateStatus.mutate({ id: detail.id, status: "converted" }, {
-                    onSuccess: () => { toast({ description: "Lead marked as Converted" }); void refetch(); setActiveLead(null); navigate("/leads"); },
+                    onSuccess: () => { toast({ description: "Lead marked as Converted" }); void refetch(); setActiveLead(null); },
                   })}
-                  className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
+                  className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-9"
                 >
                   <CheckCircle2 size={13} /> Mark Converted
                 </Button>
@@ -1638,9 +1884,9 @@ export default function Leads() {
                   size="sm"
                   variant="outline"
                   onClick={() => updateStatus.mutate({ id: detail.id, status: "lost" }, {
-                    onSuccess: () => { toast({ description: "Lead marked as Lost" }); void refetch(); setActiveLead(null); navigate("/leads"); },
+                    onSuccess: () => { toast({ description: "Lead marked as Lost" }); void refetch(); setActiveLead(null); },
                   })}
-                  className="gap-1.5 text-xs border-destructive/30 text-destructive hover:bg-destructive/10"
+                  className="gap-1.5 text-xs h-9 border-destructive/30 text-destructive hover:bg-destructive/10"
                 >
                   <X size={13} /> Mark Lost
                 </Button>
@@ -1654,9 +1900,12 @@ export default function Leads() {
          Add Lead Drawer
          ═══════════════════════════════════════════════════════════════════════ */}
       <Dialog open={addLeadOpen} onOpenChange={setAddLeadOpen}>
-        <DialogContent className="max-w-lg w-[90vw]">
+        <DialogContent className="max-w-lg w-[90vw] max-h-[85vh] overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <DialogHeader>
-            <DialogTitle>Add Lead</DialogTitle>
+            <DialogTitle className="font-heading">Add Lead</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Manually add a new lead to your pipeline
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -1665,19 +1914,19 @@ export default function Leads() {
                 placeholder="Full Name"
                 value={newLeadName}
                 onChange={e => setNewLeadName(e.target.value)}
-                className="h-10"
+                className="h-10 text-sm"
               />
               <Input
                 placeholder="Email"
                 value={newLeadEmail}
                 onChange={e => setNewLeadEmail(e.target.value)}
-                className="h-10"
+                className="h-10 text-sm"
               />
               <Input
                 placeholder="Phone"
                 value={newLeadPhone}
                 onChange={e => setNewLeadPhone(e.target.value)}
-                className="h-10"
+                className="h-10 text-sm"
               />
               <Select value={newLeadStatus} onValueChange={setNewLeadStatus}>
                 <SelectTrigger className="h-10 text-xs">
@@ -1696,29 +1945,38 @@ export default function Leads() {
                 placeholder="Estimated value (e.g. 5000)"
                 value={newLeadEstValue}
                 onChange={e => setNewLeadEstValue(e.target.value)}
-                className="h-10"
+                className="h-10 text-sm"
                 type="number"
               />
-              <Input
-                placeholder="Channel (whatsapp, email, web)"
-                value={newLeadChannel}
-                onChange={e => setNewLeadChannel(e.target.value)}
-                className="h-10"
-              />
+              <Select value={newLeadChannel} onValueChange={setNewLeadChannel}>
+                <SelectTrigger className="h-10 text-xs">
+                  <SelectValue placeholder="Channel" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(CHANNEL_META).map(([key, meta]) => (
+                    <SelectItem key={key} value={key}>
+                      <span className="flex items-center gap-2">
+                        <ChannelIcon channel={key} size={12} />
+                        {meta.label}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <Input
               placeholder="Source (e.g. Website, Manual Entry)"
               value={newLeadSource}
               onChange={e => setNewLeadSource(e.target.value)}
-              className="h-10"
+              className="h-10 text-sm"
             />
 
             <Input
               placeholder="Tags (comma separated)"
               value={newLeadTags}
               onChange={e => setNewLeadTags(e.target.value)}
-              className="h-10"
+              className="h-10 text-sm"
             />
 
             <Textarea
@@ -1729,14 +1987,15 @@ export default function Leads() {
               className="text-sm"
             />
 
-            <div className="flex items-center justify-end gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setAddLeadOpen(false)}>
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <Button variant="ghost" size="sm" onClick={() => setAddLeadOpen(false)} className="h-9 text-xs">
                 Cancel
               </Button>
               <Button
                 size="sm"
                 onClick={handleCreateLead}
-                disabled={createLead.isLoading}
+                disabled={createLead.isPending}
+                className="h-9 text-xs"
               >
                 Create Lead
               </Button>
@@ -1745,38 +2004,40 @@ export default function Leads() {
         </DialogContent>
       </Dialog>
 
+      {/* Convert Lead Modal */}
       <Dialog open={convertModalOpen} onOpenChange={open => { if (!open) handleCancelConvert(); }}>
         <DialogContent className="max-w-md p-5 bg-card border rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Convert Lead</DialogTitle>
+            <DialogTitle className="font-heading">Convert Lead</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Set the estimated value for this lead when converting
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Set the estimated value for this lead when converting. This helps track pipeline value.
-            </p>
             <Input
               type="number"
               placeholder="Estimated value (e.g. 5000)"
               value={convertEstValue}
               onChange={e => setConvertEstValue(e.target.value)}
-              className="h-10"
+              className="h-10 text-sm"
             />
           </div>
           <DialogFooter className="mt-4">
-            <Button variant="ghost" size="sm" onClick={handleCancelConvert}>
+            <Button variant="ghost" size="sm" onClick={handleCancelConvert} className="h-9 text-xs">
               Cancel
             </Button>
-            <Button size="sm" onClick={handleConfirmConvert}>
+            <Button size="sm" onClick={handleConfirmConvert} className="h-9 text-xs">
               Convert Lead
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* Follow-up Modal */}
       <Dialog open={followupOpen} onOpenChange={open => { if (!open) setFollowupOpen(false); }}>
         <DialogContent className="max-w-md p-5 bg-card border rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Send Follow-up</DialogTitle>
+            <DialogTitle className="font-heading">Send Follow-up</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -1795,7 +2056,7 @@ export default function Leads() {
                 placeholder="Subject"
                 value={followupSubject}
                 onChange={e => setFollowupSubject(e.target.value)}
-                className="h-10"
+                className="h-10 text-sm"
               />
             </div>
 
@@ -1818,6 +2079,7 @@ export default function Leads() {
                 variant="outline"
                 onClick={handleGenerateFollowupDraft}
                 disabled={!detail?.id}
+                className="h-8 text-xs"
               >
                 Generate draft
               </Button>
@@ -1825,10 +2087,10 @@ export default function Leads() {
           </div>
 
           <DialogFooter className="mt-4">
-            <Button variant="ghost" size="sm" onClick={() => setFollowupOpen(false)}>
+            <Button variant="ghost" size="sm" onClick={() => setFollowupOpen(false)} className="h-9 text-xs">
               Cancel
             </Button>
-            <Button size="sm" onClick={handleSendFollowup}>
+            <Button size="sm" onClick={handleSendFollowup} className="h-9 text-xs">
               Send
             </Button>
           </DialogFooter>
@@ -1876,24 +2138,6 @@ export default function Leads() {
           >
             <Download size={12} /> CSV
           </Button>
-          <Button
-            size="sm"
-            disabled={bulkAction.isPending}
-            onClick={() => void handleBulkExport("hubspot")}
-            variant="outline"
-            className="gap-1.5 text-[11px] h-7"
-          >
-            HubSpot
-          </Button>
-          <Button
-            size="sm"
-            disabled={bulkAction.isPending}
-            onClick={() => void handleBulkExport("salesforce")}
-            variant="outline"
-            className="gap-1.5 text-[11px] h-7"
-          >
-            Salesforce
-          </Button>
 
           <Button
             size="sm"
@@ -1920,20 +2164,22 @@ export default function Leads() {
         <DialogContent className="max-w-[400px] bg-card rounded-2xl">
           <DialogHeader>
             <DialogTitle className="font-heading text-base">Delete Leads</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              This action cannot be undone.
+            </DialogDescription>
           </DialogHeader>
           <p className="text-sm text-muted-foreground leading-relaxed">
             Are you sure you want to delete {selectedIds.size} lead{selectedIds.size !== 1 ? "s" : ""}?
-            This action cannot be undone.
           </p>
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" size="sm" onClick={() => setConfirmDelete(false)}>
+            <Button variant="outline" size="sm" onClick={() => setConfirmDelete(false)} className="h-9 text-xs">
               Cancel
             </Button>
             <Button
               size="sm"
               disabled={bulkAction.isPending}
               onClick={handleBulkDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 h-9 text-xs"
             >
               Delete
             </Button>

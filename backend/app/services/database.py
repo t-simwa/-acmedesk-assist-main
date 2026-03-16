@@ -462,7 +462,9 @@ async def create_lead_for_session(
             tenant_id=conv.tenant_id,
             conversation_id=conv.id,
             source_channel="web",
-            lead_capture_data=lead_data,
+            name=lead_data.get("name") if lead_data else None,
+            email=lead_data.get("email") if lead_data else None,
+            phone=lead_data.get("phone") if lead_data else None,
             status=LeadStatus.NEW,
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow(),
@@ -2268,11 +2270,10 @@ async def get_recent_leads(
 
         leads = []
         for lead in lead_rows:
-            lead_data = lead.lead_capture_data or {}
             leads.append({
                 "id": lead.id,
-                "name": lead_data.get("name", "Unknown"),
-                "email": lead_data.get("email", ""),
+                "name": lead.name or "Unknown",
+                "email": lead.email or "",
                 "source_channel": lead.source_channel or "web",
                 "status": lead.status.value if lead.status else "new",
                 "created_at": lead.created_at
@@ -4732,7 +4733,7 @@ async def bulk_lead_action(
                     {
                         "Email": r.get("email", ""),
                         "First Name": (r.get("name") or "").split(" ")[0] if r.get("name") else "",
-                        "Last Name": (r.get("name") or "").split(" ").slice(1).join(" ") if r.get("name") else "",
+                        "Last Name": " ".join((r.get("name") or "").split(" ")[1:]) if r.get("name") else "",
                         "Phone Number": r.get("phone", ""),
                         "Company": r.get("company", ""),
                         "Lead Status": r.get("status", ""),
@@ -4748,7 +4749,7 @@ async def bulk_lead_action(
                     {
                         "Email": r.get("email", ""),
                         "FirstName": (r.get("name") or "").split(" ")[0] if r.get("name") else "",
-                        "LastName": (r.get("name") or "").split(" ").slice(1).join(" ") if r.get("name") else "",
+                        "LastName": " ".join((r.get("name") or "").split(" ")[1:]) if r.get("name") else "",
                         "Phone": r.get("phone", ""),
                         "Company": r.get("company", ""),
                         "LeadStatus": r.get("status", ""),
