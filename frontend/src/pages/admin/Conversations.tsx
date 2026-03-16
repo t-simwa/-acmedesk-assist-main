@@ -1,25 +1,21 @@
 /**
- * Conversations — 7.4 (All 5 specs)
- * Filters, Stats Bar, Table, Detail Panel, Bulk Actions
- *
- * Redesigned with:
- * - Proper Tailwind design tokens (no hardcoded hex colors)
- * - Progressive column disclosure (no horizontal scrollbar)
- * - Mobile card list for <sm screens
- * - Collapsible advanced filters
- * - Responsive detail panel using Dialog
- * - Consistent aesthetic with the Leads page
+ * Conversations Page — World-Class SaaS Implementation
+ * 
+ * Matches Dashboard (KPI cards) and Inbox (message bubbles) exactly.
+ * Elite mobile-first responsive design with world-class filters.
  */
 
 import { useState, useCallback, useEffect, useMemo } from "react";
 import {
   MessageSquare, Search, X, ChevronDown, Download,
-  Trash2, Tag, Clock,
+  Trash2, Tag, Clock, Bot,
   ThumbsUp, ThumbsDown, CheckCircle2,
   RefreshCw, ChevronLeft, ChevronRight,
   Flag, User, MoreHorizontal, Send,
-  Mail, Phone, ExternalLink, FileText,
-  SlidersHorizontal, AlertCircle, Eye, Sparkles,
+  Mail, Phone, ExternalLink,
+  AlertTriangle, Eye, Sparkles,
+  LogOut, Calendar, TrendingUp, TrendingDown, Minus,
+  Filter,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -38,7 +34,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  Sheet, SheetContent, SheetHeader, SheetTitle,
+} from "@/components/ui/sheet";
 import {
   useConversationsList, useConversationDetail,
   useUpdateConversationStatus, useAddConversationNote,
@@ -47,7 +47,6 @@ import {
 } from "@/hooks/useConversations";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  type ConversationListItem,
   type ConversationListFilters,
   conversationsApi,
 } from "@/lib/api";
@@ -62,21 +61,51 @@ import { CHANNEL_META, ChannelIcon } from "@/lib/channelMeta";
 const STATUS_META: Record<string, { dot: string; badge: string; label: string }> = {
   active:       { dot: "bg-blue-400",    badge: "bg-blue-500/10 text-blue-400 border-blue-500/20",       label: "Active" },
   resolved:     { dot: "bg-emerald-400", badge: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", label: "Resolved" },
-  escalated:    { dot: "bg-amber-400",   badge: "bg-amber-500/10 text-amber-400 border-amber-500/20",   label: "Escalated" },
-  abandoned:    { dot: "bg-gray-400",    badge: "bg-gray-500/10 text-gray-400 border-gray-500/20",       label: "Abandoned" },
+  escalated:    { dot: "bg-rose-400",    badge: "bg-rose-500/10 text-rose-400 border-rose-500/20",       label: "Escalated" },
+  abandoned:    { dot: "bg-amber-400",   badge: "bg-amber-500/10 text-amber-400 border-amber-500/20",    label: "Abandoned" },
   needs_review: { dot: "bg-violet-400",  badge: "bg-violet-500/10 text-violet-400 border-violet-500/20", label: "Needs Review" },
 };
 
 const STATUSES = ["active", "resolved", "escalated", "abandoned", "needs_review"] as const;
+const ALL_CHANNELS = ["all", "web", "whatsapp", "instagram", "facebook", "email", "sms"] as const;
 
-const STAT_CARD_KEYS = ["total", "active", "resolved", "escalated", "abandoned", "needs_review"] as const;
-const STAT_CARDS: { key: typeof STAT_CARD_KEYS[number]; label: string; icon: React.ReactNode; accent: string }[] = [
-  { key: "total",        label: "Total",        icon: <MessageSquare size={18} />, accent: "from-blue-500/20 to-blue-500/0" },
-  { key: "active",       label: "Active",       icon: <Clock size={18} />,         accent: "from-blue-500/20 to-blue-500/0" },
-  { key: "resolved",     label: "Resolved",     icon: <CheckCircle2 size={18} />,  accent: "from-emerald-500/20 to-emerald-500/0" },
-  { key: "escalated",    label: "Escalated",    icon: <AlertCircle size={18} />,   accent: "from-amber-500/20 to-amber-500/0" },
-  { key: "abandoned",    label: "Abandoned",    icon: <X size={18} />,             accent: "from-gray-500/20 to-gray-500/0" },
-  { key: "needs_review", label: "Needs Review", icon: <Flag size={18} />,          accent: "from-violet-500/20 to-violet-500/0" },
+// KPI cards matching Dashboard exactly
+const KPI_CARDS = [
+  {
+    key: "total" as const,
+    label: "Total Conversations",
+    icon: <MessageSquare className="h-4 w-4" />,
+    accent: "from-primary/5 to-transparent",
+    iconBg: "bg-primary/10",
+    iconColor: "text-primary",
+  },
+  {
+    key: "resolved" as const,
+    label: "AI Resolved",
+    icon: <Bot className="h-4 w-4" />,
+    accent: "from-emerald-500/5 to-transparent",
+    iconBg: "bg-emerald-500/10",
+    iconColor: "text-emerald-500",
+    filterStatus: "resolved",
+  },
+  {
+    key: "escalated" as const,
+    label: "Escalated",
+    icon: <AlertTriangle className="h-4 w-4" />,
+    accent: "from-rose-500/5 to-transparent",
+    iconBg: "bg-rose-500/10",
+    iconColor: "text-rose-500",
+    filterStatus: "escalated",
+  },
+  {
+    key: "abandoned" as const,
+    label: "Abandoned",
+    icon: <LogOut className="h-4 w-4" />,
+    accent: "from-amber-500/5 to-transparent",
+    iconBg: "bg-amber-500/10",
+    iconColor: "text-amber-500",
+    filterStatus: "abandoned",
+  },
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════════════
@@ -92,36 +121,57 @@ function relativeTime(isoDate: string): string {
   if (hrs < 24) return `${hrs}h ago`;
   const days = Math.floor(hrs / 24);
   if (days === 1) return "Yesterday";
-  return `${days}d ago`;
+  if (days < 7) return `${days}d ago`;
+  return new Date(isoDate).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 function formatDuration(mins: number | null): string {
   if (!mins) return "--";
+  if (mins < 1) return `${Math.round(mins * 60)}s`;
   if (mins < 60) return `${Math.round(mins)}m`;
-  return `${Math.floor(mins / 60)}h ${Math.round(mins % 60)}m`;
+  const hours = Math.floor(mins / 60);
+  const remainder = Math.round(mins % 60);
+  return remainder > 0 ? `${hours}h ${remainder}m` : `${hours}h`;
 }
 
 function formatTimestamp(isoDate: string): string {
-  const d = new Date(isoDate);
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return new Date(isoDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
 function isoDate(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
-function formatCsv(rows: Array<Record<string, any>>): string {
+function getPresetRange(preset: string): { from: string; to: string } {
+  const now = new Date();
+  const today = isoDate(now);
+  const daysAgo = (n: number) => {
+    const d = new Date(now);
+    d.setUTCDate(d.getUTCDate() - n);
+    return isoDate(d);
+  };
+  switch (preset) {
+    case "today": return { from: today, to: today };
+    case "7d": return { from: daysAgo(6), to: today };
+    case "30d": return { from: daysAgo(29), to: today };
+    case "90d": return { from: daysAgo(89), to: today };
+    default: return { from: "", to: "" };
+  }
+}
+
+function getInitials(name: string | null): string {
+  if (!name) return "?";
+  return name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
+}
+
+function formatCsv(rows: Array<Record<string, unknown>>): string {
   if (!rows || rows.length === 0) return "";
   const headers = Object.keys(rows[0]);
-  const escape = (value: any) => {
+  const escape = (value: unknown) => {
     const str = value == null ? "" : String(value);
     return `"${str.replace(/"/g, '""')}"`;
   };
-  const lines = [headers.join(",")];
-  for (const row of rows) {
-    lines.push(headers.map(h => escape(row[h])).join(","));
-  }
-  return lines.join("\n");
+  return [headers.join(","), ...rows.map(row => headers.map(h => escape(row[h])).join(","))].join("\n");
 }
 
 function downloadCsv(filename: string, csv: string) {
@@ -134,401 +184,35 @@ function downloadCsv(filename: string, csv: string) {
   URL.revokeObjectURL(url);
 }
 
-function getDateRangeLabel(from?: string, to?: string): string {
-  if (!from && !to) return "All time";
-  if (from && to && from === to) return from;
-  return `${from ?? "..."} → ${to ?? "..."}`;
-}
-
-function getPresetRange(preset: string): { from: string; to: string } {
-  const now = new Date();
-  const today = isoDate(now);
-  const daysAgo = (n: number) => {
-    const d = new Date(now);
-    d.setUTCDate(d.getUTCDate() - n);
-    return isoDate(d);
-  };
-  switch (preset) {
-    case "today":
-      return { from: today, to: today };
-    case "7d":
-      return { from: daysAgo(6), to: today };
-    case "30d":
-      return { from: daysAgo(29), to: today };
-    case "90d":
-      return { from: daysAgo(89), to: today };
-    default:
-      return { from: "", to: "" };
-  }
-}
-
-
-function isLargeExport(total: number): boolean {
-  return total > 1000;
-}
-
-function exportDateRangeLabel(from?: string, to?: string): string {
-  if (!from && !to) return "All time";
-  if (from === to) return from;
-  return `${from ?? "..."} – ${to ?? "..."}`;
-}
-
-function exportCsvFile(rows: Array<Record<string, any>>, filename: string) {
-  const csv = formatCsv(rows);
-  downloadCsv(filename, csv);
-}
-
-function isExportableRows(rows: Array<Record<string, any>> | null | undefined): rows is Array<Record<string, any>> {
-  return Array.isArray(rows) && rows.length > 0;
-}
-
-function sanitizeExportRow(row: Record<string, any>): Record<string, any> {
-  const sanitized: Record<string, any> = {};
-  for (const key in row) {
-    const val = row[key];
-    sanitized[key] = val == null ? "" : String(val);
-  }
-  return sanitized;
-}
-
-function buildExportFilename(prefix: string) {
-  const now = new Date();
-  const ts = now.toISOString().replace(/[:.]/g, "-");
-  return `${prefix}-${ts}.csv`;
-}
-
-function formatExportRows(rows: Array<Record<string, any>>): Array<Record<string, any>> {
-  return rows.map(sanitizeExportRow);
-}
-
-function createExportReport(rows: Array<Record<string, any>>) {
-  return rows;
-}
-
-function csvFilenameForExport(name: string): string {
-  return `${name}.csv`;
-}
-
-function csvForExport(rows: Array<Record<string, any>>): string {
-  return formatCsv(formatExportRows(rows));
-}
-
-function exportToCsv(rows: Array<Record<string, any>>, name: string) {
-  downloadCsv(name, csvForExport(rows));
-}
-
-function ensureExportHasData(rows: Array<Record<string, any>> | null | undefined): rows is Array<Record<string, any>> {
-  return Array.isArray(rows) && rows.length > 0;
-}
-
-function maybeUseExportData(rows: Array<Record<string, any>> | null | undefined) {
-  if (!ensureExportHasData(rows)) return [];
-  return rows;
-}
-
-function getExportFileName(base: string) {
-  return `${base}-${new Date().toISOString().slice(0, 10)}.csv`;
-}
-
-function normalizeExportRow(row: Record<string, any>) {
-  return Object.fromEntries(Object.entries(row).map(([k, v]) => [k, v == null ? "" : String(v)]));
-}
-
-function normalizeExportRows(rows: Array<Record<string, any>>) {
-  return rows.map(normalizeExportRow);
-}
-
-function makeCsv(rows: Array<Record<string, any>>) {
-  const normalized = normalizeExportRows(rows);
-  if (normalized.length === 0) return "";
-  const keys = Object.keys(normalized[0]);
-  const escape = (value: string) => `"${value.replace(/"/g, '""')}"`;
-  const lines = [keys.join(",")];
-  for (const r of normalized) {
-    lines.push(keys.map(k => escape(r[k] ?? "")).join(","));
-  }
-  return lines.join("\n");
-}
-
-function downloadCsvFile(filename: string, content: string) {
-  const blob = new Blob([content], { type: "text/csv" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function ensureExportWeCanDownload(rows: Array<Record<string, any>> | null | undefined) {
-  return Array.isArray(rows) && rows.length > 0;
-}
-
-function buildCsvData(rows: Array<Record<string, any>>) {
-  return makeCsv(rows);
-}
-
-function downloadCsvData(rows: Array<Record<string, any>>, filename: string) {
-  const csv = buildCsvData(rows);
-  downloadCsvFile(filename, csv);
-}
-
-function buildCsvForExport(rows: Array<Record<string, any>>, filename: string) {
-  downloadCsvData(rows, filename);
-}
-
-function performExport(rows: Array<Record<string, any>>, filename: string) {
-  downloadCsvFile(filename, makeCsv(rows));
-}
-
-function exportToFile(rows: Array<Record<string, any>>, filename: string) {
-  performExport(rows, filename);
-}
-
-function getCsvFilename(name: string) {
-  return `${name}.csv`;
-}
-
-function downloadCsvRows(rows: Array<Record<string, any>>, name: string) {
-  downloadCsvFile(getCsvFilename(name), makeCsv(rows));
-}
-
-function formatExportRowsForDownload(rows: Array<Record<string, any>>) {
-  return makeCsv(rows);
-}
-
-function downloadExport(rows: Array<Record<string, any>>, name: string) {
-  const csv = formatExportRowsForDownload(rows);
-  downloadCsvFile(name, csv);
-}
-
-function exportCsv(rows: Array<Record<string, any>>, name: string) {
-  downloadCsvFile(name, makeCsv(rows));
-}
-
-function exportCsvWithName(rows: Array<Record<string, any>>, name: string) {
-  downloadCsvFile(name, makeCsv(rows));
-}
-
-function csvName(name: string) {
-  return `${name}.csv`;
-}
-
-function csvOut(rows: Array<Record<string, any>>, name: string) {
-  downloadCsvFile(`${name}.csv`, makeCsv(rows));
-}
-
-function csvDownload(rows: Array<Record<string, any>>, name: string) {
-  downloadCsvFile(`${name}.csv`, makeCsv(rows));
-}
-
-function csvExport(rows: Array<Record<string, any>>, name: string) {
-  downloadCsvFile(`${name}.csv`, makeCsv(rows));
-}
-
-function csvExportName(name: string) {
-  return `${name}.csv`;
-}
-
-function csvExportDownload(rows: Array<Record<string, any>>, name: string) {
-  downloadCsvFile(`${name}.csv`, makeCsv(rows));
-}
-
-function csvDownloadWithName(rows: Array<Record<string, any>>, name: string) {
-  downloadCsvFile(`${name}.csv`, makeCsv(rows));
-}
-
-function csvFileName(name: string) {
-  return `${name}.csv`;
-}
-
-function exportAsCsv(rows: Array<Record<string, any>>, name: string) {
-  downloadCsvFile(`${name}.csv`, makeCsv(rows));
-}
-
-function csvRows(rows: Array<Record<string, any>>) {
-  return makeCsv(rows);
-}
-
-function csvData(rows: Array<Record<string, any>>) {
-  return makeCsv(rows);
-}
-
-function csvFromRows(rows: Array<Record<string, any>>) {
-  return makeCsv(rows);
-}
-
-function csvDataFromRows(rows: Array<Record<string, any>>) {
-  return makeCsv(rows);
-}
-
-function downloadExportCsv(rows: Array<Record<string, any>>, name: string) {
-  downloadCsvFile(`${name}.csv`, makeCsv(rows));
-}
-
-function exportCsvRows(rows: Array<Record<string, any>>, name: string) {
-  downloadCsvFile(`${name}.csv`, makeCsv(rows));
-}
-
-function exportCsvData(rows: Array<Record<string, any>>, name: string) {
-  downloadCsvFile(`${name}.csv`, makeCsv(rows));
-}
-
-function exportRowsAsCsv(rows: Array<Record<string, any>>, name: string) {
-  downloadCsvFile(`${name}.csv`, makeCsv(rows));
-}
-
-function exportRowsData(rows: Array<Record<string, any>>, name: string) {
-  downloadCsvFile(`${name}.csv`, makeCsv(rows));
-}
-
-function exportRows(rows: Array<Record<string, any>>, name: string) {
-  downloadCsvFile(`${name}.csv`, makeCsv(rows));
-}
-
-function downloadRows(rows: Array<Record<string, any>>, name: string) {
-  downloadCsvFile(`${name}.csv`, makeCsv(rows));
-}
-
-function prepareCsv(rows: Array<Record<string, any>>, name: string) {
-  downloadCsvFile(`${name}.csv`, makeCsv(rows));
-}
-
-function prepareCsvForExport(rows: Array<Record<string, any>>, name: string) {
-  downloadCsvFile(`${name}.csv`, makeCsv(rows));
-}
-
-function exportData(rows: Array<Record<string, any>>, name: string) {
-  downloadCsvFile(`${name}.csv`, makeCsv(rows));
-}
-
-function exportDataCsv(rows: Array<Record<string, any>>, name: string) {
-  downloadCsvFile(`${name}.csv`, makeCsv(rows));
-}
-
-function exportDataAsCsv(rows: Array<Record<string, any>>, name: string) {
-  downloadCsvFile(`${name}.csv`, makeCsv(rows));
-}
-
-function exportDataAsCsvFile(rows: Array<Record<string, any>>, name: string) {
-  downloadCsvFile(`${name}.csv`, makeCsv(rows));
-}
-
-function exportDataToCsv(rows: Array<Record<string, any>>, name: string) {
-  downloadCsvFile(`${name}.csv`, makeCsv(rows));
-}
-
-function exportDataToCsvFile(rows: Array<Record<string, any>>, name: string) {
-  downloadCsvFile(`${name}.csv`, makeCsv(rows));
-}
-
-function downloadCsvExport(rows: Array<Record<string, any>>, name: string) {
-  downloadCsvFile(`${name}.csv`, makeCsv(rows));
-}
-
-function exportToCsvFile(rows: Array<Record<string, any>>, name: string) {
-  downloadCsvFile(`${name}.csv`, makeCsv(rows));
-}
-
-function exportCsvFromRows(rows: Array<Record<string, any>>, name: string) {
-  downloadCsvFile(`${name}.csv`, makeCsv(rows));
-}
-
-function exportCsvForRows(rows: Array<Record<string, any>>, name: string) {
-  downloadCsvFile(`${name}.csv`, makeCsv(rows));
-}
-
-function exportCsvRowsForName(rows: Array<Record<string, any>>, name: string) {
-  downloadCsvFile(`${name}.csv`, makeCsv(rows));
-}
-
-function exportCsvFileForRows(rows: Array<Record<string, any>>, name: string) {
-  downloadCsvFile(`${name}.csv`, makeCsv(rows));
-}
-
-function exportCsvFileForName(rows: Array<Record<string, any>>, name: string) {
-  downloadCsvFile(`${name}.csv`, makeCsv(rows));
-}
-
-function exportCsvForName(rows: Array<Record<string, any>>, name: string) {
-  downloadCsvFile(`${name}.csv`, makeCsv(rows));
-}
-
-function exportCsvFileName(name: string) {
-  return `${name}.csv`;
-}
-
-function downloadCsvFileName(name: string) {
-  return `${name}.csv`;
-}
-
-function exportCsvFileNameFor(name: string) {
-  return `${name}.csv`;
-}
-
-function csvFileNameForExport(name: string) {
-  return `${name}.csv`;
-}
-
-function createCsvFileName(name: string) {
-  return `${name}.csv`;
-}
-
-function createExportFileName(name: string) {
-  return `${name}.csv`;
-}
-
-function exportCsvFileNameFrom(name: string) {
-  return `${name}.csv`;
-}
-
-function createCsvFileNameFrom(name: string) {
-  return `${name}.csv`;
-}
-
-function downloadExportCsvFile(rows: Array<Record<string, any>>, name: string) {
-  downloadCsvFile(`${name}.csv`, makeCsv(rows));
-}
-
-function downloadExportFile(rows: Array<Record<string, any>>, name: string) {
-  downloadCsvFile(`${name}.csv`, makeCsv(rows));
-}
-
-function buildExportCsv(rows: Array<Record<string, any>>) {
-  return makeCsv(rows);
-}
-
-function buildExportFile(rows: Array<Record<string, any>>, name: string) {
-  downloadCsvFile(`${name}.csv`, makeCsv(rows));
-}
-
-function buildExport(rows: Array<Record<string, any>>, name: string) {
-  downloadCsvFile(`${name}.csv`, makeCsv(rows));
-}
-
-function exportBuild(rows: Array<Record<string, any>>, name: string) {
-  downloadCsvFile(`${name}.csv`, makeCsv(rows));
-}
-
-function exportBuildCsv(rows: Array<Record<string, any>>, name: string) {
-  downloadCsvFile(`${name}.csv`, makeCsv(rows));
-}
-
-function getInitials(name: string | null): string {
-  if (!name) return "?";
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-}
-
-/** Convert citation brackets [1, 2] to superscript HTML for AI messages */
 function formatCitations(content: string): string {
   return content.replace(
     /\s*\[(\d+(?:,\s*\d+)*)\]/g,
     (_, nums) => `<sup class="citation">[${nums}]</sup>`
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   TREND INDICATOR (matching Dashboard exactly)
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+function TrendIndicator({ value }: { value: number | null | undefined }) {
+  if (value === null || value === undefined) return null;
+
+  const isPositive = value > 0;
+  const isNegative = value < 0;
+
+  return (
+    <span className={cn(
+      "inline-flex items-center gap-0.5 text-xs font-mono font-medium",
+      isPositive && "text-emerald-500",
+      isNegative && "text-rose-500",
+      !isPositive && !isNegative && "text-muted-foreground",
+    )}>
+      {value > 0 && <TrendingUp className="h-3 w-3" />}
+      {value < 0 && <TrendingDown className="h-3 w-3" />}
+      {value === 0 && <Minus className="h-3 w-3" />}
+      {Math.abs(value)}%
+    </span>
   );
 }
 
@@ -574,7 +258,7 @@ function ChannelPill({ channel }: { channel: string | null }) {
       "text-[11px] font-medium",
       meta.className,
     )}>
-      <ChannelIcon channel={channel} size={10} />
+      <ChannelIcon channel={channel} size={12} />
       <span className="hidden sm:inline">{meta.label}</span>
     </span>
   );
@@ -591,7 +275,7 @@ function RatingIndicator({ rating }: { rating: string | null }) {
   }
   if (rating === "negative") {
     return (
-      <span className="inline-flex items-center gap-1 text-red-400 text-[11px] font-medium">
+      <span className="inline-flex items-center gap-1 text-rose-400 text-[11px] font-medium">
         <ThumbsDown size={12} />
         <span className="hidden xl:inline">Negative</span>
       </span>
@@ -601,7 +285,127 @@ function RatingIndicator({ rating }: { rating: string | null }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
-   DETAIL PANEL (Dialog-based)
+   MOBILE FILTER BAR (World-class, matches Inbox mobile filters)
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+function MobileFilterBar({
+  channelFilter,
+  statusFilter,
+  ratingFilter,
+  onChannelChange,
+  onStatusChange,
+  onRatingChange,
+  onClearAll,
+  activeCount,
+}: {
+  channelFilter: string | undefined;
+  statusFilter: string | undefined;
+  ratingFilter: string | undefined;
+  onChannelChange: (channel: string | undefined) => void;
+  onStatusChange: (status: string | undefined) => void;
+  onRatingChange: (rating: string | undefined) => void;
+  onClearAll: () => void;
+  activeCount: number;
+}) {
+  return (
+    <div className="lg:hidden space-y-2.5">
+      {/* Channel pills — horizontally scrollable */}
+      <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {ALL_CHANNELS.map(ch => {
+          const isAll = ch === "all";
+          const meta = isAll ? null : CHANNEL_META[ch];
+          const isActive = isAll ? !channelFilter : channelFilter === ch;
+          return (
+            <button
+              key={ch}
+              onClick={() => onChannelChange(isAll ? undefined : ch)}
+              className={cn(
+                "flex items-center gap-1.5 rounded-full border px-3 py-1.5 shrink-0",
+                "text-[11px] font-medium transition-all whitespace-nowrap",
+                isActive
+                  ? "bg-primary/10 border-primary/30 text-primary"
+                  : "border-border text-muted-foreground hover:border-foreground/20 hover:text-foreground",
+              )}
+            >
+              {isAll ? "All" : (
+                <>
+                  <ChannelIcon channel={ch} size={11} />
+                  {meta?.label}
+                </>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Status toggle - horizontal scroll */}
+      <div className="flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <button
+          onClick={() => onStatusChange(undefined)}
+          className={cn(
+            "shrink-0 rounded-md px-3 py-1.5 text-[11px] font-semibold font-heading transition-all",
+            !statusFilter
+              ? "bg-primary/10 text-primary"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
+          )}
+        >
+          All
+        </button>
+        {STATUSES.map(s => (
+          <button
+            key={s}
+            onClick={() => onStatusChange(s)}
+            className={cn(
+              "shrink-0 rounded-md px-3 py-1.5 text-[11px] font-semibold font-heading transition-all flex items-center gap-1.5",
+              statusFilter === s
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
+            )}
+          >
+            <span className={cn("h-1.5 w-1.5 rounded-full", STATUS_META[s]?.dot)} />
+            {STATUS_META[s]?.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Rating pills */}
+      <div className="flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {[
+          { value: undefined, label: "All Ratings" },
+          { value: "positive", label: "Positive", icon: <ThumbsUp size={10} /> },
+          { value: "negative", label: "Negative", icon: <ThumbsDown size={10} /> },
+        ].map(opt => (
+          <button
+            key={opt.value ?? "all"}
+            onClick={() => onRatingChange(opt.value)}
+            className={cn(
+              "shrink-0 rounded-md px-3 py-1.5 text-[11px] font-semibold font-heading transition-all flex items-center gap-1.5",
+              ratingFilter === opt.value
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
+            )}
+          >
+            {opt.icon}
+            {opt.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Clear all */}
+      {activeCount > 0 && (
+        <button
+          onClick={onClearAll}
+          className="text-xs text-primary font-medium"
+        >
+          Clear all filters
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   DETAIL DIALOG (matching Inbox message bubbles exactly)
    ═══════════════════════════════════════════════════════════════════════════════ */
 
 function DetailDialog({
@@ -629,7 +433,6 @@ function DetailDialog({
     if (detail) setIsFlagged(detail.is_flagged);
   }, [detail]);
 
-  // Reset state when opening a new conversation
   useEffect(() => {
     if (open) {
       setNoteText("");
@@ -683,393 +486,339 @@ function DetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={o => { if (!o) onClose(); }}>
-      <DialogContent
-        className={cn(
-          "p-0 overflow-hidden flex flex-col gap-0",
-          "max-w-[860px] w-[95vw] max-h-[92vh] sm:max-h-[88vh]",
-          "bg-card border rounded-2xl",
-        )}
-      >
-        {isLoading ? (
-          <div className="p-6 space-y-4">
-            <Skeleton className="h-16 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-40 w-full" />
-          </div>
-        ) : !detail ? (
-          <div className="p-6 text-center">
-            <MessageSquare size={24} className="text-muted-foreground mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">Conversation not found</p>
-          </div>
-        ) : (
-          <>
-            {/* ── Contact Header ── */}
-            <div className="shrink-0 p-5 sm:p-6 border-b space-y-4">
+      <DialogContent className="max-w-2xl max-h-[85vh] p-0 overflow-hidden">
+        {/* Sticky Header */}
+        <div className="sticky top-0 bg-card/95 backdrop-blur-sm border-b px-6 py-4 z-10">
+          {isLoading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-5 w-48" />
+              <Skeleton className="h-4 w-32" />
+            </div>
+          ) : !detail ? (
+            <>
+              <DialogTitle className="font-heading text-base font-semibold text-foreground">
+                Conversation Not Found
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                This conversation may have been deleted.
+              </DialogDescription>
+            </>
+          ) : (
+            <>
               <div className="flex items-start gap-3.5">
                 <Button
                   variant="ghost"
-                  size="sm"
-                  className="text-xs text-muted-foreground hover:text-foreground"
+                  size="icon"
+                  className="h-7 w-7 shrink-0"
                   onClick={onClose}
                 >
-                  <ChevronLeft size={14} />
-                  <span className="hidden sm:inline">Back</span>
+                  <ChevronLeft className="h-4 w-4" />
                 </Button>
                 <ConversationAvatar name={contact?.full_name ?? null} size="lg" />
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2.5 flex-wrap mb-1.5">
-                    <h2 className="font-heading text-base sm:text-lg font-bold text-foreground leading-none">
+                  <div className="flex items-center gap-2.5 flex-wrap mb-1">
+                    <DialogTitle className="font-heading text-base font-semibold text-foreground leading-none">
                       {contact?.full_name ?? "Anonymous"}
-                    </h2>
+                    </DialogTitle>
                     <StatusBadge status={detail.status} />
                     <ChannelPill channel={detail.channel} />
                   </div>
-
-                  {contact?.company && (
-                    <p className="text-[13px] text-muted-foreground mb-2 flex items-center gap-1.5">
-                      {contact.company}
-                    </p>
+                  <DialogDescription className="text-xs text-muted-foreground">
+                    {contact?.email ?? contact?.phone ?? "No contact info"} · Started {relativeTime(detail.started_at)}
+                  </DialogDescription>
+                </div>
+                <button
+                  onClick={handleFlag}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-all border shrink-0",
+                    isFlagged
+                      ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
+                      : "bg-muted/50 text-muted-foreground border-border hover:bg-muted",
                   )}
-
-                  <div className="flex gap-4 flex-wrap text-[12px] text-muted-foreground">
-                    {contact?.email && (
-                      <span className="flex items-center gap-1.5">
-                        <Mail size={12} className="text-muted-foreground/60" />{contact.email}
-                      </span>
-                    )}
-                    {contact?.phone && (
-                      <span className="flex items-center gap-1.5">
-                        <Phone size={12} className="text-muted-foreground/60" />{contact.phone}
-                      </span>
-                    )}
-                    {detail.duration_minutes && (
-                      <span className="flex items-center gap-1.5 font-mono">
-                        <Clock size={12} className="text-muted-foreground/60" />{formatDuration(detail.duration_minutes)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Header actions */}
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    onClick={handleFlag}
-                    className={cn(
-                      "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-all border",
-                      isFlagged
-                        ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
-                        : "bg-muted/50 text-muted-foreground border-border hover:bg-muted",
-                    )}
-                    title={isFlagged ? "Remove from training" : "Flag for training"}
-                  >
-                    <Flag size={12} fill={isFlagged ? "currentColor" : "none"} />
-                    <span className="hidden sm:inline">{isFlagged ? "Flagged" : "Flag"}</span>
-                  </button>
-                </div>
+                  title={isFlagged ? "Remove from training" : "Flag for training"}
+                >
+                  <Flag size={12} fill={isFlagged ? "currentColor" : "none"} />
+                  <span className="hidden sm:inline">{isFlagged ? "Flagged" : "Flag"}</span>
+                </button>
               </div>
 
-              {/* Quick stats row */}
-              <div className="flex items-center gap-4 text-[11px] text-muted-foreground/70 font-mono px-1">
+              {/* Quick stats */}
+              <div className="flex items-center gap-4 text-[11px] text-muted-foreground/70 font-mono mt-3 pl-[52px]">
                 <span>{detail.message_count} messages</span>
                 <span className="h-3 w-px bg-border" />
                 <span>{detail.rating === "positive" ? "Positive rating" : detail.rating === "negative" ? "Negative rating" : "No rating"}</span>
-                <span className="h-3 w-px bg-border" />
-                <span>Started {relativeTime(detail.started_at)}</span>
-                {detail.page_url && (
+                {detail.duration_minutes && (
                   <>
                     <span className="h-3 w-px bg-border" />
-                    <span className="flex items-center gap-1 text-primary">
-                      <ExternalLink size={10} />
-                      {detail.page_url.replace(/^https?:\/\//, "")}
-                    </span>
+                    <span>{formatDuration(detail.duration_minutes)}</span>
                   </>
                 )}
               </div>
-            </div>
+            </>
+          )}
+        </div>
 
-            {/* ── Two-column Body ── */}
-            <div className="flex flex-col sm:flex-row flex-1 min-h-0 overflow-hidden">
-              {/* LEFT: Transcript - hidden scrollbar */}
-              <div className="flex-1 overflow-auto p-4 sm:p-5 sm:border-r order-2 sm:order-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                <h3 className="text-[10px] font-bold uppercase tracking-wider font-heading text-muted-foreground mb-4">
-                  Transcript
-                </h3>
+        {/* Body - hidden scrollbar */}
+        {!isLoading && detail && (
+          <div className="px-6 py-5 space-y-6 overflow-y-auto max-h-[calc(85vh-180px)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {/* Transcript - matching Inbox exactly */}
+            <div>
+              <h3 className="text-[10px] font-bold uppercase tracking-wider font-heading text-muted-foreground mb-4">
+                Full Transcript
+              </h3>
 
-                {detail.messages.length === 0 ? (
-                  <div className="py-8 text-center">
-                    <MessageSquare size={20} className="text-muted-foreground/30 mx-auto mb-2" />
-                    <p className="text-xs text-muted-foreground">No messages in this conversation</p>
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-2.5">
-                    {detail.messages.map((msg, idx) => {
-                      if (msg.role === "system") {
-                        return (
-                          <div key={msg.id} className="flex justify-center">
-                            <div className="max-w-[60%] px-3 py-1.5 rounded-full text-center bg-muted/30 border border-dashed border-muted/40">
-                              <p className="text-[11px] text-muted-foreground italic leading-relaxed">
-                                {msg.content}
-                              </p>
-                              <span className="text-[9px] text-muted-foreground/50 font-mono">
-                                {formatTimestamp(msg.created_at)}
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      }
-                      const isUser = msg.role === "user";
-                      const isAssistant = msg.role === "assistant";
-                      const prevMsg = detail.messages[idx - 1];
-                      const isFirstInSequence = !prevMsg || prevMsg.role !== msg.role;
-                      
-                      // User message - compact
-                      if (isUser) {
-                        return (
-                          <div key={msg.id} className="flex justify-end">
-                            <div className="max-w-[85%] sm:max-w-[75%]">
-                              <div className="bg-primary text-primary-foreground rounded-2xl rounded-br-sm px-3 py-2">
-                                <div className="text-[13px] leading-[1.6]">
-                                  {msg.content}
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-1 text-[9px] text-muted-foreground/50 font-mono mt-0.5 justify-end">
-                                <span>{formatTimestamp(msg.created_at)}</span>
+              {detail.messages.length === 0 ? (
+                <div className="py-8 text-center">
+                  <MessageSquare size={20} className="text-muted-foreground/30 mx-auto mb-2" />
+                  <p className="text-xs text-muted-foreground">No messages in this conversation</p>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {detail.messages.map((msg, idx) => {
+                    const isUser = msg.role === "user";
+                    const isAssistant = msg.role === "assistant";
+                    const isSystem = msg.role === "system";
+                    const prevMsg = detail.messages[idx - 1];
+                    const isFirstInSequence = !prevMsg || prevMsg.role !== msg.role;
+
+                    // User message - matches Inbox exactly
+                    if (isUser) {
+                      return (
+                        <div key={msg.id} className="flex justify-end">
+                          <div className="max-w-[85%] sm:max-w-[75%]">
+                            <div className="bg-primary text-primary-foreground rounded-2xl rounded-br-sm px-3 py-2">
+                              <div className="text-[13px] leading-[1.6] [&_p]:m-0 [&_p]:leading-[1.6]">
+                                <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content || ""}</ReactMarkdown>
                               </div>
                             </div>
+                            <div className="flex items-center gap-1 text-[9px] text-muted-foreground/50 font-mono mt-0.5 justify-end">
+                              <span>{formatTimestamp(msg.created_at)}</span>
+                            </div>
                           </div>
-                        );
-                      }
-                      
-                      // AI Assistant message - matches Inbox styling
-                      if (isAssistant) {
-                        return (
-                          <div key={msg.id} className="flex justify-start group/ai">
-                            <div className="flex items-start gap-2 max-w-[85%] sm:max-w-[78%]">
-                              {/* AI Avatar - only show for first in sequence */}
-                              {isFirstInSequence ? (
-                                <div className="flex-shrink-0 h-5 w-5 rounded-full bg-gradient-to-br from-primary to-violet-500 flex items-center justify-center shadow-sm mt-0.5">
-                                  <Sparkles className="h-2.5 w-2.5 text-white" />
-                                </div>
-                              ) : (
-                                <div className="w-5 flex-shrink-0" />
-                              )}
-                              
-                              <div className="flex-1 min-w-0">
-                                {/* AI Header - only show for first in sequence */}
-                                {isFirstInSequence && (
-                                  <div className="flex items-center gap-1 mb-0.5">
-                                    <span className="text-[10px] font-medium text-muted-foreground/70 font-heading">
-                                      NexaChat AI
-                                    </span>
-                                    {msg.confidence_score != null && msg.confidence_score < 0.8 && (
-                                      <span className="text-[9px] text-amber-400 flex items-center gap-0.5" title="Lower confidence">
-                                        <span className="inline-block">⚠</span>
-                                      </span>
-                                    )}
-                                  </div>
-                                )}
-                                
-                                {/* AI Bubble with distinct styling */}
-                                <div className={cn(
-                                  "px-3 py-2 rounded-[3px_14px_14px_14px]",
-                                  "bg-primary/[0.05] border border-primary/[0.10]",
-                                  "transition-all duration-150",
-                                  "group-hover/ai:border-primary/15 group-hover/ai:bg-primary/[0.07]",
-                                )}>
-                                  {/* Compact prose styling with superscript citations */}
-                                  <div className="text-[13px] text-foreground/90 leading-[1.6] space-y-1.5 [&_p]:m-0 [&_p]:leading-[1.6] [&_pre]:my-1.5 [&_pre]:rounded-md [&_pre]:bg-background/60 [&_pre]:border [&_pre]:border-border/40 [&_pre]:text-[11px] [&_pre]:p-2 [&_code]:text-primary/80 [&_code]:font-mono [&_code]:text-[11px] [&_code]:before:content-none [&_code]:after:content-none [&_ul]:my-1 [&_ul]:pl-3.5 [&_ul]:space-y-0.5 [&_ol]:my-1 [&_ol]:pl-3.5 [&_ol]:space-y-0.5 [&_li]:text-[13px] [&_li]:leading-[1.5] [&_h1]:text-[13px] [&_h1]:font-semibold [&_h1]:mt-2 [&_h1]:mb-1 [&_h2]:text-[12px] [&_h2]:font-semibold [&_h2]:mt-1.5 [&_h2]:mb-0.5 [&_h3]:text-[12px] [&_h3]:font-medium [&_h3]:mt-1 [&_h3]:mb-0.5 [&_h4]:text-[11px] [&_h4]:font-medium [&_h4]:mt-1 [&_h4]:mb-0.5 [&_strong]:text-foreground [&_strong]:font-medium [&_a]:text-primary [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-primary/30 [&_blockquote]:pl-2 [&_blockquote]:text-[12px] [&_blockquote]:text-muted-foreground [&_blockquote]:italic [&_.citation]:text-[9px] [&_.citation]:text-primary/70 [&_.citation]:font-mono [&_.citation]:ml-px">
-                                    <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
-                                      {formatCitations(msg.content || "")}
-                                    </ReactMarkdown>
-                                  </div>
-                                </div>
+                        </div>
+                      );
+                    }
 
-                                {/* Citations as source chips */}
-                                {msg.citations && msg.citations.length > 0 && (
-                                  <div className="flex flex-wrap gap-1 mt-1.5">
-                                    {msg.citations.map((c, i) => (
-                                      <span
-                                        key={i}
-                                        className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[9px] font-medium text-primary/80 bg-primary/[0.06] border border-primary/[0.12]"
-                                      >
-                                        <span className="text-[8px]">📄</span>
-                                        <span className="truncate max-w-[100px]">{c.source ?? "Source"}</span>
-                                      </span>
-                                    ))}
-                                  </div>
-                                )}
+                    // AI Assistant message - matches Inbox exactly
+                    if (isAssistant) {
+                      const showLowConfidence = msg.confidence_score != null && msg.confidence_score < 0.8;
 
-                                {/* Timestamp + confidence */}
-                                <div className="flex items-center gap-1.5 text-[9px] text-muted-foreground/50 font-mono mt-1">
-                                  {msg.confidence_score != null && (
-                                    <span className={cn(
-                                      "px-1 py-0.5 rounded",
-                                      msg.confidence_score >= 0.9
-                                        ? "text-emerald-400/70"
-                                        : msg.confidence_score >= 0.7
-                                          ? "text-amber-400/70"
-                                          : "text-red-400/70",
-                                    )}>
-                                      {Math.round(msg.confidence_score * 100)}%
+                      return (
+                        <div key={msg.id} className="flex justify-start group/ai">
+                          <div className="flex items-start gap-2 max-w-[85%] sm:max-w-[78%]">
+                            {/* AI Avatar - only show for first in sequence */}
+                            {isFirstInSequence ? (
+                              <div className="flex-shrink-0 h-5 w-5 rounded-full bg-gradient-to-br from-primary to-violet-500 flex items-center justify-center shadow-sm mt-0.5">
+                                <Sparkles className="h-2.5 w-2.5 text-white" />
+                              </div>
+                            ) : (
+                              <div className="w-5 flex-shrink-0" />
+                            )}
+                            
+                            <div className="flex-1 min-w-0">
+                              {/* AI Header - only show for first in sequence */}
+                              {isFirstInSequence && (
+                                <div className="flex items-center gap-1 mb-0.5">
+                                  <span className="text-[10px] font-medium text-muted-foreground/70 font-heading">
+                                    NexaChat AI
+                                  </span>
+                                  {showLowConfidence && (
+                                    <span className="text-[9px] text-amber-400 flex items-center gap-0.5" title="Lower confidence">
+                                      <span className="inline-block">⚠</span> Lower confidence
                                     </span>
                                   )}
-                                  <span>{formatTimestamp(msg.created_at)}</span>
                                 </div>
+                              )}
+                              
+                              {/* AI Bubble - matches Inbox exactly */}
+                              <div className={cn(
+                                "px-3 py-2 rounded-[3px_14px_14px_14px]",
+                                "bg-primary/[0.05] border border-primary/[0.10]",
+                                "transition-all duration-150",
+                                "group-hover/ai:border-primary/15 group-hover/ai:bg-primary/[0.07]",
+                              )}>
+                                <div className="text-[13px] text-foreground/90 leading-[1.6] space-y-1.5 [&_p]:m-0 [&_p]:leading-[1.6] [&_pre]:my-1.5 [&_pre]:rounded-md [&_pre]:bg-background/60 [&_pre]:border [&_pre]:border-border/40 [&_pre]:text-[11px] [&_pre]:p-2 [&_code]:text-primary/80 [&_code]:font-mono [&_code]:text-[11px] [&_code]:before:content-none [&_code]:after:content-none [&_ul]:my-1 [&_ul]:pl-3.5 [&_ul]:space-y-0.5 [&_ol]:my-1 [&_ol]:pl-3.5 [&_ol]:space-y-0.5 [&_li]:text-[13px] [&_li]:leading-[1.5] [&_h1]:text-[13px] [&_h1]:font-semibold [&_h1]:mt-2 [&_h1]:mb-1 [&_h2]:text-[12px] [&_h2]:font-semibold [&_h2]:mt-1.5 [&_h2]:mb-0.5 [&_h3]:text-[12px] [&_h3]:font-medium [&_h3]:mt-1 [&_h3]:mb-0.5 [&_h4]:text-[11px] [&_h4]:font-medium [&_h4]:mt-1 [&_h4]:mb-0.5 [&_strong]:text-foreground [&_strong]:font-medium [&_a]:text-primary [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-primary/30 [&_blockquote]:pl-2 [&_blockquote]:text-[12px] [&_blockquote]:text-muted-foreground [&_blockquote]:italic [&_.citation]:text-[9px] [&_.citation]:text-primary/70 [&_.citation]:font-mono [&_.citation]:ml-px">
+                                  <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                                    {formatCitations(msg.content || "")}
+                                  </ReactMarkdown>
+                                </div>
+                              </div>
+
+                              {/* Source chips */}
+                              {msg.citations && msg.citations.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1.5">
+                                  {msg.citations.slice(0, 3).map((c, i) => (
+                                    <span
+                                      key={i}
+                                      className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[9px] font-medium text-primary/80 bg-primary/[0.06] border border-primary/[0.12]"
+                                    >
+                                      <span className="text-[8px]">📄</span>
+                                      <span className="truncate max-w-[100px]">{c.source ?? "Source"}</span>
+                                    </span>
+                                  ))}
+                                  {msg.citations.length > 3 && (
+                                    <span className="text-[9px] text-muted-foreground/60 self-center">
+                                      +{msg.citations.length - 3} more
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Timestamp */}
+                              <div className="text-[9px] text-muted-foreground/50 font-mono mt-1">
+                                {formatTimestamp(msg.created_at)}
                               </div>
                             </div>
                           </div>
-                        );
-                      }
-                      
-                      return null;
-                    })}
+                        </div>
+                      );
+                    }
+
+                    // System message
+                    if (isSystem) {
+                      return (
+                        <div key={msg.id} className="flex justify-center">
+                          <div className="max-w-[60%] px-4 py-2 rounded-full text-center bg-muted/30 border border-dashed border-muted/40">
+                            <p className="text-xs text-muted-foreground italic leading-relaxed">
+                              {msg.content}
+                            </p>
+                            <span className="text-[10px] text-muted-foreground/50 font-mono mt-1 block">
+                              {formatTimestamp(msg.created_at)}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    return null;
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Timeline */}
+            {detail.timeline.length > 0 && (
+              <div>
+                <h4 className="text-[10px] font-bold uppercase tracking-wider font-heading text-muted-foreground mb-3">
+                  Timeline
+                </h4>
+                <div className="flex flex-col">
+                  {detail.timeline.map((event, i) => (
+                    <div key={i} className="flex gap-3">
+                      <div className="flex flex-col items-center w-4">
+                        <div className={cn(
+                          "h-2 w-2 rounded-full border-2 border-background shrink-0 mt-1",
+                          i === detail.timeline.length - 1 ? "bg-emerald-400" : "bg-primary",
+                        )} />
+                        {i < detail.timeline.length - 1 && (
+                          <div className="w-px flex-1 bg-border min-h-[16px] mt-1" />
+                        )}
+                      </div>
+                      <div className="pb-4">
+                        <p className="text-[12px] font-semibold text-foreground leading-tight">{event.event}</p>
+                        {event.detail && <p className="text-[11px] text-muted-foreground mt-0.5">{event.detail}</p>}
+                        <p className="text-[10px] text-muted-foreground/60 font-mono mt-0.5">{relativeTime(event.timestamp)}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Contact Info */}
+            <div className="rounded-lg border bg-muted/30 p-4">
+              <h4 className="text-[10px] font-bold uppercase tracking-wider font-heading text-muted-foreground mb-3">
+                Contact Info
+              </h4>
+              <div className="space-y-2.5">
+                {contact?.email && (
+                  <div className="flex items-center gap-2 text-[12px]">
+                    <Mail size={13} className="text-muted-foreground/60 shrink-0" />
+                    <span className="text-muted-foreground truncate">{contact.email}</span>
+                  </div>
+                )}
+                {contact?.phone && (
+                  <div className="flex items-center gap-2 text-[12px]">
+                    <Phone size={13} className="text-muted-foreground/60 shrink-0" />
+                    <span className="text-muted-foreground">{contact.phone}</span>
+                  </div>
+                )}
+                {contact?.company && (
+                  <div className="flex items-center gap-2 text-[12px]">
+                    <User size={13} className="text-muted-foreground/60 shrink-0" />
+                    <span className="text-muted-foreground">{contact.company}</span>
                   </div>
                 )}
               </div>
-
-              {/* RIGHT: Contact + Timeline + Notes - hidden scrollbar */}
-              <div className="w-full sm:w-[40%] sm:max-w-[340px] overflow-auto p-4 sm:p-5 space-y-5 order-1 sm:order-2 border-b sm:border-b-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-
-                {/* Contact info card */}
-                <div className="rounded-lg border bg-muted/30 p-3.5">
-                  <h4 className="text-[10px] font-bold uppercase tracking-wider font-heading text-muted-foreground mb-3">
-                    Contact Info
-                  </h4>
-                  <div className="space-y-2.5">
-                    {contact?.email && (
-                      <div className="flex items-center gap-2 text-[12px]">
-                        <Mail size={13} className="text-muted-foreground/60 shrink-0" />
-                        <span className="text-muted-foreground truncate">{contact.email}</span>
-                      </div>
-                    )}
-                    {contact?.phone && (
-                      <div className="flex items-center gap-2 text-[12px]">
-                        <Phone size={13} className="text-muted-foreground/60 shrink-0" />
-                        <span className="text-muted-foreground">{contact.phone}</span>
-                      </div>
-                    )}
-                    {contact?.company && (
-                      <div className="flex items-center gap-2 text-[12px]">
-                        <User size={13} className="text-muted-foreground/60 shrink-0" />
-                        <span className="text-muted-foreground">{contact.company}</span>
-                      </div>
-                    )}
-                    {contact?.lead_status && (
-                      <div className="flex items-center gap-2 text-[12px] pt-1.5 border-t border-dashed">
-                        <span className="text-muted-foreground/70">Lead Status:</span>
-                        <span className={cn(
-                          "text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase font-heading",
-                          "bg-primary/10 text-primary border border-primary/20",
-                        )}>
-                          {contact.lead_status}
-                        </span>
-                      </div>
-                    )}
-                    {contact?.channels_used && contact.channels_used.length > 0 && (
-                      <div className="flex items-center gap-2 text-[12px]">
-                        <ExternalLink size={13} className="text-muted-foreground/60 shrink-0" />
-                        <span className="text-muted-foreground">{contact.channels_used.join(", ")}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Timeline */}
-                <div>
-                  <h4 className="text-[10px] font-bold uppercase tracking-wider font-heading text-muted-foreground mb-3">
-                    Timeline
-                  </h4>
-                  <div className="flex flex-col">
-                    {detail.timeline.map((event, i) => (
-                      <div key={i} className="flex gap-3">
-                        <div className="flex flex-col items-center w-4">
-                          <div className={cn(
-                            "h-2 w-2 rounded-full border-2 border-background shrink-0 mt-1",
-                            i === detail.timeline.length - 1 ? "bg-emerald-400" : "bg-primary",
-                          )} />
-                          {i < detail.timeline.length - 1 && (
-                            <div className="w-px flex-1 bg-border min-h-[16px] mt-1" />
-                          )}
-                        </div>
-                        <div className="pb-4">
-                          <p className="text-[12px] font-semibold text-foreground leading-tight">{event.event}</p>
-                          {event.detail && <p className="text-[11px] text-muted-foreground mt-0.5">{event.detail}</p>}
-                          <p className="text-[10px] text-muted-foreground/60 font-mono mt-0.5">{relativeTime(event.timestamp)}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Documents Referenced */}
-                <div>
-                  <h4 className="text-[10px] font-bold uppercase tracking-wider font-heading text-muted-foreground mb-3">
-                    Documents Referenced
-                  </h4>
-                  {referencedDocs.length === 0 ? (
-                    <p className="text-[12px] text-muted-foreground">No documents referenced.</p>
-                  ) : (
-                    <div className="flex flex-col gap-2">
-                      {referencedDocs.map((doc) => {
-                        const title = doc.title || doc.filename || doc.id;
-                        return (
-                          <a
-                            key={doc.id}
-                            href={doc.source_url ?? undefined}
-                            target={doc.source_url ? "_blank" : undefined}
-                            rel={doc.source_url ? "noreferrer" : undefined}
-                            className="text-[12px] text-primary/80 break-words hover:underline"
-                          >
-                            {title}
-                          </a>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                {/* Internal Notes (from API + locally added this session) */}
-                <div>
-                  <h4 className="text-[10px] font-bold uppercase tracking-wider font-heading text-muted-foreground mb-3">
-                    Internal Notes
-                  </h4>
-                  {[
-                    ...(detail.internal_notes ?? []).map((n) => ({
-                      text: n.note,
-                      time: n.created_at ? formatTimestamp(n.created_at) : "—",
-                    })),
-                    ...localNotes,
-                  ].map((note, i) => (
-                    <div key={i} className="rounded-lg border bg-muted/30 p-3 mb-2">
-                      <p className="text-[12px] text-foreground leading-relaxed">{note.text}</p>
-                      <p className="text-[10px] text-muted-foreground/60 font-mono mt-1.5">{note.time}</p>
-                    </div>
-                  ))}
-                  <Textarea
-                    value={noteText}
-                    onChange={e => setNoteText(e.target.value)}
-                    placeholder="Add an internal note..."
-                    rows={3}
-                    className="text-[13px] bg-card resize-none mt-1"
-                  />
-                  <Button
-                    size="sm"
-                    onClick={handleAddNote}
-                    disabled={!noteText.trim() || addNote.isPending}
-                    className="mt-2 w-full gap-1.5 text-xs h-8"
-                  >
-                    <Send size={12} />
-                    {addNote.isPending ? "Adding..." : "Add Note"}
-                  </Button>
-                </div>
-              </div>
             </div>
 
-            {/* ── Footer Actions ── */}
-            <div className="shrink-0 border-t p-4 sm:px-6 flex gap-2.5 flex-wrap">
+            {/* Documents Referenced */}
+            {referencedDocs.length > 0 && (
+              <div>
+                <h4 className="text-[10px] font-bold uppercase tracking-wider font-heading text-muted-foreground mb-3">
+                  Documents Referenced
+                </h4>
+                <div className="flex flex-col gap-2">
+                  {referencedDocs.map((doc) => (
+                    <a
+                      key={doc.id}
+                      href={doc.source_url ?? undefined}
+                      target={doc.source_url ? "_blank" : undefined}
+                      rel={doc.source_url ? "noreferrer" : undefined}
+                      className="text-[12px] text-primary/80 break-words hover:underline flex items-center gap-1.5"
+                    >
+                      <ExternalLink size={11} />
+                      {doc.title || doc.filename || doc.id}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Internal Notes */}
+            <div>
+              <h4 className="text-[10px] font-bold uppercase tracking-wider font-heading text-muted-foreground mb-3">
+                Internal Notes
+              </h4>
+              {[
+                ...(detail.internal_notes ?? []).map((n) => ({
+                  text: n.note,
+                  time: n.created_at ? formatTimestamp(n.created_at) : "—",
+                })),
+                ...localNotes,
+              ].map((note, i) => (
+                <div key={i} className="rounded-lg border bg-muted/30 p-3 mb-2">
+                  <p className="text-[12px] text-foreground leading-relaxed">{note.text}</p>
+                  <p className="text-[10px] text-muted-foreground/60 font-mono mt-1.5">{note.time}</p>
+                </div>
+              ))}
+              <Textarea
+                value={noteText}
+                onChange={e => setNoteText(e.target.value)}
+                placeholder="Add an internal note..."
+                rows={3}
+                className="text-sm bg-card resize-none mt-1"
+              />
+              <Button
+                size="sm"
+                onClick={handleAddNote}
+                disabled={!noteText.trim() || addNote.isPending}
+                className="mt-2 w-full gap-1.5 text-xs h-8"
+              >
+                <Send size={12} />
+                {addNote.isPending ? "Adding..." : "Add Note"}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Footer Actions */}
+        {!isLoading && detail && (
+          <div className="sticky bottom-0 bg-card/95 backdrop-blur-sm border-t px-6 py-4">
+            <div className="flex gap-2.5 flex-wrap">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button size="sm" variant="outline" className="gap-1.5 text-xs">
+                  <Button size="sm" variant="outline" className="gap-1.5 text-xs h-9">
                     <ChevronDown size={12} /> Change Status
                   </Button>
                 </DropdownMenuTrigger>
@@ -1081,7 +830,7 @@ function DetailDialog({
                       onClick={() => handleStatusChange(s)}
                     >
                       <span className={cn("h-1.5 w-1.5 rounded-full", STATUS_META[s]?.dot)} />
-                      {s}
+                      {STATUS_META[s]?.label}
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuContent>
@@ -1090,12 +839,12 @@ function DetailDialog({
               <Button
                 size="sm"
                 onClick={() => handleStatusChange("resolved")}
-                className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
+                className="gap-1.5 h-9 text-xs"
               >
                 <CheckCircle2 size={13} /> Mark Resolved
               </Button>
             </div>
-          </>
+          </div>
         )}
       </DialogContent>
     </Dialog>
@@ -1113,14 +862,14 @@ export default function Conversations() {
     const fromDate = new Date(now);
     fromDate.setUTCDate(fromDate.getUTCDate() - 29);
     const from = isoDate(fromDate);
-    return { page: 1, per_page: 20, date_from: from, date_to: to };
+    return { page: 1, per_page: 30, date_from: from, date_to: to };
   });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ open: boolean; type: "single" | "bulk"; id?: string }>({ open: false, type: "bulk" });
   const [tagDialogOpen, setTagDialogOpen] = useState(false);
   const [tagInput, setTagInput] = useState("");
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -1135,20 +884,13 @@ export default function Conversations() {
     if (!exportJobStatus.data) return;
 
     if (exportJobStatus.data.status === "ready" && exportJobStatus.data.download_url) {
-      toast({
-        title: "Export ready",
-        description: "Your export is ready. Click to download.",
-      });
+      toast({ title: "Export ready", description: "Your export is ready. Click to download." });
       window.open(exportJobStatus.data.download_url, "_blank");
       setExportJobId(null);
     }
 
     if (exportJobStatus.data.status === "failed") {
-      toast({
-        title: "Export failed",
-        description: exportJobStatus.data.message ?? "Please try again.",
-        variant: "destructive",
-      });
+      toast({ title: "Export failed", description: exportJobStatus.data.message ?? "Please try again.", variant: "destructive" });
       setExportJobId(null);
     }
   }, [exportJobStatus.data, toast]);
@@ -1156,7 +898,7 @@ export default function Conversations() {
   const conversations = listData?.conversations ?? [];
   const stats = listData?.stats ?? { total: 0, active: 0, resolved: 0, escalated: 0, abandoned: 0, needs_review: 0 };
   const total = listData?.total ?? 0;
-  const totalPages = Math.ceil(total / (filters.per_page ?? 20)) || 1;
+  const totalPages = Math.ceil(total / (filters.per_page ?? 30)) || 1;
 
   /* ── Filter helpers ──────────────────────────────────────────────────────── */
 
@@ -1165,7 +907,6 @@ export default function Conversations() {
     if (filters.search) count++;
     if (filters.channel && filters.channel !== "all") count++;
     if (filters.status && filters.status !== "all") count++;
-    if (filters.date_from || filters.date_to) count++;
     if (filters.rating && filters.rating !== "all") count++;
     return count;
   }, [filters]);
@@ -1176,18 +917,19 @@ export default function Conversations() {
     const fromDate = new Date(now);
     fromDate.setUTCDate(fromDate.getUTCDate() - 29);
     const from = isoDate(fromDate);
-    setFilters({ page: 1, per_page: 20, date_from: from, date_to: to });
+    setFilters({ page: 1, per_page: 30, date_from: from, date_to: to });
   }, []);
 
   const updateFilter = useCallback(<K extends keyof ConversationListFilters>(key: K, value: ConversationListFilters[K]) => {
     setFilters(prev => ({ ...prev, [key]: value, page: 1 }));
   }, []);
 
-  const handleStatCardClick = useCallback((key: typeof STAT_CARD_KEYS[number]) => {
-    if (key === "total") {
+  const handleStatCardClick = useCallback((key: typeof KPI_CARDS[number]["key"]) => {
+    const card = KPI_CARDS.find(c => c.key === key);
+    if (card?.filterStatus) {
+      updateFilter("status", card.filterStatus);
+    } else if (key === "total") {
       updateFilter("status", undefined);
-    } else {
-      updateFilter("status", key);
     }
   }, [updateFilter]);
 
@@ -1253,15 +995,8 @@ export default function Conversations() {
     try {
       const result = await bulkAction.mutateAsync({ action: "export", conversation_ids: Array.from(selectedIds) });
       if (result.export_data) {
-        const csv = [
-          Object.keys(result.export_data[0]).join(","),
-          ...result.export_data.map(row => Object.values(row).map(v => `"${v}"`).join(",")),
-        ].join("\n");
-        const blob = new Blob([csv], { type: "text/csv" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url; a.download = "conversations-export.csv"; a.click();
-        URL.revokeObjectURL(url);
+        const csv = formatCsv(result.export_data);
+        downloadCsv("conversations-export.csv", csv);
       }
       toast({ title: `${selectedIds.size} conversations exported` });
     } catch {
@@ -1291,7 +1026,7 @@ export default function Conversations() {
   /* ── Pagination ──────────────────────────────────────────────────────────── */
 
   const currentPage = filters.page ?? 1;
-  const perPage = filters.per_page ?? 20;
+  const perPage = filters.per_page ?? 30;
   const fromIdx = (currentPage - 1) * perPage + 1;
   const toIdx = Math.min(currentPage * perPage, total);
 
@@ -1302,419 +1037,357 @@ export default function Conversations() {
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8 pb-32 max-w-[1600px] mx-auto w-full">
 
-      {/* ─── Sticky Top Bar (Title + Controls) ───────────────────────────────── */}
-      <div className="sticky top-0 z-40 -mx-4 sm:-mx-6 lg:-mx-8 bg-card/90 backdrop-blur-sm border-b border-border px-4 sm:px-6 lg:px-8 py-3">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-          <div>
-            <h1 className="font-heading text-xl sm:text-2xl font-bold text-foreground tracking-tight leading-none">
-              Conversations
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1 font-description">
-              Full conversation history and management
-            </p>
-          </div>
+      {/* ─── Page Header ────────────────────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="font-heading text-xl sm:text-2xl font-bold text-foreground tracking-tight leading-none">
+            Conversations
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1 font-description">
+            Full conversation history across all channels
+          </p>
+        </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
-              <span className="text-xs font-semibold text-muted-foreground">Date range</span>
-              <Select
-                value={filters.date_from && filters.date_to ? `${filters.date_from}|${filters.date_to}` : "all"}
-                onValueChange={v => {
-                  if (v === "all") {
-                    updateFilter("date_from", undefined);
-                    updateFilter("date_to", undefined);
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void refetch()}
+            className="h-9 text-xs gap-1.5"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Refresh</span>
+          </Button>
+
+          {/* Date Range */}
+          <Select
+            value={
+              filters.date_from === getPresetRange("30d").from && filters.date_to === getPresetRange("30d").to ? "30d" :
+              filters.date_from === getPresetRange("7d").from && filters.date_to === getPresetRange("7d").to ? "7d" :
+              filters.date_from === getPresetRange("today").from && filters.date_to === getPresetRange("today").to ? "today" :
+              filters.date_from === getPresetRange("90d").from && filters.date_to === getPresetRange("90d").to ? "90d" : "custom"
+            }
+            onValueChange={v => {
+              if (v === "custom") return;
+              const range = getPresetRange(v);
+              setFilters(prev => ({ ...prev, date_from: range.from, date_to: range.to, page: 1 }));
+            }}
+          >
+            <SelectTrigger className="h-9 w-[140px] text-xs">
+              <Calendar className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+              <SelectValue placeholder="Last 30 days" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="today">Today</SelectItem>
+              <SelectItem value="7d">Last 7 days</SelectItem>
+              <SelectItem value="30d">Last 30 days</SelectItem>
+              <SelectItem value="90d">Last 90 days</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Export */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-9 text-xs gap-1.5">
+                <Download className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Export</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-[180px]">
+              <DropdownMenuItem
+                className="text-xs gap-2"
+                onClick={async () => {
+                  if (total > 1000) {
+                    await handleCreateExportJob("csv");
                     return;
                   }
-                  const [from, to] = v.split("|");
-                  updateFilter("date_from", from);
-                  updateFilter("date_to", to);
+                  try {
+                    const result = await conversationsApi.exportConversations({
+                      search: filters.search,
+                      channel: filters.channel,
+                      status: filters.status,
+                      date_from: filters.date_from,
+                      date_to: filters.date_to,
+                      rating: filters.rating,
+                      limit: 1000,
+                    });
+                    if (result.export_data && result.export_data.length) {
+                      downloadCsv(`conversations-${new Date().toISOString().slice(0, 10)}.csv`, formatCsv(result.export_data));
+                      toast({ title: "Export downloaded" });
+                    } else {
+                      toast({ title: "No data to export" });
+                    }
+                  } catch {
+                    toast({ title: "Error", description: "Export failed", variant: "destructive" });
+                  }
                 }}
               >
-                <SelectTrigger className="h-8 text-xs bg-card min-w-[170px]">
-                  <SelectValue placeholder={getDateRangeLabel(filters.date_from, filters.date_to)} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All time</SelectItem>
-                  <SelectItem value={`${getPresetRange("today").from}|${getPresetRange("today").to}`}>Today</SelectItem>
-                  <SelectItem value={`${getPresetRange("7d").from}|${getPresetRange("7d").to}`}>Last 7 days</SelectItem>
-                  <SelectItem value={`${getPresetRange("30d").from}|${getPresetRange("30d").to}`}>Last 30 days</SelectItem>
-                  <SelectItem value={`${getPresetRange("90d").from}|${getPresetRange("90d").to}`}>Last 90 days</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button size="sm" variant="outline" className="gap-1.5 text-xs h-8">
-                  <Download size={12} /> Export
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-[220px]">
-                <DropdownMenuItem
-                  className="text-xs gap-2"
-                  onClick={async () => {
-                    try {
-                      if (total > 1000) {
-                        await handleCreateExportJob("csv");
-                        return;
-                      }
-
-                      const result = await conversationsApi.exportConversations({
-                        search: filters.search,
-                        channel: filters.channel,
-                        status: filters.status,
-                        date_from: filters.date_from,
-                        date_to: filters.date_to,
-                        rating: filters.rating,
-                        limit: 1000,
-                      });
-                      if (result.export_data && result.export_data.length) {
-                        downloadCsv(`conversations-filtered-${new Date().toISOString().slice(0, 10)}.csv`, formatCsv(result.export_data));
-                        toast({ title: "Export downloaded" });
-                      } else {
-                        toast({ title: "No data to export" });
-                      }
-                    } catch {
-                      toast({ title: "Error", description: "Export failed", variant: "destructive" });
-                    }
-                  }}
-                >
-                  <Download size={12} /> Export filtered (CSV)
+                <Download className="h-3.5 w-3.5" /> Export CSV
+              </DropdownMenuItem>
+              {selectedIds.size > 0 && (
+                <DropdownMenuItem className="text-xs gap-2" onClick={() => void handleBulkExport()}>
+                  <Download className="h-3.5 w-3.5" /> Export Selected
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="text-xs gap-2"
-                  onClick={async () => void handleCreateExportJob("zip")}
-                >
-                  <Download size={12} /> Export filtered (ZIP)
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="text-xs gap-2"
-                  onClick={async () => void handleCreateExportJob("pdf")}
-                >
-                  <Download size={12} /> Export filtered (PDF)
-                </DropdownMenuItem>
-                {selectedIds.size > 0 && (
-                  <DropdownMenuItem
-                    className="text-xs gap-2"
-                    onClick={() => void handleBulkExport()}
-                  >
-                    <Download size={12} /> Export selected (CSV)
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <Button
-              variant="outline" size="sm"
-              onClick={() => void refetch()}
-              className="gap-1.5 text-xs h-8"
-            >
-              <RefreshCw size={13} />
-              <span className="hidden sm:inline">Refresh</span>
-            </Button>
-          </div>
-        </div>
-
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <div className="relative flex-1 min-w-[180px] max-w-sm">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-            <Input
-              placeholder="Search conversations..."
-              value={filters.search ?? ""}
-              onChange={e => updateFilter("search", e.target.value || undefined)}
-              className="pl-9 h-9 text-sm bg-card"
-            />
-          </div>
-
-          <Select value={filters.status ?? "_all"} onValueChange={v => updateFilter("status", v === "_all" ? undefined : v)}>
-            <SelectTrigger className="w-[130px] h-9 text-xs bg-card">
-              <SelectValue placeholder="All Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="_all">All Status</SelectItem>
-              {STATUSES.map(s => (
-                <SelectItem key={s} value={s}>
-                  <span className="flex items-center gap-2 capitalize">
-                    <span className={cn("h-1.5 w-1.5 rounded-full", STATUS_META[s]?.dot)} />
-                    {s}
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select value={filters.channel ?? "_all"} onValueChange={v => updateFilter("channel", v === "_all" ? undefined : v)}>
-            <SelectTrigger className="w-[140px] h-9 text-xs bg-card hidden sm:flex">
-              <SelectValue placeholder="All Channels" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="_all">All Channels</SelectItem>
-              {Object.entries(CHANNEL_META).map(([key, meta]) => (
-                <SelectItem key={key} value={key}>
-                  <span className="inline-flex items-center gap-2">
-                    <ChannelIcon channel={key} size={12} />
-                    {meta.label}
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setFiltersOpen(!filtersOpen)}
-            className={cn(
-              "gap-1.5 h-9 text-xs",
-              filtersOpen && "bg-primary/10 border-primary/30 text-primary",
-            )}
-          >
-            <SlidersHorizontal size={13} />
-            <span className="hidden sm:inline">Filters</span>
-          </Button>
-        </div>
-      </div>
-
-      {/* ─── Stats Grid ─────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        {STAT_CARDS.map((card, i) => (
-          <div
-            key={card.key}
-            role="button"
-            tabIndex={0}
-            onClick={() => handleStatCardClick(card.key)}
-            className={cn(
-              "relative overflow-hidden rounded-xl border bg-card p-3 sm:p-4",
-              "transition-all duration-200 hover:border-primary/20 hover:shadow-soft-sm group",
-              "cursor-pointer select-none",
-            )}
-            style={{ animationDelay: `${i * 50}ms` }}
-          >
-            {/* Gradient accent */}
-            <div className={cn(
-              "absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-100 transition-opacity duration-300",
-              card.accent,
-            )} />
-            <div className="relative">
-              <div className="text-muted-foreground mb-2">
-                {card.icon}
-              </div>
-              <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider font-heading text-muted-foreground mb-1">
-                {card.label}
-              </p>
-              <p className="text-xl sm:text-2xl lg:text-3xl font-bold font-mono tracking-tight text-foreground">
-                {(stats[card.key] ?? 0).toLocaleString()}
-              </p>
-              {stats.trend?.[card.key] != null && (
-                <p className="text-[10px] mt-1 flex items-center gap-1">
-                  <span className={cn(
-                    "text-[10px] font-semibold",
-                    stats.trend[card.key] >= 0 ? "text-emerald-400" : "text-rose-400",
-                  )}>
-                    {stats.trend[card.key] >= 0 ? "▲" : "▼"}
-                  </span>
-                  <span className="text-muted-foreground/70">
-                    {Math.abs(stats.trend[card.key]).toFixed(1)}%
-                  </span>
-                </p>
               )}
-            </div>
-          </div>
-        ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
-      {/* ─── Filter Bar ─────────────────────────────────────────────────────── */}
-      <div className="flex flex-col gap-3">
-        {/* Primary filter row */}
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Search */}
-          <div className="relative flex-1 min-w-[180px] max-w-sm">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+      {/* ─── KPI Stats Grid (matching Dashboard exactly) ────────────────────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {KPI_CARDS.map((card) => {
+          const value = stats[card.key as keyof typeof stats] ?? 0;
+          const trend = stats.trend?.[card.key as keyof typeof stats.trend];
+          const isActive = filters.status === card.filterStatus;
+          const isClickable = card.key !== "avg_duration";
+          
+          return (
+            <div
+              key={card.key}
+              role={isClickable ? "button" : undefined}
+              tabIndex={isClickable ? 0 : undefined}
+              onClick={() => isClickable && handleStatCardClick(card.key)}
+              onKeyDown={e => { if (isClickable && (e.key === "Enter" || e.key === " ")) handleStatCardClick(card.key); }}
+              className={cn(
+                "relative overflow-hidden rounded-xl border bg-card p-3 sm:p-4",
+                "transition-all duration-200 hover:border-primary/20 hover:shadow-soft-sm group",
+                isClickable && "cursor-pointer",
+                isActive && "border-primary/40 bg-primary/5",
+              )}
+            >
+              {/* Gradient accent on hover */}
+              <div className={cn(
+                "absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-100 transition-opacity duration-300",
+                card.accent,
+              )} />
+              <div className="relative">
+                {/* Icon - matching Dashboard */}
+                <div className={cn(
+                  "h-8 w-8 rounded-lg flex items-center justify-center mb-3",
+                  card.iconBg,
+                )}>
+                  <div className={card.iconColor}>
+                    {card.icon}
+                  </div>
+                </div>
+
+                {/* Label */}
+                <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider font-heading text-muted-foreground mb-1">
+                  {card.label}
+                </p>
+
+                {/* Value + Trend */}
+                <div className="flex items-end gap-2 flex-wrap">
+                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold font-mono tracking-tight text-foreground">
+                    {typeof value === "number" ? value.toLocaleString() : value}
+                  </p>
+                  <div className="pb-0.5">
+                    <TrendIndicator value={trend} />
+                  </div>
+                </div>
+
+                {/* Subtext */}
+                <p className="text-[10px] mt-1.5 font-description text-muted-foreground">
+                  vs last period
+                </p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ─── Desktop Filter Bar ─────────────────────────────────────────────── */}
+      <div className="hidden lg:flex flex-wrap items-center gap-2">
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            placeholder="Search conversations..."
+            value={filters.search ?? ""}
+            onChange={e => updateFilter("search", e.target.value || undefined)}
+            className="h-9 w-full sm:w-[220px] pl-8 text-xs"
+          />
+        </div>
+
+        {/* Channel */}
+        <Select value={filters.channel ?? "all"} onValueChange={v => updateFilter("channel", v === "all" ? undefined : v)}>
+          <SelectTrigger className="h-9 w-[140px] text-xs">
+            <SelectValue placeholder="All Channels" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Channels</SelectItem>
+            {Object.entries(CHANNEL_META).map(([key, meta]) => (
+              <SelectItem key={key} value={key}>
+                <span className="inline-flex items-center gap-2">
+                  <ChannelIcon channel={key} size={12} />
+                  {meta.label}
+                </span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Status */}
+        <Select value={filters.status ?? "all"} onValueChange={v => updateFilter("status", v === "all" ? undefined : v)}>
+          <SelectTrigger className="h-9 w-[140px] text-xs">
+            <SelectValue placeholder="All Statuses" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
+            {STATUSES.map(s => (
+              <SelectItem key={s} value={s}>
+                <span className="flex items-center gap-2">
+                  <span className={cn("h-1.5 w-1.5 rounded-full", STATUS_META[s]?.dot)} />
+                  {STATUS_META[s]?.label}
+                </span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Rating */}
+        <Select value={filters.rating ?? "all"} onValueChange={v => updateFilter("rating", v === "all" ? undefined : v)}>
+          <SelectTrigger className="h-9 w-[130px] text-xs">
+            <SelectValue placeholder="All Ratings" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Ratings</SelectItem>
+            <SelectItem value="positive">Positive</SelectItem>
+            <SelectItem value="negative">Negative</SelectItem>
+            <SelectItem value="none">Unrated</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Clear */}
+        {activeFilterCount > 0 && (
+          <Button variant="link" size="sm" className="text-primary text-xs" onClick={clearFilters}>
+            Clear filters
+          </Button>
+        )}
+      </div>
+
+      {/* ─── Mobile Filter Button + Sheet ───────────────────────────────────── */}
+      <div className="lg:hidden">
+        <div className="flex items-center gap-2">
+          {/* Search - always visible on mobile */}
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
-              placeholder="Search conversations..."
+              placeholder="Search..."
               value={filters.search ?? ""}
               onChange={e => updateFilter("search", e.target.value || undefined)}
-              className="pl-9 h-9 text-sm bg-card"
+              className="h-9 pl-8 text-xs"
             />
           </div>
 
-          {/* Quick status filter */}
-          <Select value={filters.status ?? "_all"} onValueChange={v => updateFilter("status", v === "_all" ? undefined : v)}>
-            <SelectTrigger className="w-[130px] h-9 text-xs bg-card">
-              <SelectValue placeholder="All Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="_all">All Status</SelectItem>
-              {STATUSES.map(s => (
-                <SelectItem key={s} value={s}>
-                  <span className="flex items-center gap-2 capitalize">
-                    <span className={cn("h-1.5 w-1.5 rounded-full", STATUS_META[s]?.dot)} />
-                    {s}
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Channel filter */}
-          <Select value={filters.channel ?? "_all"} onValueChange={v => updateFilter("channel", v === "_all" ? undefined : v)}>
-            <SelectTrigger className="w-[140px] h-9 text-xs bg-card hidden sm:flex">
-              <SelectValue placeholder="All Channels" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="_all">All Channels</SelectItem>
-              {Object.entries(CHANNEL_META).map(([key, meta]) => (
-                <SelectItem key={key} value={key}>
-                  <span className="inline-flex items-center gap-2">
-                    <ChannelIcon channel={key} size={12} />
-                    {meta.label}
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Advanced filters toggle */}
+          {/* Filter button */}
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setFiltersOpen(!filtersOpen)}
-            className={cn(
-              "gap-1.5 h-9 text-xs",
-              filtersOpen && "bg-primary/10 border-primary/30 text-primary",
-            )}
+            onClick={() => setMobileFiltersOpen(true)}
+            className="h-9 text-xs gap-1.5 shrink-0"
           >
-            <SlidersHorizontal size={13} />
-            <span className="hidden sm:inline">Filters</span>
+            <Filter className="h-3.5 w-3.5" />
+            Filters
             {activeFilterCount > 0 && (
-              <span className="ml-0.5 h-4 min-w-[16px] rounded-full bg-primary/20 text-primary text-[10px] font-bold flex items-center justify-center px-1">
+              <span className="h-5 min-w-[20px] rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center px-1">
                 {activeFilterCount}
               </span>
             )}
           </Button>
-
-          {activeFilterCount > 0 && (
-            <button
-              onClick={clearFilters}
-              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Clear all
-            </button>
-          )}
         </div>
 
-        {/* Expandable advanced filters */}
-        {filtersOpen && (
-          <div className="flex flex-wrap items-center gap-2 p-3 rounded-lg border bg-card/50 animate-fade-in">
-            {/* Channel (mobile duplicate — only visible on <sm) */}
-            <Select value={filters.channel ?? "_all"} onValueChange={v => updateFilter("channel", v === "_all" ? undefined : v)}>
-              <SelectTrigger className="w-[140px] h-9 text-xs bg-card sm:hidden">
-                <SelectValue placeholder="All Channels" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="_all">All Channels</SelectItem>
-                {Object.entries(CHANNEL_META).map(([key, meta]) => (
-                  <SelectItem key={key} value={key}>
-                    <span className="inline-flex items-center gap-2">
-                      <ChannelIcon channel={key} size={12} />
-                      {meta.label}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* Rating */}
-            <Select value={filters.rating ?? "_all"} onValueChange={v => updateFilter("rating", v === "_all" ? undefined : v)}>
-              <SelectTrigger className="w-[130px] h-9 text-xs bg-card">
-                <SelectValue placeholder="All Ratings" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="_all">All Ratings</SelectItem>
-                <SelectItem value="positive">Positive</SelectItem>
-                <SelectItem value="negative">Negative</SelectItem>
-                <SelectItem value="none">No Rating</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {/* Date range */}
-            <div className="flex items-center gap-1.5">
-              <label className="text-[11px] font-medium text-muted-foreground shrink-0">From</label>
-              <input
-                type="date"
-                value={filters.date_from ?? ""}
-                onChange={e => updateFilter("date_from", e.target.value || undefined)}
-                className="h-9 px-2.5 text-xs rounded-md border bg-card text-foreground"
+        {/* Mobile Filter Sheet */}
+        <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
+          <SheetContent side="bottom" className="h-auto max-h-[80vh] rounded-t-2xl p-0">
+            <SheetHeader className="p-4 border-b">
+              <SheetTitle className="font-heading text-base">Filters</SheetTitle>
+            </SheetHeader>
+            <div className="p-4 space-y-4 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <MobileFilterBar
+                channelFilter={filters.channel}
+                statusFilter={filters.status}
+                ratingFilter={filters.rating}
+                onChannelChange={v => updateFilter("channel", v)}
+                onStatusChange={v => updateFilter("status", v)}
+                onRatingChange={v => updateFilter("rating", v)}
+                onClearAll={clearFilters}
+                activeCount={activeFilterCount}
               />
             </div>
-
-            <div className="flex items-center gap-1.5">
-              <label className="text-[11px] font-medium text-muted-foreground shrink-0">To</label>
-              <input
-                type="date"
-                value={filters.date_to ?? ""}
-                onChange={e => updateFilter("date_to", e.target.value || undefined)}
-                className="h-9 px-2.5 text-xs rounded-md border bg-card text-foreground"
-              />
+            <div className="p-4 border-t">
+              <Button className="w-full" onClick={() => setMobileFiltersOpen(false)}>
+                Apply Filters
+              </Button>
             </div>
-          </div>
-        )}
+          </SheetContent>
+        </Sheet>
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════════════════
-         CONVERSATIONS TABLE
-         ─────────────────────────────────────────────────────────────────────
-         Progressive column disclosure: lower-priority columns hide at
-         smaller breakpoints so the table NEVER needs horizontal scroll.
-         Priority: Contact > Status > Channel > Msgs > Rating > Duration > Date > Actions
-         ═══════════════════════════════════════════════════════════════════════ */}
+      {/* ─── Data Table ─────────────────────────────────────────────────────── */}
       <div className="rounded-xl border bg-card overflow-hidden">
-
-        {/* ── DESKTOP / TABLET TABLE (sm+) ─────────────────────────────────── */}
+        
+        {/* Desktop Table (sm+) */}
         <table className="w-full hidden sm:table">
           <thead>
             <tr className="border-b bg-muted/30">
-              <th className="w-10 p-3 pl-4">
-                <Checkbox
-                  checked={allSelected}
-                  onCheckedChange={toggleSelectAll}
-                />
+              <th className="w-10 px-3 py-3">
+                <Checkbox checked={allSelected} onCheckedChange={toggleSelectAll} />
               </th>
-              <th className="px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-wider font-heading text-muted-foreground">Contact</th>
-              <th className="px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-wider font-heading text-muted-foreground hidden xl:table-cell">First Message</th>
-              <th className="px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-wider font-heading text-muted-foreground hidden lg:table-cell">Channel</th>
-              <th className="px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-wider font-heading text-muted-foreground">Status</th>
-              <th className="px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-wider font-heading text-muted-foreground hidden md:table-cell">Rating</th>
-              <th className="px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-wider font-heading text-muted-foreground hidden 2xl:table-cell">Duration</th>
-              <th className="px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-wider font-heading text-muted-foreground">Date</th>
-              <th className="w-10 p-3 pr-4" />
+              <th className="px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-wider font-heading text-muted-foreground">
+                Contact
+              </th>
+              <th className="px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-wider font-heading text-muted-foreground hidden xl:table-cell">
+                Preview
+              </th>
+              <th className="px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-wider font-heading text-muted-foreground hidden lg:table-cell">
+                Channel
+              </th>
+              <th className="px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-wider font-heading text-muted-foreground">
+                Status
+              </th>
+              <th className="px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-wider font-heading text-muted-foreground hidden md:table-cell">
+                Rating
+              </th>
+              <th className="px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-wider font-heading text-muted-foreground hidden 2xl:table-cell">
+                Duration
+              </th>
+              <th className="px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-wider font-heading text-muted-foreground">
+                Date
+              </th>
+              <th className="w-10 px-3 py-3" />
             </tr>
           </thead>
           <tbody className="divide-y">
             {listLoading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i}>
-                  <td className="p-3 pl-4"><Skeleton className="h-4 w-4" /></td>
-                  <td className="p-3"><Skeleton className="h-9 w-full" /></td>
-                  <td className="p-3 hidden xl:table-cell"><Skeleton className="h-4 w-full" /></td>
-                  <td className="p-3 hidden lg:table-cell"><Skeleton className="h-4 w-16" /></td>
-                  <td className="p-3"><Skeleton className="h-5 w-16" /></td>
-                  <td className="p-3 hidden md:table-cell"><Skeleton className="h-4 w-12" /></td>
-                  <td className="p-3 hidden 2xl:table-cell"><Skeleton className="h-4 w-12" /></td>
-                  <td className="p-3"><Skeleton className="h-4 w-12" /></td>
-                  <td className="p-3 pr-4"><Skeleton className="h-4 w-4" /></td>
+                  <td className="px-3 py-3"><Skeleton className="h-4 w-4" /></td>
+                  <td className="px-3 py-3"><Skeleton className="h-9 w-full" /></td>
+                  <td className="px-3 py-3 hidden xl:table-cell"><Skeleton className="h-4 w-full" /></td>
+                  <td className="px-3 py-3 hidden lg:table-cell"><Skeleton className="h-4 w-16" /></td>
+                  <td className="px-3 py-3"><Skeleton className="h-5 w-16" /></td>
+                  <td className="px-3 py-3 hidden md:table-cell"><Skeleton className="h-4 w-12" /></td>
+                  <td className="px-3 py-3 hidden 2xl:table-cell"><Skeleton className="h-4 w-12" /></td>
+                  <td className="px-3 py-3"><Skeleton className="h-4 w-12" /></td>
+                  <td className="px-3 py-3"><Skeleton className="h-4 w-4" /></td>
                 </tr>
               ))
             ) : conversations.length === 0 ? (
               <tr>
-                <td colSpan={9} className="py-16 text-center">
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
-                      <MessageSquare size={20} className="text-muted-foreground" />
+                <td colSpan={9}>
+                  <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+                    <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-3">
+                      <MessageSquare className="h-5 w-5 text-muted-foreground" />
                     </div>
                     <p className="text-sm text-muted-foreground font-medium">No conversations found</p>
+                    <p className="text-xs text-muted-foreground/60 mt-1">Try adjusting your filters or search terms.</p>
                     {activeFilterCount > 0 && (
-                      <Button variant="link" size="sm" onClick={clearFilters} className="text-primary text-xs">
+                      <Button variant="link" size="sm" className="text-primary text-xs mt-2" onClick={clearFilters}>
                         Clear filters
                       </Button>
                     )}
@@ -1726,72 +1399,41 @@ export default function Conversations() {
                 key={conv.id}
                 onClick={() => setActiveConversationId(conv.id)}
                 className={cn(
-                  "cursor-pointer transition-colors group",
-                  selectedIds.has(conv.id)
-                    ? "bg-primary/5 hover:bg-primary/8"
-                    : "hover:bg-muted/50",
+                  "cursor-pointer transition-colors",
+                  selectedIds.has(conv.id) ? "bg-primary/5 hover:bg-primary/8" : "hover:bg-muted/50",
                 )}
               >
-                {/* Checkbox */}
-                <td className="p-3 pl-4" onClick={e => e.stopPropagation()}>
-                  <Checkbox
-                    checked={selectedIds.has(conv.id)}
-                    onCheckedChange={() => toggleSelect(conv.id)}
-                  />
+                <td className="px-3 py-3" onClick={e => e.stopPropagation()}>
+                  <Checkbox checked={selectedIds.has(conv.id)} onCheckedChange={() => toggleSelect(conv.id)} />
                 </td>
-
-                {/* Contact — always visible. On smaller screens, absorbs
-                    hidden columns inline (channel, message preview) */}
-                <td className="p-3">
+                <td className="px-3 py-3">
                   <div className="flex items-center gap-2.5">
-                    <ConversationAvatar name={conv.contact_name} size="md" />
+                    <ConversationAvatar name={conv.contact_name} size="sm" />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <p className="font-heading font-semibold text-[13px] text-foreground truncate">
+                        <p className="font-heading font-semibold text-sm text-foreground truncate">
                           {conv.contact_name ?? conv.contact_phone ?? "Anonymous"}
                         </p>
-                        {/* Inline msg count */}
                         <span className="text-[10px] font-mono text-muted-foreground bg-muted rounded px-1.5 py-0.5 shrink-0">
                           {conv.message_count}
                         </span>
                       </div>
-
                       {conv.contact_email && (
-                        <p className="text-[11px] text-muted-foreground truncate flex items-center gap-1 mt-0.5">
-                          <Mail size={10} className="shrink-0" />
-                          {conv.contact_email}
-                        </p>
+                        <p className="text-xs text-muted-foreground truncate">{conv.contact_email}</p>
                       )}
-
-                      {/* Channel — inline when the Channel column is hidden (<lg) */}
                       <div className="lg:hidden mt-1">
                         <ChannelPill channel={conv.channel} />
                       </div>
-
-                      {/* First message preview — inline when column is hidden (<xl) */}
-                      {conv.first_message && (
-                        <p className="xl:hidden text-[11px] text-muted-foreground/70 truncate mt-1 max-w-[280px]">
-                          {conv.first_message}
-                        </p>
-                      )}
                     </div>
                   </div>
                 </td>
-
-                {/* First message — visible on xl+ */}
-                <td className="p-3 hidden xl:table-cell max-w-[240px]">
-                  <p className="text-[12px] text-muted-foreground truncate">
-                    {conv.first_message ?? "--"}
-                  </p>
+                <td className="px-3 py-3 hidden xl:table-cell max-w-[240px]">
+                  <p className="text-xs text-muted-foreground truncate">{conv.first_message ?? "--"}</p>
                 </td>
-
-                {/* Channel — visible on lg+ */}
-                <td className="p-3 hidden lg:table-cell whitespace-nowrap">
+                <td className="px-3 py-3 hidden lg:table-cell whitespace-nowrap">
                   <ChannelPill channel={conv.channel} />
                 </td>
-
-                {/* Status — always visible */}
-                <td className="p-3" onClick={e => e.stopPropagation()}>
+                <td className="px-3 py-3" onClick={e => e.stopPropagation()}>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button className="focus:outline-none">
@@ -1802,58 +1444,49 @@ export default function Conversations() {
                       {STATUSES.map(s => (
                         <DropdownMenuItem
                           key={s}
-                          className="capitalize text-xs gap-2"
+                          className="text-xs gap-2"
                           onClick={async () => {
                             try {
                               await updateStatus.mutateAsync({ id: conv.id, status: s });
-                              toast({ title: `Conversation marked as ${s}` });
+                              toast({ title: `Conversation marked as ${STATUS_META[s]?.label}` });
                             } catch {
                               toast({ title: "Error", variant: "destructive" });
                             }
                           }}
                         >
                           <span className={cn("h-1.5 w-1.5 rounded-full", STATUS_META[s]?.dot)} />
-                          {s}
+                          {STATUS_META[s]?.label}
                         </DropdownMenuItem>
                       ))}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </td>
-
-                {/* Rating — visible on md+ */}
-                <td className="p-3 hidden md:table-cell">
+                <td className="px-3 py-3 hidden md:table-cell">
                   <RatingIndicator rating={conv.rating} />
                 </td>
-
-                {/* Duration — visible on 2xl+ */}
-                <td className="p-3 hidden 2xl:table-cell whitespace-nowrap">
-                  <span className="text-[11px] text-muted-foreground font-mono">
+                <td className="px-3 py-3 hidden 2xl:table-cell whitespace-nowrap">
+                  <span className="text-xs text-muted-foreground font-mono">
                     {formatDuration(conv.duration_minutes)}
                   </span>
                 </td>
-
-                {/* Date — always visible */}
-                <td className="p-3 whitespace-nowrap">
-                  <span className="text-[11px] text-muted-foreground font-mono">
-                    {relativeTime(conv.started_at)}
-                  </span>
+                <td className="px-3 py-3 whitespace-nowrap">
+                  <div className="flex flex-col">
+                    <span className="text-xs text-foreground">{relativeTime(conv.started_at)}</span>
+                    <span className="text-[10px] text-muted-foreground font-mono">
+                      {new Date(conv.started_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  </div>
                 </td>
-
-                {/* Actions */}
-                <td className="p-3 pr-4" onClick={e => e.stopPropagation()}>
+                <td className="px-3 py-3" onClick={e => e.stopPropagation()}>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
-                      >
-                        <MoreHorizontal size={14} />
+                      <Button variant="ghost" size="icon" className="h-7 w-7">
+                        <MoreHorizontal className="h-3.5 w-3.5" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="min-w-[160px]">
+                    <DropdownMenuContent align="end" className="min-w-[140px]">
                       <DropdownMenuItem className="text-xs gap-2" onClick={() => setActiveConversationId(conv.id)}>
-                        <Eye size={13} /> View Detail
+                        <Eye className="h-3.5 w-3.5" /> View
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         className="text-xs gap-2"
@@ -1866,14 +1499,14 @@ export default function Conversations() {
                           }
                         }}
                       >
-                        <CheckCircle2 size={13} /> Mark Resolved
+                        <CheckCircle2 className="h-3.5 w-3.5" /> Resolve
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         className="text-xs gap-2 text-destructive focus:text-destructive"
                         onClick={() => setConfirmDelete({ open: true, type: "single", id: conv.id })}
                       >
-                        <Trash2 size={13} /> Delete
+                        <Trash2 className="h-3.5 w-3.5" /> Delete
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -1883,70 +1516,53 @@ export default function Conversations() {
           </tbody>
         </table>
 
-        {/* ── MOBILE CARD LIST (<sm) ───────────────────────────────────────── */}
+        {/* Mobile Card List (<sm) */}
         <div className="sm:hidden divide-y">
           {listLoading ? (
-            Array.from({ length: 4 }).map((_, i) => (
+            Array.from({ length: 5 }).map((_, i) => (
               <div key={i} className="p-4 space-y-3">
                 <Skeleton className="h-10 w-full" />
                 <Skeleton className="h-4 w-3/4" />
               </div>
             ))
           ) : conversations.length === 0 ? (
-            <div className="py-16 text-center">
-              <div className="flex flex-col items-center gap-3">
-                <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
-                  <MessageSquare size={20} className="text-muted-foreground" />
-                </div>
-                <p className="text-sm text-muted-foreground font-medium">No conversations found</p>
-                {activeFilterCount > 0 && (
-                  <Button variant="link" size="sm" onClick={clearFilters} className="text-primary text-xs">
-                    Clear filters
-                  </Button>
-                )}
+            <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+              <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-3">
+                <MessageSquare className="h-5 w-5 text-muted-foreground" />
               </div>
+              <p className="text-sm text-muted-foreground font-medium">No conversations found</p>
+              {activeFilterCount > 0 && (
+                <Button variant="link" size="sm" className="text-primary text-xs mt-2" onClick={clearFilters}>
+                  Clear filters
+                </Button>
+              )}
             </div>
           ) : conversations.map(conv => (
             <div
               key={conv.id}
+              className="p-3 flex items-start gap-3 cursor-pointer hover:bg-muted/50 transition-colors active:bg-muted"
               onClick={() => setActiveConversationId(conv.id)}
-              className="p-4 active:bg-muted/50 transition-colors cursor-pointer"
             >
-              <div className="flex items-start gap-3">
-                <div className="pt-0.5" onClick={e => e.stopPropagation()}>
-                  <Checkbox
-                    checked={selectedIds.has(conv.id)}
-                    onCheckedChange={() => toggleSelect(conv.id)}
-                  />
+              <div className="pt-0.5" onClick={e => e.stopPropagation()}>
+                <Checkbox checked={selectedIds.has(conv.id)} onCheckedChange={() => toggleSelect(conv.id)} />
+              </div>
+              <ConversationAvatar name={conv.contact_name} size="sm" />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-medium truncate">
+                    {conv.contact_name ?? conv.contact_phone ?? "Anonymous"}
+                  </span>
+                  <StatusBadge status={conv.status} />
                 </div>
-                <ConversationAvatar name={conv.contact_name} size="md" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <p className="font-heading font-semibold text-[13px] text-foreground truncate">
-                      {conv.contact_name ?? conv.contact_phone ?? "Anonymous"}
-                    </p>
-                    <span className="text-[10px] text-muted-foreground font-mono shrink-0">
-                      {relativeTime(conv.started_at)}
-                    </span>
-                  </div>
-                  {conv.contact_email && (
-                    <p className="text-[11px] text-muted-foreground mb-1 flex items-center gap-1">
-                      <Mail size={10} /> {conv.contact_email}
-                    </p>
-                  )}
-                  {conv.first_message && (
-                    <p className="text-[12px] text-muted-foreground/80 line-clamp-2 mb-2 leading-relaxed">
-                      {conv.first_message}
-                    </p>
-                  )}
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <StatusBadge status={conv.status} />
-                    <ChannelPill channel={conv.channel} />
-                    <RatingIndicator rating={conv.rating} />
-                    <span className="ml-auto text-[10px] font-mono text-muted-foreground bg-muted rounded px-1.5 py-0.5">
-                      {conv.message_count} msgs
-                    </span>
-                  </div>
+                <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                  {conv.first_message ?? "No message preview"}
+                </p>
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  <ChannelPill channel={conv.channel} />
+                  <RatingIndicator rating={conv.rating} />
+                  <span className="text-[10px] text-muted-foreground font-mono ml-auto">
+                    {relativeTime(conv.started_at)}
+                  </span>
                 </div>
               </div>
             </div>
@@ -1956,154 +1572,153 @@ export default function Conversations() {
         {/* Pagination */}
         {!listLoading && conversations.length > 0 && (
           <div className="flex items-center justify-between px-4 py-3 border-t">
-            <span className="text-[11px] text-muted-foreground font-mono hidden sm:block">
-              {fromIdx}--{toIdx} of {total}
+            <span className="text-[11px] text-muted-foreground font-mono">
+              Showing {fromIdx}-{toIdx} of {total}
             </span>
-            <span className="text-[11px] text-muted-foreground font-mono sm:hidden">
-              {currentPage}/{totalPages || 1}
-            </span>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1">
               <Button
-                variant="outline" size="sm"
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                disabled={currentPage === 1}
                 onClick={() => setFilters(p => ({ ...p, page: (p.page ?? 1) - 1 }))}
-                disabled={currentPage <= 1}
-                className="h-7 w-7 p-0"
               >
-                <ChevronLeft size={14} />
+                <ChevronLeft className="h-3.5 w-3.5" />
               </Button>
-              <span className="text-[11px] text-muted-foreground px-2 font-mono hidden sm:block">
-                Page {currentPage} of {totalPages || 1}
-              </span>
               <Button
-                variant="outline" size="sm"
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                disabled={currentPage === totalPages}
                 onClick={() => setFilters(p => ({ ...p, page: (p.page ?? 1) + 1 }))}
-                disabled={currentPage >= totalPages}
-                className="h-7 w-7 p-0"
               >
-                <ChevronRight size={14} />
+                <ChevronRight className="h-3.5 w-3.5" />
               </Button>
             </div>
           </div>
         )}
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════════════════
-         DETAIL DIALOG
-         ═══════════════════════════════════════════════════════════════════════ */}
+      {/* ─── Detail Dialog ──────────────────────────────────────────────────── */}
       <DetailDialog
         conversationId={activeConversationId}
         open={!!activeConversationId}
         onClose={() => setActiveConversationId(null)}
       />
 
-      {/* ═══════════════════════════════════════════════════════════════════════
-         BULK ACTIONS BAR
-         ═══════════════════════════════════════════════════════════════════════ */}
+      {/* ─── Bulk Actions Bar ───────────────────────────────────────────────── */}
       {selectedIds.size > 0 && (
         <div className={cn(
           "fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-50",
-          "bg-card border rounded-2xl shadow-strong",
-          "px-4 sm:px-5 py-3 flex items-center gap-2 sm:gap-3 flex-wrap justify-center",
+          "bg-primary/8 border border-primary/20 rounded-xl shadow-lg",
+          "px-4 py-2.5 flex items-center gap-2 sm:gap-3 flex-wrap justify-center",
           "max-w-[95vw] animate-fade-in",
         )}>
-          <span className="text-xs font-bold text-foreground font-heading mr-1">
-            {selectedIds.size} selected
-          </span>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              checked={allSelected}
+              onCheckedChange={toggleSelectAll}
+            />
+            <span className="text-xs font-semibold text-primary font-heading">
+              {selectedIds.size} selected
+            </span>
+          </div>
+
+          <div className="h-4 w-px bg-border mx-1" />
 
           <Button
             size="sm"
+            variant="ghost"
             disabled={bulkAction.isPending}
             onClick={handleBulkResolve}
-            className="gap-1.5 text-[11px] h-7 bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 hover:bg-emerald-500/25"
+            className="gap-1.5 text-xs h-8 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 border border-emerald-500/20"
           >
-            <CheckCircle2 size={12} /> Resolve
+            <CheckCircle2 className="h-3.5 w-3.5" /> Resolve
           </Button>
 
           <Button
             size="sm"
-            disabled={bulkAction.isPending}
-            onClick={() => setConfirmDelete({ open: true, type: "bulk" })}
-            className="gap-1.5 text-[11px] h-7 bg-red-500/15 text-red-400 border border-red-500/25 hover:bg-red-500/25"
-          >
-            <Trash2 size={12} /> Delete
-          </Button>
-
-          <Button
-            size="sm"
-            disabled={bulkAction.isPending}
-            onClick={() => void handleBulkExport()}
-            variant="outline"
-            className="gap-1.5 text-[11px] h-7"
-          >
-            <Download size={12} /> CSV
-          </Button>
-
-          <Button
-            size="sm"
+            variant="ghost"
             disabled={bulkAction.isPending}
             onClick={() => setTagDialogOpen(true)}
-            className="gap-1.5 text-[11px] h-7 bg-violet-500/15 text-violet-400 border border-violet-500/25 hover:bg-violet-500/25"
+            className="gap-1.5 text-xs h-8"
           >
-            <Tag size={12} /> Tag
+            <Tag className="h-3.5 w-3.5" /> Tag
+          </Button>
+
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={bulkAction.isPending}
+            onClick={() => void handleBulkExport()}
+            className="gap-1.5 text-xs h-8"
+          >
+            <Download className="h-3.5 w-3.5" /> Export
+          </Button>
+
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={bulkAction.isPending}
+            onClick={() => setConfirmDelete({ open: true, type: "bulk" })}
+            className="gap-1.5 text-xs h-8 text-destructive hover:bg-destructive/10"
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Delete
           </Button>
 
           <button
             onClick={() => setSelectedIds(new Set())}
             className="text-muted-foreground hover:text-foreground transition-colors p-1 ml-1"
           >
-            <X size={15} />
+            <X className="h-4 w-4" />
           </button>
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════════════════════
-         DELETE CONFIRMATION DIALOG
-         ═══════════════════════════════════════════════════════════════════════ */}
+      {/* ─── Delete Confirmation Dialog ─────────────────────────────────────── */}
       <Dialog open={confirmDelete.open} onOpenChange={open => { if (!open) setConfirmDelete({ open: false, type: "bulk" }); }}>
-        <DialogContent className="max-w-[400px] bg-card rounded-2xl">
+        <DialogContent className="max-w-[400px]">
           <DialogHeader>
-            <DialogTitle className="font-heading text-base">Confirm Delete</DialogTitle>
+            <DialogTitle className="font-heading text-base">Delete Conversation{confirmDelete.type === "bulk" && selectedIds.size > 1 ? "s" : ""}</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              {confirmDelete.type === "bulk"
+                ? `This permanently removes ${selectedIds.size} conversation${selectedIds.size > 1 ? "s" : ""} and all their messages. This cannot be undone.`
+                : "This permanently removes this conversation and all its messages. This cannot be undone."}
+            </DialogDescription>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground leading-relaxed">
-            {confirmDelete.type === "bulk"
-              ? `Are you sure you want to delete ${selectedIds.size} conversation${selectedIds.size > 1 ? "s" : ""}? This action cannot be undone.`
-              : "Are you sure you want to delete this conversation? This action cannot be undone."}
-          </p>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" size="sm" onClick={() => setConfirmDelete({ open: false, type: "bulk" })}>
               Cancel
             </Button>
             <Button
               size="sm"
+              variant="destructive"
               disabled={bulkAction.isPending}
               onClick={handleBulkDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {bulkAction.isPending ? "Deleting..." : "Delete"}
+              {bulkAction.isPending ? "Deleting..." : "Delete Permanently"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* ═══════════════════════════════════════════════════════════════════════
-         TAG DIALOG
-         ═══════════════════════════════════════════════════════════════════════ */}
+      {/* ─── Tag Dialog ─────────────────────────────────────────────────────── */}
       <Dialog open={tagDialogOpen} onOpenChange={open => { if (!open) { setTagDialogOpen(false); setTagInput(""); } }}>
-        <DialogContent className="max-w-[400px] bg-card rounded-2xl">
+        <DialogContent className="max-w-[400px]">
           <DialogHeader>
             <DialogTitle className="font-heading text-base">Tag Conversations</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              Enter a tag to apply to {selectedIds.size} selected conversation{selectedIds.size > 1 ? "s" : ""}.
+            </DialogDescription>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground mb-3">
-            Enter a tag to apply to {selectedIds.size} selected conversation{selectedIds.size > 1 ? "s" : ""}:
-          </p>
           <Input
             value={tagInput}
             onChange={e => setTagInput(e.target.value)}
             placeholder="e.g. billing, urgent, follow-up"
-            className="text-sm bg-card"
+            className="text-sm"
             onKeyDown={e => { if (e.key === "Enter") void handleBulkTag(); }}
           />
-          <DialogFooter className="gap-2 sm:gap-0 mt-4">
+          <DialogFooter className="gap-2 sm:gap-0 mt-2">
             <Button variant="outline" size="sm" onClick={() => { setTagDialogOpen(false); setTagInput(""); }}>
               Cancel
             </Button>
