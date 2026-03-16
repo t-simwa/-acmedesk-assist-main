@@ -45,6 +45,9 @@ cryptography>=40.0.0
 # Email
 resend>=0.1.0  # Resend email API
 
+# PDF generation (used for export jobs)
+reportlab>=3.6.12
+
 # Billing
 stripe>=8.0.0  # Stripe Python SDK for billing and Checkout
 
