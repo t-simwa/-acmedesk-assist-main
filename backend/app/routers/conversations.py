@@ -16,6 +16,7 @@ import logging
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import FileResponse
 
 from ..models.user import User
 from ..routers.auth import get_current_user
@@ -36,6 +37,10 @@ from ..schemas.conversations import (
     ConversationFlagResponse,
     ConversationBulkRequest,
     ConversationBulkResponse,
+    ConversationExportRequest,
+    ConversationExportJobRequest,
+    ConversationExportJobResponse,
+    ConversationExportJobStatusResponse,
     ConversationFeedbackRequest,
     ConversationFeedbackResponse,
     ConversationLeadRequest,
@@ -223,7 +228,8 @@ async def flag_conversation_admin(
     current_user: User = Depends(get_current_user),
 ) -> ConversationFlagResponse:
     """Toggle the 'flagged for AI training' status of a conversation."""
-    is_flagged = database.toggle_conversation_flag(conversation_id)
+    tenant_id = current_user.tenant_id or current_user.id
+    is_flagged = await database.toggle_conversation_flag(conversation_id, tenant_id)
     return ConversationFlagResponse(
         conversation_id=conversation_id,
         is_flagged=is_flagged,
@@ -267,6 +273,126 @@ async def bulk_conversations_admin(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Bulk action failed: {str(e)}",
         )
+
+
+@router.post(
+    "/admin/export",
+    response_model=ConversationBulkResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Export conversations (admin)",
+)
+async def export_conversations_admin(
+    request: "ConversationExportRequest",
+    current_user: User = Depends(get_current_user),
+) -> ConversationBulkResponse:
+    """Export conversations matching filters."""
+    tenant_id = current_user.tenant_id or current_user.id
+    export_rows = await database.export_conversations(
+        tenant_id=tenant_id,
+        search=request.search,
+        channel=request.channel,
+        status=request.status,
+        date_from=request.date_from,
+        date_to=request.date_to,
+        rating=request.rating,
+        user_id=current_user.id,
+        limit=request.limit,
+    )
+
+    return ConversationBulkResponse(
+        action="export",
+        affected=len(export_rows),
+        failed=0,
+        message=f"Export ready ({len(export_rows)} rows)",
+        export_data=export_rows,
+    )
+
+
+@router.post(
+    "/admin/export-job",
+    response_model=ConversationExportJobResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Create export job for large exports (admin)",
+)
+async def create_export_job_admin(
+    request: ConversationExportJobRequest,
+    current_user: User = Depends(get_current_user),
+) -> ConversationExportJobResponse:
+    """Create an export job and return a job identifier.
+
+    For large exports, the job will be processed asynchronously and the result
+    will be available via `GET /api/conversations/admin/export-job/{job_id}`.
+    """
+    tenant_id = current_user.tenant_id or current_user.id
+    job_id = await database.create_export_job(
+        tenant_id=tenant_id,
+        kind=request.kind,
+        filters={
+            "search": request.search,
+            "channel": request.channel,
+            "status": request.status,
+            "date_from": request.date_from,
+            "date_to": request.date_to,
+            "rating": request.rating,
+        },
+        email=request.email,
+        user_id=current_user.id,
+    )
+
+    return ConversationExportJobResponse(
+        job_id=job_id,
+        status="pending",
+        message="Export job created. Check status with /admin/export-job/{job_id}.",
+    )
+
+
+@router.get(
+    "/admin/export-job/{job_id}",
+    response_model=ConversationExportJobStatusResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get export job status (admin)",
+)
+async def get_export_job_status_admin(
+    job_id: str,
+    current_user: User = Depends(get_current_user),
+) -> ConversationExportJobStatusResponse:
+    """Get status of an export job."""
+    tenant_id = current_user.tenant_id or current_user.id
+    job = await database.get_export_job(job_id=job_id, tenant_id=tenant_id)
+    if not job:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Export job not found")
+
+    download_url = None
+    if job.status == "ready" and job.file_path:
+        download_url = f"/api/conversations/admin/export-job/{job_id}/download"
+
+    return ConversationExportJobStatusResponse(
+        job_id=job.id,
+        status=job.status,
+        download_url=download_url,
+        message=job.error if job.error else None,
+    )
+
+
+@router.get(
+    "/admin/export-job/{job_id}/download",
+    status_code=status.HTTP_200_OK,
+    responses={200: {"content": {"application/octet-stream": {}}}},
+    summary="Download completed export job file (admin)",
+)
+async def download_export_job_file_admin(
+    job_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    """Download the finalized export file."""
+    tenant_id = current_user.tenant_id or current_user.id
+    job = await database.get_export_job(job_id=job_id, tenant_id=tenant_id)
+    if not job:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Export job not found")
+    if job.status != "ready" or not job.file_path:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Export job not ready")
+
+    return FileResponse(path=job.file_path, filename=os.path.basename(job.file_path))
 
 
 @router.get(

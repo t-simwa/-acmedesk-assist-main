@@ -12,17 +12,25 @@ Implemented with SQLAlchemy and SQLite (async).
 
 import json
 import logging
+import os
 import uuid
+import asyncio
+import zipfile
 from collections import defaultdict
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import List, Optional, Dict, Any
 
+import resend
+from resend import Emails
 from sqlalchemy import select, func, delete, and_, case, cast, String, Date
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.base import get_session_factory
 from ..models.conversation import Conversation, Rating, ConversationOutcome
+from ..models.conversation_internal_note import ConversationInternalNote
 from ..models.document import Document
+from ..models.export_job import ExportJob, ExportJobKind, ExportJobStatus
 from ..models.lead import Lead, LeadStatus
 from ..models.message import Message, MessageRole
 from ..models.setting import Setting
@@ -2787,9 +2795,62 @@ async def get_satisfaction_analytics(
 # Milestone 7.4 — Conversations Admin Management
 # =============================================================================
 
-# In-memory stores for features that don't require DB migrations (MVP)
-_conversation_flags: Dict[str, bool] = {}  # conversation_id -> flagged bool
-_conversation_notes: Dict[str, List[Dict[str, str]]] = {}  # conversation_id -> [{note, created_at}]
+# Conversation notes and training flag are persisted in the database.
+# See `ConversationInternalNote` and `Conversation.is_flagged`.
+
+
+async def _build_conversation_filter_conditions(
+    tenant_id: str,
+    user_id: Optional[str],
+    channel: Optional[str] = None,
+    status: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    rating: Optional[str] = None,
+) -> list:
+    """Build SQLAlchemy filter conditions for conversation queries."""
+    from ..models.conversation import ConversationStatus, Rating as ConvRating, Channel as ConvChannel
+
+    tenant_ids = _effective_tenant_ids(tenant_id, user_id)
+    conditions = [Conversation.tenant_id.in_(tenant_ids)]
+
+    if channel and channel != "all":
+        try:
+            ch = ConvChannel(channel.lower())
+            conditions.append(Conversation.channel == ch)
+        except ValueError:
+            pass
+
+    if status and status != "all":
+        try:
+            st = ConversationStatus(status.lower())
+            conditions.append(Conversation.status == st)
+        except ValueError:
+            pass
+
+    if rating and rating != "all":
+        try:
+            rt = ConvRating(rating.lower())
+            conditions.append(Conversation.rating == rt)
+        except ValueError:
+            if rating.lower() == "none":
+                conditions.append(Conversation.rating.is_(None))
+
+    if date_from:
+        try:
+            dt = datetime.fromisoformat(date_from.replace("Z", "+00:00")).replace(tzinfo=None)
+            conditions.append(Conversation.started_at >= dt)
+        except (ValueError, AttributeError):
+            pass
+
+    if date_to:
+        try:
+            dt = datetime.fromisoformat(date_to.replace("Z", "+00:00")).replace(tzinfo=None)
+            conditions.append(Conversation.started_at <= dt)
+        except (ValueError, AttributeError):
+            pass
+
+    return conditions
 
 
 async def get_admin_conversation_list(
@@ -2821,43 +2882,15 @@ async def get_admin_conversation_list(
     session_factory = get_session_factory()
     async with session_factory() as session:
         # Build base filter conditions (include both org and user-owned conversations)
-        conditions = [Conversation.tenant_id.in_(tenant_ids)]
-
-        if channel and channel != "all":
-            try:
-                ch = ConvChannel(channel.lower())
-                conditions.append(Conversation.channel == ch)
-            except ValueError:
-                pass
-
-        if status and status != "all":
-            try:
-                st = ConversationStatus(status.lower())
-                conditions.append(Conversation.status == st)
-            except ValueError:
-                pass
-
-        if rating and rating != "all":
-            try:
-                rt = ConvRating(rating.lower())
-                conditions.append(Conversation.rating == rt)
-            except ValueError:
-                if rating.lower() == "none":
-                    conditions.append(Conversation.rating.is_(None))
-
-        if date_from:
-            try:
-                dt = datetime.fromisoformat(date_from.replace("Z", "+00:00")).replace(tzinfo=None)
-                conditions.append(Conversation.started_at >= dt)
-            except (ValueError, AttributeError):
-                pass
-
-        if date_to:
-            try:
-                dt = datetime.fromisoformat(date_to.replace("Z", "+00:00")).replace(tzinfo=None)
-                conditions.append(Conversation.started_at <= dt)
-            except (ValueError, AttributeError):
-                pass
+        conditions = await _build_conversation_filter_conditions(
+            tenant_id=tenant_id,
+            user_id=user_id,
+            channel=channel,
+            status=status,
+            date_from=date_from,
+            date_to=date_to,
+            rating=rating,
+        )
 
         # Stats query (runs on unfiltered base, then applies filters)
         stats_result = await session.execute(
@@ -2879,6 +2912,62 @@ async def get_admin_conversation_list(
             "abandoned": stats_row.abandoned or 0,
             "needs_review": getattr(stats_row, "needs_review", 0) or 0,
         }
+
+        # Trend calculations (compare to previous equivalent range)
+        stats_trend: Dict[str, Optional[float]] = {
+            "total": None,
+            "active": None,
+            "resolved": None,
+            "escalated": None,
+            "abandoned": None,
+            "needs_review": None,
+        }
+
+        if date_from and date_to:
+            try:
+                dt_from = datetime.fromisoformat(date_from.replace("Z", "+00:00")).replace(tzinfo=None)
+                dt_to = datetime.fromisoformat(date_to.replace("Z", "+00:00")).replace(tzinfo=None)
+
+                # previous period is same length immediately before date_from
+                duration = dt_to - dt_from
+                prev_to = dt_from - timedelta(days=1)
+                prev_from = prev_to - duration
+
+                prev_conditions = await _build_conversation_filter_conditions(
+                    tenant_id=tenant_id,
+                    user_id=user_id,
+                    channel=channel,
+                    status=status,
+                    date_from=prev_from.isoformat(),
+                    date_to=prev_to.isoformat(),
+                    rating=rating,
+                )
+
+                prev_stats_result = await session.execute(
+                    select(
+                        func.count(Conversation.id).label("total"),
+                        func.sum(case((Conversation.status == ConversationStatus.ACTIVE, 1), else_=0)).label("active"),
+                        func.sum(case((Conversation.status == ConversationStatus.RESOLVED, 1), else_=0)).label("resolved"),
+                        func.sum(case((Conversation.status == ConversationStatus.ESCALATED, 1), else_=0)).label("escalated"),
+                        func.sum(case((Conversation.status == ConversationStatus.ABANDONED, 1), else_=0)).label("abandoned"),
+                        func.sum(case((Conversation.status == ConversationStatus.NEEDS_REVIEW, 1), else_=0)).label("needs_review"),
+                    ).where(and_(*prev_conditions))
+                )
+                prev_row = prev_stats_result.fetchone()
+                if prev_row:
+                    for key in stats_trend.keys():
+                        current = stats.get(key, 0)
+                        prev = getattr(prev_row, key, 0) or 0
+                        if prev > 0:
+                            stats_trend[key] = round(((current - prev) / prev) * 100, 1)
+                        elif current > 0:
+                            stats_trend[key] = 100.0
+                        else:
+                            stats_trend[key] = 0.0
+            except Exception:
+                pass
+
+        stats["trend"] = stats_trend
 
         # If search is provided, filter by contact name/phone/email or first message content
         if search and search.strip():
@@ -2986,6 +3075,287 @@ async def get_admin_conversation_list(
         }
 
 
+async def export_conversations(
+    tenant_id: str,
+    search: Optional[str] = None,
+    channel: Optional[str] = None,
+    status: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    rating: Optional[str] = None,
+    user_id: Optional[str] = None,
+    limit: Optional[int] = None,
+) -> List[Dict[str, Any]]:
+    """Export conversation rows matching filters.
+
+    Returns a list of conversation export rows suitable for CSV/PDF.
+    """
+    from ..models.contact import Contact
+
+    tenant_ids = _effective_tenant_ids(tenant_id, user_id)
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        conditions = await _build_conversation_filter_conditions(
+            tenant_id=tenant_id,
+            user_id=user_id,
+            channel=channel,
+            status=status,
+            date_from=date_from,
+            date_to=date_to,
+            rating=rating,
+        )
+
+        base_query = (
+            select(Conversation, Contact)
+            .outerjoin(Contact, Conversation.contact_id == Contact.id)
+            .where(and_(*conditions))
+            .order_by(Conversation.started_at.desc())
+        )
+
+        if limit:
+            base_query = base_query.limit(limit)
+
+        rows = (await session.execute(base_query)).fetchall()
+
+        export_rows = []
+        for conv, contact in rows:
+            export_rows.append({
+                "id": conv.id,
+                "channel": conv.channel.value if conv.channel else "web",
+                "contact": contact.full_name if contact else "Anonymous",
+                "email": contact.email if contact else "",
+                "phone": contact.phone if contact else "",
+                "status": conv.status.value if conv.status else "active",
+                "rating": conv.rating.value if conv.rating else "",
+                "messages": conv.message_count or 0,
+                "started_at": conv.started_at.isoformat() + "Z" if conv.started_at else "",
+                "resolved_at": conv.resolved_at.isoformat() + "Z" if conv.resolved_at else "",
+            })
+
+        return export_rows
+
+
+# ---------------------------------------------------------------------------
+# Export job helpers (async job for large exports)
+# ---------------------------------------------------------------------------
+
+EXPORT_JOBS_DIR = Path(__file__).resolve().parents[2] / "storage" / "exports"
+EXPORT_JOBS_DIR.mkdir(parents=True, exist_ok=True)
+
+RESEND_API_KEY = os.getenv("RESEND_API_KEY")
+if RESEND_API_KEY:
+    # Resend library uses a global api_key variable.
+    resend.api_key = RESEND_API_KEY
+BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
+
+
+def _format_csv(rows: List[Dict[str, Any]]) -> str:
+    """Simple CSV formatting helper for export jobs."""
+    if not rows:
+        return ""
+    headers = list(rows[0].keys())
+
+    def escape(val: Any) -> str:
+        s = "" if val is None else str(val)
+        return f'"{s.replace("\"", "\"\"")}"'
+
+    lines = [",".join(headers)]
+    for row in rows:
+        lines.append(",".join(escape(row.get(h)) for h in headers))
+    return "\n".join(lines)
+
+
+async def create_export_job(
+    tenant_id: str,
+    kind: str = "csv",
+    filters: Optional[Dict[str, Any]] = None,
+    email: Optional[str] = None,
+    user_id: Optional[str] = None,
+) -> str:
+    """Create an export job and schedule processing."""
+    job_id = str(uuid.uuid4())
+
+    # Normalize kind
+    try:
+        kind_enum = ExportJobKind(kind.lower())
+    except ValueError:
+        kind_enum = ExportJobKind.CSV
+
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        job = ExportJob(
+            id=job_id,
+            tenant_id=tenant_id,
+            kind=kind_enum,
+            status=ExportJobStatus.PENDING,
+            filters=filters or {},
+            email=email,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+        )
+        session.add(job)
+        await session.commit()
+
+    # Fire-and-forget processing
+    asyncio.create_task(_process_export_job(job_id=job_id, user_id=user_id))
+    return job_id
+
+
+async def get_export_job(tenant_id: str, job_id: str) -> Optional[ExportJob]:
+    """Retrieve an export job by ID for a tenant."""
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        result = await session.execute(
+            select(ExportJob).where(
+                ExportJob.id == job_id,
+                ExportJob.tenant_id == tenant_id,
+            )
+        )
+        return result.scalar_one_or_none()
+
+
+async def _send_export_ready_email(email: str, job: ExportJob, download_url: str) -> None:
+    """Send an email notification with a download link when export is ready."""
+    if not RESEND_API_KEY:
+        logger.debug("Resend API key not configured; skipping email send.")
+        return
+
+    try:
+        Emails.send(
+            {
+                "to": [email],
+                "subject": "Your NexaChat export is ready",
+                "html": f"<p>Your export job <strong>{job.id}</strong> is ready.</p><p><a href=\"{download_url}\">Download here</a></p>",
+                "from": "noreply@acmedesk.ai",
+            }
+        )
+        logger.info("Export ready email sent to %s for job %s", email, job.id)
+    except Exception as e:
+        logger.exception("Failed to send export ready email: %s", str(e))
+
+
+async def _process_export_job(job_id: str, user_id: Optional[str] = None) -> None:
+    """Background worker that generates export files for a job."""
+    session_factory = get_session_factory()
+    try:
+        async with session_factory() as session:
+            result = await session.execute(select(ExportJob).where(ExportJob.id == job_id))
+            job = result.scalar_one_or_none()
+            if not job:
+                return
+
+            job.status = ExportJobStatus.PROCESSING
+            job.updated_at = datetime.utcnow()
+            await session.commit()
+
+        # Determine filters and perform export
+        filters = job.filters or {}
+        rows = await export_conversations(
+            tenant_id=job.tenant_id,
+            search=filters.get("search"),
+            channel=filters.get("channel"),
+            status=filters.get("status"),
+            date_from=filters.get("date_from"),
+            date_to=filters.get("date_to"),
+            rating=filters.get("rating"),
+            user_id=user_id,
+        )
+
+        job_row_count = len(rows)
+
+        # Generate file
+        filename = f"export-{job.id}.{job.kind.value}"
+        file_path = EXPORT_JOBS_DIR / filename
+
+        if job.kind == ExportJobKind.CSV:
+            csv_content = _format_csv(rows)
+            file_path.write_text(csv_content, encoding="utf-8")
+
+        elif job.kind == ExportJobKind.ZIP:
+            # Include a CSV and per-conversation transcript text files
+            with zipfile.ZipFile(file_path, mode="w", compression=zipfile.ZIP_DEFLATED) as z:
+                z.writestr("conversations.csv", _format_csv(rows))
+
+                # Attach transcripts for each conversation in the export
+                conv_ids = [r.get("id") for r in rows if r.get("id")]
+                if conv_ids:
+                    # Grab messages for these conversations
+                    async with session_factory() as session:
+                        msg_result = await session.execute(
+                            select(Message.conversation_id, Message.role, Message.content, Message.created_at)
+                            .where(Message.conversation_id.in_(conv_ids))
+                            .order_by(Message.conversation_id, Message.created_at.asc())
+                        )
+                        transcripts: Dict[str, List[str]] = {}
+                        for conv_id, role, content, created_at in msg_result.fetchall():
+                            timestamp = created_at.isoformat() + "Z" if created_at else ""
+                            transcripts.setdefault(conv_id, []).append(f"[{timestamp}] {role}: {content}")
+
+                    for conv_id, lines in transcripts.items():
+                        z.writestr(f"transcripts/{conv_id}.txt", "\n".join(lines))
+
+        elif job.kind == ExportJobKind.PDF:
+            # Basic PDF report export (uses reportlab if available)
+            try:
+                from reportlab.lib.pagesizes import letter
+                from reportlab.lib.styles import getSampleStyleSheet
+                from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+
+                doc = SimpleDocTemplate(str(file_path), pagesize=letter)
+                styles = getSampleStyleSheet()
+                elements = [Paragraph("NexaChat Conversation Export", styles["Title"]), Spacer(1, 12)]
+                elements.append(Paragraph(f"Total rows: {job_row_count}", styles["Normal"]))
+                elements.append(Spacer(1, 12))
+
+                for row in rows:
+                    elements.append(Paragraph("---", styles["Normal"]))
+                    for k, v in row.items():
+                        elements.append(Paragraph(f"<b>{k}</b>: {v}", styles["Normal"]))
+                    elements.append(Spacer(1, 8))
+
+                doc.build(elements)
+            except ImportError:
+                # Fallback to plain-text if reportlab isn't installed
+                lines = ["Conversation Export", "", f"Total rows: {job_row_count}", ""]
+                for row in rows:
+                    lines.append("---")
+                    for k, v in row.items():
+                        lines.append(f"{k}: {v}")
+                file_path.write_text("\n".join(lines), encoding="utf-8")
+
+        else:
+            # Fallback to CSV
+            file_path.write_text(_format_csv(rows), encoding="utf-8")
+
+        # Update job record
+        async with session_factory() as session:
+            result = await session.execute(select(ExportJob).where(ExportJob.id == job_id))
+            job = result.scalar_one_or_none()
+            if not job:
+                return
+            job.status = ExportJobStatus.READY
+            job.row_count = job_row_count
+            job.file_path = str(file_path)
+            job.updated_at = datetime.utcnow()
+            await session.commit()
+
+        # Send email notification if configured
+        if job.email:
+            download_url = f"{BASE_URL}/api/conversations/admin/export-job/{job.id}/download"
+            await _send_export_ready_email(job.email, job, download_url)
+
+    except Exception as e:
+        logger.exception("Export job failed: %s", str(e))
+        async with session_factory() as session:
+            result = await session.execute(select(ExportJob).where(ExportJob.id == job_id))
+            job = result.scalar_one_or_none()
+            if job:
+                job.status = ExportJobStatus.FAILED
+                job.error = str(e)
+                job.updated_at = datetime.utcnow()
+                await session.commit()
+
+
 async def get_admin_conversation_detail(
     conversation_id: str,
     tenant_id: str,
@@ -3091,8 +3461,47 @@ async def get_admin_conversation_detail(
             for msg in messages
         ]
 
-        # Internal notes (in-memory store; contact.notes remains in contact_detail.notes)
-        internal_notes: List[Dict[str, str]] = list(_conversation_notes.get(conversation_id, []))
+        # Documents referenced by citations (resolve metadata)
+        referenced_docs: List[Dict[str, Any]] = []
+        doc_ids: List[str] = []
+        for msg in messages_detail:
+            cit = msg.get("citations")
+            if isinstance(cit, list):
+                for c in cit:
+                    if isinstance(c, dict):
+                        candidate = c.get("doc_id") or c.get("id") or c.get("document_id")
+                    else:
+                        candidate = c
+                    if isinstance(candidate, str) and candidate:
+                        doc_ids.append(candidate)
+        doc_ids = list({d for d in doc_ids if isinstance(d, str)})
+        if doc_ids:
+            from ..models.document import Document as DocModel
+
+            doc_result = await session.execute(
+                select(DocModel).where(DocModel.id.in_(doc_ids))
+            )
+            for doc in doc_result.scalars().all():
+                referenced_docs.append({
+                    "id": doc.id,
+                    "title": doc.original_filename or doc.filename,
+                    "filename": doc.filename,
+                    "source_url": doc.source_url,
+                })
+
+        # Internal notes (persisted)
+        note_result = await session.execute(
+            select(ConversationInternalNote)
+            .where(ConversationInternalNote.conversation_id == conversation_id)
+            .order_by(ConversationInternalNote.created_at.asc())
+        )
+        internal_notes = [
+            {
+                "note": note.note,
+                "created_at": note.created_at.isoformat() + "Z" if note.created_at else "",
+            }
+            for note in note_result.scalars().all()
+        ]
 
         return {
             "id": conv.id,
@@ -3109,7 +3518,8 @@ async def get_admin_conversation_detail(
             "contact": contact_detail,
             "timeline": timeline,
             "internal_notes": internal_notes,
-            "is_flagged": _conversation_flags.get(conversation_id, False),
+            "referenced_documents": referenced_docs,
+            "is_flagged": bool(conv.is_flagged),
         }
 
 
@@ -3158,55 +3568,58 @@ async def add_conversation_note(
     tenant_id: str,
     note: str,
 ) -> bool:
-    """
-    Add an internal note to a conversation.
-    Notes are stored in-memory (MVP; persisted in contact.notes if contact exists).
-    Returns True if successful.
-    """
-    from ..models.contact import Contact
+    """Add an internal note to a conversation (persisted).
 
-    # Always store in in-memory dict
-    if conversation_id not in _conversation_notes:
-        _conversation_notes[conversation_id] = []
-    _conversation_notes[conversation_id].append({
-        "note": note,
-        "created_at": datetime.utcnow().isoformat() + "Z",
-    })
-
-    # Also attempt to persist in contact.notes as a simple log
-    try:
-        session_factory = get_session_factory()
-        async with session_factory() as session:
-            result = await session.execute(
-                select(Conversation, Contact)
-                .outerjoin(Contact, Conversation.contact_id == Contact.id)
-                .where(
-                    Conversation.id == conversation_id,
-                    Conversation.tenant_id == tenant_id,
-                )
+    Notes are stored in a dedicated table and are tied to a conversation.
+    Returns True if the note was stored successfully.
+    """
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        # Verify conversation exists and belongs to this tenant
+        result = await session.execute(
+            select(Conversation)
+            .where(
+                Conversation.id == conversation_id,
+                Conversation.tenant_id == tenant_id,
             )
-            row = result.fetchone()
-            if row:
-                conv, contact = row
-                if contact:
-                    ts = datetime.utcnow().strftime("%Y-%m-%d %H:%M")
-                    new_note = f"[{ts}] {note}"
-                    contact.notes = (
-                        f"{contact.notes}\n{new_note}" if contact.notes else new_note
-                    )
-                    contact.updated_at = datetime.utcnow()
-                    await session.commit()
-    except Exception:
-        pass  # In-memory storage already succeeded
+        )
+        conv = result.scalar_one_or_none()
+        if not conv:
+            return False
+
+        note_obj = ConversationInternalNote(
+            id=str(uuid.uuid4()),
+            conversation_id=conversation_id,
+            note=note,
+            created_at=datetime.utcnow(),
+        )
+        session.add(note_obj)
+        await session.commit()
 
     return True
 
 
-def toggle_conversation_flag(conversation_id: str) -> bool:
-    """Toggle the 'flagged for training' status of a conversation. Returns new flag state."""
-    current = _conversation_flags.get(conversation_id, False)
-    _conversation_flags[conversation_id] = not current
-    return _conversation_flags[conversation_id]
+async def toggle_conversation_flag(conversation_id: str, tenant_id: str) -> bool:
+    """Toggle the 'flagged for training' status of a conversation (persisted).
+
+    Returns the new flag state.
+    """
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        result = await session.execute(
+            select(Conversation).where(
+                Conversation.id == conversation_id,
+                Conversation.tenant_id == tenant_id,
+            )
+        )
+        conv = result.scalar_one_or_none()
+        if not conv:
+            return False
+
+        conv.is_flagged = not bool(conv.is_flagged)
+        conv.updated_at = datetime.utcnow()
+        await session.commit()
+        return bool(conv.is_flagged)
 
 
 async def bulk_conversation_action(

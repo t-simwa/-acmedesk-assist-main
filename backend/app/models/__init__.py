@@ -43,6 +43,7 @@ from .knowledge_base import KnowledgeBase, UserKnowledgeBasePreference
 from .channel_config import ChannelConfig
 from .notification import Notification
 from .training_feedback import TrainingFeedback, FeedbackPriority
+from .export_job import ExportJob, ExportJobKind, ExportJobStatus
 
 __all__ = [
     # Base
@@ -119,4 +120,9 @@ __all__ = [
     # Training feedback
     "TrainingFeedback",
     "FeedbackPriority",
+
+    # Export jobs
+    "ExportJob",
+    "ExportJobKind",
+    "ExportJobStatus",
 ]

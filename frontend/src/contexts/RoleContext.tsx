@@ -7,7 +7,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { adminApi, CurrentUser } from "@/lib/api";
-import { useAuth } from "./AuthContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 export type UserRole = "super_admin" | "owner" | "admin" | "agent" | "visitor";
 
@@ -68,7 +68,21 @@ const defaultContextValue: RoleContextType = {
 const RoleContext = createContext<RoleContextType>(defaultContextValue);
 
 export function RoleProvider({ children }: { children: ReactNode }) {
-  const { user: authUser, isAuthenticated } = useAuth();
+  // RoleProvider can be used in environments where AuthProvider isn't mounted (e.g. in some tests,
+  // or during early initialization). Guard against the `useAuth` invariant to avoid crashing the app.
+  let authUser: any = null;
+  let isAuthenticated = false;
+
+  try {
+    const auth = useAuth();
+    authUser = auth.user;
+    isAuthenticated = auth.isAuthenticated;
+  } catch {
+    // If we are outside AuthProvider, fall back to unauthenticated state.
+    authUser = null;
+    isAuthenticated = false;
+  }
+
   const [user, setUser] = useState<CurrentUser | null>(DEFAULT_OWNER_USER);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

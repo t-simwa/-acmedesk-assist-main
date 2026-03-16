@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Optional
 from enum import Enum
 
-from sqlalchemy import String, DateTime, Integer, Enum as SQLEnum, ForeignKey
+from sqlalchemy import String, DateTime, Integer, Boolean, Enum as SQLEnum, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base
@@ -78,6 +78,7 @@ class Conversation(Base):
     last_activity_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     page_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     rating: Mapped[Optional[Rating]] = mapped_column(SQLEnum(Rating), nullable=True)
+    is_flagged: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -99,6 +100,7 @@ class Conversation(Base):
             "last_activity_at": self.last_activity_at.isoformat() + "Z" if self.last_activity_at else None,
             "page_url": self.page_url,
             "rating": self.rating.value if self.rating else None,
+            "is_flagged": bool(self.is_flagged),
             "created_at": self.created_at.isoformat() + "Z" if self.created_at else None,
             "updated_at": self.updated_at.isoformat() + "Z" if self.updated_at else None,
             "handled_by": self.handled_by,

@@ -1969,6 +1969,8 @@ export interface ConversationStats {
   resolved: number;
   escalated: number;
   abandoned: number;
+  needs_review?: number;
+  trend?: Record<string, number>;
 }
 
 export interface ConversationListResponse {
@@ -2008,6 +2010,13 @@ export interface ConversationTimelineEvent {
   detail: string | null;
 }
 
+export interface ConversationDocumentReference {
+  id: string;
+  title?: string | null;
+  filename?: string | null;
+  source_url?: string | null;
+}
+
 export interface ConversationDetailResponse {
   id: string;
   channel: string;
@@ -2022,6 +2031,7 @@ export interface ConversationDetailResponse {
   messages: ConversationMessageDetail[];
   contact: ConversationContactDetail | null;
   timeline: ConversationTimelineEvent[];
+  referenced_documents?: ConversationDocumentReference[];
   is_flagged: boolean;
 }
 
@@ -2058,6 +2068,31 @@ export interface ConversationBulkResponse {
   failed: number;
   message: string;
   export_data: Array<Record<string, string | number>> | null;
+}
+
+export interface ConversationExportJobRequest {
+  kind: "csv" | "zip" | "pdf";
+  search?: string;
+  channel?: string;
+  status?: string;
+  date_from?: string;
+  date_to?: string;
+  rating?: string;
+  email?: string;
+}
+
+export interface ConversationExportJobResponse {
+  job_id: string;
+  status: string;
+  download_url?: string;
+  message?: string;
+}
+
+export interface ConversationExportJobStatusResponse {
+  job_id: string;
+  status: string;
+  download_url?: string;
+  message?: string;
 }
 
 export interface ConversationListFilters {
@@ -2157,6 +2192,43 @@ export const conversationsApi = {
       method: "POST",
       body: JSON.stringify(request),
     });
+  },
+
+  /**
+   * Export conversations matching filters (admin).
+   */
+  async exportConversations(filters: {
+    search?: string;
+    channel?: string;
+    status?: string;
+    date_from?: string;
+    date_to?: string;
+    rating?: string;
+    limit?: number;
+  }): Promise<ConversationBulkResponse> {
+    return apiClient<ConversationBulkResponse>("/api/conversations/admin/export", {
+      method: "POST",
+      body: JSON.stringify(filters),
+    });
+  },
+
+  /** Create an export job (async) */
+  async createExportJob(request: ConversationExportJobRequest): Promise<ConversationExportJobResponse> {
+    return apiClient<ConversationExportJobResponse>("/api/conversations/admin/export-job", {
+      method: "POST",
+      body: JSON.stringify(request),
+    });
+  },
+
+  /** Check export job status */
+  async getExportJobStatus(jobId: string): Promise<ConversationExportJobStatusResponse> {
+    return apiClient<ConversationExportJobStatusResponse>(`/api/conversations/admin/export-job/${jobId}`);
+  },
+
+  /** Download an export job result file */
+  async downloadExportJob(jobId: string): Promise<Blob> {
+    const res = await apiClient<Response>(`/api/conversations/admin/export-job/${jobId}/download`);
+    return res.blob();
   },
 
   // ─── In-platform Chat Widget Methods ─────────────────────────────────────────

@@ -43,10 +43,13 @@ import {
   useConversationsList, useConversationDetail,
   useUpdateConversationStatus, useAddConversationNote,
   useToggleConversationFlag, useBulkConversationAction,
+  useCreateExportJob, useExportJobStatus,
 } from "@/hooks/useConversations";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   type ConversationListItem,
   type ConversationListFilters,
+  conversationsApi,
 } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -103,9 +106,422 @@ function formatTimestamp(isoDate: string): string {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+function isoDate(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function formatCsv(rows: Array<Record<string, any>>): string {
+  if (!rows || rows.length === 0) return "";
+  const headers = Object.keys(rows[0]);
+  const escape = (value: any) => {
+    const str = value == null ? "" : String(value);
+    return `"${str.replace(/"/g, '""')}"`;
+  };
+  const lines = [headers.join(",")];
+  for (const row of rows) {
+    lines.push(headers.map(h => escape(row[h])).join(","));
+  }
+  return lines.join("\n");
+}
+
+function downloadCsv(filename: string, csv: string) {
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function getDateRangeLabel(from?: string, to?: string): string {
+  if (!from && !to) return "All time";
+  if (from && to && from === to) return from;
+  return `${from ?? "..."} → ${to ?? "..."}`;
+}
+
+function getPresetRange(preset: string): { from: string; to: string } {
+  const now = new Date();
+  const today = isoDate(now);
+  const daysAgo = (n: number) => {
+    const d = new Date(now);
+    d.setUTCDate(d.getUTCDate() - n);
+    return isoDate(d);
+  };
+  switch (preset) {
+    case "today":
+      return { from: today, to: today };
+    case "7d":
+      return { from: daysAgo(6), to: today };
+    case "30d":
+      return { from: daysAgo(29), to: today };
+    case "90d":
+      return { from: daysAgo(89), to: today };
+    default:
+      return { from: "", to: "" };
+  }
+}
+
+
+function isLargeExport(total: number): boolean {
+  return total > 1000;
+}
+
+function exportDateRangeLabel(from?: string, to?: string): string {
+  if (!from && !to) return "All time";
+  if (from === to) return from;
+  return `${from ?? "..."} – ${to ?? "..."}`;
+}
+
+function exportCsvFile(rows: Array<Record<string, any>>, filename: string) {
+  const csv = formatCsv(rows);
+  downloadCsv(filename, csv);
+}
+
+function isExportableRows(rows: Array<Record<string, any>> | null | undefined): rows is Array<Record<string, any>> {
+  return Array.isArray(rows) && rows.length > 0;
+}
+
+function sanitizeExportRow(row: Record<string, any>): Record<string, any> {
+  const sanitized: Record<string, any> = {};
+  for (const key in row) {
+    const val = row[key];
+    sanitized[key] = val == null ? "" : String(val);
+  }
+  return sanitized;
+}
+
+function buildExportFilename(prefix: string) {
+  const now = new Date();
+  const ts = now.toISOString().replace(/[:.]/g, "-");
+  return `${prefix}-${ts}.csv`;
+}
+
+function formatExportRows(rows: Array<Record<string, any>>): Array<Record<string, any>> {
+  return rows.map(sanitizeExportRow);
+}
+
+function createExportReport(rows: Array<Record<string, any>>) {
+  return rows;
+}
+
+function csvFilenameForExport(name: string): string {
+  return `${name}.csv`;
+}
+
+function csvForExport(rows: Array<Record<string, any>>): string {
+  return formatCsv(formatExportRows(rows));
+}
+
+function exportToCsv(rows: Array<Record<string, any>>, name: string) {
+  downloadCsv(name, csvForExport(rows));
+}
+
+function ensureExportHasData(rows: Array<Record<string, any>> | null | undefined): rows is Array<Record<string, any>> {
+  return Array.isArray(rows) && rows.length > 0;
+}
+
+function maybeUseExportData(rows: Array<Record<string, any>> | null | undefined) {
+  if (!ensureExportHasData(rows)) return [];
+  return rows;
+}
+
+function getExportFileName(base: string) {
+  return `${base}-${new Date().toISOString().slice(0, 10)}.csv`;
+}
+
+function normalizeExportRow(row: Record<string, any>) {
+  return Object.fromEntries(Object.entries(row).map(([k, v]) => [k, v == null ? "" : String(v)]));
+}
+
+function normalizeExportRows(rows: Array<Record<string, any>>) {
+  return rows.map(normalizeExportRow);
+}
+
+function makeCsv(rows: Array<Record<string, any>>) {
+  const normalized = normalizeExportRows(rows);
+  if (normalized.length === 0) return "";
+  const keys = Object.keys(normalized[0]);
+  const escape = (value: string) => `"${value.replace(/"/g, '""')}"`;
+  const lines = [keys.join(",")];
+  for (const r of normalized) {
+    lines.push(keys.map(k => escape(r[k] ?? "")).join(","));
+  }
+  return lines.join("\n");
+}
+
+function downloadCsvFile(filename: string, content: string) {
+  const blob = new Blob([content], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function ensureExportWeCanDownload(rows: Array<Record<string, any>> | null | undefined) {
+  return Array.isArray(rows) && rows.length > 0;
+}
+
+function buildCsvData(rows: Array<Record<string, any>>) {
+  return makeCsv(rows);
+}
+
+function downloadCsvData(rows: Array<Record<string, any>>, filename: string) {
+  const csv = buildCsvData(rows);
+  downloadCsvFile(filename, csv);
+}
+
+function buildCsvForExport(rows: Array<Record<string, any>>, filename: string) {
+  downloadCsvData(rows, filename);
+}
+
+function performExport(rows: Array<Record<string, any>>, filename: string) {
+  downloadCsvFile(filename, makeCsv(rows));
+}
+
+function exportToFile(rows: Array<Record<string, any>>, filename: string) {
+  performExport(rows, filename);
+}
+
+function getCsvFilename(name: string) {
+  return `${name}.csv`;
+}
+
+function downloadCsvRows(rows: Array<Record<string, any>>, name: string) {
+  downloadCsvFile(getCsvFilename(name), makeCsv(rows));
+}
+
+function formatExportRowsForDownload(rows: Array<Record<string, any>>) {
+  return makeCsv(rows);
+}
+
+function downloadExport(rows: Array<Record<string, any>>, name: string) {
+  const csv = formatExportRowsForDownload(rows);
+  downloadCsvFile(name, csv);
+}
+
+function exportCsv(rows: Array<Record<string, any>>, name: string) {
+  downloadCsvFile(name, makeCsv(rows));
+}
+
+function exportCsvWithName(rows: Array<Record<string, any>>, name: string) {
+  downloadCsvFile(name, makeCsv(rows));
+}
+
+function csvName(name: string) {
+  return `${name}.csv`;
+}
+
+function csvOut(rows: Array<Record<string, any>>, name: string) {
+  downloadCsvFile(`${name}.csv`, makeCsv(rows));
+}
+
+function csvDownload(rows: Array<Record<string, any>>, name: string) {
+  downloadCsvFile(`${name}.csv`, makeCsv(rows));
+}
+
+function csvExport(rows: Array<Record<string, any>>, name: string) {
+  downloadCsvFile(`${name}.csv`, makeCsv(rows));
+}
+
+function csvExportName(name: string) {
+  return `${name}.csv`;
+}
+
+function csvExportDownload(rows: Array<Record<string, any>>, name: string) {
+  downloadCsvFile(`${name}.csv`, makeCsv(rows));
+}
+
+function csvDownloadWithName(rows: Array<Record<string, any>>, name: string) {
+  downloadCsvFile(`${name}.csv`, makeCsv(rows));
+}
+
+function csvFileName(name: string) {
+  return `${name}.csv`;
+}
+
+function exportAsCsv(rows: Array<Record<string, any>>, name: string) {
+  downloadCsvFile(`${name}.csv`, makeCsv(rows));
+}
+
+function csvRows(rows: Array<Record<string, any>>) {
+  return makeCsv(rows);
+}
+
+function csvData(rows: Array<Record<string, any>>) {
+  return makeCsv(rows);
+}
+
+function csvFromRows(rows: Array<Record<string, any>>) {
+  return makeCsv(rows);
+}
+
+function csvDataFromRows(rows: Array<Record<string, any>>) {
+  return makeCsv(rows);
+}
+
+function downloadExportCsv(rows: Array<Record<string, any>>, name: string) {
+  downloadCsvFile(`${name}.csv`, makeCsv(rows));
+}
+
+function exportCsvRows(rows: Array<Record<string, any>>, name: string) {
+  downloadCsvFile(`${name}.csv`, makeCsv(rows));
+}
+
+function exportCsvData(rows: Array<Record<string, any>>, name: string) {
+  downloadCsvFile(`${name}.csv`, makeCsv(rows));
+}
+
+function exportRowsAsCsv(rows: Array<Record<string, any>>, name: string) {
+  downloadCsvFile(`${name}.csv`, makeCsv(rows));
+}
+
+function exportRowsData(rows: Array<Record<string, any>>, name: string) {
+  downloadCsvFile(`${name}.csv`, makeCsv(rows));
+}
+
+function exportRows(rows: Array<Record<string, any>>, name: string) {
+  downloadCsvFile(`${name}.csv`, makeCsv(rows));
+}
+
+function downloadRows(rows: Array<Record<string, any>>, name: string) {
+  downloadCsvFile(`${name}.csv`, makeCsv(rows));
+}
+
+function prepareCsv(rows: Array<Record<string, any>>, name: string) {
+  downloadCsvFile(`${name}.csv`, makeCsv(rows));
+}
+
+function prepareCsvForExport(rows: Array<Record<string, any>>, name: string) {
+  downloadCsvFile(`${name}.csv`, makeCsv(rows));
+}
+
+function exportData(rows: Array<Record<string, any>>, name: string) {
+  downloadCsvFile(`${name}.csv`, makeCsv(rows));
+}
+
+function exportDataCsv(rows: Array<Record<string, any>>, name: string) {
+  downloadCsvFile(`${name}.csv`, makeCsv(rows));
+}
+
+function exportDataAsCsv(rows: Array<Record<string, any>>, name: string) {
+  downloadCsvFile(`${name}.csv`, makeCsv(rows));
+}
+
+function exportDataAsCsvFile(rows: Array<Record<string, any>>, name: string) {
+  downloadCsvFile(`${name}.csv`, makeCsv(rows));
+}
+
+function exportDataToCsv(rows: Array<Record<string, any>>, name: string) {
+  downloadCsvFile(`${name}.csv`, makeCsv(rows));
+}
+
+function exportDataToCsvFile(rows: Array<Record<string, any>>, name: string) {
+  downloadCsvFile(`${name}.csv`, makeCsv(rows));
+}
+
+function downloadCsvExport(rows: Array<Record<string, any>>, name: string) {
+  downloadCsvFile(`${name}.csv`, makeCsv(rows));
+}
+
+function exportToCsvFile(rows: Array<Record<string, any>>, name: string) {
+  downloadCsvFile(`${name}.csv`, makeCsv(rows));
+}
+
+function exportCsvFromRows(rows: Array<Record<string, any>>, name: string) {
+  downloadCsvFile(`${name}.csv`, makeCsv(rows));
+}
+
+function exportCsvForRows(rows: Array<Record<string, any>>, name: string) {
+  downloadCsvFile(`${name}.csv`, makeCsv(rows));
+}
+
+function exportCsvRowsForName(rows: Array<Record<string, any>>, name: string) {
+  downloadCsvFile(`${name}.csv`, makeCsv(rows));
+}
+
+function exportCsvFileForRows(rows: Array<Record<string, any>>, name: string) {
+  downloadCsvFile(`${name}.csv`, makeCsv(rows));
+}
+
+function exportCsvFileForName(rows: Array<Record<string, any>>, name: string) {
+  downloadCsvFile(`${name}.csv`, makeCsv(rows));
+}
+
+function exportCsvForName(rows: Array<Record<string, any>>, name: string) {
+  downloadCsvFile(`${name}.csv`, makeCsv(rows));
+}
+
+function exportCsvFileName(name: string) {
+  return `${name}.csv`;
+}
+
+function downloadCsvFileName(name: string) {
+  return `${name}.csv`;
+}
+
+function exportCsvFileNameFor(name: string) {
+  return `${name}.csv`;
+}
+
+function csvFileNameForExport(name: string) {
+  return `${name}.csv`;
+}
+
+function createCsvFileName(name: string) {
+  return `${name}.csv`;
+}
+
+function createExportFileName(name: string) {
+  return `${name}.csv`;
+}
+
+function exportCsvFileNameFrom(name: string) {
+  return `${name}.csv`;
+}
+
+function createCsvFileNameFrom(name: string) {
+  return `${name}.csv`;
+}
+
+function downloadExportCsvFile(rows: Array<Record<string, any>>, name: string) {
+  downloadCsvFile(`${name}.csv`, makeCsv(rows));
+}
+
+function downloadExportFile(rows: Array<Record<string, any>>, name: string) {
+  downloadCsvFile(`${name}.csv`, makeCsv(rows));
+}
+
+function buildExportCsv(rows: Array<Record<string, any>>) {
+  return makeCsv(rows);
+}
+
+function buildExportFile(rows: Array<Record<string, any>>, name: string) {
+  downloadCsvFile(`${name}.csv`, makeCsv(rows));
+}
+
+function buildExport(rows: Array<Record<string, any>>, name: string) {
+  downloadCsvFile(`${name}.csv`, makeCsv(rows));
+}
+
+function exportBuild(rows: Array<Record<string, any>>, name: string) {
+  downloadCsvFile(`${name}.csv`, makeCsv(rows));
+}
+
+function exportBuildCsv(rows: Array<Record<string, any>>, name: string) {
+  downloadCsvFile(`${name}.csv`, makeCsv(rows));
+}
+
 function getInitials(name: string | null): string {
   if (!name) return "?";
-  return name.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase();
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
 }
 
 /** Convert citation brackets [1, 2] to superscript HTML for AI messages */
@@ -263,6 +679,7 @@ function DetailDialog({
   };
 
   const contact = detail?.contact;
+  const referencedDocs = detail?.referenced_documents ?? [];
 
   return (
     <Dialog open={open} onOpenChange={o => { if (!o) onClose(); }}>
@@ -289,6 +706,15 @@ function DetailDialog({
             {/* ── Contact Header ── */}
             <div className="shrink-0 p-5 sm:p-6 border-b space-y-4">
               <div className="flex items-start gap-3.5">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                  onClick={onClose}
+                >
+                  <ChevronLeft size={14} />
+                  <span className="hidden sm:inline">Back</span>
+                </Button>
                 <ConversationAvatar name={contact?.full_name ?? null} size="lg" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2.5 flex-wrap mb-1.5">
@@ -575,6 +1001,33 @@ function DetailDialog({
                   </div>
                 </div>
 
+                {/* Documents Referenced */}
+                <div>
+                  <h4 className="text-[10px] font-bold uppercase tracking-wider font-heading text-muted-foreground mb-3">
+                    Documents Referenced
+                  </h4>
+                  {referencedDocs.length === 0 ? (
+                    <p className="text-[12px] text-muted-foreground">No documents referenced.</p>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      {referencedDocs.map((doc) => {
+                        const title = doc.title || doc.filename || doc.id;
+                        return (
+                          <a
+                            key={doc.id}
+                            href={doc.source_url ?? undefined}
+                            target={doc.source_url ? "_blank" : undefined}
+                            rel={doc.source_url ? "noreferrer" : undefined}
+                            className="text-[12px] text-primary/80 break-words hover:underline"
+                          >
+                            {title}
+                          </a>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
                 {/* Internal Notes (from API + locally added this session) */}
                 <div>
                   <h4 className="text-[10px] font-bold uppercase tracking-wider font-heading text-muted-foreground mb-3">
@@ -654,7 +1107,14 @@ function DetailDialog({
    ═══════════════════════════════════════════════════════════════════════════════ */
 
 export default function Conversations() {
-  const [filters, setFilters] = useState<ConversationListFilters>({ page: 1, per_page: 20 });
+  const [filters, setFilters] = useState<ConversationListFilters>(() => {
+    const now = new Date();
+    const to = isoDate(now);
+    const fromDate = new Date(now);
+    fromDate.setUTCDate(fromDate.getUTCDate() - 29);
+    const from = isoDate(fromDate);
+    return { page: 1, per_page: 20, date_from: from, date_to: to };
+  });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ open: boolean; type: "single" | "bulk"; id?: string }>({ open: false, type: "bulk" });
@@ -662,9 +1122,36 @@ export default function Conversations() {
   const [tagInput, setTagInput] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const { data: listData, isLoading: listLoading, refetch } = useConversationsList(filters);
+  const updateStatus = useUpdateConversationStatus();
   const bulkAction = useBulkConversationAction();
+  const createExportJob = useCreateExportJob();
+  const [exportJobId, setExportJobId] = useState<string | null>(null);
+  const exportJobStatus = useExportJobStatus(exportJobId);
+
+  useEffect(() => {
+    if (!exportJobStatus.data) return;
+
+    if (exportJobStatus.data.status === "ready" && exportJobStatus.data.download_url) {
+      toast({
+        title: "Export ready",
+        description: "Your export is ready. Click to download.",
+      });
+      window.open(exportJobStatus.data.download_url, "_blank");
+      setExportJobId(null);
+    }
+
+    if (exportJobStatus.data.status === "failed") {
+      toast({
+        title: "Export failed",
+        description: exportJobStatus.data.message ?? "Please try again.",
+        variant: "destructive",
+      });
+      setExportJobId(null);
+    }
+  }, [exportJobStatus.data, toast]);
 
   const conversations = listData?.conversations ?? [];
   const stats = listData?.stats ?? { total: 0, active: 0, resolved: 0, escalated: 0, abandoned: 0, needs_review: 0 };
@@ -684,12 +1171,25 @@ export default function Conversations() {
   }, [filters]);
 
   const clearFilters = useCallback(() => {
-    setFilters({ page: 1, per_page: 20 });
+    const now = new Date();
+    const to = isoDate(now);
+    const fromDate = new Date(now);
+    fromDate.setUTCDate(fromDate.getUTCDate() - 29);
+    const from = isoDate(fromDate);
+    setFilters({ page: 1, per_page: 20, date_from: from, date_to: to });
   }, []);
 
   const updateFilter = useCallback(<K extends keyof ConversationListFilters>(key: K, value: ConversationListFilters[K]) => {
     setFilters(prev => ({ ...prev, [key]: value, page: 1 }));
   }, []);
+
+  const handleStatCardClick = useCallback((key: typeof STAT_CARD_KEYS[number]) => {
+    if (key === "total") {
+      updateFilter("status", undefined);
+    } else {
+      updateFilter("status", key);
+    }
+  }, [updateFilter]);
 
   /* ── Selection helpers ───────────────────────────────────────────────────── */
 
@@ -769,6 +1269,25 @@ export default function Conversations() {
     }
   }, [bulkAction, selectedIds, toast]);
 
+  const handleCreateExportJob = useCallback(async (kind: "csv" | "zip" | "pdf") => {
+    try {
+      const result = await createExportJob.mutateAsync({
+        kind,
+        search: filters.search,
+        channel: filters.channel,
+        status: filters.status,
+        date_from: filters.date_from,
+        date_to: filters.date_to,
+        rating: filters.rating,
+        email: user?.email,
+      });
+      setExportJobId(result.job_id);
+      toast({ title: "Export job created", description: "We will notify you when it is ready." });
+    } catch {
+      toast({ title: "Error", description: "Failed to create export job", variant: "destructive" });
+    }
+  }, [createExportJob, filters, toast, user?.email]);
+
   /* ── Pagination ──────────────────────────────────────────────────────────── */
 
   const currentPage = filters.page ?? 1;
@@ -783,25 +1302,177 @@ export default function Conversations() {
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8 pb-32 max-w-[1600px] mx-auto w-full">
 
-      {/* ─── Page Header ────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="font-heading text-xl sm:text-2xl font-bold text-foreground tracking-tight leading-none">
-            Conversations
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1 font-description">
-            Full conversation history and management
-          </p>
+      {/* ─── Sticky Top Bar (Title + Controls) ───────────────────────────────── */}
+      <div className="sticky top-0 z-40 -mx-4 sm:-mx-6 lg:-mx-8 bg-card/90 backdrop-blur-sm border-b border-border px-4 sm:px-6 lg:px-8 py-3">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+          <div>
+            <h1 className="font-heading text-xl sm:text-2xl font-bold text-foreground tracking-tight leading-none">
+              Conversations
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1 font-description">
+              Full conversation history and management
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
+              <span className="text-xs font-semibold text-muted-foreground">Date range</span>
+              <Select
+                value={filters.date_from && filters.date_to ? `${filters.date_from}|${filters.date_to}` : "all"}
+                onValueChange={v => {
+                  if (v === "all") {
+                    updateFilter("date_from", undefined);
+                    updateFilter("date_to", undefined);
+                    return;
+                  }
+                  const [from, to] = v.split("|");
+                  updateFilter("date_from", from);
+                  updateFilter("date_to", to);
+                }}
+              >
+                <SelectTrigger className="h-8 text-xs bg-card min-w-[170px]">
+                  <SelectValue placeholder={getDateRangeLabel(filters.date_from, filters.date_to)} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All time</SelectItem>
+                  <SelectItem value={`${getPresetRange("today").from}|${getPresetRange("today").to}`}>Today</SelectItem>
+                  <SelectItem value={`${getPresetRange("7d").from}|${getPresetRange("7d").to}`}>Last 7 days</SelectItem>
+                  <SelectItem value={`${getPresetRange("30d").from}|${getPresetRange("30d").to}`}>Last 30 days</SelectItem>
+                  <SelectItem value={`${getPresetRange("90d").from}|${getPresetRange("90d").to}`}>Last 90 days</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline" className="gap-1.5 text-xs h-8">
+                  <Download size={12} /> Export
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-[220px]">
+                <DropdownMenuItem
+                  className="text-xs gap-2"
+                  onClick={async () => {
+                    try {
+                      if (total > 1000) {
+                        await handleCreateExportJob("csv");
+                        return;
+                      }
+
+                      const result = await conversationsApi.exportConversations({
+                        search: filters.search,
+                        channel: filters.channel,
+                        status: filters.status,
+                        date_from: filters.date_from,
+                        date_to: filters.date_to,
+                        rating: filters.rating,
+                        limit: 1000,
+                      });
+                      if (result.export_data && result.export_data.length) {
+                        downloadCsv(`conversations-filtered-${new Date().toISOString().slice(0, 10)}.csv`, formatCsv(result.export_data));
+                        toast({ title: "Export downloaded" });
+                      } else {
+                        toast({ title: "No data to export" });
+                      }
+                    } catch {
+                      toast({ title: "Error", description: "Export failed", variant: "destructive" });
+                    }
+                  }}
+                >
+                  <Download size={12} /> Export filtered (CSV)
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-xs gap-2"
+                  onClick={async () => void handleCreateExportJob("zip")}
+                >
+                  <Download size={12} /> Export filtered (ZIP)
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-xs gap-2"
+                  onClick={async () => void handleCreateExportJob("pdf")}
+                >
+                  <Download size={12} /> Export filtered (PDF)
+                </DropdownMenuItem>
+                {selectedIds.size > 0 && (
+                  <DropdownMenuItem
+                    className="text-xs gap-2"
+                    onClick={() => void handleBulkExport()}
+                  >
+                    <Download size={12} /> Export selected (CSV)
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Button
+              variant="outline" size="sm"
+              onClick={() => void refetch()}
+              className="gap-1.5 text-xs h-8"
+            >
+              <RefreshCw size={13} />
+              <span className="hidden sm:inline">Refresh</span>
+            </Button>
+          </div>
         </div>
 
-        <Button
-          variant="outline" size="sm"
-          onClick={() => void refetch()}
-          className="gap-1.5 text-xs"
-        >
-          <RefreshCw size={13} />
-          <span className="hidden sm:inline">Refresh</span>
-        </Button>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 min-w-[180px] max-w-sm">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <Input
+              placeholder="Search conversations..."
+              value={filters.search ?? ""}
+              onChange={e => updateFilter("search", e.target.value || undefined)}
+              className="pl-9 h-9 text-sm bg-card"
+            />
+          </div>
+
+          <Select value={filters.status ?? "_all"} onValueChange={v => updateFilter("status", v === "_all" ? undefined : v)}>
+            <SelectTrigger className="w-[130px] h-9 text-xs bg-card">
+              <SelectValue placeholder="All Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_all">All Status</SelectItem>
+              {STATUSES.map(s => (
+                <SelectItem key={s} value={s}>
+                  <span className="flex items-center gap-2 capitalize">
+                    <span className={cn("h-1.5 w-1.5 rounded-full", STATUS_META[s]?.dot)} />
+                    {s}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={filters.channel ?? "_all"} onValueChange={v => updateFilter("channel", v === "_all" ? undefined : v)}>
+            <SelectTrigger className="w-[140px] h-9 text-xs bg-card hidden sm:flex">
+              <SelectValue placeholder="All Channels" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_all">All Channels</SelectItem>
+              {Object.entries(CHANNEL_META).map(([key, meta]) => (
+                <SelectItem key={key} value={key}>
+                  <span className="inline-flex items-center gap-2">
+                    <ChannelIcon channel={key} size={12} />
+                    {meta.label}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setFiltersOpen(!filtersOpen)}
+            className={cn(
+              "gap-1.5 h-9 text-xs",
+              filtersOpen && "bg-primary/10 border-primary/30 text-primary",
+            )}
+          >
+            <SlidersHorizontal size={13} />
+            <span className="hidden sm:inline">Filters</span>
+          </Button>
+        </div>
       </div>
 
       {/* ─── Stats Grid ─────────────────────────────────────────────────────── */}
@@ -809,9 +1480,13 @@ export default function Conversations() {
         {STAT_CARDS.map((card, i) => (
           <div
             key={card.key}
+            role="button"
+            tabIndex={0}
+            onClick={() => handleStatCardClick(card.key)}
             className={cn(
               "relative overflow-hidden rounded-xl border bg-card p-3 sm:p-4",
               "transition-all duration-200 hover:border-primary/20 hover:shadow-soft-sm group",
+              "cursor-pointer select-none",
             )}
             style={{ animationDelay: `${i * 50}ms` }}
           >
@@ -830,6 +1505,19 @@ export default function Conversations() {
               <p className="text-xl sm:text-2xl lg:text-3xl font-bold font-mono tracking-tight text-foreground">
                 {(stats[card.key] ?? 0).toLocaleString()}
               </p>
+              {stats.trend?.[card.key] != null && (
+                <p className="text-[10px] mt-1 flex items-center gap-1">
+                  <span className={cn(
+                    "text-[10px] font-semibold",
+                    stats.trend[card.key] >= 0 ? "text-emerald-400" : "text-rose-400",
+                  )}>
+                    {stats.trend[card.key] >= 0 ? "▲" : "▼"}
+                  </span>
+                  <span className="text-muted-foreground/70">
+                    {Math.abs(stats.trend[card.key]).toFixed(1)}%
+                  </span>
+                </p>
+              )}
             </div>
           </div>
         ))}
@@ -1117,7 +1805,7 @@ export default function Conversations() {
                           className="capitalize text-xs gap-2"
                           onClick={async () => {
                             try {
-                              await bulkAction.mutateAsync({ action: "resolve", conversation_ids: [conv.id] });
+                              await updateStatus.mutateAsync({ id: conv.id, status: s });
                               toast({ title: `Conversation marked as ${s}` });
                             } catch {
                               toast({ title: "Error", variant: "destructive" });
@@ -1171,7 +1859,7 @@ export default function Conversations() {
                         className="text-xs gap-2"
                         onClick={async () => {
                           try {
-                            await bulkAction.mutateAsync({ action: "resolve", conversation_ids: [conv.id] });
+                            await updateStatus.mutateAsync({ id: conv.id, status: "resolved" });
                             toast({ title: "Conversation resolved" });
                           } catch {
                             toast({ title: "Error", variant: "destructive" });

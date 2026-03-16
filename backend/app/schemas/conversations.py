@@ -36,6 +36,10 @@ class ConversationStats(BaseModel):
     escalated: int = Field(..., ge=0)
     abandoned: int = Field(..., ge=0)
     needs_review: int = Field(default=0, ge=0)
+    trend: Optional[dict] = Field(
+        None,
+        description="Percent change vs previous period (e.g. { active: 12.5, resolved: -3.2 }).",
+    )
 
 
 class ConversationListResponse(BaseModel):
@@ -87,6 +91,13 @@ class ConversationInternalNote(BaseModel):
     created_at: str = Field(..., description="ISO 8601 timestamp")
 
 
+class ConversationDocumentReference(BaseModel):
+    id: str
+    title: Optional[str] = None
+    filename: Optional[str] = None
+    source_url: Optional[str] = None
+
+
 class ConversationDetailResponse(BaseModel):
     """Full conversation detail for the transcript/detail panel (7.4.4)."""
     id: str
@@ -105,6 +116,10 @@ class ConversationDetailResponse(BaseModel):
     internal_notes: List[ConversationInternalNote] = Field(
         default_factory=list,
         description="Internal notes (agent-only) for this conversation",
+    )
+    referenced_documents: List[ConversationDocumentReference] = Field(
+        default_factory=list,
+        description="Documents referenced by the conversation messages",
     )
     is_flagged: bool = Field(default=False, description="Flagged for AI training")
 
@@ -163,6 +178,41 @@ class ConversationBulkResponse(BaseModel):
     message: str
     export_data: Optional[List[dict]] = Field(None, description="Data for 'export' action")
 
+class ConversationExportRequest(BaseModel):
+    """Export conversations matching filters."""
+    search: Optional[str] = Field(None, description="Search contact/message content.")
+    channel: Optional[str] = Field(None, description="Channel filter.")
+    status: Optional[str] = Field(None, description="Status filter.")
+    date_from: Optional[str] = Field(None, description="Start date ISO (YYYY-MM-DD).")
+    date_to: Optional[str] = Field(None, description="End date ISO (YYYY-MM-DD).")
+    rating: Optional[str] = Field(None, description="Rating filter (positive/negative/none).")
+    limit: Optional[int] = Field(None, description="Max number of rows to export; leave null for all.")
+
+
+class ConversationExportJobRequest(BaseModel):
+    """Create an export job for large exports (returns job id)."""
+    kind: str = Field(..., description="Export format: csv | zip | pdf")
+    search: Optional[str] = Field(None, description="Search contact/message content.")
+    channel: Optional[str] = Field(None, description="Channel filter.")
+    status: Optional[str] = Field(None, description="Status filter.")
+    date_from: Optional[str] = Field(None, description="Start date ISO (YYYY-MM-DD).")
+    date_to: Optional[str] = Field(None, description="End date ISO (YYYY-MM-DD).")
+    rating: Optional[str] = Field(None, description="Rating filter (positive/negative/none).")
+    email: Optional[str] = Field(None, description="Optional email to notify when export is ready.")
+
+
+class ConversationExportJobResponse(BaseModel):
+    job_id: str
+    status: str
+    download_url: Optional[str] = None
+    message: Optional[str] = None
+
+
+class ConversationExportJobStatusResponse(BaseModel):
+    job_id: str
+    status: str
+    download_url: Optional[str] = None
+    message: Optional[str] = None
 
 # ─── In-platform feedback (Flow 5 parity) ─────────────────────────────────────
 

@@ -96,3 +96,24 @@ export function useBulkConversationAction() {
     },
   });
 }
+
+export function useCreateExportJob() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (request: Parameters<typeof conversationsApi.createExportJob>[0]) =>
+      conversationsApi.createExportJob(request),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: conversationKeys.all });
+    },
+  });
+}
+
+export function useExportJobStatus(jobId: string | null) {
+  return useQuery({
+    queryKey: jobId ? ["exportJob", jobId] : ["exportJob", "none"],
+    queryFn: () => conversationsApi.getExportJobStatus(jobId!),
+    enabled: !!jobId,
+    staleTime: 10_000,
+    refetchInterval: 5000,
+  });
+}
