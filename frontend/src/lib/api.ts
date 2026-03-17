@@ -155,6 +155,9 @@ export interface AnalyticsSummary {
     total_feedback?: number;
     satisfaction_rate?: number;
   };
+  period?: { from: string; to: string };
+  compare_period?: { from: string; to: string };
+  compare_summary?: any;
 }
 
 export interface TopQuery {
@@ -198,6 +201,9 @@ export interface LeadAnalyticsResponse {
   lead_sources: LeadSourceItem[];
   conversion_funnel: ConversionFunnelItem[];
   leads_trend?: number | null;
+  period?: { from: string; to: string };
+  compare_period?: { from: string; to: string };
+  compare_data?: any;
 }
 
 // Channel Analytics (7.3.4)
@@ -250,6 +256,39 @@ export interface SatisfactionAnalyticsResponse {
   total_positive: number;
   total_negative: number;
   score_trend?: number | null;
+}
+
+export interface WeekdayCount {
+  weekday: string;
+  count: number;
+}
+
+export interface HourCount {
+  hour: number;
+  count: number;
+}
+
+export interface ResponseTimeBucket {
+  bucket: string;
+  count: number;
+}
+
+export interface KBCoveragePoint {
+  date: string;
+  coverage: number;
+}
+
+export interface ShareReportRequest {
+  range?: string;
+  from?: string;
+  to?: string;
+  compare?: boolean;
+}
+
+export interface ShareReportResponse {
+  token: string;
+  url: string;
+  expires_at: string;
 }
 
 // Schedule Report (7.3.1)
@@ -1188,9 +1227,15 @@ export const analyticsApi = {
    * Get analytics summary
    * @param days Number of days to include in conversation counts (default: 7, max: 30)
    */
-  async getSummary(days: number = 7): Promise<AnalyticsSummary> {
+  async getSummary(options?: { range?: string; from?: string; to?: string; compare?: boolean }): Promise<AnalyticsSummary> {
+    const params: Record<string, any> = {};
+    if (options?.range) params.range = options.range;
+    if (options?.from) params.from_date = options.from;
+    if (options?.to) params.to_date = options.to;
+    if (options?.compare) params.compare = true;
+
     return apiClient<AnalyticsSummary>("/api/analytics/summary", {
-      params: { days },
+      params,
     });
   },
 
@@ -1206,35 +1251,107 @@ export const analyticsApi = {
   /**
    * Get lead analytics (7.3.6 - Lead Analytics Section)
    */
-  async getLeadsAnalytics(days: number = 30): Promise<LeadAnalyticsResponse> {
+  async getLeadsAnalytics(options?: { range?: string; from?: string; to?: string; compare?: boolean }): Promise<LeadAnalyticsResponse> {
+    const params: Record<string, any> = {};
+    if (options?.range) params.range = options.range;
+    if (options?.from) params.from_date = options.from;
+    if (options?.to) params.to_date = options.to;
+    if (options?.compare) params.compare = true;
+
     return apiClient<LeadAnalyticsResponse>("/api/analytics/leads", {
-      params: { days },
+      params,
     });
   },
 
   /**
    * Get channel analytics (7.3.4 - Channel Analytics Section)
    */
-  async getChannelAnalytics(): Promise<ChannelAnalyticsResponse> {
-    return apiClient<ChannelAnalyticsResponse>("/api/analytics/channels");
+  async getChannelAnalytics(options?: { range?: string; from?: string; to?: string }): Promise<ChannelAnalyticsResponse> {
+    const params: Record<string, any> = {};
+    if (options?.range) params.range = options.range;
+    if (options?.from) params.from_date = options.from;
+    if (options?.to) params.to_date = options.to;
+
+    return apiClient<ChannelAnalyticsResponse>("/api/analytics/channels", {
+      params,
+    });
   },
 
   /**
    * Get content analytics (7.3.5 - Content Analytics Section)
    */
-  async getContentAnalytics(days: number = 30): Promise<ContentAnalyticsResponse> {
+  async getContentAnalytics(options?: { range?: string; from?: string; to?: string }): Promise<ContentAnalyticsResponse> {
+    const params: Record<string, any> = {};
+    if (options?.range) params.range = options.range;
+    if (options?.from) params.from_date = options.from;
+    if (options?.to) params.to_date = options.to;
+
     return apiClient<ContentAnalyticsResponse>("/api/analytics/content", {
-      params: { days },
+      params,
     });
   },
 
   /**
    * Get satisfaction analytics (7.3.7 - Satisfaction Analytics Section)
    */
-  async getSatisfactionAnalytics(days: number = 30): Promise<SatisfactionAnalyticsResponse> {
+  async getSatisfactionAnalytics(options?: { range?: string; from?: string; to?: string }): Promise<SatisfactionAnalyticsResponse> {
+    const params: Record<string, any> = {};
+    if (options?.range) params.range = options.range;
+    if (options?.from) params.from_date = options.from;
+    if (options?.to) params.to_date = options.to;
+
     return apiClient<SatisfactionAnalyticsResponse>("/api/analytics/satisfaction", {
-      params: { days },
+      params,
     });
+  },
+
+  /**
+   * Create a shareable analytics report link.
+   */
+  async shareReport(config: ShareReportRequest): Promise<ShareReportResponse> {
+    return apiClient<ShareReportResponse>("/api/analytics/share-report", {
+      method: "POST",
+      body: JSON.stringify(config),
+    });
+  },
+
+  /**
+   * Fetch shared analytics report by token.
+   */
+  async getSharedReport(token: string): Promise<AnalyticsSummary> {
+    return apiClient<AnalyticsSummary>(`/api/analytics/share-report/${token}`);
+  },
+
+  /**
+   * Request a server-side PDF export.
+   */
+  async exportPdf(options?: { range?: string; from?: string; to?: string; compare?: boolean }): Promise<Blob> {
+    const params: Record<string, any> = {};
+    if (options?.range) params.range = options.range;
+    if (options?.from) params.from_date = options.from;
+    if (options?.to) params.to_date = options.to;
+    if (options?.compare) params.compare = true;
+
+    const url = new URL(`${API_BASE_URL}/api/analytics/export/pdf`);
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) url.searchParams.append(key, String(value));
+    });
+
+    const accessToken = localStorage.getItem("access_token");
+    const response = await fetch(url.toString(), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
+      body: JSON.stringify({}),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to export PDF");
+    }
+
+    return response.blob();
   },
 
   /**

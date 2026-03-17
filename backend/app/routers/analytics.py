@@ -13,11 +13,20 @@ Implements:
 
 import logging
 import uuid
-from datetime import datetime
-from typing import Dict, Any
+from datetime import datetime, timedelta
+from io import BytesIO
+from typing import Dict, Any, Optional, Tuple
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+
+try:
+    from reportlab.lib.pagesizes import letter
+    from reportlab.pdfgen import canvas
+    REPORTLAB_AVAILABLE = True
+except ImportError:  # pragma: no cover
+    REPORTLAB_AVAILABLE = False
 
 from ..models.user import User
 from ..routers.auth import get_current_user
@@ -41,92 +50,124 @@ from ..schemas.analytics import (
     SatisfactionDataPoint,
     ScheduleReportRequest,
     ScheduleReportResponse,
+    ShareReportRequest,
+    ShareReportResponse,
 )
 from ..services import database
+
+
+def _parse_date_range(
+    range: str,
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None,
+) -> Tuple[datetime, datetime, Optional[datetime], Optional[datetime]]:
+    """Parse a date range selector into absolute UTC start/end datetimes.
+
+    Returns (start, end, compare_start, compare_end).
+    """
+    now = datetime.utcnow()
+
+    range = (range or "").lower()
+    start = None
+    end = now
+
+    if range in ("today", "1d"):
+        start = datetime(now.year, now.month, now.day)
+        end = now
+    elif range in ("7d", "7days", "last7days"):
+        start = now - timedelta(days=7)
+    elif range in ("30d", "30days", "last30days"):
+        start = now - timedelta(days=30)
+    elif range in ("90d", "90days", "last90days"):
+        start = now - timedelta(days=90)
+    elif range in ("custom",):
+        if from_date and to_date:
+            try:
+                start = datetime.fromisoformat(from_date.replace("Z", "+00:00")).replace(tzinfo=None)
+                end = datetime.fromisoformat(to_date.replace("Z", "+00:00")).replace(tzinfo=None)
+            except ValueError:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid from/to date format")
+        else:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Custom range requires from/to parameters")
+    else:
+        # Default to last 30 days
+        start = now - timedelta(days=30)
+
+    # Ensure start <= end
+    if start > end:
+        start, end = end, start
+
+    # Compute compare period (previous period of same length)
+    duration = end - start
+    compare_end = start
+    compare_start = start - duration
+
+    return start, end, compare_start, compare_end
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
-# In-memory store for scheduled reports (in production, use database)
-scheduled_reports: Dict[str, Dict[str, Any]] = {}
+# NOTE: Scheduled reports are persisted in the database via the Settings table.
+# This avoids losing schedules when the service restarts.
 
 
 @router.get("/summary", response_model=AnalyticsSummaryResponse, status_code=status.HTTP_200_OK)
 async def get_analytics_summary(
-    days: int = Query(7, ge=1, le=30, description="Number of days to include in conversation counts"),
+    range: str = Query("30d", description="Date range (today, 7d, 30d, 90d, custom)"),
+    from_date: Optional[str] = Query(None, description="Custom range start date (ISO 8601)"),
+    to_date: Optional[str] = Query(None, description="Custom range end date (ISO 8601)"),
+    compare: bool = Query(False, description="Whether to include previous period comparison"),
     current_user: User = Depends(get_current_user),
 ) -> AnalyticsSummaryResponse:
-    """
-    Get analytics summary.
+    """Get analytics summary.
 
-    Returns comprehensive analytics including:
-    - Total conversations count
-    - Total messages count
-    - Conversation counts by day (last N days)
-    - Resolution rate (resolved via bot vs escalated)
-    - Response accuracy metrics
-    - Top question categories
-    - API usage/costs tracking
-    - User satisfaction tracking
-
-    Args:
-        days: Number of days to include in conversation counts (default: 7, max: 30)
-
-    Returns:
-        AnalyticsSummaryResponse with all analytics metrics
-
-    Raises:
-        HTTPException: If there's an error retrieving analytics
+    Supports time ranges and optional comparison to the previous period.
     """
     try:
-        # Get all metrics in parallel (if possible) or sequentially, filtered by user_id
         user_id = current_user.id
-        total_conversations = await database.get_total_conversations(user_id=user_id)
-        total_messages = await database.get_total_messages(user_id=user_id)
-        conversations_by_day = await database.get_conversations_by_day(days=days, user_id=user_id)
-        resolution_rate = await database.get_resolution_rate(user_id=user_id)
-        response_accuracy = await database.get_response_accuracy_metrics(user_id=user_id)
-        top_categories = await database.get_top_question_categories(limit=5, user_id=user_id)
-        api_usage = await database.get_api_usage_metrics(user_id=user_id)
-        user_satisfaction = await database.get_user_satisfaction_metrics(user_id=user_id)
+        start, end, compare_start, compare_end = _parse_date_range(range, from_date, to_date)
 
-        # Format conversations by day
-        formatted_conversations_by_day = [
-            ConversationCountByDay(date=item["date"], count=item["count"])
-            for item in conversations_by_day
-        ]
+        # Current period metrics
+        summary = await database.get_analytics_summary_range(start, end, user_id=user_id)
 
-        # Format top categories
-        formatted_top_categories = [
-            QuestionCategory(category=item["category"], count=item["count"])
-            for item in top_categories
-        ]
+        compare_summary = None
+        compare_period = None
+        if compare:
+            compare_summary = await database.get_analytics_summary_range(compare_start, compare_end, user_id=user_id)
+            compare_period = {"from": compare_start.isoformat() + "Z", "to": compare_end.isoformat() + "Z"}
 
-        # Format API usage
-        formatted_api_usage = APIUsageMetrics(
-            total_requests=api_usage["total_requests"],
-            total_tokens_used=api_usage.get("total_tokens_used"),
-            estimated_cost=api_usage.get("estimated_cost"),
-            last_updated=api_usage["last_updated"],
-        )
+        period = {"from": start.isoformat() + "Z", "to": end.isoformat() + "Z"}
 
         logger.info(
-            f"Retrieved analytics summary: conversations={total_conversations}, "
-            f"messages={total_messages}, days={days}"
+            f"Retrieved analytics summary: period={period} compare={compare} user={user_id}"
         )
 
-        return AnalyticsSummaryResponse(
-            total_conversations=total_conversations,
-            total_messages=total_messages,
-            conversations_by_day=formatted_conversations_by_day,
-            resolution_rate=resolution_rate,
-            response_accuracy=response_accuracy,
-            top_categories=formatted_top_categories,
-            api_usage=formatted_api_usage,
-            user_satisfaction=user_satisfaction,
+        # Build response
+        response = AnalyticsSummaryResponse(
+            total_conversations=summary["total_conversations"],
+            total_messages=summary["total_messages"],
+            conversations_by_day=[
+                ConversationCountByDay(date=item["date"], count=item["count"])
+                for item in summary["conversations_by_day"]
+            ],
+            resolution_rate=summary["resolution_rate"],
+            response_accuracy=summary.get("response_accuracy", {}),
+            top_categories=[
+                QuestionCategory(category=item["category"], count=item["count"])
+                for item in summary.get("top_categories", [])
+            ],
+            api_usage=APIUsageMetrics(**summary.get("api_usage", {})),
+            user_satisfaction=summary.get("user_satisfaction", {}),
+            period=period,
+            compare_period=compare_period,
+            compare_summary=compare_summary,
         )
 
+        return response
+
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error getting analytics summary: {e}", exc_info=True)
         raise HTTPException(
@@ -194,25 +235,29 @@ async def get_top_queries(
 
 @router.get("/leads", response_model=LeadAnalyticsResponse, status_code=status.HTTP_200_OK)
 async def get_leads_analytics(
-    days: int = Query(30, ge=1, le=90, description="Number of days to analyze"),
+    range: str = Query("30d", description="Date range (today, 7d, 30d, 90d, custom)"),
+    from_date: Optional[str] = Query(None, description="Custom range start date (ISO 8601)"),
+    to_date: Optional[str] = Query(None, description="Custom range end date (ISO 8601)"),
+    compare: bool = Query(False, description="Whether to include previous period comparison"),
     current_user: User = Depends(get_current_user),
 ) -> LeadAnalyticsResponse:
-    """
-    Get lead analytics for 7.3.6 - Lead Analytics Section.
-    
-    Returns:
-        - Total leads in date range
-        - Leads over time (line chart data)
-        - Lead sources by channel (donut chart data)
-        - Conversion funnel (Conversations → Leads → Contacted → Qualified → Converted)
-        - Trend vs previous period
-    """
+    """Get lead analytics for 7.3.6 - Lead Analytics Section."""
     try:
         tenant_id = current_user.tenant_id or current_user.id
-        data = await database.get_leads_analytics(tenant_id, days, user_id=current_user.id)
-        
-        logger.info(f"Retrieved lead analytics: total_leads={data['total_leads']}, days={days}")
-        
+        start, end, compare_start, compare_end = _parse_date_range(range, from_date, to_date)
+
+        data = await database.get_leads_analytics(tenant_id, start_date=start, end_date=end, user_id=current_user.id)
+
+        compare_data = None
+        compare_period = None
+        if compare:
+            compare_data = await database.get_leads_analytics(tenant_id, start_date=compare_start, end_date=compare_end, user_id=current_user.id)
+            compare_period = {"from": compare_start.isoformat() + "Z", "to": compare_end.isoformat() + "Z"}
+
+        period = {"from": start.isoformat() + "Z", "to": end.isoformat() + "Z"}
+
+        logger.info(f"Retrieved lead analytics: total_leads={data['total_leads']}, period={period}")
+
         return LeadAnalyticsResponse(
             total_leads=data["total_leads"],
             leads_by_day=[
@@ -223,7 +268,7 @@ async def get_leads_analytics(
                 LeadSourceItem(
                     channel=item["channel"],
                     count=item["count"],
-                    percentage=item["percentage"]
+                    percentage=item["percentage"],
                 )
                 for item in data["lead_sources"]
             ],
@@ -231,13 +276,18 @@ async def get_leads_analytics(
                 ConversionFunnelItem(
                     stage=item["stage"],
                     count=item["count"],
-                    percentage=item["percentage"]
+                    percentage=item["percentage"],
                 )
                 for item in data["conversion_funnel"]
             ],
-            leads_trend=data.get("leads_trend")
+            leads_trend=data.get("leads_trend"),
+            period=period,
+            compare_period=compare_period,
+            compare_data=compare_data,
         )
-        
+
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error getting lead analytics: {e}", exc_info=True)
         raise HTTPException(
@@ -248,22 +298,19 @@ async def get_leads_analytics(
 
 @router.get("/channels", response_model=ChannelAnalyticsResponse, status_code=status.HTTP_200_OK)
 async def get_channel_analytics(
+    range: str = Query("30d", description="Date range (today, 7d, 30d, 90d, custom)"),
+    from_date: Optional[str] = Query(None, description="Custom range start date (ISO 8601)"),
+    to_date: Optional[str] = Query(None, description="Custom range end date (ISO 8601)"),
     current_user: User = Depends(get_current_user),
 ) -> ChannelAnalyticsResponse:
-    """
-    Get channel analytics for 7.3.4 - Channel Analytics Section.
-    
-    Returns:
-        - Channel breakdown with conversation counts
-        - Resolution rate per channel
-        - Average duration per channel
-    """
+    """Get channel analytics for 7.3.4 - Channel Analytics Section."""
     try:
         tenant_id = current_user.tenant_id or current_user.id
-        data = await database.get_channel_analytics(tenant_id)
-        
+        start, end, _, _ = _parse_date_range(range, from_date, to_date)
+        data = await database.get_channel_analytics(tenant_id, start_date=start, end_date=end)
+
         logger.info(f"Retrieved channel analytics: channels={len(data['channels'])}")
-        
+
         return ChannelAnalyticsResponse(
             channels=[
                 ChannelConversationItem(
@@ -271,13 +318,13 @@ async def get_channel_analytics(
                     icon=item["icon"],
                     conversations=item["conversations"],
                     resolution_rate=item["resolution_rate"],
-                    avg_duration_minutes=item.get("avg_duration_minutes")
+                    avg_duration_minutes=item.get("avg_duration_minutes"),
                 )
                 for item in data["channels"]
             ],
-            total_conversations=data["total_conversations"]
+            total_conversations=data["total_conversations"],
         )
-        
+
     except Exception as e:
         logger.error(f"Error getting channel analytics: {e}", exc_info=True)
         raise HTTPException(
@@ -288,22 +335,17 @@ async def get_channel_analytics(
 
 @router.get("/content", response_model=ContentAnalyticsResponse, status_code=status.HTTP_200_OK)
 async def get_content_analytics(
-    days: int = Query(30, ge=1, le=90, description="Number of days to analyze"),
+    range: str = Query("30d", description="Date range (today, 7d, 30d, 90d, custom)"),
+    from_date: Optional[str] = Query(None, description="Custom range start date (ISO 8601)"),
+    to_date: Optional[str] = Query(None, description="Custom range end date (ISO 8601)"),
     current_user: User = Depends(get_current_user),
 ) -> ContentAnalyticsResponse:
-    """
-    Get content analytics for 7.3.5 - Content Analytics Section.
-    
-    Returns:
-        - Top 10 questions table
-        - Unanswered questions table
-        - Most referenced documents (bar chart)
-        - Underutilized documents
-    """
+    """Get content analytics for 7.3.5 - Content Analytics Section."""
     try:
         tenant_id = current_user.tenant_id or current_user.id
-        logger.debug(f"Fetching content analytics for tenant_id={tenant_id}, days={days}")
-        data = await database.get_content_analytics(tenant_id, days)
+        start, end, _, _ = _parse_date_range(range, from_date, to_date)
+        logger.debug(f"Fetching content analytics for tenant_id={tenant_id}, range={range}")
+        data = await database.get_content_analytics(tenant_id, start_date=start, end_date=end)
         
         logger.info(f"Retrieved content analytics: top_questions={len(data['top_questions'])}")
         
@@ -356,21 +398,16 @@ async def get_content_analytics(
 
 @router.get("/satisfaction", response_model=SatisfactionAnalyticsResponse, status_code=status.HTTP_200_OK)
 async def get_satisfaction_analytics(
-    days: int = Query(30, ge=1, le=90, description="Number of days to analyze"),
+    range: str = Query("30d", description="Date range (today, 7d, 30d, 90d, custom)"),
+    from_date: Optional[str] = Query(None, description="Custom range start date (ISO 8601)"),
+    to_date: Optional[str] = Query(None, description="Custom range end date (ISO 8601)"),
     current_user: User = Depends(get_current_user),
 ) -> SatisfactionAnalyticsResponse:
-    """
-    Get satisfaction analytics for 7.3.7 - Satisfaction Analytics Section.
-    
-    Returns:
-        - Current satisfaction score
-        - Satisfaction over time (line chart data)
-        - Total positive/negative feedback counts
-        - Trend vs previous period
-    """
+    """Get satisfaction analytics for 7.3.7 - Satisfaction Analytics Section."""
     try:
         tenant_id = current_user.tenant_id or current_user.id
-        data = await database.get_satisfaction_analytics(tenant_id, days)
+        start, end, _, _ = _parse_date_range(range, from_date, to_date)
+        data = await database.get_satisfaction_analytics(tenant_id, start_date=start, end_date=end)
         
         logger.info(f"Retrieved satisfaction analytics: score={data['current_score']}%")
         
@@ -405,38 +442,32 @@ async def schedule_report(
 ) -> ScheduleReportResponse:
     """
     Schedule automated analytics report (7.3.1 - Schedule Report button).
-    
+
     Creates a scheduled report that will be sent via email.
     """
     try:
         report_id = str(uuid.uuid4())
         now = datetime.utcnow()
-        
-        scheduled_reports[report_id] = {
+        tenant_id = current_user.tenant_id or current_user.id
+
+        report = {
             "id": report_id,
-            "tenant_id": current_user.tenant_id or current_user.id,
+            "tenant_id": tenant_id,
             "frequency": request.frequency,
             "day_of_week": request.day_of_week,
             "day_of_month": request.day_of_month,
             "time": request.time,
             "recipient_email": request.recipient_email,
             "enabled": request.enabled,
-            "created_at": now.isoformat() + "Z"
+            "created_at": now.isoformat() + "Z",
         }
-        
+
+        await database.save_scheduled_report(tenant_id, report)
+
         logger.info(f"Created scheduled report: {report_id} for {request.recipient_email}")
-        
-        return ScheduleReportResponse(
-            id=report_id,
-            frequency=request.frequency,
-            day_of_week=request.day_of_week,
-            day_of_month=request.day_of_month,
-            time=request.time,
-            recipient_email=request.recipient_email,
-            enabled=request.enabled,
-            created_at=now.isoformat() + "Z"
-        )
-        
+
+        return ScheduleReportResponse(**report)
+
     except Exception as e:
         logger.error(f"Error scheduling report: {e}", exc_info=True)
         raise HTTPException(
@@ -451,8 +482,10 @@ async def get_scheduled_reports(
 ) -> list[ScheduleReportResponse]:
     """Get all scheduled reports for the current tenant."""
     tenant_id = current_user.tenant_id or current_user.id
-    
-    reports = [
+
+    reports = await database.get_scheduled_reports(tenant_id)
+
+    return [
         ScheduleReportResponse(
             id=report["id"],
             frequency=report["frequency"],
@@ -461,13 +494,10 @@ async def get_scheduled_reports(
             time=report["time"],
             recipient_email=report["recipient_email"],
             enabled=report["enabled"],
-            created_at=report["created_at"]
+            created_at=report["created_at"],
         )
-        for report in scheduled_reports.values()
-        if report.get("tenant_id") == tenant_id
+        for report in reports
     ]
-    
-    return reports
 
 
 @router.delete("/schedule-report/{report_id}", status_code=status.HTTP_200_OK)
@@ -477,13 +507,140 @@ async def delete_scheduled_report(
 ) -> Dict[str, str]:
     """Delete a scheduled report."""
     tenant_id = current_user.tenant_id or current_user.id
-    
-    if report_id in scheduled_reports:
-        if scheduled_reports[report_id].get("tenant_id") == tenant_id:
-            del scheduled_reports[report_id]
-            return {"message": "Report schedule deleted"}
-    
+
+    deleted = await database.delete_scheduled_report(tenant_id, report_id)
+    if deleted:
+        return {"message": "Report schedule deleted"}
+
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
-        detail="Scheduled report not found"
+        detail="Scheduled report not found",
     )
+
+
+@router.post("/share-report", response_model=ShareReportResponse, status_code=status.HTTP_201_CREATED)
+async def share_report(
+    request: ShareReportRequest,
+    current_user: User = Depends(get_current_user),
+) -> ShareReportResponse:
+    """Create a shareable analytics report link (public access)."""
+    try:
+        token = str(uuid.uuid4())
+        now = datetime.utcnow()
+        expires_at = (now + timedelta(days=7)).isoformat() + "Z"
+
+        payload = {
+            "token": token,
+            "tenant_id": current_user.tenant_id or current_user.id,
+            "created_at": now.isoformat() + "Z",
+            "expires_at": expires_at,
+            "params": {
+                "range": request.range,
+                "from": request.from_date,
+                "to": request.to_date,
+                "compare": request.compare,
+            },
+        }
+
+        await database.save_shared_report(token, payload)
+
+        # The frontend can construct the full URL with the token
+        return ShareReportResponse(
+            token=token,
+            url=f"/analytics/shared/{token}",
+            expires_at=expires_at,
+        )
+
+    except Exception as e:
+        logger.error(f"Error generating shareable report link: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Could not create shareable report link",
+        )
+
+
+@router.get("/share-report/{token}", response_model=AnalyticsSummaryResponse, status_code=status.HTTP_200_OK)
+async def get_shared_report(token: str):
+    """Get analytics summary for a shared report token (no auth required)."""
+    try:
+        report = await database.get_shared_report(token)
+        if not report:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shared report not found")
+
+        # Validate expiration
+        expires_at = report.get("expires_at")
+        if expires_at:
+            expires_dt = datetime.fromisoformat(expires_at.replace("Z", "+00:00")).replace(tzinfo=None)
+            if datetime.utcnow() > expires_dt:
+                raise HTTPException(status_code=status.HTTP_410_GONE, detail="Shared report link has expired")
+
+        params = report.get("params", {}) or {}
+        start, end, compare_start, compare_end = _parse_date_range(
+            params.get("range", "30d"),
+            params.get("from"),
+            params.get("to"),
+        )
+        summary = await database.get_analytics_summary_range(start, end, user_id=report.get("tenant_id"))
+
+        return AnalyticsSummaryResponse(**summary)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving shared report: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while fetching shared report",
+        )
+
+
+@router.post("/export/pdf", status_code=status.HTTP_200_OK)
+async def export_pdf(
+    range: str = Query("30d", description="Date range (today, 7d, 30d, 90d, custom)"),
+    from_date: Optional[str] = Query(None, description="Custom range start date (ISO 8601)"),
+    to_date: Optional[str] = Query(None, description="Custom range end date (ISO 8601)"),
+    compare: bool = Query(False, description="Whether to include previous period comparison"),
+    current_user: User = Depends(get_current_user),
+) -> StreamingResponse:
+    """Generate a server-side PDF analytics report."""
+    if not REPORTLAB_AVAILABLE:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="PDF generation is unavailable because the reportlab package is not installed.",
+        )
+
+    try:
+        start, end, compare_start, compare_end = _parse_date_range(range, from_date, to_date)
+        user_id = current_user.id
+        summary = await database.get_analytics_summary_range(start, end, user_id=user_id)
+
+        # Generate a simple PDF report (server-side)
+        buffer = BytesIO()
+        pdf = canvas.Canvas(buffer, pagesize=letter)
+        pdf.setTitle("NexaChat Analytics Report")
+
+        pdf.setFont("Helvetica-Bold", 18)
+        pdf.drawString(40, 750, "NexaChat Analytics Report")
+
+        pdf.setFont("Helvetica", 11)
+        pdf.drawString(40, 730, f"Period: {summary.get('period', {}).get('from', '')} to {summary.get('period', {}).get('to', '')}")
+        pdf.drawString(40, 715, f"Total Conversations: {summary.get('total_conversations', 0)}")
+        pdf.drawString(40, 700, f"Total Messages: {summary.get('total_messages', 0)}")
+        pdf.drawString(40, 685, f"Resolution Rate: {summary.get('resolution_rate', {}).get('percentage', 0)}%")
+        pdf.drawString(40, 670, f"Satisfaction: {summary.get('user_satisfaction', {}).get('satisfaction_rate', 0)}%")
+
+        pdf.showPage()
+        pdf.save()
+        buffer.seek(0)
+
+        headers = {
+            "Content-Disposition": "attachment; filename=analytics-report.pdf",
+        }
+        return StreamingResponse(buffer, media_type="application/pdf", headers=headers)
+
+    except Exception as e:
+        logger.error(f"Error generating PDF report: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while generating PDF report",
+        )

@@ -20,14 +20,24 @@ import type { LeadCountByDay } from "@/lib/api";
 
 interface LeadsOverTimeChartProps {
   data: LeadCountByDay[];
+  compareData?: LeadCountByDay[];
   className?: string;
 }
 
-export function LeadsOverTimeChart({ data, className }: LeadsOverTimeChartProps) {
+export function LeadsOverTimeChart({ data, compareData, className }: LeadsOverTimeChartProps) {
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   };
+
+  const combinedData = (() => {
+    if (!compareData || compareData.length === 0) return data;
+    const minLength = Math.min(data.length, compareData.length);
+    return data.slice(0, minLength).map((entry, index) => ({
+      ...entry,
+      compare: compareData[index]?.count ?? 0,
+    }));
+  })();
 
   return (
     <div className={cn("rounded-xl border border-border bg-card p-4 sm:p-5", className)}>
@@ -36,9 +46,9 @@ export function LeadsOverTimeChart({ data, className }: LeadsOverTimeChartProps)
       </h3>
 
       <div className="h-[200px] sm:h-[240px]">
-        {data.length > 0 ? (
+        {combinedData.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
+            <AreaChart data={combinedData} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
               <defs>
                 <linearGradient id="leadsGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#10B981" stopOpacity={0.2} />
@@ -83,7 +93,10 @@ export function LeadsOverTimeChart({ data, className }: LeadsOverTimeChartProps)
                   fontFamily: "Geist Mono",
                 }}
                 labelFormatter={formatDate}
-                formatter={(value: number) => [value, "Leads"]}
+                formatter={(value: number, name: string) => [
+                  value,
+                  name === "compare" ? "Previous period" : "Leads",
+                ]}
               />
               <Area
                 type="monotone"
@@ -95,6 +108,18 @@ export function LeadsOverTimeChart({ data, className }: LeadsOverTimeChartProps)
                 activeDot={{ fill: "#10B981", r: 5, stroke: "hsl(var(--card))", strokeWidth: 2 }}
                 animationDuration={500}
               />
+              {compareData && compareData.length > 0 && (
+                <Area
+                  type="monotone"
+                  dataKey="compare"
+                  stroke="hsl(var(--muted-foreground))"
+                  strokeWidth={1.5}
+                  strokeDasharray="4 4"
+                  fill="none"
+                  dot={false}
+                  animationDuration={500}
+                />
+              )}
             </AreaChart>
           </ResponsiveContainer>
         ) : (

@@ -50,6 +50,34 @@ class APIUsageMetrics(BaseModel):
     last_updated: str = Field(..., description="ISO 8601 timestamp when metrics were last updated")
 
 
+class WeekdayCount(BaseModel):
+    """Conversation counts for each weekday."""
+
+    weekday: str = Field(..., description="Weekday name (e.g., Monday)")
+    count: int = Field(..., ge=0, description="Number of conversations")
+
+
+class HourCount(BaseModel):
+    """Conversation counts for each hour of the day."""
+
+    hour: int = Field(..., ge=0, le=23, description="Hour of the day (0-23)")
+    count: int = Field(..., ge=0, description="Number of conversations")
+
+
+class ResponseTimeBucket(BaseModel):
+    """Response time distribution bucket."""
+
+    bucket: str = Field(..., description="Response time bucket label (e.g., 0-500ms)")
+    count: int = Field(..., ge=0, description="Number of responses in this bucket")
+
+
+class KBCoveragePoint(BaseModel):
+    """Knowledge base coverage over time."""
+
+    date: str = Field(..., description="Date in ISO 8601 format")
+    coverage: float = Field(..., ge=0.0, le=100.0, description="Knowledge base coverage percentage")
+
+
 class AnalyticsSummaryResponse(BaseModel):
     """
     Response model for GET /api/analytics/summary endpoint.
@@ -85,6 +113,53 @@ class AnalyticsSummaryResponse(BaseModel):
     user_satisfaction: dict = Field(
         default_factory=dict,
         description="User satisfaction metrics (thumbs_up, thumbs_down, total_feedback, satisfaction_rate)"
+    )
+
+    # Additional analytics series
+    volume_by_weekday: Optional[List[WeekdayCount]] = Field(
+        default=None,
+        description="Conversation counts by weekday (Monday..Sunday)"
+    )
+    volume_by_hour: Optional[List[HourCount]] = Field(
+        default=None,
+        description="Conversation counts by hour (0-23)"
+    )
+    response_time_distribution: Optional[List[ResponseTimeBucket]] = Field(
+        default=None,
+        description="Distribution of response times"
+    )
+    kb_coverage_trend: Optional[List[KBCoveragePoint]] = Field(
+        default=None,
+        description="Knowledge base coverage trend over time"
+    )
+
+    period: Optional[dict] = Field(
+        default=None,
+        description="Current date range used for the analytics data (from/to)"
+    )
+    compare_period: Optional[dict] = Field(
+        default=None,
+        description="Previous period used for comparison (from/to)"
+    )
+    compare_summary: Optional[dict] = Field(
+        default=None,
+        description="Analytics summary for the compare period"
+    )
+    compare_volume_by_weekday: Optional[List[WeekdayCount]] = Field(
+        default=None,
+        description="Weekday counts for the compare period"
+    )
+    compare_volume_by_hour: Optional[List[HourCount]] = Field(
+        default=None,
+        description="Hourly counts for the compare period"
+    )
+    compare_response_time_distribution: Optional[List[ResponseTimeBucket]] = Field(
+        default=None,
+        description="Response time distribution for the compare period"
+    )
+    compare_kb_coverage_trend: Optional[List[KBCoveragePoint]] = Field(
+        default=None,
+        description="KB coverage trend for the compare period"
     )
 
 
@@ -151,6 +226,9 @@ class LeadAnalyticsResponse(BaseModel):
     lead_sources: List[LeadSourceItem] = Field(default_factory=list, description="Lead sources by channel")
     conversion_funnel: List[ConversionFunnelItem] = Field(default_factory=list, description="Conversion funnel stages")
     leads_trend: Optional[float] = Field(None, description="Trend percentage vs previous period")
+    period: Optional[dict] = Field(None, description="Current date range used for the analytics data (from/to)")
+    compare_period: Optional[dict] = Field(None, description="Previous period used for comparison (from/to)")
+    compare_data: Optional[dict] = Field(None, description="Analytics summary for the compare period")
 
 
 class ChannelConversationItem(BaseModel):
@@ -229,3 +307,18 @@ class ScheduleReportResponse(BaseModel):
     recipient_email: str = Field(..., description="Email address")
     enabled: bool = Field(..., description="Whether active")
     created_at: str = Field(..., description="ISO timestamp of creation")
+
+
+class ShareReportRequest(BaseModel):
+    """Request model to create a shareable analytics report link."""
+    range: Optional[str] = Field(None, description="Date range (today, 7d, 30d, 90d, custom)")
+    from_date: Optional[str] = Field(None, description="Custom range start date (ISO 8601)")
+    to_date: Optional[str] = Field(None, description="Custom range end date (ISO 8601)")
+    compare: Optional[bool] = Field(False, description="Whether to include previous period comparison")
+
+
+class ShareReportResponse(BaseModel):
+    """Response model for a shareable report link."""
+    token: str = Field(..., description="Unique link token")
+    url: str = Field(..., description="Shareable URL")
+    expires_at: str = Field(..., description="ISO timestamp when link expires")

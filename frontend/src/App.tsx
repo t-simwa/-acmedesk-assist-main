@@ -53,6 +53,7 @@ import { SettingsSkeleton as SecuritySkeleton } from "./components/admin/skeleto
 const Dashboard = lazy(() => import("./pages/admin/Dashboard"));
 const Documents = lazy(() => import("./pages/admin/Documents"));
 const Analytics = lazy(() => import("./pages/admin/Analytics"));
+const SharedAnalyticsReport = lazy(() => import("./pages/SharedAnalyticsReport"));
 const Settings = lazy(() => import("./pages/admin/Settings"));
 const Security = lazy(() => import("./pages/admin/Security"));
 const Profile = lazy(() => import("./pages/admin/Profile"));
@@ -576,6 +577,17 @@ const App = () => (
                   }
                 />
               </Route>
+
+              <Route
+                path="/analytics/shared/:token"
+                element={
+                  <PageTransition>
+                    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+                      <SharedAnalyticsReport />
+                    </Suspense>
+                  </PageTransition>
+                }
+              />
 
               {/* /admin — legacy route kept for backward compatibility */}
               <Route

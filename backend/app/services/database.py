@@ -46,6 +46,9 @@ logger = logging.getLogger(__name__)
 _STATS_CACHE: Dict[str, Dict[str, Any]] = {}
 _STATS_CACHE_TTL = timedelta(seconds=30)
 
+# Settings keys
+_SCHEDULED_REPORTS_KEY_PREFIX = "scheduled_reports:"
+
 
 def safe_value(val, default=None):
     """Return the underlying enum value if present, otherwise the raw value.
@@ -1064,6 +1067,155 @@ async def update_rag_settings(settings_dict: Dict[str, Any]) -> Dict[str, Any]:
             raise
 
 
+# ---------------------------------------------------------------------------
+# Scheduled Reports Persistence
+# ---------------------------------------------------------------------------
+
+async def _get_scheduled_reports_setting(
+    tenant_id: str, session: Optional[AsyncSession] = None
+) -> Optional[Setting]:
+    """Retrieve the Setting record storing scheduled reports for a tenant."""
+    key = f"{_SCHEDULED_REPORTS_KEY_PREFIX}{tenant_id}"
+    if session:
+        result = await session.execute(select(Setting).where(Setting.key == key))
+        return result.scalar_one_or_none()
+
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        result = await session.execute(select(Setting).where(Setting.key == key))
+        return result.scalar_one_or_none()
+
+
+async def get_scheduled_reports(tenant_id: str) -> List[Dict[str, Any]]:
+    """Get scheduled report definitions for a tenant."""
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        setting = await _get_scheduled_reports_setting(tenant_id, session)
+        if not setting:
+            return []
+
+        try:
+            return json.loads(setting.value)  # type: ignore[return-value]
+        except Exception:
+            logger.warning(
+                f"Failed to parse scheduled reports for tenant {tenant_id}, resetting"
+            )
+            return []
+
+
+async def save_scheduled_report(tenant_id: str, report: Dict[str, Any]) -> Dict[str, Any]:
+    """Persist or update a scheduled report for a tenant."""
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        setting = await _get_scheduled_reports_setting(tenant_id, session)
+
+        reports: List[Dict[str, Any]] = []
+        if setting:
+            try:
+                reports = json.loads(setting.value)
+            except Exception:
+                reports = []
+
+        # Replace if already exists; otherwise append.
+        existing_index = next((i for i, r in enumerate(reports) if r.get("id") == report.get("id")), None)
+        if existing_index is not None:
+            reports[existing_index] = report
+        else:
+            reports.append(report)
+
+        if setting:
+            setting.value = json.dumps(reports)
+            setting.updated_at = datetime.utcnow()
+        else:
+            setting_id = str(uuid.uuid4())
+            setting = Setting(
+                id=setting_id,
+                key=f"{_SCHEDULED_REPORTS_KEY_PREFIX}{tenant_id}",
+                value=json.dumps(reports),
+                description="Scheduled analytics reports for tenant",
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow(),
+            )
+            session.add(setting)
+
+        await session.commit()
+        await session.refresh(setting)
+
+        return report
+
+
+async def delete_scheduled_report(tenant_id: str, report_id: str) -> bool:
+    """Remove a scheduled report for a tenant."""
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        setting = await _get_scheduled_reports_setting(tenant_id, session)
+        if not setting:
+            return False
+
+        try:
+            reports: List[Dict[str, Any]] = json.loads(setting.value)
+        except Exception:
+            reports = []
+
+        new_reports = [r for r in reports if r.get("id") != report_id]
+        if len(new_reports) == len(reports):
+            return False
+
+        setting.value = json.dumps(new_reports)
+        setting.updated_at = datetime.utcnow()
+        await session.commit()
+        return True
+
+
+# ---------------------------------------------------------------------------
+# Shared Reports
+# ---------------------------------------------------------------------------
+
+_SHARED_REPORT_PREFIX = "shared_report:"
+
+
+async def save_shared_report(token: str, payload: Dict[str, Any]) -> None:
+    """Persist a shared report payload under a token."""
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        key = f"{_SHARED_REPORT_PREFIX}{token}"
+        result = await session.execute(select(Setting).where(Setting.key == key))
+        setting = result.scalar_one_or_none()
+
+        if setting:
+            setting.value = json.dumps(payload)
+            setting.updated_at = datetime.utcnow()
+        else:
+            setting_id = str(uuid.uuid4())
+            setting = Setting(
+                id=setting_id,
+                key=key,
+                value=json.dumps(payload),
+                description="Shared analytics report token",
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow(),
+            )
+            session.add(setting)
+
+        await session.commit()
+
+
+async def get_shared_report(token: str) -> Optional[Dict[str, Any]]:
+    """Retrieve a shared report payload by token."""
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        key = f"{_SHARED_REPORT_PREFIX}{token}"
+        result = await session.execute(select(Setting).where(Setting.key == key))
+        setting = result.scalar_one_or_none()
+        if not setting:
+            return None
+
+        try:
+            return json.loads(setting.value)
+        except Exception:
+            return None
+
+
 # Analytics functions
 
 async def get_total_conversations(user_id: Optional[str] = None) -> int:
@@ -1100,50 +1252,216 @@ async def get_total_messages(user_id: Optional[str] = None) -> int:
             raise
 
 
-async def get_conversations_by_day(days: int = 7, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
-    """
-    Get conversation counts by day for the last N days, optionally filtered by user_id.
-
-    Args:
-        days: Number of days to look back (default: 7)
-        user_id: Optional user ID to filter by
-
-    Returns:
-        List of dictionaries with date and count
-    """
+async def get_conversations_by_day(start_date: datetime, end_date: datetime, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Get conversation counts by day for a given date range."""
     session_factory = get_session_factory()
     async with session_factory() as session:
         try:
-            # Calculate start date
-            start_date = datetime.utcnow() - timedelta(days=days)
-            
-            # Query conversations in the date range, optionally filtered by user_id
-            query = select(Conversation).where(Conversation.started_at >= start_date)
+            query = (
+                select(
+                    func.date(Conversation.started_at).label("date"),
+                    func.count(Conversation.id).label("count"),
+                )
+                .where(Conversation.started_at >= start_date, Conversation.started_at <= end_date)
+            )
             if user_id:
                 query = query.where(Conversation.tenant_id == user_id)
-            
+
+            query = query.group_by(func.date(Conversation.started_at)).order_by(func.date(Conversation.started_at))
+
             result = await session.execute(query)
-            conversations = result.scalars().all()
-            
-            # Group by date in Python
-            date_counts = defaultdict(int)
-            
-            for conv in conversations:
-                if conv.started_at:
-                    # Extract date part (YYYY-MM-DD)
-                    date_key = conv.started_at.date().isoformat()
-                    date_counts[date_key] += 1
-            
-            # Convert to list of dicts and sort by date
-            counts = [
-                {"date": date, "count": count}
-                for date, count in sorted(date_counts.items())
-            ]
-            
-            return counts
+            return [{"date": str(r.date), "count": r.count} for r in result]
 
         except Exception as e:
             logger.error(f"Error getting conversations by day: {e}", exc_info=True)
+            raise
+
+
+async def get_analytics_summary_range(
+    start_date: datetime,
+    end_date: datetime,
+    user_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Get analytics summary for a given date range."""
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        try:
+            tenant_id = user_id
+            # Total conversations
+            conv_query = select(func.count(Conversation.id))
+            conv_query = conv_query.where(
+                Conversation.started_at >= start_date,
+                Conversation.started_at <= end_date,
+            )
+            if tenant_id:
+                conv_query = conv_query.where(Conversation.tenant_id == tenant_id)
+            total_conversations = (await session.execute(conv_query)).scalar() or 0
+
+            # Total messages
+            msg_query = select(func.count(Message.id)).join(Conversation)
+            msg_query = msg_query.where(
+                Message.created_at >= start_date,
+                Message.created_at <= end_date,
+            )
+            if tenant_id:
+                msg_query = msg_query.where(Conversation.tenant_id == tenant_id)
+            total_messages = (await session.execute(msg_query)).scalar() or 0
+
+            # Conversations by day
+            conversations_by_day = await get_conversations_by_day(start_date, end_date, user_id)
+
+            # Resolution rate
+            resolution_query = select(
+                func.count(Conversation.id).filter(Conversation.outcome == ConversationOutcome.RESOLVED).label("resolved"),
+                func.count(Conversation.id).filter(Conversation.outcome == ConversationOutcome.ESCALATED).label("escalated"),
+                func.count(Conversation.id).label("total"),
+            ).where(
+                Conversation.started_at >= start_date,
+                Conversation.started_at <= end_date,
+            )
+            if tenant_id:
+                resolution_query = resolution_query.where(Conversation.tenant_id == tenant_id)
+
+            res = await session.execute(resolution_query)
+            row = res.first() or (0, 0, 0)
+            resolved = row.resolved or 0
+            escalated = row.escalated or 0
+            total = row.total or 0
+            percentage = (resolved / total * 100) if total > 0 else 0
+            resolution_rate = {
+                "resolved_via_bot": resolved,
+                "escalated": escalated,
+                "total": total,
+                "percentage": round(percentage, 1),
+            }
+
+            # User satisfaction
+            sat_query = select(
+                func.count(Conversation.id).filter(Conversation.rating == Rating.POSITIVE).label("positive"),
+                func.count(Conversation.id).filter(Conversation.rating == Rating.NEGATIVE).label("negative"),
+            ).where(
+                Conversation.started_at >= start_date,
+                Conversation.started_at <= end_date,
+            )
+            if tenant_id:
+                sat_query = sat_query.where(Conversation.tenant_id == tenant_id)
+
+            sat_row = (await session.execute(sat_query)).first() or (0, 0)
+            positive = sat_row.positive or 0
+            negative = sat_row.negative or 0
+            total_feedback = positive + negative
+            satisfaction_rate = (positive / total_feedback * 100) if total_feedback > 0 else 0
+
+            # API usage - placeholder (not currently tracked in DB)
+            api_usage = {
+                "total_requests": 0,
+                "total_tokens_used": None,
+                "estimated_cost": None,
+                "last_updated": datetime.utcnow().isoformat() + "Z",
+            }
+
+            # Top categories - placeholder
+            top_categories = []
+
+            # Conversation volume by weekday (Monday..Sunday)
+            weekday_rows = await session.execute(
+                select(
+                    func.strftime("%w", Conversation.started_at).label("weekday"),
+                    func.count(Conversation.id).label("count"),
+                )
+                .where(
+                    Conversation.started_at >= start_date,
+                    Conversation.started_at <= end_date,
+                )
+                .group_by(func.strftime("%w", Conversation.started_at))
+                .order_by(func.strftime("%w", Conversation.started_at))
+            )
+            weekday_map = {"0": "Sunday", "1": "Monday", "2": "Tuesday", "3": "Wednesday", "4": "Thursday", "5": "Friday", "6": "Saturday"}
+            volume_by_weekday = [
+                {"weekday": weekday_map.get(str(row.weekday), "Unknown"), "count": row.count}
+                for row in weekday_rows
+            ]
+
+            # Conversation volume by hour
+            hour_rows = await session.execute(
+                select(
+                    func.strftime("%H", Conversation.started_at).label("hour"),
+                    func.count(Conversation.id).label("count"),
+                )
+                .where(
+                    Conversation.started_at >= start_date,
+                    Conversation.started_at <= end_date,
+                )
+                .group_by(func.strftime("%H", Conversation.started_at))
+                .order_by(func.strftime("%H", Conversation.started_at))
+            )
+            volume_by_hour = [
+                {"hour": int(row.hour), "count": row.count}
+                for row in hour_rows
+            ]
+
+            # Response time distribution (placeholder)
+            avg_response_time = await get_avg_response_time(user_id or tenant_id, start_date, end_date)
+            # buckets: 0-500, 500-1000, 1000-2000, 2000-5000, >5000
+            response_time_distribution = [
+                {"bucket": "0-500ms", "count": 0},
+                {"bucket": "500-1000ms", "count": 0},
+                {"bucket": "1000-2000ms", "count": 0},
+                {"bucket": "2000-5000ms", "count": 0},
+                {"bucket": ">5000ms", "count": 0},
+            ]
+            # Simple heuristic: distribute based on avg
+            if avg_response_time < 500:
+                response_time_distribution[0]["count"] = 1
+            elif avg_response_time < 1000:
+                response_time_distribution[1]["count"] = 1
+            elif avg_response_time < 2000:
+                response_time_distribution[2]["count"] = 1
+            elif avg_response_time < 5000:
+                response_time_distribution[3]["count"] = 1
+            else:
+                response_time_distribution[4]["count"] = 1
+
+            # KB coverage trend placeholder: docs created per day (relative)
+            doc_rows = await session.execute(
+                select(
+                    func.date(Document.created_at).label("date"),
+                    func.count(Document.id).label("count"),
+                )
+                .where(
+                    Document.created_at >= start_date,
+                    Document.created_at <= end_date,
+                )
+                .group_by(func.date(Document.created_at))
+                .order_by(func.date(Document.created_at))
+            )
+            total_docs = sum(r.count for r in doc_rows)
+            kb_coverage_trend = [
+                {"date": str(r.date), "coverage": round((r.count / total_docs * 100) if total_docs else 0, 1)}
+                for r in doc_rows
+            ]
+
+            return {
+                "total_conversations": total_conversations,
+                "total_messages": total_messages,
+                "conversations_by_day": conversations_by_day,
+                "resolution_rate": resolution_rate,
+                "response_accuracy": {},
+                "top_categories": top_categories,
+                "api_usage": api_usage,
+                "user_satisfaction": {
+                    "thumbs_up": positive,
+                    "thumbs_down": negative,
+                    "total_feedback": total_feedback,
+                    "satisfaction_rate": round(satisfaction_rate, 1),
+                },
+                "volume_by_weekday": volume_by_weekday,
+                "volume_by_hour": volume_by_hour,
+                "response_time_distribution": response_time_distribution,
+                "kb_coverage_trend": kb_coverage_trend,
+            }
+        except Exception as e:
+            logger.error(f"Error getting analytics summary range: {e}", exc_info=True)
             raise
 
 
@@ -2346,6 +2664,8 @@ async def get_chatbot_status(tenant_id: str) -> Dict[str, Any]:
 async def get_leads_analytics(
     tenant_id: str,
     days: int = 30,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
     user_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Get lead analytics for 7.3.6 - Lead analytics section."""
@@ -2356,9 +2676,11 @@ async def get_leads_analytics(
     tenant_ids = _effective_tenant_ids(tenant_id, user_id)
     session_factory = get_session_factory()
     async with session_factory() as session:
-        end_date = datetime.utcnow()
-        start_date = end_date - timedelta(days=days)
-        prev_start = start_date - timedelta(days=days)
+        if not end_date:
+            end_date = datetime.utcnow()
+        if not start_date:
+            start_date = end_date - timedelta(days=days)
+        prev_start = start_date - (end_date - start_date)
 
         # Total leads in date range
         result = await session.execute(
@@ -2488,11 +2810,20 @@ async def get_leads_analytics(
         }
 
 
-async def get_channel_analytics(tenant_id: str) -> Dict[str, Any]:
+async def get_channel_analytics(
+    tenant_id: str,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+) -> Dict[str, Any]:
     """Get channel analytics for 7.3.4 - Channel analytics section."""
     from ..models.conversation import Conversation, ConversationStatus, Channel
-    from datetime import timedelta
-    
+
+    if not end_date:
+        end_date = datetime.utcnow()
+    if not start_date:
+        # default to last 30 days
+        start_date = end_date - timedelta(days=30)
+
     session_factory = get_session_factory()
     async with session_factory() as session:
         # Get conversations by channel
@@ -2501,7 +2832,11 @@ async def get_channel_analytics(tenant_id: str) -> Dict[str, Any]:
                 Conversation.channel,
                 func.count(Conversation.id).label("conversations")
             )
-            .where(Conversation.tenant_id == tenant_id)
+            .where(
+                Conversation.tenant_id == tenant_id,
+                Conversation.started_at >= start_date,
+                Conversation.started_at <= end_date,
+            )
             .group_by(Conversation.channel)
         )
         
@@ -2554,7 +2889,9 @@ async def get_channel_analytics(tenant_id: str) -> Dict[str, Any]:
 
 async def get_content_analytics(
     tenant_id: str,
-    days: int = 30
+    days: int = 30,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
 ) -> Dict[str, Any]:
     """Get content analytics for 7.3.5 - Content analytics section."""
     from datetime import timedelta
@@ -2562,10 +2899,13 @@ async def get_content_analytics(
     from ..models.message import Message
     from ..models.document import Document
     
+    if not end_date:
+        end_date = datetime.utcnow()
+    if not start_date:
+        start_date = end_date - timedelta(days=days)
+
     session_factory = get_session_factory()
     async with session_factory() as session:
-        end_date = datetime.utcnow()
-        start_date = end_date - timedelta(days=days)
         
         # Top questions (from messages with low confidence or escalated)
         result = await session.execute(
@@ -2691,46 +3031,49 @@ async def get_content_analytics(
 
 async def get_satisfaction_analytics(
     tenant_id: str,
-    days: int = 30
+    days: int = 30,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
 ) -> Dict[str, Any]:
     """Get satisfaction analytics for 7.3.7 - Satisfaction analytics section."""
     from datetime import timedelta
     from ..models.conversation import Conversation
-    
+
+    if not end_date:
+        end_date = datetime.utcnow()
+    if not start_date:
+        start_date = end_date - timedelta(days=days)
+
+    prev_start = start_date - (end_date - start_date)
+
     session_factory = get_session_factory()
     async with session_factory() as session:
-        end_date = datetime.utcnow()
-        start_date = end_date - timedelta(days=days)
-        prev_start = start_date - timedelta(days=days)
-        
         # Current period satisfaction
-        result = await session.execute(
-            select(
-                func.count(Conversation.id)
-            )
-            .where(
-                Conversation.tenant_id == tenant_id,
-                Conversation.started_at >= start_date,
-                Conversation.started_at <= end_date,
-                Conversation.rating == "positive"
-            )
-        )
-        positive = result.scalar() or 0
-        
         result = await session.execute(
             select(func.count(Conversation.id))
             .where(
                 Conversation.tenant_id == tenant_id,
                 Conversation.started_at >= start_date,
                 Conversation.started_at <= end_date,
-                Conversation.rating == "negative"
+                Conversation.rating == "positive",
+            )
+        )
+        positive = result.scalar() or 0
+
+        result = await session.execute(
+            select(func.count(Conversation.id))
+            .where(
+                Conversation.tenant_id == tenant_id,
+                Conversation.started_at >= start_date,
+                Conversation.started_at <= end_date,
+                Conversation.rating == "negative",
             )
         )
         negative = result.scalar() or 0
-        
+
         total_feedback = positive + negative
         current_score = (positive / total_feedback * 100) if total_feedback > 0 else 0
-        
+
         # Previous period for trend
         result = await session.execute(
             select(func.count(Conversation.id))
@@ -2738,45 +3081,45 @@ async def get_satisfaction_analytics(
                 Conversation.tenant_id == tenant_id,
                 Conversation.started_at >= prev_start,
                 Conversation.started_at < start_date,
-                Conversation.rating == "positive"
+                Conversation.rating == "positive",
             )
         )
         prev_positive = result.scalar() or 0
-        
+
         result = await session.execute(
             select(func.count(Conversation.id))
             .where(
                 Conversation.tenant_id == tenant_id,
                 Conversation.started_at >= prev_start,
                 Conversation.started_at < start_date,
-                Conversation.rating == "negative"
+                Conversation.rating == "negative",
             )
         )
         prev_negative = result.scalar() or 0
-        
+
         prev_total = prev_positive + prev_negative
         prev_score = (prev_positive / prev_total * 100) if prev_total > 0 else 0
-        
+
         score_trend = None
         if prev_score > 0:
             score_trend = round(((current_score - prev_score) / prev_score) * 100, 1)
-        
+
         # Satisfaction by day
         result = await session.execute(
             select(
                 func.date(Conversation.started_at).label("date"),
                 func.count(Conversation.id).filter(Conversation.rating == "positive").label("positive"),
-                func.count(Conversation.id).filter(Conversation.rating == "negative").label("negative")
+                func.count(Conversation.id).filter(Conversation.rating == "negative").label("negative"),
             )
             .where(
                 Conversation.tenant_id == tenant_id,
                 Conversation.started_at >= start_date,
-                Conversation.started_at <= end_date
+                Conversation.started_at <= end_date,
             )
             .group_by(func.date(Conversation.started_at))
             .order_by(func.date(Conversation.started_at))
         )
-        
+
         satisfaction_by_day = []
         for row in result:
             total = row.positive + row.negative
@@ -2785,15 +3128,15 @@ async def get_satisfaction_analytics(
                 "date": str(row.date),
                 "score": round(score, 1),
                 "positive": row.positive,
-                "negative": row.negative
+                "negative": row.negative,
             })
-        
+
         return {
             "current_score": round(current_score, 1),
             "satisfaction_by_day": satisfaction_by_day,
             "total_positive": positive,
             "total_negative": negative,
-            "score_trend": score_trend
+            "score_trend": score_trend,
         }
 
 
