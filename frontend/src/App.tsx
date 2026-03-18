@@ -68,6 +68,7 @@ const Contacts = lazy(() => import("./pages/admin/Contacts"));
 const ContactProfile = lazy(() => import("./pages/admin/ContactProfile"));
 const Campaigns = lazy(() => import("./pages/admin/Campaigns"));
 const Bookings = lazy(() => import("./pages/admin/Bookings"));
+const BookingDetail = lazy(() => import("./pages/admin/BookingDetail"));
 const Channels = lazy(() => import("./pages/admin/Channels"));
 const Chatbot = lazy(() => import("./pages/admin/Chatbot.tsx"));
 const Install = lazy(() => import("./pages/admin/Install"));
@@ -577,6 +578,17 @@ const App = () => (
                   }
                 />
               </Route>
+                <Route
+                  path="bookings/:id"
+                  element={
+                    <PageTransition>
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <BookingDetail />
+                      </Suspense>
+                    </PageTransition>
+                  }
+                />
+
 
               <Route
                 path="/analytics/shared/:token"

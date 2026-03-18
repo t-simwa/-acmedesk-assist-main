@@ -3783,19 +3783,93 @@ export const campaignsApi = {
 // Bookings API (Milestone 9.10)
 // ============================================================================
 
+export interface ContactItem {
+  id: string;
+  tenant_id: string;
+  full_name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+}
+
+export interface ServiceItem {
+  id: string;
+  tenant_id: string;
+  name: string;
+  description?: string | null;
+  duration_minutes?: number | null;
+  default_price?: number | null;
+  currency?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
 export interface BookingItem {
   id: string;
   tenant_id: string;
   contact_id: string | null;
+  contact?: ContactItem | null;
   conversation_id: string | null;
+  service_id: string | null;
   service: string;
-  preferred_date: string | null;
-  preferred_time: string | null;
+  service_details?: string | null;
+  service_obj?: ServiceItem | null;
+  booking_date: string | null;
+  booking_time: string | null;
+  booking_datetime?: string | null;
+  duration_minutes?: number | null;
   status: string;
+  booking_value?: number | null;
+  actual_value?: number | null;
+  currency?: string | null;
+  assigned_to?: string | null;
+  confirmed_at?: string | null;
+  completed_at?: string | null;
+  cancelled_at?: string | null;
+  cancellation_reason?: string | null;
+  no_show_at?: string | null;
+  reminder_24h_sent_at?: string | null;
+  reminder_2h_sent_at?: string | null;
+  reminder_manual_sent_at?: string | null;
   notes: string | null;
   source_channel: string | null;
   created_at: string | null;
   updated_at: string | null;
+}
+
+export interface ServiceItem {
+  id: string;
+  tenant_id: string;
+  name: string;
+  description?: string | null;
+  duration_minutes?: number | null;
+  default_price?: number | null;
+  currency?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface BookingActivityItem {
+  timestamp: string;
+  type: string;
+  message?: string | null;
+}
+
+export interface BookingActivityResponse {
+  events: BookingActivityItem[];
+}
+
+export interface BookingNoteItem {
+  id: string;
+  booking_id: string;
+  tenant_id: string;
+  user_id: string | null;
+  content: string;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface BookingNotesResponse {
+  notes: BookingNoteItem[];
 }
 
 export interface BookingListResponse {
@@ -3808,19 +3882,30 @@ export interface BookingListResponse {
 export interface BookingCreateRequest {
   contact_id?: string;
   conversation_id?: string;
+  service_id?: string;
   service: string;
-  preferred_date?: string;
-  preferred_time?: string;
+  booking_date?: string;
+  booking_time?: string;
+  duration_minutes?: number;
+  booking_value?: number;
+  currency?: string;
+  assigned_to?: string;
   notes?: string;
   source_channel?: string;
 }
 
 export interface BookingUpdateRequest {
   contact_id?: string;
+  service_id?: string;
   service?: string;
-  preferred_date?: string;
-  preferred_time?: string;
+  booking_date?: string;
+  booking_time?: string;
+  duration_minutes?: number;
   status?: string;
+  booking_value?: number;
+  actual_value?: number;
+  currency?: string;
+  assigned_to?: string;
   notes?: string;
 }
 
@@ -3837,6 +3922,11 @@ export interface BookingListFilters {
   per_page?: number;
   status?: string;
   channel?: string;
+  start_date?: string;
+  end_date?: string;
+  service_id?: string;
+  search?: string;
+  sort?: string;
 }
 
 export const bookingsApi = {
@@ -3846,11 +3936,62 @@ export const bookingsApi = {
     if (filters.per_page) params.set("per_page", String(filters.per_page));
     if (filters.status) params.set("status", filters.status);
     if (filters.channel) params.set("channel", filters.channel);
+    if (filters.service_id) params.set("service_id", filters.service_id);
+    if (filters.search) params.set("search", filters.search);
+    if (filters.sort) params.set("sort", filters.sort);
     return apiClient<BookingListResponse>(`/api/bookings?${params.toString()}`);
+  },
+
+  async calendar(filters: BookingListFilters): Promise<{ bookings: BookingItem[]; summary_by_date: Record<string, { count: number; statuses: Record<string, number>; total_value: number }> }> {
+    const params = new URLSearchParams();
+    if (filters.start_date) params.set("start_date", filters.start_date);
+    if (filters.end_date) params.set("end_date", filters.end_date);
+    return apiClient(`/api/bookings/calendar?${params.toString()}`);
+  },
+
+  async exportIcs(filters: BookingListFilters = {}): Promise<Blob> {
+    const params = new URLSearchParams();
+    if (filters.start_date) params.set("start_date", filters.start_date);
+    if (filters.end_date) params.set("end_date", filters.end_date);
+    const response = await apiClient<Response>(`/api/bookings/export/ics?${params.toString()}`, {
+      responseType: "blob",
+    } as any);
+    return await response.blob();
+  },
+
+  async exportCsv(filters: BookingListFilters = {}): Promise<Blob> {
+    const params = new URLSearchParams();
+    if (filters.start_date) params.set("start_date", filters.start_date);
+    if (filters.end_date) params.set("end_date", filters.end_date);
+    if (filters.status) params.set("status", filters.status);
+    if (filters.service_id) params.set("service_id", filters.service_id);
+    const response = await apiClient<Response>(`/api/bookings/export/csv?${params.toString()}`, {
+      responseType: "blob",
+    } as any);
+    return await response.blob();
   },
 
   async get(id: string): Promise<BookingItem> {
     return apiClient<BookingItem>(`/api/bookings/${id}`);
+  },
+
+  async listServices(): Promise<ServiceItem[]> {
+    return apiClient<ServiceItem[]>(`/api/services`);
+  },
+
+  async getActivity(id: string): Promise<BookingActivityResponse> {
+    return apiClient<BookingActivityResponse>(`/api/bookings/${id}/activity`);
+  },
+
+  async getNotes(id: string): Promise<BookingNotesResponse> {
+    return apiClient<BookingNotesResponse>(`/api/bookings/${id}/notes`);
+  },
+
+  async createNote(id: string, data: BookingCreateNoteRequest): Promise<BookingNoteItem> {
+    return apiClient<BookingNoteItem>(`/api/bookings/${id}/notes`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
   },
 
   async create(data: BookingCreateRequest): Promise<BookingItem> {
@@ -3863,6 +4004,48 @@ export const bookingsApi = {
   async update(id: string, data: BookingUpdateRequest): Promise<BookingItem> {
     return apiClient<BookingItem>(`/api/bookings/${id}`, {
       method: "PUT",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async confirm(id: string, data: { channel?: string; send_notification?: boolean; message?: string }): Promise<BookingItem> {
+    return apiClient<BookingItem>(`/api/bookings/${id}/confirm`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async cancel(id: string, data: { reason: string; channel?: string; send_notification?: boolean; message?: string; internal_note?: string }): Promise<BookingItem> {
+    return apiClient<BookingItem>(`/api/bookings/${id}/cancel`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async complete(id: string, data: { actual_value?: number; satisfaction_note?: string }): Promise<BookingItem> {
+    return apiClient<BookingItem>(`/api/bookings/${id}/complete`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async reschedule(id: string, data: { new_date: string; new_time: string; reason?: string; channel?: string; send_notification?: boolean; message?: string }): Promise<BookingItem> {
+    return apiClient<BookingItem>(`/api/bookings/${id}/reschedule`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async sendReminder(id: string, data: { channel?: string; message?: string }): Promise<BookingItem> {
+    return apiClient<BookingItem>(`/api/bookings/${id}/send-reminder`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async bulk(data: { booking_ids: string[]; action: string; params?: Record<string, any> }): Promise<{ processed: number; failed: number }> {
+    return apiClient<{ processed: number; failed: number }>("/api/bookings/bulk", {
+      method: "POST",
       body: JSON.stringify(data),
     });
   },

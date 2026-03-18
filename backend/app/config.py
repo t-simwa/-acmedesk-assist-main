@@ -177,6 +177,13 @@ class Settings(BaseSettings):
     # Token refresh scheduler
     token_refresh_enabled: bool = True
     token_refresh_interval_seconds: int = 3600  # run hourly by default
+
+    # Booking reminder scheduler
+    booking_reminder_scheduler_enabled: bool = True
+    booking_reminder_scheduler_interval_seconds: int = 300  # run every 5 minutes by default
+    booking_reminder_24h_hours: int = 24
+    booking_reminder_2h_hours: int = 2
+
     # Encryption key used to protect OAuth tokens at rest (Fernet key or passphrase)
     encryption_key: Optional[str] = None
     

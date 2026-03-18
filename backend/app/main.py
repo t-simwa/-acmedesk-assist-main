@@ -65,6 +65,7 @@ from .routers import (
     contacts,
     campaigns,
     bookings,
+    services,
     channels,
     inbox,
     notifications,
@@ -104,6 +105,16 @@ async def lifespan(app: FastAPI):
             start_scheduler()
     except Exception as e:
         logger.warning("Failed to start token refresh scheduler: %s", e)
+
+    # Start booking reminder scheduler if enabled
+    try:
+        if settings.booking_reminder_scheduler_enabled:
+            from .services.booking_reminder_scheduler import start_scheduler as start_booking_reminder_scheduler
+
+            start_booking_reminder_scheduler()
+    except Exception as e:
+        logger.warning("Failed to start booking reminder scheduler: %s", e)
+
     yield
     # Shutdown: Close database connections
     # Stop token refresh scheduler if running
@@ -111,6 +122,14 @@ async def lifespan(app: FastAPI):
         from .services.token_refresh_scheduler import shutdown_scheduler
 
         shutdown_scheduler()
+    except Exception:
+        pass
+
+    # Stop booking reminder scheduler if running
+    try:
+        from .services.booking_reminder_scheduler import shutdown_scheduler as shutdown_booking_reminder_scheduler
+
+        shutdown_booking_reminder_scheduler()
     except Exception:
         pass
 
@@ -233,6 +252,7 @@ app.include_router(dashboard.router)
 app.include_router(contacts.router)
 app.include_router(campaigns.router)
 app.include_router(bookings.router)
+app.include_router(services.router)
 app.include_router(channels.router)
 app.include_router(inbox.router)
 app.include_router(notifications.router)

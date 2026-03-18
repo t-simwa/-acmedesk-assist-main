@@ -36,6 +36,10 @@ from .lead_activity import LeadActivity
 from .scheduled_followup import ScheduledFollowup
 from .campaign import Campaign, CampaignStatus, Channel as CampaignChannel
 from .booking import Booking, BookingStatus
+from .booking_note import BookingNote
+from .booking_activity import BookingActivity
+from .booking_reminder_setting import BookingReminderSetting
+from .service import Service
 from .plan import Plan
 from .setting import Setting
 from .user_preferences import UserPreferences
@@ -101,6 +105,10 @@ __all__ = [
     # Bookings
     "Booking",
     "BookingStatus",
+    "BookingNote",
+    "BookingActivity",
+    "BookingReminderSetting",
+    "Service",
     
     # Settings & Preferences
     "Setting",
