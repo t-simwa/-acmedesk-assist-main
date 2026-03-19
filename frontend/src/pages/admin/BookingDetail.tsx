@@ -42,8 +42,8 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 export default function BookingDetail() {
-  const { id } = useParams();
-  const bookingId = id ?? "";
+  const { id } = useParams<{ id?: string }>();
+  const bookingId: string = id ?? "";
   const navigate = useNavigate();
 
   const { data: booking, isLoading } = useBookingDetail(bookingId);

@@ -35,6 +35,7 @@ from ..schemas.bookings import (
     BookingCreateRequest,
     BookingItem,
     BookingListResponse,
+    BookingNoteItem,
     BookingNotesResponse,
     BookingStats,
     BookingUpdateRequest,
@@ -129,14 +130,14 @@ def _format_ics_datetime(dt: datetime) -> str:
     return dt.strftime("%Y%m%dT%H%M%SZ")
 
 
-async def _log_booking_activity(session, booking: Booking, type: str, message: str | None = None, metadata: dict | None = None) -> None:
+async def _log_booking_activity(session, booking: Booking, type: str, message: str | None = None, details: dict | None = None) -> None:
     event = BookingActivity(
         id=str(uuid.uuid4()),
         booking_id=booking.id,
         tenant_id=booking.tenant_id,
         type=type,
         message=message,
-        metadata=json.dumps(metadata) if metadata is not None else None,
+        details=json.dumps(details) if details is not None else None,
     )
     session.add(event)
 
