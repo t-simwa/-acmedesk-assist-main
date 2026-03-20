@@ -25,6 +25,7 @@ import {
   FileSpreadsheet,
   Globe,
   Lightbulb,
+  Play,
   FolderOpen,
   Database,
   Plus,
@@ -39,6 +40,7 @@ import {
   type StorageUsageResponse,
   type DocumentUploadResponse,
   documentsApi,
+  chatApi,
 } from "@/lib/api";
 import {
   useDocuments,
@@ -54,6 +56,7 @@ import {
   useUpdateKnowledgeBase,
   useDeleteKnowledgeBase,
 } from "@/hooks/useKnowledgeBases";
+import { useContentAnalytics } from "@/hooks/useAnalytics";
 import { useDebounce } from "@/hooks/useDebounce";
 import {
   DropdownMenu,
@@ -219,13 +222,19 @@ export default function Documents() {
   const [replaceTargetId, setReplaceTargetId] = useState<string | null>(null);
   const replaceInputRef = useRef<HTMLInputElement>(null);
 
-  // Knowledge bases
+  // Knowledge health & gaps (spec enhancement)
   const [selectedKnowledgeBaseId, setSelectedKnowledgeBaseId] = useState<string | undefined>(undefined);
   const [kbSectionOpen, setKbSectionOpen] = useState(false);
   const [knowledgeBaseDialogOpen, setKnowledgeBaseDialogOpen] = useState(false);
   const [createKBDialogOpen, setCreateKBDialogOpen] = useState(false);
   const [newKBName, setNewKBName] = useState("");
   const [newKBDescription, setNewKBDescription] = useState("");
+
+  const [testDrawerOpen, setTestDrawerOpen] = useState(false);
+  const [testQuestion, setTestQuestion] = useState("");
+  const [testAnswer, setTestAnswer] = useState("");
+  const [testLoading, setTestLoading] = useState(false);
+  const [testError, setTestError] = useState<string | null>(null);
 
   const { toast } = useToast();
   const [duplicatePrompt, setDuplicatePrompt] = useState<{
@@ -262,6 +271,24 @@ export default function Documents() {
   const { createKnowledgeBase, loading: creatingKB } = useCreateKnowledgeBase();
   const { updateKnowledgeBase } = useUpdateKnowledgeBase();
   const { deleteKnowledgeBase } = useDeleteKnowledgeBase();
+
+  // Content analytics for gap alert and knowledge health score
+  const { data: contentAnalytics } = useContentAnalytics({ range: "30d" });
+
+  const knowledgeHealthScore = useMemo(() => {
+    if (!contentAnalytics) return null;
+    const unanswered = contentAnalytics.total_unanswered ?? 0;
+    const raw = Math.max(20, 100 - unanswered * 4); // degrade 4 points per unanswered question
+    return Math.round(raw);
+  }, [contentAnalytics]);
+
+  const knowledgeHealthStatus = useMemo(() => {
+    if (knowledgeHealthScore === null) return "Unknown";
+    if (knowledgeHealthScore >= 90) return "Excellent";
+    if (knowledgeHealthScore >= 75) return "Good";
+    if (knowledgeHealthScore >= 60) return "Fair";
+    return "Needs Work";
+  }, [knowledgeHealthScore]);
 
   // Mutations
   const uploadMutation = useUploadDocument();
@@ -625,6 +652,27 @@ export default function Documents() {
     }
   }, []);
 
+  const handleTestKnowledgeBase = useCallback(async () => {
+    if (!testQuestion.trim()) {
+      setTestError("Please enter a question to test.");
+      return;
+    }
+
+    setTestLoading(true);
+    setTestError(null);
+
+    try {
+      const response = await chatApi.sendMessage({ message: testQuestion });
+      setTestAnswer(response.answer || "No answer returned.");
+      setTestDrawerOpen(true);
+    } catch (error) {
+      const apiError = error as ApiError;
+      setTestError(apiError?.message || "Failed to get response from chatbot.");
+    } finally {
+      setTestLoading(false);
+    }
+  }, [testQuestion]);
+
   const handleArchive = useCallback(async (doc: Document) => {
     try {
       if (doc.is_archived || doc.status === "archived") {
@@ -766,7 +814,6 @@ export default function Documents() {
             className="hidden"
             aria-label="Upload document files"
           />
-          {/* Hidden replace input */}
           <input
             ref={replaceInputRef}
             type="file"
@@ -776,6 +823,68 @@ export default function Documents() {
             aria-label="Replace document file"
           />
         </div>
+      </div>
+
+      {/* ── KNOWLEDGE HEALTH & GAPS ───────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <div className="rounded-xl border bg-card p-4">
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Knowledge Health</p>
+            {knowledgeHealthScore !== null ? (
+              <span className="text-xs font-semibold text-foreground">{knowledgeHealthScore}%</span>
+            ) : (
+              <span className="text-xs text-muted-foreground">Loading...</span>
+            )}
+          </div>
+          <div className="mb-2">
+            <div className="h-2 w-full rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-green-500 via-amber-400 to-rose-500 transition-all duration-500"
+                style={{ width: `${knowledgeHealthScore ?? 0}%` }}
+              />
+            </div>
+          </div>
+          <p className="text-sm font-medium text-foreground">{knowledgeHealthStatus}</p>
+          {contentAnalytics?.total_unanswered !== undefined && contentAnalytics.total_unanswered > 0 && (
+            <p className="mt-2 text-xs text-rose-400">{contentAnalytics.total_unanswered} unanswered question(s) detected in last 30 days.</p>
+          )}
+        </div>
+
+        {contentAnalytics?.total_unanswered !== undefined && contentAnalytics.total_unanswered > 0 ? (
+          <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4">
+            <p className="text-sm font-semibold text-amber-600">Knowledge Gap Alert</p>
+            <p className="text-xs text-amber-700 mt-1">There are unresolved questions in your chatbot’s content analytics. Add or refresh documents for better coverage.</p>
+            <Button className="mt-3 h-8 text-xs" onClick={() => window.location.href = "/dashboard/analytics?tab=content"}>View gaps</Button>
+          </div>
+        ) : (
+          <div className="rounded-xl border bg-card p-4">
+            <p className="text-sm font-semibold text-foreground">No gaps detected</p>
+            <p className="text-xs text-muted-foreground mt-1">Your knowledge base has no unanswered questions in the last 30 days.</p>
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-2 mt-3">
+        <Input
+          value={testQuestion}
+          onChange={(e) => setTestQuestion(e.target.value)}
+          placeholder="Ask a question to test your knowledge base"
+          className="h-9 text-xs"
+          aria-label="Test Knowledge Base question"
+          onKeyDown={(e) => { if (e.key === "Enter") handleTestKnowledgeBase(); }}
+        />
+        <div className="flex items-center gap-2">
+          <Button size="sm" className="h-9 text-xs gap-1.5" onClick={() => setTestDrawerOpen(true)}>
+            <Lightbulb className="h-3.5 w-3.5" />
+            Test Knowledge Base
+          </Button>
+          <Button size="sm" className="h-9 text-xs gap-1.5" onClick={handleTestKnowledgeBase} disabled={testLoading || !testQuestion.trim()}>
+            {testLoading ? (<Loader2 className="h-3.5 w-3.5 animate-spin" />) : <Play className="h-3.5 w-3.5" />}
+            Run Sample Query
+          </Button>
+        </div>
+        {testError && <p className="text-xs text-rose-400">{testError}</p>}
+        {testAnswer && <p className="text-xs text-foreground">Response: {testAnswer}</p>}
       </div>
 
       {/* ── STORAGE USAGE BAR ────────────────────────────────────────────── */}
