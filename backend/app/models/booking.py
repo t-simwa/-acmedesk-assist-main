@@ -63,6 +63,9 @@ class Booking(Base):
     reminder_2h_sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     reminder_manual_sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    source_channel: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+
     deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)

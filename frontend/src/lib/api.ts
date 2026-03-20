@@ -3813,6 +3813,8 @@ export interface BookingItem {
   service: string;
   service_details?: string | null;
   service_obj?: ServiceItem | null;
+  location?: string | null;
+  special_requests?: string | null;
   booking_date: string | null;
   booking_time: string | null;
   booking_datetime?: string | null;
@@ -3830,8 +3832,8 @@ export interface BookingItem {
   reminder_24h_sent_at?: string | null;
   reminder_2h_sent_at?: string | null;
   reminder_manual_sent_at?: string | null;
-  notes: string | null;
-  source_channel: string | null;
+  notes?: string | null;
+  source_channel?: string | null;
   created_at: string | null;
   updated_at: string | null;
 }
