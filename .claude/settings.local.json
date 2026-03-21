@@ -2,7 +2,12 @@
   "permissions": {
     "allow": [
       "mcp__ide__getDiagnostics",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(cd \"C:/Users/Ted Simwa/Desktop/Vanity/Work/IT/my-projects/acmedesk-assist-main/frontend\" && npx tsc --noEmit 2>&1 | head -60)",
+      "Bash(cd \"C:/Users/Ted Simwa/Desktop/Vanity/Work/IT/my-projects/acmedesk-assist-main/frontend\" && npx vite build --mode development 2>&1 | tail -10)",
+      "Bash(cd /c/Users/Ted\\\\ Simwa/Desktop/Vanity/Work/IT/my-projects/acmedesk-assist-main && find . -name \"*.py\" -path \"*/backend/*\" | xargs grep -l \"uvicorn\\\\|middleware\" | grep -v \".venv\" | head -10)",
+      "Bash(cd /c/Users/Ted\\\\ Simwa/Desktop/Vanity/Work/IT/my-projects/acmedesk-assist-main && ls -la backend/ | grep -E \"\\\\.\\(py|sh|ini\\)$\")",
+      "Bash(cd /c/Users/Ted\\\\ Simwa/Desktop/Vanity/Work/IT/my-projects/acmedesk-assist-main && find . -name \"requirements.txt\" | grep backend)"
     ]
   },
   "enabledPlugins": {

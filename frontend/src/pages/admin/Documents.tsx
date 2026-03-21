@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo, Fragment } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
 import {
   FileText,
   Upload,
@@ -25,7 +25,6 @@ import {
   FileSpreadsheet,
   Globe,
   Lightbulb,
-  Play,
   FolderOpen,
   Database,
   Plus,
@@ -33,6 +32,18 @@ import {
   ToggleLeft,
   ToggleRight,
   ChevronDown,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  HardDrive,
+  Activity,
+  AlertTriangle,
+  FileCheck,
+  FileClock,
+  FileWarning,
+  MessageSquareText,
+  Send,
+  Type,
 } from "lucide-react";
 import {
   type Document,
@@ -66,14 +77,13 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
@@ -88,8 +98,14 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { ConfirmationDialog } from "@/components/feedback/ConfirmationDialog";
 import { cn } from "@/lib/utils";
@@ -118,9 +134,44 @@ const FILE_TYPE_META: Record<string, { icon: typeof FileText; label: string }> =
   url:  { icon: Globe,           label: "URL" },
 };
 
+const KPI_CARDS = [
+  {
+    key: "total" as const,
+    label: "Total Documents",
+    icon: <FileText className="h-4 w-4" />,
+    accent: "from-primary/5 to-transparent",
+    iconBg: "bg-primary/10",
+    iconColor: "text-primary",
+  },
+  {
+    key: "ready" as const,
+    label: "Ready",
+    icon: <FileCheck className="h-4 w-4" />,
+    accent: "from-emerald-500/5 to-transparent",
+    iconBg: "bg-emerald-500/10",
+    iconColor: "text-emerald-500",
+  },
+  {
+    key: "processing" as const,
+    label: "Processing",
+    icon: <FileClock className="h-4 w-4" />,
+    accent: "from-blue-500/5 to-transparent",
+    iconBg: "bg-blue-500/10",
+    iconColor: "text-blue-500",
+  },
+  {
+    key: "failed" as const,
+    label: "Failed",
+    icon: <FileWarning className="h-4 w-4" />,
+    accent: "from-rose-500/5 to-transparent",
+    iconBg: "bg-rose-500/10",
+    iconColor: "text-rose-500",
+  },
+];
+
 type SortField = "filename" | "file_type" | "status" | "file_size" | "chunk_count" | "upload_date";
 type SortDirection = "asc" | "desc";
-type UploadTab = "file" | "url";
+type UploadTab = "file" | "url" | "text";
 
 interface UploadFileItem {
   id: string;
@@ -129,6 +180,11 @@ interface UploadFileItem {
   stage: "uploading" | "processing" | "indexing" | "ready" | "error";
   error?: string;
   documentId?: string;
+}
+
+interface TestMessage {
+  role: "user" | "assistant";
+  content: string;
 }
 
 const ITEMS_PER_PAGE = 20;
@@ -183,6 +239,34 @@ function getStorageBarColor(percent: number): string {
   return "bg-emerald-500";
 }
 
+function getHealthGrade(score: number): { label: string; badge: string } {
+  if (score >= 90) return { label: "Excellent", badge: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" };
+  if (score >= 75) return { label: "Good", badge: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" };
+  if (score >= 60) return { label: "Fair", badge: "bg-amber-500/10 text-amber-400 border-amber-500/20" };
+  return { label: "Needs Work", badge: "bg-rose-500/10 text-rose-400 border-rose-500/20" };
+}
+
+function TrendIndicator({ value }: { value: number | null | undefined }) {
+  if (value === null || value === undefined) return null;
+
+  const isPositive = value > 0;
+  const isNegative = value < 0;
+
+  return (
+    <span className={cn(
+      "inline-flex items-center gap-0.5 text-xs font-mono font-medium",
+      isPositive && "text-emerald-500",
+      isNegative && "text-rose-500",
+      !isPositive && !isNegative && "text-muted-foreground",
+    )}>
+      {value > 0 && <TrendingUp className="h-3 w-3" />}
+      {value < 0 && <TrendingDown className="h-3 w-3" />}
+      {value === 0 && <Minus className="h-3 w-3" />}
+      {Math.abs(value)}%
+    </span>
+  );
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════════
    MAIN COMPONENT
    ═══════════════════════════════════════════════════════════════════════════════ */
@@ -201,11 +285,16 @@ export default function Documents() {
 
   // Upload
   const [uploadTab, setUploadTab] = useState<UploadTab>("file");
+  const [uploadOpen, setUploadOpen] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [uploadQueue, setUploadQueue] = useState<UploadFileItem[]>([]);
   const [urlInput, setUrlInput] = useState("");
   const [urlImporting, setUrlImporting] = useState(false);
+  const [plainTextName, setPlainTextName] = useState("");
+  const [plainTextContent, setPlainTextContent] = useState("");
+  const [plainTextSubmitting, setPlainTextSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadZoneRef = useRef<HTMLDivElement>(null);
 
   // Preview modal
   const [previewDoc, setPreviewDoc] = useState<Document | null>(null);
@@ -222,19 +311,19 @@ export default function Documents() {
   const [replaceTargetId, setReplaceTargetId] = useState<string | null>(null);
   const replaceInputRef = useRef<HTMLInputElement>(null);
 
-  // Knowledge health & gaps (spec enhancement)
+  // Knowledge base
   const [selectedKnowledgeBaseId, setSelectedKnowledgeBaseId] = useState<string | undefined>(undefined);
-  const [kbSectionOpen, setKbSectionOpen] = useState(false);
   const [knowledgeBaseDialogOpen, setKnowledgeBaseDialogOpen] = useState(false);
   const [createKBDialogOpen, setCreateKBDialogOpen] = useState(false);
   const [newKBName, setNewKBName] = useState("");
   const [newKBDescription, setNewKBDescription] = useState("");
 
+  // Test Knowledge Base drawer
   const [testDrawerOpen, setTestDrawerOpen] = useState(false);
-  const [testQuestion, setTestQuestion] = useState("");
-  const [testAnswer, setTestAnswer] = useState("");
+  const [testInput, setTestInput] = useState("");
+  const [testMessages, setTestMessages] = useState<TestMessage[]>([]);
   const [testLoading, setTestLoading] = useState(false);
-  const [testError, setTestError] = useState<string | null>(null);
+  const testMessagesEndRef = useRef<HTMLDivElement>(null);
 
   const { toast } = useToast();
   const [duplicatePrompt, setDuplicatePrompt] = useState<{
@@ -278,38 +367,28 @@ export default function Documents() {
   const knowledgeHealthScore = useMemo(() => {
     if (!contentAnalytics) return null;
     const unanswered = contentAnalytics.total_unanswered ?? 0;
-    const raw = Math.max(20, 100 - unanswered * 4); // degrade 4 points per unanswered question
+    const raw = Math.max(20, 100 - unanswered * 4);
     return Math.round(raw);
   }, [contentAnalytics]);
-
-  const knowledgeHealthStatus = useMemo(() => {
-    if (knowledgeHealthScore === null) return "Unknown";
-    if (knowledgeHealthScore >= 90) return "Excellent";
-    if (knowledgeHealthScore >= 75) return "Good";
-    if (knowledgeHealthScore >= 60) return "Fair";
-    return "Needs Work";
-  }, [knowledgeHealthScore]);
 
   // Mutations
   const uploadMutation = useUploadDocument();
   const deleteMutation = useDeleteDocument();
   const reindexMutation = useReindexDocument();
-  const updateMutation = useUpdateDocument();
+  const _updateMutation = useUpdateDocument();
 
   // ── Computed ───────────────────────────────────────────────────────────────
   const stats = useMemo(() => {
     const total = documents.length;
     const ready = documents.filter((d) => d.status === "ready").length;
     const processing = documents.filter((d) => d.status === "processing").length;
-    const archived = documents.filter((d) => d.status === "archived" || d.is_archived).length;
     const failed = documents.filter((d) => d.status === "failed").length;
-    return { total, ready, processing, archived, failed };
+    return { total, ready, processing, failed };
   }, [documents]);
 
   const filtered = useMemo(() => {
     let result = [...documents];
 
-    // Client-side search (API may also filter, but we do local for instant feedback)
     if (search) {
       const q = search.toLowerCase();
       result = result.filter(
@@ -319,7 +398,6 @@ export default function Documents() {
       );
     }
 
-    // Sort
     result.sort((a, b) => {
       let aVal: string | number = "";
       let bVal: string | number = "";
@@ -363,6 +441,9 @@ export default function Documents() {
   const paginated = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
   const hasActiveFilters = (statusFilter !== null && statusFilter !== "all") || (typeFilter !== null && typeFilter !== "all");
+
+  // Auto-expand upload zone for first-time users (0 docs)
+  const shouldAutoExpandUpload = !loading && documents.length === 0;
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
@@ -437,9 +518,7 @@ export default function Documents() {
             );
           });
 
-          if (!itemStillExists) {
-            break;
-          }
+          if (!itemStillExists) break;
 
           if (status.status === "ready") {
             done = true;
@@ -451,9 +530,7 @@ export default function Documents() {
           } else {
             await new Promise((resolve) => setTimeout(resolve, 1000));
           }
-        } catch (err) {
-          const apiError = err as ApiError;
-          logger.error?.("Failed to poll document status", apiError);
+        } catch {
           done = true;
         }
       }
@@ -477,59 +554,33 @@ export default function Documents() {
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       const ext = file.name.toLowerCase().substring(file.name.lastIndexOf("."));
-
       const id = `${Date.now()}-${i}`;
 
       if (!VALID_EXTENSIONS.includes(ext)) {
-        const errorMessage = `${file.name} has unsupported format. Accepts: PDF, DOCX, TXT, CSV, MD, HTML`;
         toast({
           title: "Invalid file",
-          description: errorMessage,
+          description: `${file.name} has unsupported format. Accepts: PDF, DOCX, TXT, CSV, MD, HTML`,
           variant: "destructive",
         });
-        newItems.push({
-          id,
-          file,
-          progress: 0,
-          stage: "error",
-          error: errorMessage,
-        });
+        newItems.push({ id, file, progress: 0, stage: "error", error: `${file.name} has unsupported format` });
         continue;
       }
       if (file.size > MAX_FILE_SIZE) {
-        const errorMessage = `${file.name} exceeds 50MB limit`;
-        toast({
-          title: "File too large",
-          description: errorMessage,
-          variant: "destructive",
-        });
-        newItems.push({
-          id,
-          file,
-          progress: 0,
-          stage: "error",
-          error: errorMessage,
-        });
+        toast({ title: "File too large", description: `${file.name} exceeds 50MB limit`, variant: "destructive" });
+        newItems.push({ id, file, progress: 0, stage: "error", error: `${file.name} exceeds 50MB limit` });
         continue;
       }
 
-      newItems.push({
-        id,
-        file,
-        progress: 0,
-        stage: "uploading",
-      });
+      newItems.push({ id, file, progress: 0, stage: "uploading" });
     }
 
     if (newItems.length === 0) return;
     setUploadQueue((prev) => [...prev, ...newItems]);
 
-    // Upload each valid file with real backend-driven status
     for (const item of newItems) {
       if (item.stage === "error") continue;
 
       try {
-        // Optionally perform a lightweight duplicate check before uploading
         let allowUpload = true;
         try {
           const dupe = await documentsApi.checkDuplicate(item.file);
@@ -544,7 +595,6 @@ export default function Documents() {
             });
           }
         } catch {
-          // If duplicate check fails, fall back to normal upload
           allowUpload = true;
         }
 
@@ -552,12 +602,7 @@ export default function Documents() {
           setUploadQueue((prev) =>
             prev.map((u) =>
               u.id === item.id
-                ? {
-                    ...u,
-                    stage: "error",
-                    progress: 0,
-                    error: "Upload cancelled (duplicate of an existing document).",
-                  }
+                ? { ...u, stage: "error", progress: 0, error: "Upload cancelled (duplicate of an existing document)." }
                 : u
             )
           );
@@ -569,17 +614,10 @@ export default function Documents() {
           knowledge_base_id: selectedKnowledgeBaseId,
         });
 
-        // Start polling real processing status
         setUploadQueue((prev) =>
           prev.map((u) =>
             u.id === item.id
-              ? {
-                  ...u,
-                  documentId: response.id,
-                  stage: "processing",
-                  progress: 10,
-                  error: undefined,
-                }
+              ? { ...u, documentId: response.id, stage: "processing", progress: 10, error: undefined }
               : u
           )
         );
@@ -590,12 +628,7 @@ export default function Documents() {
         setUploadQueue((prev) =>
           prev.map((u) =>
             u.id === item.id
-              ? {
-                  ...u,
-                  stage: "error",
-                  error: apiError?.message || "Upload failed",
-                  progress: 0,
-                }
+              ? { ...u, stage: "error", error: apiError?.message || "Upload failed", progress: 0 }
               : u
           )
         );
@@ -634,6 +667,30 @@ export default function Documents() {
     }
   }, [urlInput, toast, refetch]);
 
+  // Plain text upload
+  const handlePlainTextSubmit = useCallback(async () => {
+    if (!plainTextName.trim() || !plainTextContent.trim()) return;
+    setPlainTextSubmitting(true);
+    try {
+      const blob = new Blob([plainTextContent], { type: "text/plain" });
+      const fileName = plainTextName.trim().endsWith(".txt") ? plainTextName.trim() : `${plainTextName.trim()}.txt`;
+      const file = new window.File([blob], fileName, { type: "text/plain" });
+      await uploadMutation.mutateAsync({
+        file,
+        knowledge_base_id: selectedKnowledgeBaseId,
+      });
+      toast({ title: "Text uploaded", description: "Plain text content is being processed.", variant: "success" });
+      setPlainTextName("");
+      setPlainTextContent("");
+      refetch();
+    } catch (err) {
+      const apiError = err as ApiError;
+      toast({ title: "Upload failed", description: apiError?.message || "Failed to upload text content", variant: "destructive" });
+    } finally {
+      setPlainTextSubmitting(false);
+    }
+  }, [plainTextName, plainTextContent, uploadMutation, selectedKnowledgeBaseId, toast, refetch]);
+
   // Document actions
   const handlePreview = useCallback(async (doc: Document) => {
     try {
@@ -652,26 +709,24 @@ export default function Documents() {
     }
   }, []);
 
-  const handleTestKnowledgeBase = useCallback(async () => {
-    if (!testQuestion.trim()) {
-      setTestError("Please enter a question to test.");
-      return;
-    }
-
+  const handleTestSend = useCallback(async () => {
+    if (!testInput.trim() || testLoading) return;
+    const question = testInput.trim();
+    setTestInput("");
+    setTestMessages((prev) => [...prev, { role: "user", content: question }]);
     setTestLoading(true);
-    setTestError(null);
 
     try {
-      const response = await chatApi.sendMessage({ message: testQuestion });
-      setTestAnswer(response.answer || "No answer returned.");
-      setTestDrawerOpen(true);
+      const response = await chatApi.sendMessage({ message: question });
+      setTestMessages((prev) => [...prev, { role: "assistant", content: response.answer || "No answer returned." }]);
     } catch (error) {
       const apiError = error as ApiError;
-      setTestError(apiError?.message || "Failed to get response from chatbot.");
+      setTestMessages((prev) => [...prev, { role: "assistant", content: `Error: ${apiError?.message || "Failed to get response."}` }]);
     } finally {
       setTestLoading(false);
+      setTimeout(() => testMessagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
     }
-  }, [testQuestion]);
+  }, [testInput, testLoading]);
 
   const handleArchive = useCallback(async (doc: Document) => {
     try {
@@ -765,7 +820,12 @@ export default function Documents() {
     }
   }, [selectedRows, refetch, toast]);
 
-  // ── Stage label for upload pipeline ────────────────────────────────────────
+  const scrollToUpload = useCallback(() => {
+    setUploadOpen(true);
+    setTimeout(() => uploadZoneRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+  }, []);
+
+  // Stage label for upload pipeline
   const stageMeta: Record<string, { label: string; color: string }> = {
     uploading:  { label: "Uploading",  color: "text-blue-400" },
     processing: { label: "Processing", color: "text-amber-400" },
@@ -774,6 +834,8 @@ export default function Documents() {
     error:      { label: "Failed",     color: "text-rose-400" },
   };
 
+  const plainTextWordCount = plainTextContent.trim().split(/\s+/).filter(Boolean).length;
+
   // ══════════════════════════════════════════════════════════════════════════
   //  RENDER
   // ══════════════════════════════════════════════════════════════════════════
@@ -781,8 +843,8 @@ export default function Documents() {
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8 pb-32 max-w-[1600px] mx-auto w-full">
 
-      {/* ── PAGE HEADER ──────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+      {/* ── 1. PAGE HEADER ──────────────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="font-heading text-xl sm:text-2xl font-bold text-foreground tracking-tight leading-none">
             Knowledge Base
@@ -792,10 +854,85 @@ export default function Documents() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {/* KB Settings dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-9 text-xs gap-1.5">
+                <Settings className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Settings</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => setKnowledgeBaseDialogOpen(true)}>
+                <Database className="h-3.5 w-3.5 mr-2" />
+                Manage KBs
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setCreateKBDialogOpen(true)}>
+                <Plus className="h-3.5 w-3.5 mr-2" />
+                Create KB
+              </DropdownMenuItem>
+              {preferences && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={async () => {
+                      await updatePreferences({
+                        ...preferences,
+                        use_default_kb: !preferences.use_default_kb,
+                      });
+                      refetchPrefs();
+                    }}
+                  >
+                    {preferences.use_default_kb
+                      ? <><ToggleRight className="h-3.5 w-3.5 mr-2 text-primary" />Default KB: On</>
+                      : <><ToggleLeft className="h-3.5 w-3.5 mr-2" />Default KB: Off</>
+                    }
+                  </DropdownMenuItem>
+                </>
+              )}
+              {knowledgeBases.filter((kb) => kb.is_active && (!kb.is_default || preferences?.use_default_kb)).length > 0 && (
+                <>
+                  <DropdownMenuSeparator />
+                  <div className="px-2 py-1.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Upload Target</p>
+                    <Select
+                      value={selectedKnowledgeBaseId || "none"}
+                      onValueChange={(v) => setSelectedKnowledgeBaseId(v === "none" ? undefined : v)}
+                    >
+                      <SelectTrigger className="h-7 text-[11px] w-full">
+                        <SelectValue placeholder="None" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None (unassigned)</SelectItem>
+                        {knowledgeBases
+                          .filter((kb) => kb.is_active && (!kb.is_default || preferences?.use_default_kb))
+                          .map((kb) => (
+                            <SelectItem key={kb.id} value={kb.id}>
+                              {kb.name} {kb.is_default ? "(Default)" : ""}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 text-xs gap-1.5"
+            onClick={() => setTestDrawerOpen(true)}
+          >
+            <MessageSquareText className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Test Knowledge</span>
+          </Button>
+
           <Button
             size="sm"
             className="h-9 text-xs gap-1.5"
-            onClick={handleUploadClick}
+            onClick={scrollToUpload}
             disabled={uploadQueue.some((u) => u.stage === "uploading")}
           >
             <Upload className="h-3.5 w-3.5" />
@@ -825,266 +962,195 @@ export default function Documents() {
         </div>
       </div>
 
-      {/* ── KNOWLEDGE HEALTH & GAPS ───────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        <div className="rounded-xl border bg-card p-4">
-          <div className="flex items-center justify-between mb-1">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Knowledge Health</p>
-            {knowledgeHealthScore !== null ? (
-              <span className="text-xs font-semibold text-foreground">{knowledgeHealthScore}%</span>
-            ) : (
-              <span className="text-xs text-muted-foreground">Loading...</span>
+      {/* ── 2. KPI STAT CARDS ───────────────────────────────────────────── */}
+      {loading ? (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-[120px] rounded-xl" />
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {KPI_CARDS.map((card) => {
+            const value = stats[card.key];
+            return (
+              <div
+                key={card.key}
+                className={cn(
+                  "relative overflow-hidden rounded-xl border bg-card p-3 sm:p-4",
+                  "transition-all duration-200 hover:border-primary/20 hover:shadow-soft-sm group",
+                )}
+              >
+                {/* Gradient accent on hover */}
+                <div className={cn(
+                  "absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-100 transition-opacity duration-300",
+                  card.accent,
+                )} />
+                <div className="relative">
+                  {/* Icon box */}
+                  <div className={cn(
+                    "h-8 w-8 rounded-lg flex items-center justify-center mb-3",
+                    card.iconBg,
+                  )}>
+                    <div className={card.iconColor}>
+                      {card.icon}
+                    </div>
+                  </div>
+
+                  {/* Label */}
+                  <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider font-heading text-muted-foreground mb-1">
+                    {card.label}
+                  </p>
+
+                  {/* Value + Trend */}
+                  <div className="flex items-end gap-2 flex-wrap">
+                    <p className="text-xl sm:text-2xl lg:text-3xl font-bold font-mono tracking-tight text-foreground">
+                      {value.toLocaleString()}
+                    </p>
+                    <div className="pb-0.5">
+                      <TrendIndicator value={null} />
+                    </div>
+                  </div>
+
+                  {/* Subtext */}
+                  <p className="text-[10px] mt-1.5 font-description text-muted-foreground">
+                    vs last period
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── 3. STORAGE + KNOWLEDGE HEALTH ROW ───────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
+        {/* Storage Usage (3 cols) */}
+        <div className="lg:col-span-3 rounded-xl border bg-card p-3 sm:p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="h-8 w-8 rounded-lg bg-violet-500/10 flex items-center justify-center">
+              <HardDrive className="h-4 w-4 text-violet-500" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider font-heading text-muted-foreground">
+                Storage Usage
+              </p>
+            </div>
+            {storageUsage && (
+              <span className="text-xs text-muted-foreground font-mono">
+                {formatStorageSize(storageUsage.used_bytes)} / {formatStorageSize(storageUsage.limit_bytes)}
+              </span>
             )}
           </div>
-          <div className="mb-2">
-            <div className="h-2 w-full rounded-full bg-muted">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-green-500 via-amber-400 to-rose-500 transition-all duration-500"
-                style={{ width: `${knowledgeHealthScore ?? 0}%` }}
-              />
-            </div>
-          </div>
-          <p className="text-sm font-medium text-foreground">{knowledgeHealthStatus}</p>
-          {contentAnalytics?.total_unanswered !== undefined && contentAnalytics.total_unanswered > 0 && (
-            <p className="mt-2 text-xs text-rose-400">{contentAnalytics.total_unanswered} unanswered question(s) detected in last 30 days.</p>
+          {storageUsage ? (
+            <>
+              <div className="h-2.5 rounded-full bg-muted overflow-hidden mb-2">
+                <div
+                  className={cn("h-full rounded-full transition-all duration-500", getStorageBarColor(storageUsage.used_percent))}
+                  style={{ width: `${Math.min(100, storageUsage.used_percent)}%` }}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xl sm:text-2xl font-bold font-mono tracking-tight text-foreground">
+                  {Math.round(storageUsage.used_percent)}%
+                </span>
+                <span className="text-xs text-muted-foreground font-description">used</span>
+              </div>
+              {storageUsage.used_percent >= 90 && (
+                <div className="mt-2 rounded-lg bg-rose-500/10 border border-rose-500/20 px-3 py-1.5">
+                  <p className="text-[11px] text-rose-400 font-medium">Storage nearly full. Consider archiving old documents.</p>
+                </div>
+              )}
+              {storageUsage.used_percent >= 75 && storageUsage.used_percent < 90 && (
+                <div className="mt-2 rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-1.5">
+                  <p className="text-[11px] text-amber-400 font-medium">Storage usage is high.</p>
+                </div>
+              )}
+            </>
+          ) : (
+            <Skeleton className="h-8 w-full rounded-lg" />
           )}
         </div>
 
-        {contentAnalytics?.total_unanswered !== undefined && contentAnalytics.total_unanswered > 0 ? (
-          <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4">
-            <p className="text-sm font-semibold text-amber-600">Knowledge Gap Alert</p>
-            <p className="text-xs text-amber-700 mt-1">There are unresolved questions in your chatbot’s content analytics. Add or refresh documents for better coverage.</p>
-            <Button className="mt-3 h-8 text-xs" onClick={() => window.location.href = "/dashboard/analytics?tab=content"}>View gaps</Button>
+        {/* Knowledge Health (2 cols) */}
+        <div className="lg:col-span-2 rounded-xl border bg-card p-3 sm:p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+              <Activity className="h-4 w-4 text-emerald-500" />
+            </div>
+            <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider font-heading text-muted-foreground">
+              Knowledge Health
+            </p>
           </div>
-        ) : (
-          <div className="rounded-xl border bg-card p-4">
-            <p className="text-sm font-semibold text-foreground">No gaps detected</p>
-            <p className="text-xs text-muted-foreground mt-1">Your knowledge base has no unanswered questions in the last 30 days.</p>
-          </div>
-        )}
-      </div>
-
-      <div className="flex flex-col gap-2 mt-3">
-        <Input
-          value={testQuestion}
-          onChange={(e) => setTestQuestion(e.target.value)}
-          placeholder="Ask a question to test your knowledge base"
-          className="h-9 text-xs"
-          aria-label="Test Knowledge Base question"
-          onKeyDown={(e) => { if (e.key === "Enter") handleTestKnowledgeBase(); }}
-        />
-        <div className="flex items-center gap-2">
-          <Button size="sm" className="h-9 text-xs gap-1.5" onClick={() => setTestDrawerOpen(true)}>
-            <Lightbulb className="h-3.5 w-3.5" />
-            Test Knowledge Base
-          </Button>
-          <Button size="sm" className="h-9 text-xs gap-1.5" onClick={handleTestKnowledgeBase} disabled={testLoading || !testQuestion.trim()}>
-            {testLoading ? (<Loader2 className="h-3.5 w-3.5 animate-spin" />) : <Play className="h-3.5 w-3.5" />}
-            Run Sample Query
-          </Button>
-        </div>
-        {testError && <p className="text-xs text-rose-400">{testError}</p>}
-        {testAnswer && <p className="text-xs text-foreground">Response: {testAnswer}</p>}
-      </div>
-
-      {/* ── STORAGE USAGE BAR ────────────────────────────────────────────── */}
-      {storageUsage && (
-        <div className="rounded-xl border bg-card p-3 sm:p-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-muted-foreground font-heading">
-              Storage Usage
-            </span>
-            <span className="text-xs text-muted-foreground font-mono">
-              {formatStorageSize(storageUsage.used_bytes)} of {formatStorageSize(storageUsage.limit_bytes)} used ({Math.round(storageUsage.used_percent)}%)
-            </span>
-          </div>
-          <div className="h-2 rounded-full bg-muted overflow-hidden">
-            <div
-              className={cn("h-full rounded-full transition-all duration-500", getStorageBarColor(storageUsage.used_percent))}
-              style={{ width: `${Math.min(100, storageUsage.used_percent)}%` }}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* ── KPI STAT CARDS ───────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        {[
-          { label: "Total Documents", value: stats.total, accent: "from-primary/5" },
-          { label: "Ready", value: stats.ready, accent: "from-emerald-500/5" },
-          { label: "Processing", value: stats.processing, accent: "from-blue-500/5" },
-          { label: "Archived", value: stats.archived, accent: "from-gray-500/5" },
-          { label: "Failed", value: stats.failed, accent: "from-rose-500/5" },
-        ].map((card) => (
-          <div
-            key={card.label}
-            className="relative overflow-hidden rounded-xl border bg-card p-3 sm:p-4 transition-all duration-200 hover:border-primary/20 hover:shadow-soft-sm group"
-          >
-            <div className={cn("absolute inset-0 bg-gradient-to-br to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300", card.accent)} />
-            <div className="relative">
-              <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider font-heading text-muted-foreground mb-1">
-                {card.label}
-              </p>
-              {loading ? (
-                <Skeleton className="h-8 w-16" />
-              ) : (
+          {knowledgeHealthScore !== null ? (
+            <>
+              <div className="flex items-end gap-2 mb-1">
                 <p className="text-xl sm:text-2xl lg:text-3xl font-bold font-mono tracking-tight text-foreground">
-                  {card.value}
+                  {knowledgeHealthScore}%
                 </p>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* ── UPLOAD ZONE ──────────────────────────────────────────────────── */}
-      <div className="rounded-xl border bg-card overflow-hidden">
-        {/* Tabs: File / URL */}
-        <div className="flex border-b">
-          <button
-            onClick={() => setUploadTab("file")}
-            className={cn(
-              "flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold font-heading transition-colors border-b-2 -mb-px",
-              uploadTab === "file"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <CloudUpload className="h-3.5 w-3.5" />
-            File Upload
-          </button>
-          <button
-            onClick={() => setUploadTab("url")}
-            className={cn(
-              "flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold font-heading transition-colors border-b-2 -mb-px",
-              uploadTab === "url"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <Link2 className="h-3.5 w-3.5" />
-            Import URL
-          </button>
+                <span className={cn(
+                  "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold font-heading tracking-wide mb-1",
+                  getHealthGrade(knowledgeHealthScore).badge,
+                )}>
+                  {getHealthGrade(knowledgeHealthScore).label}
+                </span>
+              </div>
+              <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                <div
+                  className={cn(
+                    "h-full rounded-full transition-all duration-500",
+                    knowledgeHealthScore >= 75 ? "bg-emerald-500" : knowledgeHealthScore >= 60 ? "bg-amber-500" : "bg-rose-500"
+                  )}
+                  style={{ width: `${knowledgeHealthScore}%` }}
+                />
+              </div>
+              <p className="text-[10px] mt-1.5 font-description text-muted-foreground">
+                Based on unanswered questions in last 30 days
+              </p>
+            </>
+          ) : (
+            <Skeleton className="h-12 w-full rounded-lg" />
+          )}
         </div>
-
-        {uploadTab === "file" ? (
-          <div
-            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={handleDrop}
-            onClick={handleUploadClick}
-            role="button"
-            tabIndex={0}
-            aria-label="Drop zone for document uploads. Click or drag files here to upload."
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleUploadClick(); }
-            }}
-            className={cn(
-              "p-8 sm:p-12 text-center cursor-pointer transition-all duration-200 flex flex-col items-center justify-center min-h-[180px]",
-              dragOver
-                ? "bg-primary/5 scale-[1.01]"
-                : "hover:bg-muted/30"
-            )}
-          >
-            <div className={cn("mb-4 transition-transform duration-200", dragOver && "scale-110")}>
-              <CloudUpload
-                size={48}
-                className={cn("mx-auto", dragOver ? "text-primary" : "text-muted-foreground")}
-                aria-hidden="true"
-              />
-            </div>
-            <p className="text-sm font-medium text-foreground mb-1">
-              Drop files here or click to browse
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Accepts: PDF, DOCX, TXT, CSV &middot; Max 50MB per file
-            </p>
-          </div>
-        ) : (
-          <div className="p-4 sm:p-6">
-            <div className="flex gap-2 max-w-lg">
-              <Input
-                value={urlInput}
-                onChange={(e) => setUrlInput(e.target.value)}
-                placeholder="https://example.com/docs/page"
-                className="h-9 text-xs flex-1"
-                onKeyDown={(e) => { if (e.key === "Enter") handleUrlImport(); }}
-              />
-              <Button
-                size="sm"
-                className="h-9 text-xs gap-1.5"
-                onClick={handleUrlImport}
-                disabled={urlImporting || !urlInput.trim()}
-              >
-                {urlImporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-                Import
-              </Button>
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* ── UPLOAD QUEUE (processing pipeline) ───────────────────────────── */}
-      {uploadQueue.length > 0 && (
-        <div className="rounded-xl border bg-card overflow-hidden">
-          <div className="px-4 py-3 border-b bg-muted/30">
-            <span className="text-[10px] font-semibold uppercase tracking-wider font-heading text-muted-foreground">
-              Upload Progress ({uploadQueue.length})
-            </span>
-          </div>
-          <div className="divide-y">
-            {uploadQueue.map((item) => {
-              const meta = stageMeta[item.stage];
-              return (
-                <div key={item.id} className="px-4 py-3 flex items-center gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <span className="text-sm font-medium truncate">{item.file.name}</span>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className={cn("text-[11px] font-semibold font-heading", meta.color)}>
-                          {item.stage === "uploading" && <Loader2 className="inline h-3 w-3 animate-spin mr-1" />}
-                          {item.stage === "processing" && <Loader2 className="inline h-3 w-3 animate-spin mr-1" />}
-                          {item.stage === "indexing" && <Loader2 className="inline h-3 w-3 animate-spin mr-1" />}
-                          {item.stage === "ready" && <CheckCircle2 className="inline h-3 w-3 mr-1" />}
-                          {item.stage === "error" && <AlertCircle className="inline h-3 w-3 mr-1" />}
-                          {meta.label}
-                        </span>
-                        {item.stage !== "ready" && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => cancelUpload(item.id)}
-                            aria-label="Cancel upload"
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                    {item.stage !== "error" && (
-                      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className={cn(
-                            "h-full rounded-full transition-all duration-300",
-                            item.stage === "ready" ? "bg-emerald-500" : "bg-primary"
-                          )}
-                          style={{ width: `${item.progress}%` }}
-                        />
-                      </div>
-                    )}
-                    {item.stage === "error" && item.error && (
-                      <p className="text-xs text-rose-400 mt-0.5">{item.error}</p>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+      {/* ── 4. KNOWLEDGE GAP ALERT (conditional) ────────────────────────── */}
+      {contentAnalytics?.total_unanswered !== undefined && contentAnalytics.total_unanswered > 0 && (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 sm:p-4">
+          <div className="flex items-start gap-3">
+            <div className="h-8 w-8 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground">Knowledge Gap Alert</p>
+              <p className="text-xs text-muted-foreground mt-0.5 font-description">
+                {contentAnalytics.total_unanswered} unanswered question{contentAnalytics.total_unanswered > 1 ? "s" : ""} detected in the last 30 days. Upload relevant documents to improve coverage.
+              </p>
+              <div className="flex items-center gap-2 mt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs gap-1.5"
+                  onClick={scrollToUpload}
+                >
+                  <Upload className="h-3 w-3" />
+                  Upload docs
+                </Button>
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="text-xs text-amber-500"
+                  onClick={() => window.location.href = "/dashboard/analytics?tab=content"}
+                >
+                  View gaps
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
-      {/* ── FILTER BAR ───────────────────────────────────────────────────── */}
+      {/* ── 5. FILTER BAR ───────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -1154,10 +1220,9 @@ export default function Documents() {
         )}
       </div>
 
-      {/* ── DATA TABLE ───────────────────────────────────────────────────── */}
+      {/* ── 6. DATA TABLE ───────────────────────────────────────────────── */}
       <div className="rounded-xl border bg-card overflow-hidden">
         {loading ? (
-          /* Loading skeleton */
           <div>
             <table className="w-full hidden sm:table">
               <thead>
@@ -1189,7 +1254,6 @@ export default function Documents() {
                 ))}
               </tbody>
             </table>
-            {/* Mobile skeleton */}
             <div className="sm:hidden divide-y">
               {Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="p-3 space-y-2">
@@ -1211,7 +1275,6 @@ export default function Documents() {
             </Button>
           </div>
         ) : filtered.length === 0 ? (
-          /* Empty state */
           <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
             <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-3">
               {documents.length === 0 ? (
@@ -1229,7 +1292,7 @@ export default function Documents() {
                 : "Try adjusting your search or filters."}
             </p>
             {documents.length === 0 ? (
-              <Button size="sm" className="h-8 text-xs gap-1.5 mt-3" onClick={handleUploadClick}>
+              <Button size="sm" className="h-8 text-xs gap-1.5 mt-3" onClick={scrollToUpload}>
                 <Upload className="h-3.5 w-3.5" />
                 Upload Document
               </Button>
@@ -1371,15 +1434,9 @@ export default function Documents() {
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => handleArchive(doc)}>
                               {doc.is_archived || doc.status === "archived" ? (
-                                <>
-                                  <ArchiveRestore className="h-3.5 w-3.5 mr-2" />
-                                  Restore
-                                </>
+                                <><ArchiveRestore className="h-3.5 w-3.5 mr-2" />Restore</>
                               ) : (
-                                <>
-                                  <Archive className="h-3.5 w-3.5 mr-2" />
-                                  Archive
-                                </>
+                                <><Archive className="h-3.5 w-3.5 mr-2" />Archive</>
                               )}
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleReplace(doc.id)}>
@@ -1391,15 +1448,9 @@ export default function Documents() {
                               disabled={isReindexingDoc}
                             >
                               {isReindexingDoc ? (
-                                <>
-                                  <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
-                                  Reindexing...
-                                </>
+                                <><Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />Reindexing...</>
                               ) : (
-                                <>
-                                  <RefreshCw className="h-3.5 w-3.5 mr-2" />
-                                  Reindex
-                                </>
+                                <><RefreshCw className="h-3.5 w-3.5 mr-2" />Reindex</>
                               )}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
@@ -1504,155 +1555,320 @@ export default function Documents() {
         )}
       </div>
 
-      {/* ── KNOWLEDGE BASE MANAGEMENT (collapsible) ──────────────────────── */}
-      <Collapsible open={kbSectionOpen} onOpenChange={setKbSectionOpen}>
-        <div className="rounded-xl border bg-card overflow-hidden">
-          <CollapsibleTrigger asChild>
-            <button className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors">
-              <div className="flex items-center gap-2">
-                <Database className="h-4 w-4 text-primary" aria-hidden="true" />
-                <span className="text-xs font-semibold uppercase tracking-wider font-heading text-muted-foreground">
-                  Knowledge Bases
-                </span>
-              </div>
-              <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform duration-200", kbSectionOpen && "rotate-180")} />
-            </button>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <div className="border-t px-4 py-4 space-y-4">
-              <div className="flex items-center justify-end gap-2">
-                <Button variant="outline" size="sm" className="h-9 text-xs gap-1.5" onClick={() => setCreateKBDialogOpen(true)}>
-                  <Plus className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Create</span>
-                </Button>
-                <Button variant="outline" size="sm" className="h-9 text-xs gap-1.5" onClick={() => setKnowledgeBaseDialogOpen(true)}>
-                  <Settings className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Manage</span>
-                </Button>
-              </div>
+      {/* ── 7. UPLOAD ZONE (collapsible, 3 tabs) ────────────────────────── */}
+      <div ref={uploadZoneRef}>
+        <Collapsible open={uploadOpen || shouldAutoExpandUpload} onOpenChange={setUploadOpen}>
+          <div className="rounded-xl border bg-card overflow-hidden">
+            <CollapsibleTrigger asChild>
+              <button className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors">
+                <div className="flex items-center gap-2">
+                  <CloudUpload className="h-4 w-4 text-primary" aria-hidden="true" />
+                  <span className="text-xs font-semibold uppercase tracking-wider font-heading text-muted-foreground">
+                    Upload Documents
+                  </span>
+                </div>
+                <ChevronDown className={cn(
+                  "h-3.5 w-3.5 text-muted-foreground transition-transform duration-200",
+                  (uploadOpen || shouldAutoExpandUpload) && "rotate-180"
+                )} />
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="border-t">
+                {/* 3-tab navigation */}
+                <div className="flex items-center gap-1 px-4 pt-3">
+                  {([
+                    { id: "file" as const, label: "File Upload", icon: CloudUpload },
+                    { id: "url" as const, label: "Website URL", icon: Link2 },
+                    { id: "text" as const, label: "Plain Text", icon: Type },
+                  ] as const).map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setUploadTab(tab.id)}
+                      className={cn(
+                        "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold font-heading transition-all",
+                        uploadTab === tab.id
+                          ? "bg-primary/10 text-primary"
+                          : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                      )}
+                    >
+                      <tab.icon className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">{tab.label}</span>
+                    </button>
+                  ))}
+                </div>
 
-              {/* Default KB Toggle */}
-              {kbLoading ? (
-                <Skeleton className="h-14 w-full rounded-lg" />
-              ) : preferences ? (
-                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">Default Knowledge Base</span>
-                      <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold font-heading bg-gray-500/10 text-gray-400 border-gray-500/20">
-                        System
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">Documentation from data/docs folder</p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 text-xs gap-1.5"
-                    onClick={async () => {
-                      if (preferences) {
-                        await updatePreferences({
-                          ...preferences,
-                          use_default_kb: !preferences.use_default_kb,
-                        });
-                        refetchPrefs();
-                      }
+                {/* Tab content */}
+                {uploadTab === "file" && (
+                  <div
+                    onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                    onDragLeave={() => setDragOver(false)}
+                    onDrop={handleDrop}
+                    onClick={handleUploadClick}
+                    role="button"
+                    tabIndex={0}
+                    aria-label="Drop zone for document uploads. Click or drag files here to upload."
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleUploadClick(); }
                     }}
-                  >
-                    {preferences.use_default_kb ? (
-                      <><ToggleRight className="h-4 w-4 text-primary" /><span>Enabled</span></>
-                    ) : (
-                      <><ToggleLeft className="h-4 w-4 text-muted-foreground" /><span>Disabled</span></>
+                    className={cn(
+                      "m-4 p-8 sm:p-12 text-center cursor-pointer transition-all duration-200 flex flex-col items-center justify-center min-h-[160px] rounded-lg border-2 border-dashed",
+                      dragOver
+                        ? "border-primary bg-primary/5 scale-[1.01]"
+                        : "border-border hover:border-primary/30 hover:bg-muted/30"
                     )}
-                  </Button>
-                </div>
-              ) : null}
+                  >
+                    <div className={cn("mb-4 transition-transform duration-200", dragOver && "scale-110")}>
+                      <CloudUpload
+                        size={40}
+                        className={cn("mx-auto", dragOver ? "text-primary" : "text-muted-foreground")}
+                        aria-hidden="true"
+                      />
+                    </div>
+                    <p className="text-sm font-medium text-foreground mb-1">
+                      Drop files here or click to browse
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Accepts: PDF, DOCX, TXT, CSV, MD, HTML &middot; Max 50MB per file
+                    </p>
+                  </div>
+                )}
 
-              {/* Custom KBs */}
-              {!kbLoading && knowledgeBases.filter((kb) => !kb.is_default).length > 0 && (
-                <div className="space-y-2">
-                  {knowledgeBases
-                    .filter((kb) => !kb.is_default)
-                    .map((kb) => (
-                      <div key={kb.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-                        <div className="flex-1 min-w-0">
-                          <span className="text-sm font-medium">{kb.name}</span>
-                          {kb.description && <span className="text-xs text-muted-foreground ml-2">{kb.description}</span>}
-                        </div>
-                        <Checkbox
-                          checked={preferences?.active_kb_ids.includes(kb.id) || false}
-                          onCheckedChange={async (checked) => {
-                            if (preferences) {
-                              const newActiveIds = checked
-                                ? [...preferences.active_kb_ids, kb.id]
-                                : preferences.active_kb_ids.filter((id) => id !== kb.id);
-                              await updatePreferences({ ...preferences, active_kb_ids: newActiveIds });
-                              refetchPrefs();
-                            }
-                          }}
-                          aria-label={`Toggle ${kb.name}`}
-                        />
+                {uploadTab === "url" && (
+                  <div className="p-4">
+                    <div className="flex gap-2 max-w-lg">
+                      <Input
+                        value={urlInput}
+                        onChange={(e) => setUrlInput(e.target.value)}
+                        placeholder="https://example.com/docs/page"
+                        className="h-9 text-xs flex-1"
+                        onKeyDown={(e) => { if (e.key === "Enter") handleUrlImport(); }}
+                      />
+                      <Button
+                        size="sm"
+                        className="h-9 text-xs gap-1.5"
+                        onClick={handleUrlImport}
+                        disabled={urlImporting || !urlInput.trim()}
+                      >
+                        {urlImporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                        Import
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Enter a public URL to scrape and ingest its content into your knowledge base.
+                    </p>
+                  </div>
+                )}
+
+                {uploadTab === "text" && (
+                  <div className="p-4 space-y-3">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium font-heading text-muted-foreground">Document Name</label>
+                      <Input
+                        value={plainTextName}
+                        onChange={(e) => setPlainTextName(e.target.value)}
+                        placeholder="e.g. Return Policy FAQ"
+                        className="h-9 text-xs max-w-sm"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-medium font-heading text-muted-foreground">Content</label>
+                        <span className="text-[10px] text-muted-foreground font-mono">{plainTextWordCount} words</span>
                       </div>
-                    ))}
-                </div>
-              )}
-
-              {/* Upload target KB */}
-              <div className="pt-3 border-t">
-                <label className="text-xs font-medium text-muted-foreground block mb-1.5 font-heading">Upload to Knowledge Base</label>
-                <Select
-                  value={selectedKnowledgeBaseId || "none"}
-                  onValueChange={(v) => setSelectedKnowledgeBaseId(v === "none" ? undefined : v)}
-                >
-                  <SelectTrigger className="h-9 text-xs w-full sm:w-[280px]">
-                    <SelectValue placeholder="None (unassigned)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None (unassigned)</SelectItem>
-                    {knowledgeBases
-                      .filter((kb) => kb.is_active && (!kb.is_default || preferences?.use_default_kb))
-                      .map((kb) => (
-                        <SelectItem key={kb.id} value={kb.id}>
-                          {kb.name} {kb.is_default ? "(Default)" : ""}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
+                      <Textarea
+                        value={plainTextContent}
+                        onChange={(e) => setPlainTextContent(e.target.value)}
+                        placeholder="Paste or type your document content here..."
+                        className="text-xs min-h-[120px] resize-y"
+                      />
+                    </div>
+                    <Button
+                      size="sm"
+                      className="h-9 text-xs gap-1.5"
+                      onClick={handlePlainTextSubmit}
+                      disabled={plainTextSubmitting || !plainTextName.trim() || !plainTextContent.trim()}
+                    >
+                      {plainTextSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                      Upload Text
+                    </Button>
+                  </div>
+                )}
               </div>
-            </div>
-          </CollapsibleContent>
-        </div>
-      </Collapsible>
+            </CollapsibleContent>
+          </div>
+        </Collapsible>
+      </div>
 
-      {/* ── TIPS SECTION ─────────────────────────────────────────────────── */}
-      {!loading && documents.length > 0 && (
-        <div className="rounded-xl border bg-card p-4 sm:p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <Lightbulb className="h-4 w-4 shrink-0 text-amber-400" aria-hidden="true" />
-            <span className="text-xs font-semibold uppercase tracking-wider font-heading text-muted-foreground">
-              Improve your chatbot&apos;s accuracy
+      {/* ── UPLOAD QUEUE (processing pipeline) ──────────────────────────── */}
+      {uploadQueue.length > 0 && (
+        <div className="rounded-xl border bg-card overflow-hidden">
+          <div className="px-4 py-3 border-b bg-muted/30">
+            <span className="text-[10px] font-semibold uppercase tracking-wider font-heading text-muted-foreground">
+              Upload Progress ({uploadQueue.length})
             </span>
           </div>
-          <ul className="space-y-1.5 text-xs text-muted-foreground font-description">
-            <li className="flex items-start gap-2">
-              <span className="text-primary mt-0.5 shrink-0">&bull;</span>
-              Upload specific, detailed documents
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-primary mt-0.5 shrink-0">&bull;</span>
-              Keep documents focused on one topic
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-primary mt-0.5 shrink-0">&bull;</span>
-              Update documents when your business information changes
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-primary mt-0.5 shrink-0">&bull;</span>
-              Check Analytics &rarr; Unanswered Questions for knowledge gaps
-            </li>
-          </ul>
+          <div className="divide-y">
+            {uploadQueue.map((item) => {
+              const meta = stageMeta[item.stage];
+              return (
+                <div key={item.id} className="px-4 py-3 flex items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="text-sm font-medium truncate">{item.file.name}</span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={cn("text-[11px] font-semibold font-heading", meta.color)}>
+                          {(item.stage === "uploading" || item.stage === "processing" || item.stage === "indexing") && (
+                            <Loader2 className="inline h-3 w-3 animate-spin mr-1" />
+                          )}
+                          {item.stage === "ready" && <CheckCircle2 className="inline h-3 w-3 mr-1" />}
+                          {item.stage === "error" && <AlertCircle className="inline h-3 w-3 mr-1" />}
+                          {meta.label}
+                        </span>
+                        {item.stage !== "ready" && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => cancelUpload(item.id)}
+                            aria-label="Cancel upload"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    {item.stage !== "error" && (
+                      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className={cn(
+                            "h-full rounded-full transition-all duration-300",
+                            item.stage === "ready" ? "bg-emerald-500" : "bg-primary"
+                          )}
+                          style={{ width: `${item.progress}%` }}
+                        />
+                      </div>
+                    )}
+                    {item.stage === "error" && item.error && (
+                      <p className="text-xs text-rose-400 mt-0.5">{item.error}</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
+
+      {/* ── 8. TIPS SECTION ─────────────────────────────────────────────── */}
+      {!loading && documents.length > 0 && (
+        <>
+          <div className="flex items-center gap-2 mb-0">
+            <Lightbulb className="h-4 w-4 shrink-0 text-amber-400" aria-hidden="true" />
+            <span className="text-xs font-semibold uppercase tracking-wider font-heading text-muted-foreground whitespace-nowrap">
+              Tips to improve accuracy
+            </span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
+          <div className="rounded-xl border bg-card p-4 sm:p-5 -mt-3">
+            <ul className="space-y-1.5 text-xs text-muted-foreground font-description">
+              <li className="flex items-start gap-2">
+                <span className="text-primary mt-0.5 shrink-0">&bull;</span>
+                Upload specific, detailed documents
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-primary mt-0.5 shrink-0">&bull;</span>
+                Keep documents focused on one topic
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-primary mt-0.5 shrink-0">&bull;</span>
+                Update documents when your business information changes
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-primary mt-0.5 shrink-0">&bull;</span>
+                Check Analytics &rarr; Unanswered Questions for knowledge gaps
+              </li>
+            </ul>
+          </div>
+        </>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          TEST KNOWLEDGE BASE DRAWER (Sheet)
+         ══════════════════════════════════════════════════════════════════════ */}
+      <Sheet open={testDrawerOpen} onOpenChange={setTestDrawerOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col">
+          <SheetHeader className="px-4 py-4 border-b shrink-0">
+            <SheetTitle className="font-heading text-base font-semibold text-foreground">
+              Test Knowledge Base
+            </SheetTitle>
+            <SheetDescription className="text-xs text-muted-foreground">
+              Ask questions to verify your chatbot&apos;s knowledge.
+            </SheetDescription>
+          </SheetHeader>
+
+          {/* Messages area */}
+          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+            {testMessages.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-3">
+                  <MessageSquareText className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <p className="text-sm text-muted-foreground font-medium">Ask a question</p>
+                <p className="text-xs text-muted-foreground/60 mt-1">
+                  Test how your chatbot responds using your uploaded documents.
+                </p>
+              </div>
+            )}
+            {testMessages.map((msg, i) => (
+              <div key={i} className={cn("flex", msg.role === "user" ? "justify-end" : "justify-start")}>
+                <div className={cn(
+                  "px-4 py-2.5 max-w-[85%] sm:max-w-[75%]",
+                  msg.role === "user"
+                    ? "bg-primary text-primary-foreground rounded-2xl rounded-br-md"
+                    : "bg-muted border rounded-2xl rounded-bl-md"
+                )}>
+                  <p className={cn(
+                    "text-sm leading-relaxed",
+                    msg.role === "assistant" && "text-foreground"
+                  )}>
+                    {msg.content}
+                  </p>
+                </div>
+              </div>
+            ))}
+            {testLoading && (
+              <div className="flex justify-start">
+                <div className="bg-muted border rounded-2xl rounded-bl-md px-4 py-2.5">
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                </div>
+              </div>
+            )}
+            <div ref={testMessagesEndRef} />
+          </div>
+
+          {/* Input area */}
+          <div className="border-t px-4 py-3 shrink-0">
+            <div className="flex gap-2">
+              <Input
+                value={testInput}
+                onChange={(e) => setTestInput(e.target.value)}
+                placeholder="Type a question..."
+                className="h-9 text-xs flex-1"
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleTestSend(); } }}
+              />
+              <Button
+                size="icon"
+                className="h-9 w-9 shrink-0"
+                onClick={handleTestSend}
+                disabled={testLoading || !testInput.trim()}
+              >
+                <Send className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* ══════════════════════════════════════════════════════════════════════
           DIALOGS & MODALS
@@ -1661,7 +1877,6 @@ export default function Documents() {
       {/* ── DOCUMENT PREVIEW MODAL ───────────────────────────────────────── */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto p-0">
-          {/* Sticky header */}
           <div className="sticky top-0 bg-card/95 backdrop-blur-sm border-b px-6 py-4 z-10">
             <DialogTitle className="font-heading text-base font-semibold text-foreground">
               {previewDoc?.original_filename || previewDoc?.filename || "Document Preview"}
@@ -1673,7 +1888,6 @@ export default function Documents() {
 
           {previewDoc && (
             <div className="px-6 py-5 space-y-5">
-              {/* Metadata grid */}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 {[
                   { label: "Type", value: (previewDoc.file_type || "—").toUpperCase() },
@@ -1692,7 +1906,6 @@ export default function Documents() {
                 ))}
               </div>
 
-              {/* Status badge */}
               {previewDoc.status && (
                 <div className="flex items-center gap-2">
                   <span className={cn(
@@ -1705,7 +1918,6 @@ export default function Documents() {
                 </div>
               )}
 
-              {/* Error message */}
               {previewDoc.error_message && (
                 <div className="rounded-lg border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-xs text-rose-400 flex items-start gap-2">
                   <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
@@ -1716,7 +1928,6 @@ export default function Documents() {
                 </div>
               )}
 
-              {/* Chunk info */}
               <div className="rounded-lg bg-muted/30 border p-4">
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-medium text-muted-foreground">
@@ -1738,7 +1949,6 @@ export default function Documents() {
                 )}
               </div>
 
-              {/* Last retrieved */}
               {previewDoc.last_retrieved_at && (
                 <p className="text-xs text-muted-foreground">
                   Last used in conversation: <span className="font-mono">{formatDate(previewDoc.last_retrieved_at)}</span>
@@ -1761,6 +1971,35 @@ export default function Documents() {
             </DialogDescription>
           </div>
           <div className="px-6 py-5 space-y-3">
+            {/* Default KB toggle */}
+            {!kbLoading && preferences && (
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 mb-3">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">Default Knowledge Base</span>
+                    <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold font-heading bg-gray-500/10 text-gray-400 border-gray-500/20">
+                      System
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">Documentation from data/docs folder</p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 text-xs gap-1.5"
+                  onClick={async () => {
+                    await updatePreferences({ ...preferences, use_default_kb: !preferences.use_default_kb });
+                    refetchPrefs();
+                  }}
+                >
+                  {preferences.use_default_kb
+                    ? <><ToggleRight className="h-4 w-4 text-primary" /><span>Enabled</span></>
+                    : <><ToggleLeft className="h-4 w-4 text-muted-foreground" /><span>Disabled</span></>
+                  }
+                </Button>
+              </div>
+            )}
+
             {knowledgeBases.filter((kb) => !kb.is_default).length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-8">No custom knowledge bases yet.</p>
             ) : (
@@ -1781,9 +2020,7 @@ export default function Documents() {
                           try {
                             await updateKnowledgeBase(kb.id, { is_active: !kb.is_active });
                             refetchKBs();
-                          } catch {
-                            // handled by hook
-                          }
+                          } catch { /* handled by hook */ }
                         }}
                       >
                         {kb.is_active ? "Deactivate" : "Activate"}
@@ -1797,9 +2034,7 @@ export default function Documents() {
                             try {
                               await deleteKnowledgeBase(kb.id);
                               refetchKBs();
-                            } catch {
-                              // handled by hook
-                            }
+                            } catch { /* handled by hook */ }
                           }
                         }}
                       >
@@ -1867,9 +2102,7 @@ export default function Documents() {
                     setNewKBName("");
                     setNewKBDescription("");
                     refetchKBs();
-                  } catch {
-                    // handled by hook
-                  }
+                  } catch { /* handled by hook */ }
                 }}
               >
                 {creatingKB && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
@@ -1893,7 +2126,6 @@ export default function Documents() {
         isLoading={deleteMutation.isPending}
       />
 
-      {/* Duplicate detection confirmation */}
       <ConfirmationDialog
         open={!!duplicatePrompt}
         onOpenChange={(open) => {

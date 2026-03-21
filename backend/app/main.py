@@ -27,12 +27,19 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
     force=True,
 )
-# Use our RequestLoggingMiddleware for access logs; suppress uvicorn's duplicate access log.
-logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
-logging.getLogger("httpx").setLevel(logging.WARNING)
-logging.getLogger("httpcore").setLevel(logging.WARNING)
-logging.getLogger("openai").setLevel(logging.WARNING)
-logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.INFO)
+for handler in root_logger.handlers:
+    handler.setLevel(logging.INFO)
+
+# Keep uvicorn access logs visible.
+logging.getLogger("uvicorn.access").setLevel(logging.INFO)
+logging.getLogger("uvicorn.error").setLevel(logging.INFO)
+logging.getLogger("uvicorn").setLevel(logging.INFO)
+logging.getLogger("httpx").setLevel(logging.INFO)
+logging.getLogger("httpcore").setLevel(logging.INFO)
+logging.getLogger("openai").setLevel(logging.INFO)
+logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
 
 logger = logging.getLogger(__name__)
 
@@ -189,10 +196,17 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         client = request.client.host if request.client else "?"
         if query:
             path = f"{path}?{query}"
-        logger.info("--> %s %s (client=%s)", method, path, client)
+
+        access_logger = logging.getLogger("uvicorn.access")
+        access_logger.info("--> %s %s (client=%s)", method, path, client)
+        print(f"--> {method} {path} (client={client})")
+
         response = await call_next(request)
+
         duration_ms = (time.perf_counter() - start) * 1000
-        logger.info("<-- %s %s %s %.0fms", method, path, response.status_code, duration_ms)
+        access_logger.info("<-- %s %s %s %.0fms", method, path, response.status_code, duration_ms)
+        print(f"<-- {method} {path} {response.status_code} {duration_ms:.0f}ms")
+
         return response
 
 
